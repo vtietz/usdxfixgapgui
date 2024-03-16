@@ -5,12 +5,22 @@ from model.song import Song
 from model.songs import Songs
 from utils.worker_queue_manager import WorkerQueueManager
 
-class AppData(QObject):
+class Config(QObject):
 
+    # Directory where the songs are located
     directory = os.path.join("..", "samples")
     #directory: str = "Z:\\UltraStarDeluxe\\Songs\\usdb.animux.de"
+
+    # Detection time in seconds
+    default_detection_time: int = 30
+
+    # Maximum gap tolerance in milliseconds
+    gap_tolerance: int = 500
     
+
+class AppData(QObject):
     songs: Songs = Songs()
+    
     _selectedSong: Song = None
     _isLoadingSongs: bool = False
 

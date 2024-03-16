@@ -1,17 +1,29 @@
+import logging
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout
 import sys
 from actions import Actions
-from data import AppData
+from data import AppData, Config
 from enable_darkmode import enable_dark_mode
+from utils.check_dependencies import check_dependencies
 from views.menu_bar import MenuBar
 
-# Import your custom components
 from views.songlist import SongListView
 from views.media_player import MediaPlayerComponent
 from views.task_queue_viewer import TaskQueueViewer
 
+from PyQt6.QtCore import QT_VERSION_STR, qVersion
+
+import logging
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(name)s %(levelname)s: %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
+
+logger = logging.getLogger(__name__)
+
 data = AppData()
-actions = Actions(data)
+config = Config()
+actions = Actions(data, config)
 
 app = QApplication(sys.argv)
 # Create the main window and set its properties
@@ -23,6 +35,7 @@ window.resize(800, 600)
 menuBar = MenuBar(actions)
 menuBar.loadSongsClicked.connect(lambda: actions.loadSongs())
 menuBar.extractVocalsClicked.connect(lambda: actions.extractVocals())
+menuBar.detectClicked.connect(lambda: actions.detect_gap())
 
 songListView = SongListView(data.songs, actions)
 mediaPlayerComponent = MediaPlayerComponent(data)
@@ -37,10 +50,18 @@ layout.addWidget(taskQueueViewer, 1)  # Adjust stretch factor as needed
 
 window.setLayout(layout)
 
-from PyQt6.QtCore import QT_VERSION_STR, qVersion
+logger.debug("Runtime Qt version: %s", qVersion())
+logger.debug(f"Compile-time Qt version: {QT_VERSION_STR}")
 
-print("Compile-time Qt version:", QT_VERSION_STR)
-print("Runtime Qt version:", qVersion())
+# Example usage
+dependencies = [
+    ('spleeter', '--version'),
+    ('ffmpeg', '-version'),  # Note that ffmpeg uses '-version' instead of '--version'
+    ('ffmpeg-normalize', '--version')
+]
+if(not check_dependencies(dependencies)):
+    logger.error("Some dependencies are not installed. Please install it and try again.")
+    sys.exit(1)
 
 # Show the window
 window.show()

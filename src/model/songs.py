@@ -7,7 +7,9 @@ class Songs(QObject):
     
     cleared = pyqtSignal()
     added = pyqtSignal(Song)
-
+    updated = pyqtSignal(Song)
+    error = pyqtSignal(Song, Exception)
+    
     songs: List[Song] = []
 
     def clear(self):

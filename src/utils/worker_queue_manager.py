@@ -1,18 +1,21 @@
-from PyQt6.QtCore import QObject, QThreadPool, pyqtSignal
+import logging
+from PyQt6.QtCore import QObject, QThreadPool, pyqtSignal, QRunnable
 from enum import Enum
 
+logger = logging.getLogger(__name__)
+
 class IWorkerSignals(QObject):
+    started = pyqtSignal()
     finished = pyqtSignal()
     canceled = pyqtSignal()
     error = pyqtSignal(tuple)
-
 
 class WorkerStatus(Enum):
     RUNNING = 1
     WAITING = 2
     CANCELLING = 3
 
-class IWorker:
+class IWorker(QRunnable):
     """
     Mixin class to provide common interface for worker tasks.
     Developers should ensure the following properties and methods
@@ -73,8 +76,10 @@ class WorkerQueueManager(QObject):
 
     def startNextTask(self):
         if self.queue and not self.isRunning:
+            logger.info(f"Starting task: {self.queue[0].description}")
             self.isRunning = True
             self.currentWorker = self.queue[0]
+            self.currentWorker.signals.started.emit()
             self.currentWorker.status = WorkerStatus.RUNNING
             self.threadPool.start(self.currentWorker)
         else:
@@ -82,7 +87,6 @@ class WorkerQueueManager(QObject):
 
     def cancelTask(self, task_id):
         for worker in self.queue:
-
             if worker.id == task_id:
                 worker.status=WorkerStatus.CANCELLING
                 self.onTaskListChanged.emit()
@@ -100,6 +104,7 @@ class WorkerQueueManager(QObject):
     def _finalizeTask(self, task_id):
         # Helper method to remove the worker from the queue and active task set
         if self.currentWorker and self.currentWorker.id == task_id:
+            logger.debug(f"Finishing task {task_id}")
             self.queue.pop(0)  # Remove the current worker from the queue
             self.active_task_ids.remove(task_id)
             self.currentWorker = None

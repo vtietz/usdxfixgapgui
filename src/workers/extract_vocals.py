@@ -1,6 +1,6 @@
 from PyQt6.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool
+from utils.audio import extract_vocals_with_spleeter
 
-from cli.extract_vocals import VocalExtractionError, extract_vocals_with_spleeter
 from utils.worker_queue_manager import IWorker, IWorkerSignals
 
 class WorkerSignals(IWorkerSignals):
@@ -14,7 +14,7 @@ class ExtractVocalsWorker(QRunnable):
         self.max_detection_time = max_detection_time
         self.signals = WorkerSignals()
         self._isCancelled = False
-        self.task_description = f"Extracting vocals from {audio_path} to {destination_path}."
+        self.description = f"Extracting vocals from {audio_path} to {destination_path}."
 
     def run(self):
         try:
@@ -26,10 +26,11 @@ class ExtractVocalsWorker(QRunnable):
             )
             print(result)
             self.signals.finished.emit()
-        except VocalExtractionError as e:
+        except Exception as e:
             self.signals.error.emit((e,))
 
     def cancel(self):
+        print("Cancelling vocal extraction...")
         self._isCancelled = True
 
     def check_cancellation(self):

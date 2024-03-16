@@ -14,26 +14,13 @@ class LoadSongsWorker(QRunnable):
     def __init__(self, directory):
         super().__init__()
         self.directory = directory
-        self.task_description = f"Loading songs from {directory}."
+        self.description = f"Loading songs from {directory}."
         self.signals = WorkerSignals()
         self._isCancelled = False
 
     def loadSong(self, txt_file_path):
-        song_path = filesutil.get_song_path(txt_file_path)
-        tmp_path = filesutil.get_temp_path(txt_file_path)
-        tags = filesutil.extract_tags(txt_file_path)
-        if not tags:
-            return
-        song = Song(song_path)
-        song.fromTags(tags)
-        info_file=filesutil.get_info_file_path(song_path)
-        if info_file:
-            info=filesutil.read_info_data(info_file)
-            song.fromInfo(info)
-        song.audio_file=os.path.join(song_path, song.audio)
-        song.vocal_file=filesutil.get_vocals_path(tmp_path)
-        song.waveform_file=filesutil.get_waveform_path(tmp_path)
-        song.txt_file=txt_file_path
+        song = Song(txt_file_path)
+        song.load()
         self.signals.songLoaded.emit(song)
 
     def run(self):

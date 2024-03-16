@@ -1,6 +1,9 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView
+import logging
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton
 
 from utils.worker_queue_manager import WorkerQueueManager
+
+logger = logging.getLogger(__name__)
 
 class TaskQueueViewer(QWidget):
 
@@ -14,8 +17,10 @@ class TaskQueueViewer(QWidget):
     def initUI(self):
         self.layout = QVBoxLayout(self)
         self.tableWidget = QTableWidget()
-        self.tableWidget.setColumnCount(3) 
-        self.tableWidget.setHorizontalHeaderLabels(["Task ID", "Description", "Status"])
+        self.tableWidget.setColumnCount(4) 
+        self.tableWidget.setHorizontalHeaderLabels(["Task ID", "Description", "Status", ""])
+        self.tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.tableWidget.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.layout.addWidget(self.tableWidget)
 
         # Adjust the initial width of the first and third columns, and let the second column take the remaining space
@@ -27,13 +32,9 @@ class TaskQueueViewer(QWidget):
 
 
     def updateTaskList(self):
-        print("Updating task list")
-        print(f"Queue length: {len(self.workerQueueManager.queue)}")
-        # Clear the table and repopulate
         self.tableWidget.setRowCount(0)
-        for worker in self.workerQueueManager.queue:
-            print(f"Adding task to table: {worker.id}, {worker.task_description}")
-            self.addTaskToTable(worker.id, worker.task_description, worker.status.name)
+        for worker in self.workerQueueManager.queue: 
+            self.addTaskToTable(worker.id, worker.description, worker.status.name)
 
     def addTaskToTable(self, task_id, description, status):
         rowPosition = self.tableWidget.rowCount()
@@ -41,3 +42,12 @@ class TaskQueueViewer(QWidget):
         self.tableWidget.setItem(rowPosition, 0, QTableWidgetItem(task_id))
         self.tableWidget.setItem(rowPosition, 1, QTableWidgetItem(description))
         self.tableWidget.setItem(rowPosition, 2, QTableWidgetItem(status))
+        # Create and add the Cancel button
+        cancelButton = QPushButton("Cancel")
+        cancelButton.clicked.connect(lambda: self.cancelTask(task_id))
+        self.tableWidget.setCellWidget(rowPosition, 3, cancelButton)
+    
+    def cancelTask(self, task_id):
+        logger.debug(f"Cancelling task {task_id}")
+        self.workerQueueManager.cancelTask(task_id)
+        self.updateTaskList()

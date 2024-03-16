@@ -32,7 +32,7 @@ class MenuBar(QWidget):
         self.layout.addWidget(self.extractButton)
 
         # Detect Button
-        self.detectButton = QPushButton("Detect")
+        self.detectButton = QPushButton("Detect Gap")
         self.detectButton.clicked.connect(self.detectClicked.emit)
         self.layout.addWidget(self.detectButton)
 
@@ -44,11 +44,7 @@ class MenuBar(QWidget):
         #self.loadSongsButton.clicked.connect(self.toggleLoadSongs)
 
     def updateLoadButtonState(self, isLoading: bool):
-        if isLoading:
-            self.loadSongsButton.setText("Cancel")
-        else:
-            self.loadSongsButton.setText("Load Songs")
-            self.loadSongsButton.setEnabled(True) 
+        self.loadSongsButton.setEnabled(not isLoading) 
 
     def onExtractionFinished(self, result):
         print(f"Extraction finished: {result}")

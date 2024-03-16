@@ -1,0 +1,1 @@
+`conda activate spleeter-python37`
