@@ -1,5 +1,6 @@
-import logging
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout
+from PyQt6.QtCore import QObject, QEvent, Qt
+from PyQt6.QtCore import QT_VERSION_STR, qVersion
 import sys
 from actions import Actions
 from data import AppData, Config
@@ -8,16 +9,10 @@ from utils.check_dependencies import check_dependencies
 from views.menu_bar import MenuBar
 
 from views.songlist import SongListView
-from views.media_player import MediaPlayerComponent
+from views.media_player import MediaPlayerComponent, MediaPlayerEventFilter
 from views.task_queue_viewer import TaskQueueViewer
 
-from PyQt6.QtCore import QT_VERSION_STR, qVersion
-
 import logging
-
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(name)s %(levelname)s: %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S')
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +20,13 @@ data = AppData()
 config = Config()
 actions = Actions(data, config)
 
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(name)s %(levelname)s: %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
+
+
 app = QApplication(sys.argv)
+
 # Create the main window and set its properties
 window = QWidget()
 window.setWindowTitle("Modular PyQt6 Application")
@@ -38,8 +39,15 @@ menuBar.extractVocalsClicked.connect(lambda: actions.extractVocals())
 menuBar.detectClicked.connect(lambda: actions.detect_gap())
 
 songListView = SongListView(data.songs, actions)
-mediaPlayerComponent = MediaPlayerComponent(data)
-taskQueueViewer = TaskQueueViewer(data.workerQueue)
+mediaPlayerComponent = MediaPlayerComponent(data, config, actions)
+taskQueueViewer = TaskQueueViewer(data.worker_queue)
+
+eventFilter = MediaPlayerEventFilter(
+    lambda: actions.adjust_player_position(-config.adjust_player_position_step), 
+    lambda: actions.adjust_player_position(config.adjust_player_position_step),
+    lambda: actions.toggle_playback()
+)
+app.installEventFilter(eventFilter)
 
 # Set up the layout and add your components
 layout = QVBoxLayout()

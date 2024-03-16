@@ -129,7 +129,7 @@ def extract_vocals_with_spleeter(audio_file, output_path, max_detection_time=Non
     return spleeter_vocals_file
 
 
-def perform_detection(audio_file, temp_path, gap, max_detection_time, overwrite=False, check_cancellation=None):
+def get_vocals_file(audio_file, temp_path, max_detection_time, overwrite=False, check_cancellation=None):
 
     print(f"Performing detection for {audio_file}...")
     
@@ -156,10 +156,7 @@ def perform_detection(audio_file, temp_path, gap, max_detection_time, overwrite=
     # Convert the normalized vocals to MP3
     vocals_file = convert_to_mp3(vocals_file, check_cancellation)
 
-    # Detect the nearest gap in the vocals
-    detected_gap = detect_nearest_gap(vocals_file, gap)
-
-    return vocals_file, gap, detected_gap
+    return vocals_file
 
 def process_file(song: Song, config: Config, overwrite=False, check_cancellation=None):
 
@@ -181,18 +178,23 @@ def process_file(song: Song, config: Config, overwrite=False, check_cancellation
     while detection_time <= gap / 1000:
         detection_time += detection_time
 
-    print(f"Audio length: {audio_length}ms, max detection time: {detection_time}s")
+    logger.debug(f"Audio length: {audio_length}ms, max detection time: {detection_time}s")
+    
+    destination_vocals_file = files.get_vocals_path(temp_path)
 
     # detect gap, increasing the detection time if necessary
     while True:
-        vocals_file, gap, detected_gap = perform_detection(
-            audio_file, 
-            temp_path, 
-            gap, 
-            detection_time,
-            overwrite,
-            check_cancellation
-        )
+        if os.path.exists(destination_vocals_file) and not overwrite:
+            vocals_file = destination_vocals_file
+        else:
+            vocals_file = get_vocals_file(
+                audio_file, 
+                temp_path, 
+                detection_time,
+                overwrite,
+                check_cancellation
+            )
+        detected_gap = detect_nearest_gap(vocals_file, gap)
         if detected_gap is None:
             raise Exception(f"Failed to detect gap in {audio_file}")
         
@@ -205,7 +207,7 @@ def process_file(song: Song, config: Config, overwrite=False, check_cancellation
     if detection_time >= audio_length and detected_gap > audio_length:
         raise Exception(f"Error: Unable to detect gap within the length of the audio: {audio_file}")
 
-    destination_vocals_file = files.get_vocals_path(temp_path)
+
     if os.path.exists(destination_vocals_file):
         os.remove(destination_vocals_file)
     os.rename(vocals_file, destination_vocals_file)

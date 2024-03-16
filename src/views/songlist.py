@@ -41,10 +41,10 @@ class SongListView(QTableWidget):
         self.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
         self.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
         self.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
-        self.setColumnWidth(3, 100)
         self.setColumnWidth(4, 100)
         self.setColumnWidth(5, 100)
         self.setColumnWidth(6, 100)
+        self.setColumnWidth(7, 100)
         
 
     def addSong(self, song: Song):

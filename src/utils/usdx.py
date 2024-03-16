@@ -34,7 +34,7 @@ def update_gap(file_path, gap):
     with open(file_path, 'w', encoding='utf-8') as file:
         for line in lines:
             if line.startswith('#GAP:'):
-                file.write(f"#GAP: {gap}\n")
+                file.write(f"#GAP:{gap}\n")
             else:
                 file.write(line)
                 

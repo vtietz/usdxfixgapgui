@@ -24,7 +24,7 @@ class MenuBar(QWidget):
         # Load Songs Button
         self.loadSongsButton = QPushButton("Load Songs")
         self.loadSongsButton.clicked.connect(self.loadSongsClicked.emit)
-        actions.data.isLoadingSongsChanged.connect(self.updateLoadButtonState)
+        actions.data.is_loading_songs_changed.connect(self.updateLoadButtonState)
         self.layout.addWidget(self.loadSongsButton)
 
         self.extractButton = QPushButton("Extract Vocals", self)
