@@ -1,39 +1,51 @@
 import os
-from time import sleep
-from PyQt6.QtCore import QObject, pyqtSignal, QRunnable
-from utils.worker_queue_manager import IWorkerSignals
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from PyQt6.QtCore import pyqtSignal
+from utils.worker_queue_manager import IWorker, IWorkerSignals
 from model.song import Song
-from utils import files as filesutil
 
 class WorkerSignals(IWorkerSignals):
     songLoaded = pyqtSignal(Song)  
 
-class LoadSongsWorker(QRunnable):
-
-    def __init__(self, directory):
+class LoadSongsWorker(IWorker):
+    def __init__(self, directory, max_workers=4):
         super().__init__()
         self.directory = directory
+        self.max_workers = max_workers
         self.description = f"Loading songs from {directory}."
         self.signals = WorkerSignals()
-        self._isCancelled = False
 
-    def loadSong(self, txt_file_path):
-        song = Song(txt_file_path)
-        song.load()
-        self.signals.songLoaded.emit(song)
+    def load_song(self, txt_file_path):
+        if self.is_canceled():
+            return
+        try:
+            song = Song(txt_file_path)
+            song.load()
+            self.signals.songLoaded.emit(song)
+        except Exception as e:
+            self.signals.error.emit((str(e),))
 
     def run(self):
-        print(f"Loading songs from {self.directory}")
+        print(f"Starting to load songs from {self.directory}")
+        song_paths = []
         for root, dirs, files in os.walk(self.directory):
-            if self._isCancelled:  # Check cancellation flag
+            if self.is_canceled():
                 print("Loading cancelled.")
-                return  # Exit the loop and end the worker prematurely
+                self.signals.canceled.emit()
+                break
             for file in files:
-                if file.endswith(".txt"):  # Adjust the condition based on your needs
-                    self.loadSong(os.path.join(root, file))
-        self.signals.finished.emit()  # Emit finished signal after all songs are processed
-        print(f"Finshed.")
+                if file.endswith(".txt"):
+                    self.description = f"Reading {file}"
+                    self.signals.progress.emit()
+                    song_paths.append(os.path.join(root, file))
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = [executor.submit(self.load_song, path) for path in song_paths]
+            for future in as_completed(futures):
+                if self.is_canceled():
+                    print("Loading cancelled.")
+                    self.signals.canceled.emit()
+                    break
+        if not self.is_canceled():
+            self.signals.finished.emit()
+            print("Finished loading songs.")
 
-    def cancel(self):
-        self._isCancelled = True

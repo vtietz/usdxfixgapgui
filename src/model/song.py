@@ -64,5 +64,8 @@ class Song:
         self.gap = tags.get("GAP", 0)
         self.bpm = tags.get("BPM", 0)
         self.is_relative = tags.get("RELATIVE", False)
+    
+    def __str__(self):
+        return f"Song: {self.artist} - {self.title}"
 
 

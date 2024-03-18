@@ -3,7 +3,8 @@ import os
 import subprocess
 import sys
 from data import Config
-from model.song import Song, SongStatus
+from model.song import Song
+from model.info import SongStatus
 import utils.usdx as usdx
 import utils.files as files
 import tempfile
@@ -156,11 +157,14 @@ def get_vocals_file(audio_file, temp_path, max_detection_time, overwrite=False, 
     # Convert the normalized vocals to MP3
     vocals_file = convert_to_mp3(vocals_file, check_cancellation)
 
+    # Remove the temporary directory
+    os.rmdir(output_path)
+
     return vocals_file
 
 def process_file(song: Song, config: Config, overwrite=False, check_cancellation=None):
 
-    print(f"Processing {song.audio_file}")
+    logger.info(f"Processing {song.audio_file}")
     
     audio_file = song.audio_file
     txt_file = song.txt_file
@@ -201,7 +205,7 @@ def process_file(song: Song, config: Config, overwrite=False, check_cancellation
         if detected_gap < detection_time * 1000 or detection_time * 1000 >= audio_length:
             break
 
-        print(f"Detected GAP seems not to be correct. Increasing detection time to {detection_time + detection_time}s.")
+        logger.info(f"Detected GAP seems not to be correct. Increasing detection time to {detection_time + detection_time}s.")
         detection_time += detection_time
 
     if detection_time >= audio_length and detected_gap > audio_length:

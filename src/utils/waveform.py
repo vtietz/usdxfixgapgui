@@ -73,20 +73,42 @@ def draw_gap(image_path, detected_gap_ms, duration_ms, line_color="red"):
     # Save the annotated image
     image.save(image_path)
 
-from PIL import Image, ImageDraw, ImageFont
-
 def calculate_note_position(start_beat, bpm, gap, duration_ms, image_width, is_relative):
-    # Assuming 4 beats per bar and a quarter note gets one beat
-    beats_per_ms = bpm / 60 / 1000
+    """
+    Calculates the pixel position of a note on the image.
+
+    Args:
+        start_beat (float): The beat at which the note starts.
+        bpm (float): The beats per minute, considering Ultrastar's interpretation (quarter notes).
+        gap (int): Initial delay before the song starts, in milliseconds.
+        duration_ms (int): Total duration of the song, in milliseconds.
+        image_width (int): Width of the image in pixels.
+        is_relative (bool): Flag indicating if the timing is relative or absolute.
+
+    Returns:
+        float: The pixel position (x-coordinate) on the image where the note should be drawn.
+    """
+    # Convert BPM to beats per millisecond, accounting for Ultrastar's quarter note interpretation.
+    beats_per_ms = (bpm / 60 / 1000) * 4
+
+    # Calculate position in milliseconds, considering if timing is relative or includes the gap.
     if is_relative:
-        # For relative timings, convert start_beat directly to ms
         position_ms = start_beat / beats_per_ms
     else:
-        # For absolute timings, adjust by gap
         position_ms = gap + (start_beat / beats_per_ms)
+    
+    # Calculate the position ratio relative to the total duration and map it to the image width.
     position_ratio = position_ms / duration_ms
     position_x = position_ratio * image_width
+
     return position_x
+
+#def calculate_note_position(beat, bpm, gap, duration_ms, image_width, is_relative=False):
+#    beat_duration_ms = (60 / bpm) * 1000
+#    time_ms = beat * beat_duration_ms + (0 if is_relative else gap)
+#    pixels_per_ms = image_width / duration_ms
+#    position_x = time_ms * pixels_per_ms
+#    return position_x
 
 def draw_notes(image_path, notes, bpm, gap, duration_ms, color, is_relative=False):
     """

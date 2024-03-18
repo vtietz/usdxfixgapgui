@@ -33,21 +33,17 @@ window.setWindowTitle("Modular PyQt6 Application")
 window.resize(800, 600)
 
 
-menuBar = MenuBar(actions)
-menuBar.loadSongsClicked.connect(lambda: actions.loadSongs())
+menuBar = MenuBar(actions, config)
+#menuBar.loadSongsClicked.connect(lambda: actions.loadSongs())
+#menuBar.loadSongsClicked.connect(lambda: actions.choose_directory())
 menuBar.extractVocalsClicked.connect(lambda: actions.extractVocals())
 menuBar.detectClicked.connect(lambda: actions.detect_gap())
 
 songListView = SongListView(data.songs, actions)
 mediaPlayerComponent = MediaPlayerComponent(data, config, actions)
-taskQueueViewer = TaskQueueViewer(data.worker_queue)
+taskQueueViewer = TaskQueueViewer(actions.worker_queue)
 
-eventFilter = MediaPlayerEventFilter(
-    lambda: actions.adjust_player_position(-config.adjust_player_position_step), 
-    lambda: actions.adjust_player_position(config.adjust_player_position_step),
-    lambda: actions.toggle_playback()
-)
-app.installEventFilter(eventFilter)
+app.installEventFilter(mediaPlayerComponent.globalEventFilter)
 
 # Set up the layout and add your components
 layout = QVBoxLayout()

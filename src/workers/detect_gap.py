@@ -1,4 +1,4 @@
-from PyQt6.QtCore import  pyqtSignal, QRunnable
+from PyQt6.QtCore import pyqtSignal
 from data import Config
 from model.song import Song
 from utils.worker_queue_manager import IWorker, IWorkerSignals
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class WorkerSignals(IWorkerSignals):
     finished = pyqtSignal(Song)
 
-class DetectGapWorker(QRunnable):
+class DetectGapWorker(IWorker):
     def __init__(self, song: Song, config: Config):
         super().__init__()
         self.song: Song = song

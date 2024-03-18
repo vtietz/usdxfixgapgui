@@ -25,7 +25,15 @@ class SongListView(QTableWidget):
 
     def setupUi(self):
         self.setColumnCount(7)
-        self.setHorizontalHeaderLabels(["Path", "Artist", "Title", "Gap", "Detected Gap", "Diff", "Status"])
+        self.setHorizontalHeaderLabels([
+            "Path", 
+            "Artist", 
+            "Title", 
+            "Gap", 
+            "Detected Gap", 
+            "Diff", 
+            "Status"]
+        )
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.setSortingEnabled(True)
@@ -37,15 +45,14 @@ class SongListView(QTableWidget):
         self.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
         self.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
         self.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
         self.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
+        self.setColumnWidth(3, 100)
         self.setColumnWidth(4, 100)
         self.setColumnWidth(5, 100)
         self.setColumnWidth(6, 100)
-        self.setColumnWidth(7, 100)
-        
 
     def addSong(self, song: Song):
         rowPosition = self.rowCount()
@@ -63,6 +70,8 @@ class SongListView(QTableWidget):
         for i, item in enumerate(items):
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # Disable editing
             self.setItem(rowPosition, i, item)
+            if(i >= 3 and i < 6):
+                item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
     def updateSong(self, updated_song: Song):
         # Find the row of the song to update

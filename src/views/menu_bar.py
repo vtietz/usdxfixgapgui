@@ -1,10 +1,12 @@
 # button_bar.py
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog
 from PyQt6.QtCore import pyqtSignal
 from actions import Actions
+import logging
 
-from data import AppData
-#from workers.extract_vocals import ExtractVocalsWorker
+from data import Config
+
+logger = logging.getLogger(__name__)
 
 class MenuBar(QWidget):
     
@@ -15,7 +17,7 @@ class MenuBar(QWidget):
 
     actions: Actions = None
 
-    def __init__(self, actions:Actions, parent=None):
+    def __init__(self, actions:Actions, config: Config, parent=None):
       
         super().__init__(parent)
         self.layout = QHBoxLayout(self)
@@ -23,8 +25,10 @@ class MenuBar(QWidget):
 
         # Load Songs Button
         self.loadSongsButton = QPushButton("Load Songs")
-        self.loadSongsButton.clicked.connect(self.loadSongsClicked.emit)
-        actions.data.is_loading_songs_changed.connect(self.updateLoadButtonState)
+        self.loadSongsButton.clicked.connect(self.choose_directory)
+        #self.loadSongsButton.clicked.connect(self.loadSongsClicked.emit)
+        #actions.data.is_loading_songs_changed.connect(self.updateLoadButtonState)
+        #actions.data.is_loading_songs_changed.connect(self.updateLoadButtonState)
         self.layout.addWidget(self.loadSongsButton)
 
         self.extractButton = QPushButton("Extract Vocals", self)
@@ -53,3 +57,15 @@ class MenuBar(QWidget):
     def onExtractionError(self, error_info):
         print(f"Extraction error: {error_info[0]}")
         # Handle errors, update UI, or notify user as needed
+
+    def choose_directory(self):
+        directory = QFileDialog.getExistingDirectory(
+            self, 
+            "Select Directory", 
+            directory=self.actions.config.directory
+        )
+        if directory:  # Check if a directory was selected
+            self.on_directory_selected(directory)
+
+    def on_directory_selected(self, directory: str):
+        self.actions.loadSongs(directory)

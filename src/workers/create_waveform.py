@@ -1,8 +1,7 @@
 import utils.waveform as waveform
-from PyQt6.QtCore import pyqtSignal, QRunnable
 from utils.worker_queue_manager import IWorker, IWorkerSignals
 
-class CreateWaveform(QRunnable):
+class CreateWaveform(IWorker):
         
     signals = IWorkerSignals()
      
@@ -65,6 +64,7 @@ class CreateWaveform(QRunnable):
 
         waveform.create_waveform_image(audio_file, waveform_file, waveform_color)
         waveform.draw_gap(waveform_file, gap, duration_ms, waveform_color)
-        waveform.draw_gap(waveform_file, detected_gap, duration_ms, detected_gap_color)
+        if detected_gap:
+            waveform.draw_gap(waveform_file, detected_gap, duration_ms, detected_gap_color)
         waveform.draw_notes(waveform_file, notes, bpm, gap, duration_ms, waveform_color, is_relative)
         waveform.draw_title(waveform_file, song_title, waveform_color)

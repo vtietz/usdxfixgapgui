@@ -12,7 +12,7 @@ class TaskQueueViewer(QWidget):
         self.workerQueueManager = workerQueueManager
         self.initUI()
         self.updateTaskList()
-        self.workerQueueManager.onTaskListChanged.connect(self.updateTaskList)
+        self.workerQueueManager.on_task_list_changed.connect(self.updateTaskList)
 
     def initUI(self):
         self.layout = QVBoxLayout(self)
@@ -20,7 +20,7 @@ class TaskQueueViewer(QWidget):
         self.tableWidget.setColumnCount(4) 
         self.tableWidget.setHorizontalHeaderLabels(["Task ID", "Description", "Status", ""])
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.tableWidget.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.tableWidget.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self.layout.addWidget(self.tableWidget)
 
         # Adjust the initial width of the first and third columns, and let the second column take the remaining space
@@ -30,10 +30,13 @@ class TaskQueueViewer(QWidget):
         self.tableWidget.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
         self.tableWidget.setColumnWidth(2, 100)  # Set width of "Status" column
 
-
     def updateTaskList(self):
         self.tableWidget.setRowCount(0)
-        for worker in self.workerQueueManager.queue: 
+        # Add running tasks
+        for task_id, worker in self.workerQueueManager.running_tasks.items(): 
+            self.addTaskToTable(task_id, worker.description, worker.status.name)
+        # Add queued tasks
+        for worker in self.workerQueueManager.queue:
             self.addTaskToTable(worker.id, worker.description, worker.status.name)
 
     def addTaskToTable(self, task_id, description, status):
@@ -44,10 +47,10 @@ class TaskQueueViewer(QWidget):
         self.tableWidget.setItem(rowPosition, 2, QTableWidgetItem(status))
         # Create and add the Cancel button
         cancelButton = QPushButton("Cancel")
-        cancelButton.clicked.connect(lambda: self.cancelTask(task_id))
+        cancelButton.clicked.connect(lambda: self.cancel_task(task_id))
         self.tableWidget.setCellWidget(rowPosition, 3, cancelButton)
     
-    def cancelTask(self, task_id):
+    def cancel_task(self, task_id):
         logger.debug(f"Cancelling task {task_id}")
-        self.workerQueueManager.cancelTask(task_id)
+        self.workerQueueManager.cancel_task(task_id)
         self.updateTaskList()
