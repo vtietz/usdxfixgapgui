@@ -11,6 +11,8 @@ class Config(QObject):
     directory = os.path.join("..", "samples")
     #directory: str = "Z:\\UltraStarDeluxe\\Songs\\usdb.animux.de"
 
+    tmp_root = os.path.join("..", ".tmp")
+
     # Detection time in seconds
     default_detection_time: int = 30
 
@@ -21,7 +23,8 @@ class Config(QObject):
     playback_position_color = "red"
     waveform_color = "gray"
 
-    adjust_player_position_step = 100
+    adjust_player_position_step_audio = 100
+    adjust_player_position_step_vocals = 10
 
 class AppData(QObject):
 
@@ -29,6 +32,8 @@ class AppData(QObject):
     
     _selected_song: Song = None
     _is_loading_songs: bool = False
+
+    tmp_folder: None
 
     selected_song_changed = pyqtSignal(Song)
     is_loading_songs_changed = pyqtSignal(bool)
@@ -52,4 +57,5 @@ class AppData(QObject):
         if self._is_loading_songs != value:
             self._is_loading_songs = value
             self.is_loading_songs_changed.emit(self._is_loading_songs)
+
 

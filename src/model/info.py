@@ -5,14 +5,15 @@ import os
 from enum import Enum
 
 class SongStatus(Enum):
+  ALL = 'ALL'
   NOT_PROCESSED = 'NOT_PROCESSED'
   QUEUED = 'QUEUED'
   PROCESSING = 'PROCESSING'
   MATCH = 'MATCH'
   MISMATCH = 'MISMATCH'
-  ERROR = 'ERROR'
-  IGNORE = 'IGNORE'
   UPDATED = 'UPDATED'
+  SOLVED = 'SOLVED'
+  ERROR = 'ERROR'
 
 class Info:
 
@@ -46,7 +47,7 @@ class Info:
         with open(self.file_path, "r") as file:
             data = json.load(file)
         
-        self.status = self.map_string_to_status(data.get("status", SongStatus.NOT_PROCESSED.value))
+        self.status = Info.map_string_to_status(data.get("status", SongStatus.NOT_PROCESSED.value))
         self.original_gap = data.get("original_gap", 0)
         self.detected_gap = data.get("detected_gap", 0)
         self.updated_gap = data.get("updated_gap", 0)
@@ -66,14 +67,17 @@ class Info:
         with open(self.file_path, "w") as file:
             json.dump(data, file, indent=4)
 
-    def map_string_to_status(self, status_string):
+    def map_string_to_status(status_string):
         status_map = {
             'NOT_PROCESSED': SongStatus.NOT_PROCESSED,
             'MATCH': SongStatus.MATCH,
             'MISMATCH': SongStatus.MISMATCH,
             'ERROR': SongStatus.ERROR,
-            'IGNORE': SongStatus.IGNORE,
-            'UPDATED': SongStatus.UPDATED
+            'UPDATED': SongStatus.UPDATED,
+            'QUEUED': SongStatus.QUEUED,
+            'PROCESSING': SongStatus.PROCESSING,
+            'SOLVED': SongStatus.SOLVED,
+            'ALL': SongStatus.ALL
         }
         return status_map.get(status_string, None)
     

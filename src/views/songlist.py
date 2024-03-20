@@ -2,8 +2,13 @@ from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QVBoxLayout, QPushBu
 from PyQt6.QtCore import pyqtSignal, Qt
 
 from actions import Actions
+from model.info import SongStatus
 from model.song import Song
 from model.songs import Songs
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SongListView(QTableWidget):
     
@@ -54,48 +59,61 @@ class SongListView(QTableWidget):
         self.setColumnWidth(5, 100)
         self.setColumnWidth(6, 100)
 
+        self.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+
+        self.actions.data.songs.filterChanged.connect(self.filterTable)
+
     def addSong(self, song: Song):
+        logger.debug(f"Adding song {song.path}")
+        self.setSortingEnabled(False)
         rowPosition = self.rowCount()
         self.insertRow(rowPosition)
-        items = [
-            QTableWidgetItem(song.path),
-            QTableWidgetItem(song.artist),
-            QTableWidgetItem(song.title),
-            QTableWidgetItem(str(song.gap)),
-            QTableWidgetItem(str(song.info.detected_gap)),
-            QTableWidgetItem(str(song.info.diff)),
-            QTableWidgetItem(str(song.info.status.value))
-        ]
-
-        for i, item in enumerate(items):
+        
+        for i, value in enumerate([
+            song.relative_path,
+            song.artist,
+            song.title,
+            str(song.gap),
+            str(song.info.detected_gap),
+            str(song.info.diff),
+            song.info.status.name  # Assuming you want to display the name of the status
+        ]):
+            item = QTableWidgetItem(value)
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # Disable editing
-            self.setItem(rowPosition, i, item)
-            if(i >= 3 and i < 6):
+            if i >= 3 and i < 6:
                 item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.setItem(rowPosition, i, item)
+        
+        # Store the entire Song object in the row's first column for easy retrieval
+        self.item(rowPosition, 0).setData(Qt.ItemDataRole.UserRole, song)
+        
+        self.setSortingEnabled(True)
+        self.filterTable(self.actions.data.songs.filter)
 
     def updateSong(self, updated_song: Song):
-        # Find the row of the song to update
-        row_to_update = None
         for row in range(self.rowCount()):
-            if self.item(row, 0).text() == updated_song.path:  # Assuming the path is in the first column
-                row_to_update = row
-                break
-
-        if row_to_update is not None:
-            # Update the row with new song details
-            self.item(row_to_update, 1).setText(updated_song.artist)
-            self.item(row_to_update, 2).setText(updated_song.title)
-            self.item(row_to_update, 3).setText(str(updated_song.gap))
-            self.item(row_to_update, 4).setText(str(updated_song.info.detected_gap))
-            self.item(row_to_update, 5).setText(str(updated_song.info.diff))
-            self.item(row_to_update, 6).setText(updated_song.info.status.value)
-
+            item = self.item(row, 0)  # Assuming the Song object is stored in the first column
+            song = item.data(Qt.ItemDataRole.UserRole)
+            if song == updated_song:
+                # Update the row with new song details
+                self.item(row, 1).setText(updated_song.artist)
+                self.item(row, 2).setText(updated_song.title)
+                self.item(row, 3).setText(str(updated_song.gap))
+                self.item(row, 4).setText(str(updated_song.info.detected_gap))
+                self.item(row, 5).setText(str(updated_song.info.diff))
+                self.item(row, 6).setText(updated_song.info.status.value)
+                # Update the stored Song object in case any other song attributes are used elsewhere
+                item.setData(Qt.ItemDataRole.UserRole, updated_song)
+                break  # Exit the loop once the song is found and updated
+        self.filterTable(self.actions.data.songs.filter)
 
     def onSelectionChanged(self, selected, deselected):
         indexes = selected.indexes()
         if indexes:
             row = indexes[0].row()
-            self.actions.setSelectedSong(self.songs[row].path)
+            selectedSong = self.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            if selectedSong:
+                self.actions.setSelectedSong(selectedSong.path)
 
     def clearSongs(self):
         self.setRowCount(0)
@@ -103,3 +121,36 @@ class SongListView(QTableWidget):
     def errorSong(self, song, exception):
         print(f"Error processing {song.path}: {exception}")
         self.updateSong(song)
+
+    def filterTable(self, status):
+        selectedRow = self.currentRow()
+        rowVisibilityChanged = False  # Flag to track if any row's visibility changed
+
+        # Iterate over all rows once to determine their visibility based on the filter criteria
+        for row in range(self.rowCount()):
+            songStatus = self.item(row, 6).text()
+            shouldBeVisible = status == SongStatus.ALL or status.value == songStatus
+            isCurrentlyVisible = not self.isRowHidden(row)
+            
+            # Update visibility only if there's a change to minimize costly operations
+            if shouldBeVisible != isCurrentlyVisible:
+                self.setRowHidden(row, not shouldBeVisible)
+                rowVisibilityChanged = True
+
+        # If no rows changed visibility, no need to adjust the selection
+        if not rowVisibilityChanged:
+            return
+
+        # Adjust selection if the previously selected row is now hidden
+        if self.isRowHidden(selectedRow):
+            # Try to select a nearby visible row. First look upwards, then downwards
+            for direction in (-1, 1):
+                newRow = selectedRow
+                while 0 <= newRow < self.rowCount():
+                    if not self.isRowHidden(newRow):
+                        self.selectRow(newRow)
+                        return
+                    newRow += direction
+
+        # If no visible row is found (which should be rare), this leaves the selection unchanged
+

@@ -1,4 +1,7 @@
 
+import os
+
+
 def extract_tags(file_path):
     """Extract #GAP, #MP3, #BPM, and #RELATIVE values from the given file."""
     print(f"Extracting tags from {file_path}...")
@@ -70,9 +73,43 @@ def parse_notes(file_path):
         print(f"Error reading {file_path}: {e}")
     return notes
 
-def adjust_gap_according_to_first_note(detected_gap, bpm, notes):
+def get_gap_offset_according_firts_note(bpm, notes):
     start_beat = notes[0]['StartBeat']
     if start_beat == 0:
-        return detected_gap
+        return 0
     position_ms = start_beat / bpm
-    return (int)(detected_gap - position_ms)
+    return (int)(position_ms)
+
+def get_syllaby_at_position(notes, position):
+    for note in notes:
+        if note['StartBeat'] == position:
+            return note['Text']
+    return None
+
+def get_syllable(notes, position_ms, bpm, gap, is_relative=False):
+    """
+    Finds the current syllable being sung at a given position in the song, considering Ultrastar's quarter note interpretation.
+
+    :param notes: The list of note dictionaries parsed from the file.
+    :param position_ms: The current position in the song, in milliseconds.
+    :param bpm: The song's BPM (Beats Per Minute), with Ultrastar's quarter note interpretation.
+    :param gap: The initial gap before the song starts, in milliseconds.
+    :param is_relative: Indicates if the timing is relative to the gap.
+    :return: The syllable (note text) at the current position, or None if no syllable is active.
+    """
+    # Convert BPM to beats per millisecond, accounting for Ultrastar's quarter note interpretation.
+    beats_per_ms = (bpm / 60 / 1000) * 4
+    
+    # Convert the current position in milliseconds to beats
+    position_beats = (position_ms - gap) * beats_per_ms if not is_relative else (position_ms * beats_per_ms)
+
+    for note in notes:
+        start_beat = note['StartBeat']
+        end_beat = start_beat + note['Length']
+        
+        if start_beat <= position_beats < end_beat:
+            #print(f"start_beat: {start_beat} - position_beats: {position_beats} - end_beat: {end_beat} - note: {note['Text']}")
+            return note['Text']  # Return the text of the current syllable
+
+    # If no note matches the current position
+    return None

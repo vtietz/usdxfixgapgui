@@ -1,6 +1,7 @@
 import logging
 import os
-from PyQt6.QtCore import QObject
+from PyQt6.QtCore import QObject, QUrl
+from PyQt6.QtGui import QDesktopServices
 from data import AppData, Config
 from model.song import Song
 from utils import files
@@ -31,15 +32,19 @@ class Actions(QObject):
     
     def loadSongs(self, directory: str):
         self.config.directory = directory
+        self.data.tmp_folder = os.path.join(
+            self.config.tmp_root, 
+            files.generate_directory_hash(directory)
+        )
         if self.data.is_loading_songs: 
             print("Already loading songs")
             return
         self.data.is_loading_songs = True
         self.clearSongs()
-        worker = LoadSongsWorker(self.config.directory)
+        worker = LoadSongsWorker(self.config.directory, self.data.tmp_folder)
         worker.signals.songLoaded.connect(self.data.songs.add)
+        worker.signals.songLoaded.connect(self.on_song_loaded)
         worker.signals.finished.connect(lambda: self.finishLoadingSongs())
-        #worker.signals.progress.connect(lambda description: print(description))
         self.worker_queue.add_task(worker)
     
     def finishLoadingSongs(self):
@@ -50,9 +55,11 @@ class Actions(QObject):
 
     def setSelectedSong(self, path: str):
         logger.debug(f"Selected {path}")
-        song = next((s for s in self.data.songs if s.path == path), None)
-        self.data.selected_song = song
-        self._create_waveforms(song)
+        song: Song = next((s for s in self.data.songs if s.path == path), None)
+        if(song):
+            song.load_notes()
+            self.data.selected_song = song
+            self._create_waveforms(song)
 
     def loadingSongsFinished(self):
         self.data.is_loading_songs = False
@@ -64,26 +71,60 @@ class Actions(QObject):
             print("No song selected")
             return
         audio_file = selectedSong.audio_file
-        destination_path = files.get_temp_path(selectedSong.audio_file)
+        destination_path = files.get_temp_path(self.data.tmp_folder, selectedSong.audio_file)
         print(f"Extracting vocals from {audio_file} to {destination_path}")
         selectedSong.status = SongStatus.QUEUED
         worker = ExtractVocalsWorker(audio_file, destination_path, self.config.default_detection_time)
         #worker.signals.finished.connect(self.vocalsExtracted)
         self.worker_queue.add_task(worker)
 
-    def detect_gap(self):
-        selectedSong: Song = self.data.selected_song
-        if not selectedSong:
-            print("No song selected")
-            return
-        worker = DetectGapWorker(selectedSong, self.config)
-        worker.signals.started.connect(lambda: self.on_song_worker_started(selectedSong))
-        worker.signals.error.connect(lambda: self.on_song_worker_error(selectedSong))
-        worker.signals.finished.connect(lambda: selectedSong.info.save())
-        worker.signals.finished.connect(lambda: self.on_detect_gap_finished(selectedSong))
-        selectedSong.info.status = SongStatus.QUEUED
-        self.data.songs.updated.emit(selectedSong)
-        self.worker_queue.add_task(worker)
+    def detect_gap(self, song: Song = None, start_now=False):
+        if not song:
+            song: Song = self.data.selected_song
+        if not song:
+            raise Exception("No song given")
+
+        audio_file = song.audio_file
+        bpm = song.bpm
+        gap = song.gap
+        default_detection_time = self.config.default_detection_time
+
+        worker = DetectGapWorker(
+            audio_file, 
+            self.data.tmp_folder,
+            bpm, 
+            gap, 
+            default_detection_time, 
+            False)
+        
+        worker.signals.started.connect(lambda: self.on_song_worker_started(song))
+        worker.signals.error.connect(lambda: self.on_song_worker_error(song))
+        worker.signals.finished.connect(
+            lambda detected_gap: self.on_detect_gap_finished(song, detected_gap)
+        )
+        song.info.status = SongStatus.QUEUED
+        self.data.songs.updated.emit(song)
+        self.worker_queue.add_task(worker, start_now)
+
+    def on_song_loaded(self, song: Song):
+        if(song.info.status == SongStatus.NOT_PROCESSED):
+            self.detect_gap(song)
+    
+    def on_detect_gap_finished(self, song: Song, detected_gap: int):
+        gap = song.gap
+        if(not song.notes):
+            song.load_notes()
+        firstNoteOffset = usdx.get_gap_offset_according_firts_note(song.bpm, song.notes)
+        detected_gap = detected_gap + firstNoteOffset
+        gap_diff = abs(gap - detected_gap)
+        if gap_diff > self.config.gap_tolerance:
+            song.info.status = SongStatus.MISMATCH
+        else:
+            song.info.status = SongStatus.MATCH
+        song.info.detected_gap = detected_gap
+        song.info.diff = gap_diff
+        song.info.save()
+        self._create_waveforms(song, True)
 
     def on_song_worker_started(self, song: Song):
         song.info.status = SongStatus.PROCESSING
@@ -91,11 +132,6 @@ class Actions(QObject):
 
     def on_song_worker_error(self, song: Song):
         song.info.status = SongStatus.ERROR
-        self.data.songs.updated.emit(song)
-
-    def on_detect_gap_finished(self, song: Song):
-        song.info.save()
-        self._create_waveforms(song, True)
         self.data.songs.updated.emit(song)
 
     def _create_waveforms(self, song: Song, overwrite: bool = False):
@@ -132,7 +168,7 @@ class Actions(QObject):
             self.config.waveform_color
         )
         worker.signals.finished.connect(lambda song=song: self.data.songs.updated.emit(song))
-        self.worker_queue.add_task(worker)    
+        self.worker_queue.add_task(worker, True)    
 
     def update_gap_value(self, song: Song, gap: int):
         if not song: return
@@ -149,7 +185,36 @@ class Actions(QObject):
         song.gap = song.info.original_gap
         usdx.update_gap(song.txt_file, song.gap)  
         song.info.save()
-        self.detect_gap()
-        #self._create_waveforms(song, True)
+        self._create_waveforms(song, True)
         self.data.songs.updated.emit(song)
+
+    def keep_gap_value(self, song: Song):
+        if not song: return
+        song.info.status = SongStatus.SOLVED
+        song.info.save()
+        self.data.songs.updated.emit(song)
+
+    def open_usdx(self):
+        song: Song = self.data.selected_song
+        if not song:
+            logger.error("No song selected")
+            return
+        if not song.usdb_id:
+            logger.error("No USDB ID found")
+            return
+        logger.info(f"Opening USDB in web browser for {song.txt_file}")
+        url = QUrl(f"https://usdb.animux.de/index.php?link=detail&id={song.usdb_id}")
+        QDesktopServices.openUrl(url)
+
+    def open_folder(self):
+        song: Song = self.data.selected_song
+        if not song:
+            logger.error("No song selected")
+            return
+        logger.info(f"Opening folder for {song.path}")
+        url = QUrl.fromLocalFile(song.path)
+        if not QDesktopServices.openUrl(url):
+            print("Failed to open the folder.")
+            return False
+        return True
 

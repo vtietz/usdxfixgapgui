@@ -1,3 +1,4 @@
+import hashlib
 import os
 from typing import Any, Dict
 
@@ -5,13 +6,11 @@ IGNORE_FILE="usdxfixgap.ignore"
 INFO_FILE="usdxfixgap.info"
 WAVEFORM_FILE="waveform.png"
 
-TMP_DIR = os.path.join("..", ".tmp")
-
 def get_song_path(txt_file):
     return os.path.dirname(txt_file)
 
-def get_temp_path(audio_file):
-    return os.path.join(TMP_DIR, os.path.splitext(os.path.basename(audio_file))[0])
+def get_temp_path(tmp_dir, audio_file):
+    return os.path.join(tmp_dir, os.path.splitext(os.path.basename(audio_file))[0])
 
 def get_vocals_path(tmp_path, max_detection_time=None):
     if max_detection_time is None:
@@ -71,3 +70,20 @@ def delete_folder(folder):
     except Exception as e:
         print(f"Error deleting {folder}: {e}")
 
+def generate_directory_hash(directory_path):
+    """
+    Generates a hash value from a directory path using SHA-256. This method provides a consistent hash value
+    across different runs of the application.
+
+    :param directory_path: The path of the directory to hash.
+    :return: A hexadecimal hash value as a string.
+    """
+    # Encode the directory path to a byte representation required by hashlib
+    directory_bytes = directory_path.encode('utf-8')
+    # Use SHA-256 from hashlib and compute the hash
+    hash_object = hashlib.sha256(directory_bytes)
+    # Get the hexadecimal representation of the hash
+    hex_hash = hash_object.hexdigest()
+    # Optionally, you can shorten the hash if needed
+    short_hash = hex_hash[:8]  # Example: take the first 8 characters for brevity
+    return short_hash

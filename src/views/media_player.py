@@ -5,10 +5,14 @@ from PyQt6.QtWidgets import  QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushBut
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtCore import QObject, QUrl, Qt, pyqtSignal, QTimer, QEvent
 from PyQt6.QtGui import QPainter, QPen, QPixmap
-from actions import Actions
 
+from actions import Actions
 from data import AppData, Config
+from model.info import SongStatus
 from model.song import Song
+
+import utils.usdx as usdx
+
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +76,8 @@ class MediaPlayerComponent(QWidget):
         self._actions = actions
 
         self.globalEventFilter = MediaPlayerEventFilter(
-            lambda: self.adjust_position(-config.adjust_player_position_step),
-            lambda: self.adjust_position(config.adjust_player_position_step),
+            lambda: self.adjust_position_left(),
+            lambda: self.adjust_position_right(),
             self.play
         )
 
@@ -125,8 +129,12 @@ class MediaPlayerComponent(QWidget):
         self.save_detected_gap_btn = QPushButton("Save detected gap (0 ms)")
         self.revert_btn = QPushButton("Revert")
 
+        self.syllable_label = QLabel('')
+        self.syllable_label.setStyleSheet(f"color: {self._config.playback_position_color};")
+
         labels = QHBoxLayout()
         labels.addWidget(self.position_label)
+        labels.addWidget(self.syllable_label)
         labels.addWidget(self.keep_original_gap_btn)
         labels.addWidget(self.save_current_play_position_btn)
         labels.addWidget(self.save_detected_gap_btn)
@@ -147,7 +155,7 @@ class MediaPlayerComponent(QWidget):
         # event handling
 
         self._data.selected_song_changed.connect(self.on_song_changed)
-        self._data.songs.updated.connect(self.on_song_changed)
+        self._data.songs.updated.connect(self.on_song_updated)
 
         self.media_player.positionChanged.connect(self.update_overlay_position)
         self.waveform_label.mousePressEvent = self.change_play_position
@@ -165,6 +173,8 @@ class MediaPlayerComponent(QWidget):
 
         self.save_current_play_position_btn.clicked.connect(self.on_save_current_play_position_clicked) 
         self.revert_btn.clicked.connect(self.on_revert_btn_clicked)
+        self.keep_original_gap_btn.clicked.connect(self.on_keep_original_gap_btn_clicked)
+        self.save_detected_gap_btn.clicked.connect(self.on_save_detected_gap_btn_clicked)
 
         self.audio_file_status_changed.connect(self.on_audio_file_status_changed)
 
@@ -176,9 +186,20 @@ class MediaPlayerComponent(QWidget):
     def on_revert_btn_clicked(self):
         self._actions.revert_gap_value(self._song)
 
+    def on_keep_original_gap_btn_clicked(self):
+        self._actions.keep_gap_value(self._song)
+
+    def on_save_detected_gap_btn_clicked(self):
+        self._actions.update_gap_value(self._song, self._song.info.detected_gap)
+
     def on_song_changed(self, song: Song):
         logger.debug(f"Song changed: {song}")
         self._song = song
+        self.update_button_states()
+        self.update_player_files()
+    
+    def on_song_updated(self):
+        logger.debug(f"Current song updated")
         self.update_button_states()
         self.update_player_files()
 
@@ -199,6 +220,7 @@ class MediaPlayerComponent(QWidget):
         self._play_position = position
         self.update_position_label(position)
         self.update_button_states()
+        self.update_syllable_label(position)
         
     def on_media_player_play_state_change(self, playing: bool):
         logger.debug(f"on_play_state_change: {playing}")
@@ -210,27 +232,30 @@ class MediaPlayerComponent(QWidget):
 
     def update_button_states(self):
         song = self._song
-        is_enabled = song is not None
+        is_enabled = song is not None and not (song.info.status == SongStatus.PROCESSING)
         self.save_current_play_position_btn.setEnabled(is_enabled and self._play_position > 0)
         self.save_detected_gap_btn.setEnabled(is_enabled and song.info.detected_gap > 0)
         self.keep_original_gap_btn.setEnabled(is_enabled)
         self.play_btn.setEnabled(is_enabled and self._media_is_loaded or self._is_playing)
         self.vocals_btn.setEnabled(is_enabled)
         self.audio_btn.setEnabled(is_enabled)
+        self.revert_btn.setEnabled(is_enabled and song.gap != song.info.original_gap)
         if song:
             self.save_detected_gap_btn.setText(f"Save detected gap ({song.info.detected_gap} ms)")
             self.keep_original_gap_btn.setText(f"Keep gap ({song.gap} ms)")
+            self.revert_btn.setText(f"Revert gap ({song.info.original_gap} ms)")
         else:
             self.save_detected_gap_btn.setText(f"Save detected gap (0 ms)")
             self.keep_original_gap_btn.setText(f"Save gap (0 ms)")
+            self.revert_btn.setText(f"Revert gap (0 ms)")
         self.audio_btn.setChecked(self._audioFileStatus == AudioFileStatus.AUDIO)
         self.vocals_btn.setChecked(self._audioFileStatus == AudioFileStatus.VOCALS)
         self.overlay.setVisible(is_enabled and self._media_is_loaded or self._is_playing)
         self.update_position_label(self.media_player.position())
 
     def update_player_files(self):
-        song=self._song
-        if(not song): 
+        song = self._song
+        if(not song or song.info.status == SongStatus.PROCESSING): 
             self.load_media(None)
             self.load_waveform(None)
             return
@@ -241,8 +266,18 @@ class MediaPlayerComponent(QWidget):
             self.load_media(song.vocals_file)
             self.load_waveform(song.vocals_waveform_file)
 
+    def update_syllable_label(self, position):
+        song = self._song
+        if(not song or song.info.status == SongStatus.PROCESSING):
+            self.syllable_label.setText("")
+            return
+        syllable = usdx.get_syllable(song.notes, position, song.bpm, song.gap)
+        self.syllable_label.setText(syllable)
+
     def load_media(self, file: str):
-        if(self.media_player.source() == QUrl.fromLocalFile(file)):
+        old_source = self.media_player.source()
+        new_source = QUrl.fromLocalFile(file)
+        if(old_source.toString() == new_source.toString()):
             return
         self.media_player.stop()
         self.media_player_loader.load(file)
@@ -315,6 +350,18 @@ class MediaPlayerComponent(QWidget):
         self._audioFileStatus=AudioFileStatus.VOCALS
         self.audio_file_status_changed.emit(self._audioFileStatus)
 
-    def adjust_position(self, milliseconds):
-        newPosition = max(0, self.media_player.position() + milliseconds)
+    def adjust_position_left(self):
+        if(self._audioFileStatus == AudioFileStatus.AUDIO):
+            ms = self._config.adjust_player_position_step_audio
+        else:
+            ms = self._config.adjust_player_position_step_vocals
+        newPosition = max(0, self.media_player.position() - ms)
+        self.media_player.setPosition(newPosition)
+
+    def adjust_position_right(self):
+        if(self._audioFileStatus == AudioFileStatus.AUDIO):
+            ms = self._config.adjust_player_position_step_audio
+        else:
+            ms = self._config.adjust_player_position_step_vocals
+        newPosition = max(0, self.media_player.position() + ms)
         self.media_player.setPosition(newPosition)

@@ -9,6 +9,7 @@ class Song:
     txt_file: str = ""
 
     path: str = ""
+    relative_path: str = ""
     tmp_path: str = ""
     audio_file: str = ""
     
@@ -24,9 +25,12 @@ class Song:
     vocals_waveform_file: str = ""
 
     info: Info = None
+    notes: list = []
+    usdb_id: int = None
 
-    def __init__(self, txt_file: str):
+    def __init__(self, txt_file: str, tmp_root: str):
         self.txt_file = txt_file
+        self.tmp_root = tmp_root
 
     def load(self):
         
@@ -44,14 +48,13 @@ class Song:
 
         self.load_tags()
         self.path = path
-        self.info_file= info_file
+        self.info_file = info_file
         self.audio_file = os.path.join(path, self.audio)
-        tmp_path = files.get_temp_path(self.audio_file)
+        tmp_path = files.get_temp_path(self.tmp_root, self.audio_file)
         self.txt_file = txt_file
         self.vocals_file = files.get_vocals_path(tmp_path)
         self.audio_waveform_file = files.get_waveform_path(tmp_path, "audio")
         self.vocals_waveform_file = files.get_waveform_path(tmp_path, "vocals")
-        self.notes = usdx.parse_notes(txt_file)
         self.tmp_path = tmp_path
        
     def load_tags(self):
@@ -64,6 +67,9 @@ class Song:
         self.gap = tags.get("GAP", 0)
         self.bpm = tags.get("BPM", 0)
         self.is_relative = tags.get("RELATIVE", False)
+
+    def load_notes(self):
+        self.notes = usdx.parse_notes(self.txt_file)
     
     def __str__(self):
         return f"Song: {self.artist} - {self.title}"
