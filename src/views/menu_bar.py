@@ -1,5 +1,5 @@
 # button_bar.py
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog, QComboBox
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog, QComboBox, QLineEdit
 from PyQt6.QtCore import pyqtSignal
 from actions import Actions
 import logging
@@ -30,10 +30,6 @@ class MenuBar(QWidget):
         self.loadSongsButton.clicked.connect(self.choose_directory)
         self.layout.addWidget(self.loadSongsButton)
 
-        self.extractButton = QPushButton("Extract Vocals", self)
-        self.extractButton.clicked.connect(self.extractVocalsClicked.emit)
-        self.layout.addWidget(self.extractButton)
-
         # Detect Button
         self.detectButton = QPushButton("Detect Gap")
         self.detectButton.clicked.connect(self.detectClicked.emit)
@@ -49,10 +45,10 @@ class MenuBar(QWidget):
         self.open_usdx_button.clicked.connect(lambda: actions.open_usdx())
         self.layout.addWidget(self.open_usdx_button)
 
-        # Delete Button
-        #self.deleteButton = QPushButton("Delete")
-        #self.deleteButton.clicked.connect(self.deleteClicked.emit)
-        #self.layout.addWidget(self.deleteButton)
+        self.searchBox = QLineEdit()
+        self.searchBox.setPlaceholderText("Search")
+        self.searchBox.textChanged.connect(self.onSearchChanged)
+        self.layout.addWidget(self.searchBox)
 
         # Filter dropdown regarding the status of the songs
         self.filterDropdown = QComboBox()
@@ -61,9 +57,6 @@ class MenuBar(QWidget):
         self.filterDropdown.currentIndexChanged.connect(self.onFilterChanged)
         self.layout.addWidget(self.filterDropdown)
 
-        #self.loadSongsButton.clicked.connect(self.toggleLoadSongs)
-
-        #self.loadSongsClicked.connect(lambda: actions.loadSongs())
         self.loadSongsClicked.connect(lambda: actions.choose_directory())
         self.extractVocalsClicked.connect(lambda: actions.extractVocals())
         self.detectClicked.connect(lambda: actions.detect_gap(start_now=True))
@@ -75,19 +68,13 @@ class MenuBar(QWidget):
     def updateLoadButtonState(self, isLoading: bool):
         self.loadSongsButton.setEnabled(not isLoading) 
 
-    def onExtractionFinished(self, result):
-        print(f"Extraction finished: {result}")
-        # Update UI or notify user as needed
-
-    def onExtractionError(self, error_info):
-        print(f"Extraction error: {error_info[0]}")
-        # Handle errors, update UI, or notify user as needed
+    def onSearchChanged(self, text):
+        self.actions.data.songs.filter_text = text
 
     def onSelectedSongChanged(self, song: Song):
         self.open_usdx_button.setEnabled(True if song and song.usdb_id else False)
         self.openFolderButton.setEnabled(True if song and song.path else False)
         self.detectButton.setEnabled(True if song and song.audio_file else False)
-        self.extractButton.setEnabled(True if song and song.audio_file else False)
 
     def choose_directory(self):
         directory = QFileDialog.getExistingDirectory(

@@ -18,6 +18,7 @@ class Song:
     audio: str = "" 
     gap: int = 0
     bpm: int = 0
+    start: int = 0
     is_relative: bool = False
 
     audio_waveform_file: str = ""
@@ -66,6 +67,7 @@ class Song:
         self.audio = tags.get("AUDIO", "")
         self.gap = tags.get("GAP", 0)
         self.bpm = tags.get("BPM", 0)
+        self.start = tags.get("START", 0)
         self.is_relative = tags.get("RELATIVE", False)
 
     def load_notes(self):

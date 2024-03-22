@@ -61,7 +61,7 @@ class SongListView(QTableWidget):
 
         self.sortByColumn(0, Qt.SortOrder.AscendingOrder)
 
-        self.actions.data.songs.filterChanged.connect(self.filterTable)
+        self.actions.data.songs.filterChanged.connect(self.updateFilter)
 
     def addSong(self, song: Song):
         logger.debug(f"Adding song {song.path}")
@@ -88,7 +88,7 @@ class SongListView(QTableWidget):
         self.item(rowPosition, 0).setData(Qt.ItemDataRole.UserRole, song)
         
         self.setSortingEnabled(True)
-        self.filterTable(self.actions.data.songs.filter)
+        self.updateFilter()
 
     def updateSong(self, updated_song: Song):
         for row in range(self.rowCount()):
@@ -105,7 +105,7 @@ class SongListView(QTableWidget):
                 # Update the stored Song object in case any other song attributes are used elsewhere
                 item.setData(Qt.ItemDataRole.UserRole, updated_song)
                 break  # Exit the loop once the song is found and updated
-        self.filterTable(self.actions.data.songs.filter)
+        self.updateFilter()
 
     def onSelectionChanged(self, selected, deselected):
         indexes = selected.indexes()
@@ -122,14 +122,26 @@ class SongListView(QTableWidget):
         print(f"Error processing {song.path}: {exception}")
         self.updateSong(song)
 
-    def filterTable(self, status):
+    def updateFilter(self):
+        status = self.actions.data.songs.filter
+        textFilter = self.actions.data.songs.filter_text
         selectedRow = self.currentRow()
         rowVisibilityChanged = False  # Flag to track if any row's visibility changed
+        textFilter = textFilter.lower()  # Convert filter text to lowercase for case-insensitive comparison
 
         # Iterate over all rows once to determine their visibility based on the filter criteria
         for row in range(self.rowCount()):
             songStatus = self.item(row, 6).text()
-            shouldBeVisible = status == SongStatus.ALL or status.value == songStatus
+            artistName = self.item(row, 1).text().lower()  # Assuming column 1 is the artist name
+            songTitle = self.item(row, 2).text().lower()  # Assuming column 2 is the song title
+
+            # Check for status filter
+            statusMatch = status == SongStatus.ALL or status.value == songStatus
+
+            # Check for text filter match in either artist name or song title
+            textMatch = textFilter in artistName or textFilter in songTitle
+
+            shouldBeVisible = statusMatch and textMatch
             isCurrentlyVisible = not self.isRowHidden(row)
             
             # Update visibility only if there's a change to minimize costly operations
@@ -151,6 +163,3 @@ class SongListView(QTableWidget):
                         self.selectRow(newRow)
                         return
                     newRow += direction
-
-        # If no visible row is found (which should be rare), this leaves the selection unchanged
-

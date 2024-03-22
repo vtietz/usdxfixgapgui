@@ -75,7 +75,6 @@ class Actions(QObject):
         print(f"Extracting vocals from {audio_file} to {destination_path}")
         selectedSong.status = SongStatus.QUEUED
         worker = ExtractVocalsWorker(audio_file, destination_path, self.config.default_detection_time)
-        #worker.signals.finished.connect(self.vocalsExtracted)
         self.worker_queue.add_task(worker)
 
     def detect_gap(self, song: Song = None, start_now=False):
@@ -86,7 +85,7 @@ class Actions(QObject):
 
         audio_file = song.audio_file
         bpm = song.bpm
-        gap = song.gap
+        gap = song.gap + (song.start * 1000)
         default_detection_time = self.config.default_detection_time
 
         worker = DetectGapWorker(
@@ -115,7 +114,9 @@ class Actions(QObject):
         if(not song.notes):
             song.load_notes()
         firstNoteOffset = usdx.get_gap_offset_according_firts_note(song.bpm, song.notes)
-        detected_gap = detected_gap + firstNoteOffset
+        detected_gap = detected_gap - firstNoteOffset
+        if(song.start):
+            detected_gap = detected_gap - song.start
         gap_diff = abs(gap - detected_gap)
         if gap_diff > self.config.gap_tolerance:
             song.info.status = SongStatus.MISMATCH

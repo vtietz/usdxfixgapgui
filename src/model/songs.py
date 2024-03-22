@@ -10,9 +10,10 @@ class Songs(QObject):
     added = pyqtSignal(Song)
     updated = pyqtSignal(Song)
     error = pyqtSignal(Song, Exception)
-    filterChanged = pyqtSignal(SongStatus)
+    filterChanged = pyqtSignal()
 
     _filter: SongStatus = SongStatus.ALL
+    _filter_text: str = ""
     
     songs: List[Song] = []
 
@@ -37,4 +38,13 @@ class Songs(QObject):
     @filter.setter
     def filter(self, value):
         self._filter = value
-        self.filterChanged.emit(value)
+        self.filterChanged.emit()
+
+    @property
+    def filter_text(self):
+        return self._filter_text
+    
+    @filter_text.setter
+    def filter_text(self, value):
+        self._filter_text = value
+        self.filterChanged.emit()

@@ -29,7 +29,7 @@ app = QApplication(sys.argv)
 
 # Create the main window and set its properties
 window = QWidget()
-window.setWindowTitle("Modular PyQt6 Application")
+window.setWindowTitle("USDX Gap Fix Gui")
 window.resize(800, 600)
 
 
