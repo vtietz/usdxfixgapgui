@@ -1,5 +1,5 @@
 # button_bar.py
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog, QComboBox, QLineEdit
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog, QComboBox, QLineEdit, QMessageBox
 from PyQt6.QtCore import pyqtSignal
 from actions import Actions
 import logging
@@ -17,13 +17,17 @@ class MenuBar(QWidget):
     detectClicked = pyqtSignal()
     deleteClicked = pyqtSignal()
 
+    _song: Song = None
+
     actions: Actions = None
 
     def __init__(self, actions:Actions, config: Config, parent=None):
       
         super().__init__(parent)
         self.layout = QHBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.actions = actions
+        self.config = config
 
         # Load Songs Button
         self.loadSongsButton = QPushButton("Load Songs")
@@ -45,6 +49,16 @@ class MenuBar(QWidget):
         self.open_usdx_button.clicked.connect(lambda: actions.open_usdx())
         self.layout.addWidget(self.open_usdx_button)
 
+        # Reload song
+        self.reload_button = QPushButton("Reload Song")
+        self.reload_button.clicked.connect(lambda: actions.reload_song())
+        self.layout.addWidget(self.reload_button)
+
+        # Delete song
+        self.delete_button = QPushButton("Delete Song")
+        self.delete_button.clicked.connect(self.onDeleteButtonClicked)
+        self.layout.addWidget(self.delete_button)
+
         self.searchBox = QLineEdit()
         self.searchBox.setPlaceholderText("Search")
         self.searchBox.textChanged.connect(self.onSearchChanged)
@@ -65,6 +79,18 @@ class MenuBar(QWidget):
 
         self.onSelectedSongChanged(None)
 
+    def onDeleteButtonClicked(self):
+        msgBox = QMessageBox()
+        msgBox.setIcon(QMessageBox.Icon.Information)  # Adjusted for Qt6 compatibility
+        msgBox.setText(f"Are you sure you want to delete the following directory?\r\n{self._song.path}?")
+        msgBox.setWindowTitle("Delete Confirmation")
+        msgBox.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+        
+        returnValue = msgBox.exec()
+        if returnValue == QMessageBox.StandardButton.Ok:  # Adjusted for clarity
+            self.actions.delete_selected_song()
+
+
     def updateLoadButtonState(self, isLoading: bool):
         self.loadSongsButton.setEnabled(not isLoading) 
 
@@ -72,9 +98,12 @@ class MenuBar(QWidget):
         self.actions.data.songs.filter_text = text
 
     def onSelectedSongChanged(self, song: Song):
+        self._song = song
         self.open_usdx_button.setEnabled(True if song and song.usdb_id else False)
         self.openFolderButton.setEnabled(True if song and song.path else False)
-        self.detectButton.setEnabled(True if song and song.audio_file else False)
+        self.detectButton.setEnabled(True if song and song.audio_file and self.config.spleeter else False)
+        self.reload_button.setEnabled(True if song and song.path else False)
+        self.delete_button.setEnabled(True if song and song.path else False)
 
     def choose_directory(self):
         directory = QFileDialog.getExistingDirectory(
@@ -86,7 +115,7 @@ class MenuBar(QWidget):
             self.on_directory_selected(directory)
 
     def on_directory_selected(self, directory: str):
-        self.actions.loadSongs(directory)
+        self.actions.load_songs(directory)
 
     def onFilterChanged(self, index):
         status_text = self.filterDropdown.currentText()

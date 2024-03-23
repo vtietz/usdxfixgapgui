@@ -30,7 +30,7 @@ class Actions(QObject):
         self.config = config
         self.worker_queue = WorkerQueueManager()
     
-    def loadSongs(self, directory: str):
+    def load_songs(self, directory: str):
         self.config.directory = directory
         self.data.tmp_folder = os.path.join(
             self.config.tmp_root, 
@@ -40,26 +40,27 @@ class Actions(QObject):
             print("Already loading songs")
             return
         self.data.is_loading_songs = True
-        self.clearSongs()
+        self.clear_songs()
         worker = LoadSongsWorker(self.config.directory, self.data.tmp_folder)
         worker.signals.songLoaded.connect(self.data.songs.add)
         worker.signals.songLoaded.connect(self.on_song_loaded)
-        worker.signals.finished.connect(lambda: self.finishLoadingSongs())
+        worker.signals.finished.connect(lambda: self.finish_loading_songs())
         self.worker_queue.add_task(worker)
     
-    def finishLoadingSongs(self):
+    def finish_loading_songs(self):
         self.data.is_loading_songs = False
 
-    def clearSongs(self):
+    def clear_songs(self):
         self.data.songs.clear()
 
-    def setSelectedSong(self, path: str):
+    def select_song(self, path: str):
         logger.debug(f"Selected {path}")
         song: Song = next((s for s in self.data.songs if s.path == path), None)
         if(song):
             song.load_notes()
             self.data.selected_song = song
             self._create_waveforms(song)
+            self._load_audio_length(song)
 
     def loadingSongsFinished(self):
         self.data.is_loading_songs = False
@@ -106,7 +107,7 @@ class Actions(QObject):
         self.worker_queue.add_task(worker, start_now)
 
     def on_song_loaded(self, song: Song):
-        if(song.info.status == SongStatus.NOT_PROCESSED):
+        if(song.info.status == SongStatus.NOT_PROCESSED and self.config.spleeter):
             self.detect_gap(song)
     
     def on_detect_gap_finished(self, song: Song, detected_gap: int):
@@ -218,4 +219,32 @@ class Actions(QObject):
             print("Failed to open the folder.")
             return False
         return True
+    
+    def reload_song(self):
+        song: Song = self.data.selected_song
+        if not song:
+            logger.error("No song selected")
+            return
+        logger.info(f"Reloading song {song.path}")
+        song.load()
+        song.load_notes()
+        self._load_audio_length(song)
+        self._create_waveforms(song, True)
 
+    def _load_audio_length(self, song: Song):
+        if not song:
+            logger.error("No song")
+            return
+        length = audio.get_audio_duration(song.audio_file)
+        song.length = audio.milliseconds_to_str(length)
+        self.data.songs.updated.emit(song)
+
+    def delete_selected_song(self):
+        song: Song = self.data.selected_song
+        if not song:
+            logger.error("No song selected")
+            return
+        logger.info(f"Deleting song {song.path}")
+        self.data.songs.remove(song)
+        self.data.songs.deleted.emit(song)
+        song.delete()

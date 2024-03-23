@@ -1,7 +1,7 @@
 from enum import Enum
 import logging
 import os
-from PyQt6.QtWidgets import  QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy
+from PyQt6.QtWidgets import  QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtCore import QObject, QUrl, Qt, pyqtSignal, QTimer, QEvent
 from PyQt6.QtGui import QPainter, QPen, QPixmap
@@ -12,29 +12,38 @@ from model.info import SongStatus
 from model.song import Song
 
 import utils.usdx as usdx
+import utils.audio as audio
 
 
 logger = logging.getLogger(__name__)
 
 class MediaPlayerEventFilter(QObject):
-    def __init__(self, callback_left, callback_right, callback_play):
+    def __init__(self, component, callback_left, callback_right, callback_play):
         super().__init__()
         self.callback_left = callback_left
         self.callback_right = callback_right
         self.callback_play = callback_play
+        self.component = component
 
-    def eventFilter(self, obj, event):
-        if event.type() == QEvent.Type.KeyPress:
-            if event.key() == Qt.Key.Key_Left:
-                self.callback_left()
-                return True
-            elif event.key() == Qt.Key.Key_Right:
-                self.callback_right()
-                return True
-            elif event.key() == Qt.Key.Key_Space:
-                self.callback_play()
-                return True
-        return False
+    def eventFilter(self, watched, event):
+        widget = QApplication.focusWidget()
+        while widget is not None:
+            if widget == self.component:
+                if event.type() == QEvent.Type.KeyPress:
+                    if event.key() == Qt.Key.Key_Left:
+                        self.callback_left()
+                        return True
+                    elif event.key() == Qt.Key.Key_Right:
+                        self.callback_right()
+                        return True
+                    elif event.key() == Qt.Key.Key_Space:
+                        self.callback_play()
+                        return True
+                return False
+            widget = widget.parent()
+
+        return False  # Event not handled, continue with default processing
+
 
 class MediaPlayerLoader:
     def __init__(self, media_player: QMediaPlayer):
@@ -76,6 +85,7 @@ class MediaPlayerComponent(QWidget):
         self._actions = actions
 
         self.globalEventFilter = MediaPlayerEventFilter(
+            self,
             lambda: self.adjust_position_left(),
             lambda: self.adjust_position_right(),
             self.play
@@ -84,7 +94,7 @@ class MediaPlayerComponent(QWidget):
         self.initUI()
 
     def initUI(self):
-        
+
         # playbuttons
 
         self.audio_output = QAudioOutput()
@@ -141,6 +151,7 @@ class MediaPlayerComponent(QWidget):
         labels.addWidget(self.revert_btn)
 
         main = QVBoxLayout()
+        main.setContentsMargins(0, 0, 0, 0)
         main.addLayout(play_and_waveform_layout)
         main.addLayout(waveform_layout)
         self.setLayout(main)
@@ -156,6 +167,7 @@ class MediaPlayerComponent(QWidget):
 
         self._data.selected_song_changed.connect(self.on_song_changed)
         self._data.songs.updated.connect(self.on_song_updated)
+        self._data.songs.deleted.connect(lambda: self.unload_all_media())
 
         self.media_player.positionChanged.connect(self.update_overlay_position)
         self.waveform_label.mousePressEvent = self.change_play_position
@@ -179,6 +191,15 @@ class MediaPlayerComponent(QWidget):
         self.audio_file_status_changed.connect(self.on_audio_file_status_changed)
 
         self.update_button_states()
+
+        # handle focus
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.waveform_label.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.waveform_label.mousePressEvent = self.focus_and_change_play_position
+
+    def focus_and_change_play_position(self, event):
+        self.setFocus() 
+        self.change_play_position(event)
 
     def on_save_current_play_position_clicked(self):
         self._actions.update_gap_value(self._song, self.media_player.position())
@@ -281,6 +302,11 @@ class MediaPlayerComponent(QWidget):
             return
         self.media_player.stop()
         self.media_player_loader.load(file)
+    
+    def unload_all_media(self):
+        self.media_player.stop()
+        self.media_player.setSource(QUrl())
+        self.waveform_label.setPixmap(QPixmap())
 
     def load_waveform(self, file: str):
         if(file and os.path.exists(file)):
@@ -324,12 +350,7 @@ class MediaPlayerComponent(QWidget):
         if(not self._media_is_loaded and not self._is_playing):
             self.position_label.setText("")
             return
-        # Convert position from milliseconds to minutes:seconds:milliseconds
-        minutes = position // 60000
-        seconds = (position % 60000) // 1000
-        milliseconds = position % 1000
-        # Update the label
-        playposition_text=f'{minutes:02d}:{seconds:02d}:{milliseconds:03d}'
+        playposition_text=audio.milliseconds_to_str(position)
         self.position_label.setText(playposition_text)
         self.save_current_play_position_btn.setText(f"Save play position ({position} ms)")
 

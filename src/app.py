@@ -8,6 +8,7 @@ from enable_darkmode import enable_dark_mode
 from utils.check_dependencies import check_dependencies
 from views.menu_bar import MenuBar
 
+from views.song_status import SongsStatusVisualizer
 from views.songlist import SongListView
 from views.media_player import MediaPlayerComponent, MediaPlayerEventFilter
 from views.task_queue_viewer import TaskQueueViewer
@@ -34,6 +35,7 @@ window.resize(800, 600)
 
 
 menuBar = MenuBar(actions, config)
+songStatus = SongsStatusVisualizer(data.songs)
 songListView = SongListView(data.songs, actions)
 mediaPlayerComponent = MediaPlayerComponent(data, config, actions)
 taskQueueViewer = TaskQueueViewer(actions.worker_queue)
@@ -43,6 +45,7 @@ app.installEventFilter(mediaPlayerComponent.globalEventFilter)
 # Set up the layout and add your components
 layout = QVBoxLayout()
 layout.addWidget(menuBar)
+layout.addWidget(songStatus)
 layout.addWidget(songListView, 2)  # Adjust stretch factor as needed
 layout.addWidget(mediaPlayerComponent, 1)  # Adjust stretch factor as needed
 layout.addWidget(taskQueueViewer, 1)  # Adjust stretch factor as needed
@@ -59,8 +62,8 @@ dependencies = [
     ('ffmpeg-normalize', '--version')
 ]
 if(not check_dependencies(dependencies)):
-    logger.error("Some dependencies are not installed. Please install it and try again.")
-    sys.exit(1)
+    logger.error("Some dependencies are not installed.")
+    #sys.exit(1)
 
 # Show the window
 window.show()

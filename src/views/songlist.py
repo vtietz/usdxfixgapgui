@@ -29,11 +29,13 @@ class SongListView(QTableWidget):
         self.setupUi()
 
     def setupUi(self):
-        self.setColumnCount(7)
+        self.setColumnCount(9)
         self.setHorizontalHeaderLabels([
             "Path", 
             "Artist", 
-            "Title", 
+            "Title",
+            "Length",
+            "BPM", 
             "Gap", 
             "Detected Gap", 
             "Diff", 
@@ -54,14 +56,18 @@ class SongListView(QTableWidget):
         self.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
         self.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
         self.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
-        self.setColumnWidth(3, 100)
-        self.setColumnWidth(4, 100)
-        self.setColumnWidth(5, 100)
-        self.setColumnWidth(6, 100)
+        self.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
+        self.horizontalHeader().setSectionResizeMode(9, QHeaderView.ResizeMode.Fixed)
+        self.setColumnWidth(3, 50)
+        self.setColumnWidth(4, 65)
+        self.setColumnWidth(5, 50)
+        self.setColumnWidth(7, 50)
+        self.setColumnWidth(8, 100)
 
         self.sortByColumn(0, Qt.SortOrder.AscendingOrder)
 
         self.actions.data.songs.filterChanged.connect(self.updateFilter)
+        self.actions.data.songs.deleted.connect(self.deleteSong)
 
     def addSong(self, song: Song):
         logger.debug(f"Adding song {song.path}")
@@ -73,6 +79,8 @@ class SongListView(QTableWidget):
             song.relative_path,
             song.artist,
             song.title,
+            song.length,
+            str(song.bpm),
             str(song.gap),
             str(song.info.detected_gap),
             str(song.info.diff),
@@ -80,7 +88,7 @@ class SongListView(QTableWidget):
         ]):
             item = QTableWidgetItem(value)
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # Disable editing
-            if i >= 3 and i < 6:
+            if i >= 3 and i < 8:
                 item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             self.setItem(rowPosition, i, item)
         
@@ -88,6 +96,14 @@ class SongListView(QTableWidget):
         self.item(rowPosition, 0).setData(Qt.ItemDataRole.UserRole, song)
         
         self.setSortingEnabled(True)
+        self.updateFilter()
+    
+    def deleteSong(self, song: Song):
+        for row in range(self.rowCount()):
+            item = self.item(row, 0)
+            if item.data(Qt.ItemDataRole.UserRole) == song:
+                self.removeRow(row)
+                break
         self.updateFilter()
 
     def updateSong(self, updated_song: Song):
@@ -98,10 +114,12 @@ class SongListView(QTableWidget):
                 # Update the row with new song details
                 self.item(row, 1).setText(updated_song.artist)
                 self.item(row, 2).setText(updated_song.title)
-                self.item(row, 3).setText(str(updated_song.gap))
-                self.item(row, 4).setText(str(updated_song.info.detected_gap))
-                self.item(row, 5).setText(str(updated_song.info.diff))
-                self.item(row, 6).setText(updated_song.info.status.value)
+                self.item(row, 3).setText(updated_song.length)
+                self.item(row, 4).setText(str(updated_song.bpm))
+                self.item(row, 5).setText(str(updated_song.gap))
+                self.item(row, 6).setText(str(updated_song.info.detected_gap))
+                self.item(row, 7).setText(str(updated_song.info.diff))
+                self.item(row, 8).setText(updated_song.info.status.value)
                 # Update the stored Song object in case any other song attributes are used elsewhere
                 item.setData(Qt.ItemDataRole.UserRole, updated_song)
                 break  # Exit the loop once the song is found and updated
@@ -111,9 +129,9 @@ class SongListView(QTableWidget):
         indexes = selected.indexes()
         if indexes:
             row = indexes[0].row()
-            selectedSong = self.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            selectedSong: Song = self.item(row, 0).data(Qt.ItemDataRole.UserRole)
             if selectedSong:
-                self.actions.setSelectedSong(selectedSong.path)
+                self.actions.select_song(selectedSong.path)
 
     def clearSongs(self):
         self.setRowCount(0)
@@ -131,7 +149,7 @@ class SongListView(QTableWidget):
 
         # Iterate over all rows once to determine their visibility based on the filter criteria
         for row in range(self.rowCount()):
-            songStatus = self.item(row, 6).text()
+            songStatus = self.item(row, 8).text()
             artistName = self.item(row, 1).text().lower()  # Assuming column 1 is the artist name
             songTitle = self.item(row, 2).text().lower()  # Assuming column 2 is the song title
 

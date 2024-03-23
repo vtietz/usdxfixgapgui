@@ -16,19 +16,18 @@ class TaskQueueViewer(QWidget):
 
     def initUI(self):
         self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.tableWidget = QTableWidget()
-        self.tableWidget.setColumnCount(4) 
-        self.tableWidget.setHorizontalHeaderLabels(["Task ID", "Description", "Status", ""])
+        self.tableWidget.setColumnCount(3) 
+        self.tableWidget.setHorizontalHeaderLabels(["Task", "Status", ""])
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tableWidget.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self.layout.addWidget(self.tableWidget)
 
         # Adjust the initial width of the first and third columns, and let the second column take the remaining space
-        self.tableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-        self.tableWidget.setColumnWidth(0, 100)  # Set width of "Task ID" column
-        self.tableWidget.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.tableWidget.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-        self.tableWidget.setColumnWidth(2, 100)  # Set width of "Status" column
+        self.tableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.tableWidget.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        self.tableWidget.setColumnWidth(1, 100)  # Set width of "Status" column
 
     def updateTaskList(self):
         self.tableWidget.setRowCount(0)
@@ -42,13 +41,12 @@ class TaskQueueViewer(QWidget):
     def addTaskToTable(self, task_id, description, status):
         rowPosition = self.tableWidget.rowCount()
         self.tableWidget.insertRow(rowPosition)
-        self.tableWidget.setItem(rowPosition, 0, QTableWidgetItem(task_id))
-        self.tableWidget.setItem(rowPosition, 1, QTableWidgetItem(description))
-        self.tableWidget.setItem(rowPosition, 2, QTableWidgetItem(status))
+        self.tableWidget.setItem(rowPosition, 0, QTableWidgetItem(description))
+        self.tableWidget.setItem(rowPosition, 1, QTableWidgetItem(status))
         # Create and add the Cancel button
         cancelButton = QPushButton("Cancel")
         cancelButton.clicked.connect(lambda: self.cancel_task(task_id))
-        self.tableWidget.setCellWidget(rowPosition, 3, cancelButton)
+        self.tableWidget.setCellWidget(rowPosition, 2, cancelButton)
     
     def cancel_task(self, task_id):
         logger.debug(f"Cancelling task {task_id}")

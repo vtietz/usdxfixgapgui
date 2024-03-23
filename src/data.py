@@ -26,6 +26,8 @@ class Config(QObject):
     adjust_player_position_step_audio = 100
     adjust_player_position_step_vocals = 10
 
+    spleeter = True
+
 class AppData(QObject):
 
     songs: Songs = Songs()

@@ -8,6 +8,18 @@ import shutil
 
 logger = logging.getLogger(__name__)
 
+def milliseconds_to_str(time = 0, with_milliseconds=False):
+        if time is None:
+            return ""
+        time = int(time)
+        minutes = time // 60000
+        seconds = (time % 60000) // 1000
+        milliseconds = time % 1000
+        if with_milliseconds:
+            return f'{minutes:02d}:{seconds:02d}:{milliseconds:03d}'
+        else:
+            return f'{minutes:02d}:{seconds:02d}'
+
 def get_audio_duration(audio_file, check_cancellation=None):
     """Get the duration of the audio file using ffprobe."""
     command = [
@@ -173,12 +185,11 @@ def detect_gap(
         check_cancellation=None):
 
     logger.info(f"Detecting gap for {audio_file}")
+    if not audio_file or not os.path.exists(audio_file):
+        raise FileNotFoundError(f"Audio file not found: {audio_file}")
 
     audio_length = get_audio_duration(audio_file)
     tmp_path = files.get_temp_path(tmp_root, audio_file)
-
-    if not os.path.exists(audio_file):
-        raise FileNotFoundError(f"Audio file not found: {audio_file}")
 
     # Calculate the maximum detection time (s), increasing it if necessary
     detection_time = default_detection_time

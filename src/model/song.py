@@ -19,6 +19,7 @@ class Song:
     gap: int = 0
     bpm: int = 0
     start: int = 0
+    length: str = ""
     is_relative: bool = False
 
     audio_waveform_file: str = ""
@@ -75,5 +76,7 @@ class Song:
     
     def __str__(self):
         return f"Song: {self.artist} - {self.title}"
-
-
+    
+    def delete(self):
+        files.delete_folder(self.path)
+    

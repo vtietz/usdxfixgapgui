@@ -9,6 +9,7 @@ class Songs(QObject):
     cleared = pyqtSignal()
     added = pyqtSignal(Song)
     updated = pyqtSignal(Song)
+    deleted = pyqtSignal(Song)
     error = pyqtSignal(Song, Exception)
     filterChanged = pyqtSignal()
 
@@ -24,6 +25,10 @@ class Songs(QObject):
     def add(self, song: Song):
         self.songs.append(song)
         self.added.emit(song)
+
+    def remove(self, song: Song):
+        self.songs.remove(song)
+        self.updated.emit(song)
 
     def __len__(self):
         return len(self.songs)
