@@ -16,8 +16,6 @@ import utils.files as files
 import utils.audio as audio
 import utils.usdx as usdx
 
-
-
 logger = logging.getLogger(__name__)
 
 class Actions(QObject):
@@ -57,26 +55,12 @@ class Actions(QObject):
         logger.debug(f"Selected {path}")
         song: Song = next((s for s in self.data.songs if s.path == path), None)
         if(song):
-            song.load_notes()
             self.data.selected_song = song
             self._create_waveforms(song)
-            self._load_audio_length(song)
 
     def loadingSongsFinished(self):
         self.data.is_loading_songs = False
         print("Loading songs finished.")
-
-    def extractVocals(self):
-        selectedSong: Song = self.data.selected_song
-        if not selectedSong:
-            print("No song selected")
-            return
-        audio_file = selectedSong.audio_file
-        destination_path = files.get_temp_path(self.data.tmp_folder, selectedSong.audio_file)
-        print(f"Extracting vocals from {audio_file} to {destination_path}")
-        selectedSong.status = SongStatus.QUEUED
-        worker = ExtractVocalsWorker(audio_file, destination_path, self.config.default_detection_time)
-        self.worker_queue.add_task(worker)
 
     def detect_gap(self, song: Song = None, start_now=False):
         if not song:
@@ -112,8 +96,6 @@ class Actions(QObject):
     
     def on_detect_gap_finished(self, song: Song, detected_gap: int):
         gap = song.gap
-        if(not song.notes):
-            song.load_notes()
         firstNoteOffset = usdx.get_gap_offset_according_firts_note(song.bpm, song.notes)
         detected_gap = detected_gap - firstNoteOffset
         if(song.start):
@@ -145,27 +127,12 @@ class Actions(QObject):
             self._create_waveform(song, song.vocals_file, song.vocals_waveform_file)
 
     def _create_waveform(self, song: Song, audio_file: str, waveform_file: str):
-        
-        logger.debug(f"Creating waveform creation task for '{audio_file}'")
 
-        bpm = song.bpm
-        notes = song.notes
-        gap = song.gap
-        detected_gap = song.info.detected_gap
-        song_title = f"{song.artist} - {song.title}"
-        duration_ms = audio.get_audio_duration(audio_file)
-        is_relative = song.is_relative
-        
+        logger.debug(f"Creating waveform creation task for '{audio_file}'")
         worker = CreateWaveform(
-            audio_file, 
-            duration_ms, 
-            waveform_file, 
-            song_title, 
-            notes, 
-            bpm, 
-            gap, 
-            detected_gap, 
-            is_relative,
+            song,
+            audio_file,
+            waveform_file,
             self.config.detected_gap_color,
             self.config.waveform_color
         )
@@ -226,18 +193,8 @@ class Actions(QObject):
             logger.error("No song selected")
             return
         logger.info(f"Reloading song {song.path}")
-        song.load()
-        song.load_notes()
-        self._load_audio_length(song)
+        song.reload()
         self._create_waveforms(song, True)
-
-    def _load_audio_length(self, song: Song):
-        if not song:
-            logger.error("No song")
-            return
-        length = audio.get_audio_duration(song.audio_file)
-        song.length = audio.milliseconds_to_str(length)
-        self.data.songs.updated.emit(song)
 
     def delete_selected_song(self):
         song: Song = self.data.selected_song

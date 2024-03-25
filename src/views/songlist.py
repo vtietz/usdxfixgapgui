@@ -79,7 +79,7 @@ class SongListView(QTableWidget):
             song.relative_path,
             song.artist,
             song.title,
-            song.length,
+            song.duration_str,
             str(song.bpm),
             str(song.gap),
             str(song.info.detected_gap),
@@ -114,7 +114,7 @@ class SongListView(QTableWidget):
                 # Update the row with new song details
                 self.item(row, 1).setText(updated_song.artist)
                 self.item(row, 2).setText(updated_song.title)
-                self.item(row, 3).setText(updated_song.length)
+                self.item(row, 3).setText(updated_song.duration_str)
                 self.item(row, 4).setText(str(updated_song.bpm))
                 self.item(row, 5).setText(str(updated_song.gap))
                 self.item(row, 6).setText(str(updated_song.info.detected_gap))
@@ -141,20 +141,22 @@ class SongListView(QTableWidget):
         self.updateSong(song)
 
     def updateFilter(self):
-        status = self.actions.data.songs.filter
-        textFilter = self.actions.data.songs.filter_text
+        selectedStatuses = self.actions.data.songs.filter  # This is now a list of selected statuses
+        textFilter = self.actions.data.songs.filter_text.lower()  # Convert filter text to lowercase for case-insensitive comparison
         selectedRow = self.currentRow()
         rowVisibilityChanged = False  # Flag to track if any row's visibility changed
-        textFilter = textFilter.lower()  # Convert filter text to lowercase for case-insensitive comparison
+
+        # If selectedStatuses is empty, it implies no filtering by status, so all should be shown
+        showAllStatuses = len(selectedStatuses) == 0
 
         # Iterate over all rows once to determine their visibility based on the filter criteria
         for row in range(self.rowCount()):
-            songStatus = self.item(row, 8).text()
+            songStatus = self.item(row, 8).text()  # Assuming column 8 is the song status
             artistName = self.item(row, 1).text().lower()  # Assuming column 1 is the artist name
             songTitle = self.item(row, 2).text().lower()  # Assuming column 2 is the song title
 
-            # Check for status filter
-            statusMatch = status == SongStatus.ALL or status.value == songStatus
+            # Check for status filter. If showAllStatuses is True, ignore status filtering
+            statusMatch = showAllStatuses or songStatus in selectedStatuses
 
             # Check for text filter match in either artist name or song title
             textMatch = textFilter in artistName or textFilter in songTitle

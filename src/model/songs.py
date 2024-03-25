@@ -13,7 +13,7 @@ class Songs(QObject):
     error = pyqtSignal(Song, Exception)
     filterChanged = pyqtSignal()
 
-    _filter: SongStatus = SongStatus.ALL
+    _filter: list[SongStatus] = []
     _filter_text: str = ""
     
     songs: List[Song] = []

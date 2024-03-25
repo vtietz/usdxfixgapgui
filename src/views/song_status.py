@@ -28,6 +28,8 @@ class SongsStatusVisualizer(QWidget):
         # Connect signals
         self.songs.added.connect(self.update_visualization)
         self.songs.updated.connect(self.update_visualization)
+        self.songs.deleted.connect(self.update_visualization)
+        self.songs.cleared.connect(self.update_visualization)
 
     def update_visualization(self):
         counts = self.calculate_status_counts()
@@ -40,8 +42,6 @@ class SongsStatusVisualizer(QWidget):
             return
 
         for status in SongStatus:
-            if status == SongStatus.ALL:
-                continue  # Skip the ALL category
 
             count = counts.get(status, 0)
             proportion = (count / total_songs) if total_songs > 0 else 0

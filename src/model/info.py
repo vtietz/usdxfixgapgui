@@ -5,7 +5,6 @@ import os
 from enum import Enum
 
 class SongStatus(Enum):
-  ALL = 'ALL'
   NOT_PROCESSED = 'NOT_PROCESSED'
   QUEUED = 'QUEUED'
   PROCESSING = 'PROCESSING'
@@ -77,7 +76,6 @@ class Info:
             'QUEUED': SongStatus.QUEUED,
             'PROCESSING': SongStatus.PROCESSING,
             'SOLVED': SongStatus.SOLVED,
-            'ALL': SongStatus.ALL
         }
         return status_map.get(status_string, None)
     

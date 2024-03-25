@@ -11,6 +11,8 @@ def extract_tags(file_path):
             for line in file:
                 if line.startswith('#GAP:'):
                     value = line.split(':')[1].strip()
+                    # remove all numbers after "," or "."
+                    value = value.split(",")[0].split(".")[0] 
                     tags['GAP'] = int(value) if value else None
                 elif line.startswith('#TITLE:'):
                     tags['TITLE'] = line.split(':')[1].strip()                

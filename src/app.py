@@ -54,6 +54,8 @@ window.setLayout(layout)
 
 logger.debug("Runtime Qt version: %s", qVersion())
 logger.debug(f"Compile-time Qt version: {QT_VERSION_STR}")
+logger.debug(f"Python Executable: {sys.executable}")
+logger.debug(f"PYTHONPATH: {sys.path}")
 
 # Example usage
 dependencies = [

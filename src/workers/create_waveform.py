@@ -1,5 +1,7 @@
+from model.song import Song
 import utils.waveform as waveform
 from utils.worker_queue_manager import IWorker, IWorkerSignals
+import utils.audio as audio
 
 class CreateWaveform(IWorker):
         
@@ -7,32 +9,20 @@ class CreateWaveform(IWorker):
      
     def __init__(
             self, 
-            audio_file, 
-            duration_ms, 
-            waveform_file, 
-            song_title, 
-            notes, 
-            bpm, 
-            gap, 
-            detected_gap, 
-            is_relative,
+            song,
+            audio_file,
+            waveform_file,
             detected_gap_color = "blue",
             waveform_color = "gray"
             ):
         super().__init__()
+        self.song = song
         self.audio_file = audio_file
-        self.duration_ms = duration_ms
         self.waveform_file = waveform_file
-        self.song_title = song_title
-        self.notes = notes
-        self.bpm = bpm
-        self.gap = gap
-        self.detected_gap = detected_gap
-        self.is_relative = is_relative
         self.detected_gap_color = detected_gap_color
         self.waveform_color = waveform_color
         self._isCancelled = False
-        self.description = f"Creating waveform for {audio_file}."
+        self.description = f"Creating waveform for {song.audio_file}."
 
     def run(self):
         try:
@@ -50,15 +40,19 @@ class CreateWaveform(IWorker):
 
     def _create_waveform(self):
         
+        song: Song = self.song
         audio_file = self.audio_file
-        duration_ms = self.duration_ms
+
+        duration_ms = audio.get_audio_duration(audio_file)
+
         waveform_file = self.waveform_file
-        song_title = self.song_title
-        notes = self.notes
-        bpm = self.bpm
-        gap = self.gap
-        detected_gap = self.detected_gap
-        is_relative = self.is_relative
+        title = f"{song.artist} - {song.title}"
+
+        notes = song.notes
+        bpm = song.bpm
+        gap = song.gap
+        detected_gap = song.info.detected_gap
+        is_relative = song.is_relative
         detected_gap_color = self.detected_gap_color
         waveform_color = self.waveform_color
 
@@ -67,4 +61,4 @@ class CreateWaveform(IWorker):
         if detected_gap:
             waveform.draw_gap(waveform_file, detected_gap, duration_ms, detected_gap_color)
         waveform.draw_notes(waveform_file, notes, bpm, gap, duration_ms, waveform_color, is_relative)
-        waveform.draw_title(waveform_file, song_title, waveform_color)
+        waveform.draw_title(waveform_file, title, waveform_color)
