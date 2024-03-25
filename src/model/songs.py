@@ -3,6 +3,7 @@ from typing import List
 from PyQt6.QtCore import QObject, pyqtSignal
 from model.info import SongStatus
 from model.song import Song
+from typing import List
 
 class Songs(QObject):
     
@@ -13,7 +14,7 @@ class Songs(QObject):
     error = pyqtSignal(Song, Exception)
     filterChanged = pyqtSignal()
 
-    _filter: list[SongStatus] = []
+    _filter: List[SongStatus] = []
     _filter_text: str = ""
     
     songs: List[Song] = []

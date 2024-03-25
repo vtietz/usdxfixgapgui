@@ -2,6 +2,10 @@ from model.song import Song
 import utils.waveform as waveform
 from utils.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
+import logging
+import traceback
+
+logger = logging.getLogger(__name__)
 
 class CreateWaveform(IWorker):
         
@@ -29,6 +33,8 @@ class CreateWaveform(IWorker):
             self._create_waveform()
             self.signals.finished.emit()
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            logger.error(f"Error creating waveform: {e}\nStack trace:\n{stack_trace}")
             self.signals.error.emit((e,))
 
     def cancel(self):

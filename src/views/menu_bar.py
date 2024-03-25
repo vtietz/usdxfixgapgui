@@ -55,6 +55,11 @@ class MenuBar(QWidget):
         self.reload_button.clicked.connect(lambda: actions.reload_song())
         self.layout.addWidget(self.reload_button)
 
+        # Normalize song
+        self.normalize_button = QPushButton("Normalize Song")
+        self.normalize_button.clicked.connect(lambda: actions.normalize_song())
+        self.layout.addWidget(self.normalize_button)
+
         # Delete song
         self.delete_button = QPushButton("Delete Song")
         self.delete_button.clicked.connect(self.onDeleteButtonClicked)

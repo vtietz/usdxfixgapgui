@@ -1,6 +1,7 @@
 import hashlib
 import os
 from typing import Any, Dict
+import chardet
 
 IGNORE_FILE="usdxfixgap.ignore"
 INFO_FILE="usdxfixgap.info"

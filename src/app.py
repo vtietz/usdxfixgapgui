@@ -1,5 +1,4 @@
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout
-from PyQt6.QtCore import QObject, QEvent, Qt
 from PyQt6.QtCore import QT_VERSION_STR, qVersion
 import sys
 from actions import Actions

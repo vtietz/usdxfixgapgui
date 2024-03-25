@@ -34,11 +34,11 @@ def get_audio_duration(audio_file, check_cancellation=None):
         duration = stdout.strip()
         return float(duration) * 1000  # Convert to milliseconds
     else:
-        print(f"Error getting duration of {audio_file}: {stderr}", file=sys.stderr)
+        logger.error(f"Error getting duration of {audio_file}: {stderr}")
         return None
 
 def normalize_audio(audio_file, check_cancellation=None):
-    print(f"Normalizing {audio_file}...")
+    logger.debug(f"Normalizing {audio_file}...")
 
     if(not os.path.exists(audio_file)):
         raise Exception(f"Audio file not found: {audio_file}")
@@ -46,8 +46,8 @@ def normalize_audio(audio_file, check_cancellation=None):
     temp_dir = os.path.dirname(audio_file)
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='_normalized.wav', dir=temp_dir).name
     
-    print(f"Temp dir: {temp_dir}")
-    print(f"Temp file: {temp_file}")
+    logger.debug(f"Temp dir: {temp_dir}")
+    logger.debug(f"Temp file: {temp_file}")
 
     command = ["ffmpeg-normalize", audio_file, "-o", temp_file, "-f", "-nt", "peak", "-t", "0"]
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
@@ -62,7 +62,7 @@ def normalize_audio(audio_file, check_cancellation=None):
         os.remove(temp_file)  # Cleanup the temporary file if normalization failed
         raise Exception(f"Failed to normalize {audio_file}. Error: {stderr}")
 
-    print(f"Normalization completed for {audio_file}")
+    logger.debug(f"Normalization completed for {audio_file}")
     return audio_file
 
 
@@ -110,13 +110,12 @@ def extract_vocals_with_spleeter(audio_file, output_path, max_detection_time=Non
     filename_without_extension = os.path.splitext(os.path.basename(audio_file))[0]
     spleeter_vocals_file = os.path.join(output_path, filename_without_extension, "vocals.wav")
 
-    print(f"Extracting vocals from {audio_file} to {output_path}...")
+    logger.debug(f"Extracting vocals from {audio_file} to {output_path}...")
 
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
 
     command = ["spleeter", "separate", "-o", output_path, "-p", "spleeter:2stems", "-d", str(max_detection_time), audio_file]
-    print(check_cancellation)
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
 
     if not os.path.exists(spleeter_vocals_file):
@@ -126,7 +125,7 @@ def extract_vocals_with_spleeter(audio_file, output_path, max_detection_time=Non
     if os.path.exists(accompaniment_path):
         os.remove(accompaniment_path)
 
-    print(f"Vocals extracted to {spleeter_vocals_file}")
+    logger.debug(f"Vocals extracted to {spleeter_vocals_file}")
     return spleeter_vocals_file
 
 
@@ -139,7 +138,7 @@ def get_vocals_file(
         check_cancellation=None
     ):
 
-    print(f"Performing detection for {audio_file}...")
+    logger.debug(f"Performing detection for {audio_file}...")
     
     if audio_file is None or os.path.exists(audio_file) is False:
         raise Exception(f"Audio file not found: {audio_file}")
@@ -149,7 +148,7 @@ def get_vocals_file(
     output_path = os.path.join(temp_root, "spleeter")
 
     if not overwrite and os.path.exists(vocals_file):
-        print(f"Vocals already exists: '{vocals_file}'")
+        logger.info(f"Vocals already exists: '{vocals_file}'")
         return vocals_file
 
     # Extract vocals from the audio file
@@ -165,7 +164,7 @@ def get_vocals_file(
     # Remove the temporary directory
     shutil.rmtree(output_path)
 
-    print(f"Vocals extracted to {destination_vocals_file}")
+    logger.debug(f"Vocals extracted to {destination_vocals_file}")
 
     # Normalize the extracted vocals
     vocals_file = normalize_audio(destination_vocals_file, check_cancellation)

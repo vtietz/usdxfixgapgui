@@ -7,7 +7,7 @@ from model.song import Song
 from utils import files
 from utils.worker_queue_manager import WorkerQueueManager
 from workers.detect_gap import DetectGapWorker
-from workers.extract_vocals import ExtractVocalsWorker
+from workers.normalize_audio import NormalizeAudioWorker
 from workers.loading_songs import LoadSongsWorker
 from workers.create_waveform import CreateWaveform
 from model.song import Song
@@ -70,7 +70,9 @@ class Actions(QObject):
 
         audio_file = song.audio_file
         bpm = song.bpm
-        gap = song.gap + (song.start * 1000)
+        gap = song.gap
+        if(song.start):
+            gap = gap + (song.start * 1000)
         default_detection_time = self.config.default_detection_time
 
         worker = DetectGapWorker(
@@ -96,7 +98,7 @@ class Actions(QObject):
     
     def on_detect_gap_finished(self, song: Song, detected_gap: int):
         gap = song.gap
-        firstNoteOffset = usdx.get_gap_offset_according_firts_note(song.bpm, song.notes)
+        firstNoteOffset = usdx.get_gap_offset_according_first_note(song.bpm, song.notes)
         detected_gap = detected_gap - firstNoteOffset
         if(song.start):
             detected_gap = detected_gap - song.start
@@ -142,7 +144,7 @@ class Actions(QObject):
     def update_gap_value(self, song: Song, gap: int):
         if not song: return
         song.gap = gap
-        usdx.update_gap(song.txt_file, song.gap)  
+        song.file.write_gap_tag(gap)
         song.info.status = SongStatus.UPDATED
         song.info.updated_gap = gap
         song.info.save()
@@ -152,7 +154,7 @@ class Actions(QObject):
     def revert_gap_value(self, song: Song):
         if not song: return
         song.gap = song.info.original_gap
-        usdx.update_gap(song.txt_file, song.gap)  
+        song.file.write_gap_tag(song.gap)
         song.info.save()
         self._create_waveforms(song, True)
         self.data.songs.updated.emit(song)
@@ -205,3 +207,17 @@ class Actions(QObject):
         self.data.songs.remove(song)
         self.data.songs.deleted.emit(song)
         song.delete()
+
+    def normalize_song(self):
+        song: Song = self.data.selected_song
+        if not song:
+            logger.error("No song selected")
+            return
+        logger.info(f"Normalizing song {song.path}")
+        worker = NormalizeAudioWorker(song)
+        worker.signals.started.connect(lambda: self.on_song_worker_started(song))
+        worker.signals.error.connect(lambda: self.on_song_worker_error(song))
+        worker.signals.finished.connect(lambda: self.data.songs.updated.emit(song))
+        worker.signals.finished.connect(lambda: self._create_waveforms(song, True))
+        self.worker_queue.add_task(worker, True)
+        

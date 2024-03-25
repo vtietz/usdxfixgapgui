@@ -2,8 +2,11 @@
 import logging
 import os
 import subprocess
+from typing import List
 
 from PIL import Image, ImageDraw, ImageFont
+
+from utils.usdx_file import Note
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +76,14 @@ def draw_gap(image_path, detected_gap_ms, duration_ms, line_color="red"):
     # Save the annotated image
     image.save(image_path)
 
-def calculate_note_position(start_beat, bpm, gap, duration_ms, image_width, is_relative):
+def calculate_note_position(
+        start_beat: float, 
+        bpm: float, 
+        gap: int, 
+        duration_ms: int, 
+        image_width: int, 
+        is_relative: bool=False
+    ):
     """
     Calculates the pixel position of a note on the image.
 
@@ -103,14 +113,25 @@ def calculate_note_position(start_beat, bpm, gap, duration_ms, image_width, is_r
 
     return position_x
 
-#def calculate_note_position(beat, bpm, gap, duration_ms, image_width, is_relative=False):
-#    beat_duration_ms = (60 / bpm) * 1000
-#    time_ms = beat * beat_duration_ms + (0 if is_relative else gap)
-#    pixels_per_ms = image_width / duration_ms
-#    position_x = time_ms * pixels_per_ms
-#    return position_x
 
-def draw_notes(image_path, notes, bpm, gap, duration_ms, color, is_relative=False):
+
+def map_pitch_to_vertical_position(pitch, min_pitch, max_pitch, image_height):
+    """Map a pitch value to a vertical position around the middle of the image."""
+    pitch_range = max_pitch - min_pitch
+    if pitch_range == 0:  # Avoid division by zero
+        return image_height / 2
+    normalized_pitch = (pitch - min_pitch) / pitch_range  # Normalize pitch to 0-1 range
+    return (1 - normalized_pitch) * image_height / 2 + image_height / 4
+
+
+def draw_notes(
+        image_path: str, 
+        notes: List[Note], 
+        bpm: int, 
+        gap: int, 
+        duration_ms: int, 
+        color: str,
+        is_relative: bool=False):
     """
     Annotates a waveform image with notes, adjusting vertical position by pitch and drawing a line for duration.
 
@@ -131,18 +152,16 @@ def draw_notes(image_path, notes, bpm, gap, duration_ms, color, is_relative=Fals
     draw = ImageDraw.Draw(image)
     image_width, image_height = image.size
 
-    for note in notes:
-        start_position_x = calculate_note_position(note['StartBeat'], bpm, gap, duration_ms, image_width, is_relative)
-        end_position_x = calculate_note_position(note['StartBeat'] + note['Length'], bpm, gap, duration_ms, image_width, is_relative)
-        
-        # Adjust vertical position based on pitch
-        pitch_range = 60  # Assuming pitch values range from 0 to 60
-        vertical_position = (1 - (note['Pitch'] / pitch_range)) * (image_height / 2)
-        
-        # Draw the text of the note
-        draw.text((start_position_x, vertical_position + 12), note['Text'], fill=color)
+    min_pitch = min(note.Pitch for note in notes)
+    max_pitch = max(note.Pitch for note in notes)
 
-        # Draw a line with 5px height representing the note duration
+    for note in notes:
+        start_position_x = calculate_note_position(note.StartBeat, bpm, gap, duration_ms, image_width, is_relative)
+        end_position_x = calculate_note_position(note.StartBeat + note.Length, bpm, gap, duration_ms, image_width, is_relative)
+
+        vertical_position = map_pitch_to_vertical_position(note.Pitch, min_pitch, max_pitch, image_height / 2) + (image_height / 4)
+        draw.text((start_position_x, vertical_position + 12), note.Text, fill=color)
+
         line_height = 5
         draw.rectangle([start_position_x, vertical_position - line_height / 2, end_position_x, vertical_position + line_height / 2], fill=color)
 

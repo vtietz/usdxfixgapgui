@@ -1,94 +1,25 @@
 
-import os
+import logging
+from typing import List
+from utils.usdx_file import Note
 
-
-def extract_tags(file_path):
-    """Extract #GAP, #MP3, #BPM, and #RELATIVE values from the given file."""
-    print(f"Extracting tags from {file_path}...")
-    tags = {'TITLE': None, 'ARTIST' : None, 'GAP': None, 'MP3': None, 'BPM': None, 'RELATIVE': None}
-    try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            for line in file:
-                if line.startswith('#GAP:'):
-                    value = line.split(':')[1].strip()
-                    # remove all numbers after "," or "."
-                    value = value.split(",")[0].split(".")[0] 
-                    tags['GAP'] = int(value) if value else None
-                elif line.startswith('#TITLE:'):
-                    tags['TITLE'] = line.split(':')[1].strip()                
-                elif line.startswith('#ARTIST:'):
-                    tags['ARTIST'] = line.split(':')[1].strip()
-                elif line.startswith('#MP3:'):
-                    tags['AUDIO'] = line.split(':')[1].strip()
-                elif line.startswith('#AUDIO:'):
-                    tags['AUDIO'] = line.split(':')[1].strip()
-                elif line.startswith('#BPM:'):
-                    value = line.split(':')[1].strip()
-                    tags['BPM'] = float(value) if value else None
-                elif line.startswith('#RELATIVE:'):
-                    value = line.split(':')[1].strip()
-                    tags['RELATIVE'] = value.lower() == "yes" if value else None
-    except Exception as e:
-        print(f"Error reading {file_path}: {e}")
-    return tags
-
-def update_gap(file_path, gap):
-    """Update the GAP value in the given file."""
-    with open(file_path, 'r', encoding='utf-8') as file:
-        lines = file.readlines()
-    with open(file_path, 'w', encoding='utf-8') as file:
-        for line in lines:
-            if line.startswith('#GAP:'):
-                file.write(f"#GAP:{gap}\n")
-            else:
-                file.write(line)
+logger = logging.getLogger(__name__)
                 
-
-def parse_notes(file_path):
-    """
-    Parses notes from a given text file, starting after the first line that begins with '#'.
-
-    :param file_path: Path to the text file containing the notes.
-    :return: A list of dictionaries, each representing a note.
-    """
-    print(f"Parsing notes from {file_path}...")
-    notes = []
-    start_parsing = False  # Flag to indicate when to start parsing notes
-    try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            for line in file:
-                if line.startswith('#'):
-                    start_parsing = True  # Start parsing notes after this line
-                    continue
-                if start_parsing and line.strip() and not line.startswith('#'):
-                    parts = line.strip().split()
-                    if len(parts) >= 5 and parts[0] in {':', '*', 'R', '-', 'F', 'G'}:
-                        note = {
-                            'NoteType': parts[0],
-                            'StartBeat': int(parts[1]),
-                            'Length': int(parts[2]),
-                            'Pitch': int(parts[3]),
-                            'Text': ' '.join(parts[4:])
-                        }
-                        notes.append(note)
-    except Exception as e:
-        print(f"Error reading {file_path}: {e}")
-    return notes
-
-def get_gap_offset_according_firts_note(bpm, notes):
-    start_beat = notes[0]['StartBeat']
+def get_gap_offset_according_first_note(bpm: int, notes: List[Note]):
+    print(notes)
+    start_beat = notes[0].StartBeat
     if start_beat == 0:
         return 0
     position_ms = start_beat / bpm
     return (int)(position_ms)
 
-def get_syllaby_at_position(notes, position):
+def get_syllaby_at_position(notes: List[Note], position: int):
     for note in notes:
-        if note['StartBeat'] == position:
-            return note['Text']
+        if note.StartBeat == position:
+            return note.Text
     return None
 
-def get_syllable(notes, position_ms, bpm, gap, is_relative=False):
+def get_syllable(notes: List[Note], position_ms: int, bpm: int, gap: int, is_relative=False):
     """
     Finds the current syllable being sung at a given position in the song, considering Ultrastar's quarter note interpretation.
 
@@ -106,12 +37,14 @@ def get_syllable(notes, position_ms, bpm, gap, is_relative=False):
     position_beats = (position_ms - gap) * beats_per_ms if not is_relative else (position_ms * beats_per_ms)
 
     for note in notes:
-        start_beat = note['StartBeat']
-        end_beat = start_beat + note['Length']
+        start_beat = note.StartBeat
+        end_beat = start_beat + note.Length
         
         if start_beat <= position_beats < end_beat:
             #print(f"start_beat: {start_beat} - position_beats: {position_beats} - end_beat: {end_beat} - note: {note['Text']}")
-            return note['Text']  # Return the text of the current syllable
+            return note.Text  # Return the text of the current syllable
 
     # If no note matches the current position
     return None
+
+
