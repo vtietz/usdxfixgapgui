@@ -1,4 +1,5 @@
 import logging
+import traceback
 from PyQt6.QtCore import QObject, QThreadPool, pyqtSignal, QRunnable
 from enum import Enum
 
@@ -139,8 +140,9 @@ class WorkerQueueManager(QObject):
             self.cancel_task(task_id)
         self.on_task_list_changed.emit()
 
-    def on_task_error(self, task_id, error_info):
-        logger.error(f"Task {task_id} error: {error_info[0]}")
+    def on_task_error(self, task_id, e):
+        stack_trace = traceback.format_exc()
+        logger.error(f"Error executing task: {e}\nStack trace:\n{stack_trace}")
         self.on_task_finished(task_id)
 
     def on_task_canceled(self, task_id):

@@ -5,8 +5,7 @@ from actions import Actions
 import logging
 
 from data import Config
-from model.info import Info, SongStatus
-from model.song import Song
+from model.song import Song, SongStatus
 from views.multi_select_box import MultiSelectComboBox
 
 logger = logging.getLogger(__name__)
@@ -37,7 +36,8 @@ class MenuBar(QWidget):
 
         # Detect Button
         self.detectButton = QPushButton("Detect Gap")
-        self.detectButton.clicked.connect(self.detectClicked.emit)
+        #self.detectButton.clicked.connect(self.detectClicked.emit)
+        self.detectButton.clicked.connect(lambda: actions.detect_gap())
         self.layout.addWidget(self.detectButton)
 
         # Open song folder
@@ -82,7 +82,6 @@ class MenuBar(QWidget):
 
         self.loadSongsClicked.connect(lambda: actions.choose_directory())
         self.extractVocalsClicked.connect(lambda: actions.extractVocals())
-        self.detectClicked.connect(lambda: actions.detect_gap())
 
         self.actions.data.selected_song_changed.connect(self.onSelectedSongChanged)
 
@@ -113,6 +112,7 @@ class MenuBar(QWidget):
         self.detectButton.setEnabled(True if song and song.audio_file and self.config.spleeter else False)
         self.reload_button.setEnabled(True if song and song.path else False)
         self.delete_button.setEnabled(True if song and song.path else False)
+        self.normalize_button.setEnabled(True if song and song.audio_file else False)
 
     def choose_directory(self):
         directory = QFileDialog.getExistingDirectory(

@@ -1,8 +1,7 @@
 
 from typing import List
 from PyQt6.QtCore import QObject, pyqtSignal
-from model.info import SongStatus
-from model.song import Song
+from model.song import Song, SongStatus
 from typing import List
 
 class Songs(QObject):

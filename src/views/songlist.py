@@ -2,7 +2,6 @@ from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QVBoxLayout, QPushBu
 from PyQt6.QtCore import pyqtSignal, Qt
 
 from actions import Actions
-from model.info import SongStatus
 from model.song import Song
 from model.songs import Songs
 
@@ -82,9 +81,9 @@ class SongListView(QTableWidget):
             song.duration_str,
             str(song.bpm),
             str(song.gap),
-            str(song.info.detected_gap),
-            str(song.info.diff),
-            song.info.status.name  # Assuming you want to display the name of the status
+            str(song.gap_info.detected_gap),
+            str(song.gap_info.diff),
+            song.status.name  # Assuming you want to display the name of the status
         ]):
             item = QTableWidgetItem(value)
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # Disable editing
@@ -117,9 +116,9 @@ class SongListView(QTableWidget):
                 self.item(row, 3).setText(updated_song.duration_str)
                 self.item(row, 4).setText(str(updated_song.bpm))
                 self.item(row, 5).setText(str(updated_song.gap))
-                self.item(row, 6).setText(str(updated_song.info.detected_gap))
-                self.item(row, 7).setText(str(updated_song.info.diff))
-                self.item(row, 8).setText(updated_song.info.status.value)
+                self.item(row, 6).setText(str(updated_song.gap_info.detected_gap))
+                self.item(row, 7).setText(str(updated_song.gap_info.diff))
+                self.item(row, 8).setText(updated_song.status.value)
                 # Update the stored Song object in case any other song attributes are used elsewhere
                 item.setData(Qt.ItemDataRole.UserRole, updated_song)
                 break  # Exit the loop once the song is found and updated

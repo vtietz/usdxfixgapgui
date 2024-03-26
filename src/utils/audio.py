@@ -37,7 +37,8 @@ def get_audio_duration(audio_file, check_cancellation=None):
         logger.error(f"Error getting duration of {audio_file}: {stderr}")
         return None
 
-def normalize_audio(audio_file, check_cancellation=None):
+def normalize_audio(audio_file, target_level=0, check_cancellation=None):
+    """Normalize the audio file to the target level. Default seetings are equal to USDB Syncher."""
     logger.debug(f"Normalizing {audio_file}...")
 
     if(not os.path.exists(audio_file)):
@@ -49,7 +50,15 @@ def normalize_audio(audio_file, check_cancellation=None):
     logger.debug(f"Temp dir: {temp_dir}")
     logger.debug(f"Temp file: {temp_file}")
 
-    command = ["ffmpeg-normalize", audio_file, "-o", temp_file, "-f", "-nt", "peak", "-t", "0"]
+    command = [
+        "ffmpeg-normalize", 
+        audio_file, 
+        "-o", temp_file, 
+        "-f", 
+        "-nt", "ebu", 
+        "-t", str(target_level),
+        "-lrt", "7",
+        "-tp", "-2"]
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
 
     print(f"R: {returncode}")
@@ -167,7 +176,7 @@ def get_vocals_file(
     logger.debug(f"Vocals extracted to {destination_vocals_file}")
 
     # Normalize the extracted vocals
-    vocals_file = normalize_audio(destination_vocals_file, check_cancellation)
+    vocals_file = normalize_audio(destination_vocals_file, target_level=0, check_cancellation=check_cancellation)
 
     # Convert the normalized vocals to MP3
     vocals_file = convert_to_mp3(destination_vocals_file, check_cancellation)

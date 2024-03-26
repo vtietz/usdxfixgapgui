@@ -1,6 +1,4 @@
 from PyQt6.QtCore import pyqtSignal
-from data import Config
-from model.song import Song
 from utils.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
 

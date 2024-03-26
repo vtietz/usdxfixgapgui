@@ -1,8 +1,12 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import traceback
 from PyQt6.QtCore import pyqtSignal
 from utils.worker_queue_manager import IWorker, IWorkerSignals
 from model.song import Song
+import logging
+
+logger = logging.getLogger(__name__)
 
 class WorkerSignals(IWorkerSignals):
     songLoaded = pyqtSignal(Song)  
@@ -27,7 +31,9 @@ class LoadSongsWorker(IWorker):
             song.usdb_id = self.path_usdb_id_map.get(song.path, None)
             self.signals.songLoaded.emit(song)
         except Exception as e:
-            self.signals.error.emit((str(e),))
+            stack_trace = traceback.format_exc()
+            logger.error(f"Error creating waveform: {e}\nStack trace:\n{stack_trace}")           
+            self.signals.error.emit((e,))
 
     def run(self):
         print(f"Starting to load songs from {self.directory}")

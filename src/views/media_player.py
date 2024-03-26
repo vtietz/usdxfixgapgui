@@ -8,12 +8,10 @@ from PyQt6.QtGui import QPainter, QPen, QPixmap
 
 from actions import Actions
 from data import AppData, Config
-from model.info import SongStatus
-from model.song import Song
+from model.song import Song, SongStatus
 
 import utils.usdx as usdx
 import utils.audio as audio
-
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +209,7 @@ class MediaPlayerComponent(QWidget):
         self._actions.keep_gap_value(self._song)
 
     def on_save_detected_gap_btn_clicked(self):
-        self._actions.update_gap_value(self._song, self._song.info.detected_gap)
+        self._actions.update_gap_value(self._song, self._song.gap_info.detected_gap)
 
     def on_song_changed(self, song: Song):
         logger.debug(f"Song changed: {song}")
@@ -253,18 +251,18 @@ class MediaPlayerComponent(QWidget):
 
     def update_button_states(self):
         song = self._song
-        is_enabled = song is not None and not (song.info.status == SongStatus.PROCESSING)
+        is_enabled = song is not None and not (song.status == SongStatus.PROCESSING)
         self.save_current_play_position_btn.setEnabled(is_enabled and self._play_position > 0)
-        self.save_detected_gap_btn.setEnabled(is_enabled and song.info.detected_gap > 0)
+        self.save_detected_gap_btn.setEnabled(is_enabled and song.gap_info.detected_gap > 0)
         self.keep_original_gap_btn.setEnabled(is_enabled)
         self.play_btn.setEnabled(is_enabled and self._media_is_loaded or self._is_playing)
         self.vocals_btn.setEnabled(is_enabled)
         self.audio_btn.setEnabled(is_enabled)
-        self.revert_btn.setEnabled(is_enabled and song.gap != song.info.original_gap)
+        self.revert_btn.setEnabled(is_enabled and song.gap != song.gap_info.original_gap)
         if song:
-            self.save_detected_gap_btn.setText(f"Save detected gap ({song.info.detected_gap} ms)")
+            self.save_detected_gap_btn.setText(f"Save detected gap ({song.gap_info.detected_gap} ms)")
             self.keep_original_gap_btn.setText(f"Keep gap ({song.gap} ms)")
-            self.revert_btn.setText(f"Revert gap ({song.info.original_gap} ms)")
+            self.revert_btn.setText(f"Revert gap ({song.gap_info.original_gap} ms)")
         else:
             self.save_detected_gap_btn.setText(f"Save detected gap (0 ms)")
             self.keep_original_gap_btn.setText(f"Save gap (0 ms)")
@@ -276,7 +274,7 @@ class MediaPlayerComponent(QWidget):
 
     def update_player_files(self):
         song = self._song
-        if(not song or song.info.status == SongStatus.PROCESSING): 
+        if(not song or song.status == SongStatus.PROCESSING): 
             self.load_media(None)
             self.load_waveform(None)
             return
@@ -289,7 +287,7 @@ class MediaPlayerComponent(QWidget):
 
     def update_syllable_label(self, position):
         song = self._song
-        if(not song or song.info.status == SongStatus.PROCESSING):
+        if(not song or song.status == SongStatus.PROCESSING):
             self.syllable_label.setText("")
             return
         syllable = usdx.get_syllable(song.notes, position, song.bpm, song.gap)

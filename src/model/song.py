@@ -1,10 +1,21 @@
 
+from enum import Enum
 import os
-from model.info import Info, SongStatus
+from model.gap_info import GapInfo, GapInfoStatus
 import utils.files as files
-import utils.usdx as usdx
 import utils.audio as audio
 from utils.usdx_file import USDXFile
+
+
+class SongStatus(Enum):
+    NOT_PROCESSED = 'NOT_PROCESSED'
+    QUEUED = 'QUEUED'
+    PROCESSING = 'PROCESSING'
+    ERROR = 'ERROR'
+    SOLVED = 'SOLVED'
+    UPDATED = 'UPDATED'
+    MATCH = 'MATCH'
+    MISMATCH = 'MISMATCH'
 
 class Song:
 
@@ -32,7 +43,10 @@ class Song:
     vocals_file: str = ""
     vocals_waveform_file: str = ""
 
-    _info: Info = None
+    gap_info: GapInfo = None
+    
+    status: SongStatus = SongStatus.NOT_PROCESSED
+
     notes: list = []
 
     file: USDXFile = None
@@ -71,18 +85,20 @@ class Song:
         self.audio_waveform_file = files.get_waveform_path(tmp_path, "audio")
         self.vocals_waveform_file = files.get_waveform_path(tmp_path, "vocals")
 
+        gap_info_file = files.get_info_file_path(self.path)
+        gap_info = GapInfo(gap_info_file)
+        gap_info.load()
+        if(not gap_info.original_gap):
+            gap_info.original_gap = self.gap
+        self.gap_info = gap_info
+        self.update_status_from_gap_info()
+
     def _load_duration(self):
         self._duration_ms=audio.get_audio_duration(self.audio_file)
     
     def __str__(self):
         return f"Song {self.artist} - {self.title} - {self.file.tags}"
     
-    def reload(self):
-        self._info = None
-        self._notes = []
-        self._duration_ms = 0
-        self.load()
-
     def delete(self):
         files.delete_folder(self.path)
 
@@ -98,16 +114,28 @@ class Song:
             self._load_duration()
         return self._duration_ms
     
-    @property
-    def info(self):
+    def load_info(self):
         if not self._info:
             info_file = files.get_info_file_path(self.path)
-            self._info = Info(info_file)
+            self._info = GapInfo(info_file)
             if not os.path.exists(info_file):
-                self._info.status = SongStatus.NOT_PROCESSED
+                self._info.status = SongStatus.NOT_PROCESSED.value,
                 self._info.original_gap = self.gap
             else:
                 self._info.load()
         return self._info
 
+
+    def update_status_from_gap_info(self):
+        info = self.gap_info
+        if info.status == GapInfoStatus.MATCH:
+            self.status = SongStatus.MATCH
+        elif info.status == GapInfoStatus.MISMATCH:
+            self.status = SongStatus.MISMATCH
+        elif info.status == GapInfoStatus.ERROR:
+            self.status = SongStatus.ERROR
+        elif info.status == GapInfoStatus.UPDATED:
+            self.status = SongStatus.UPDATED
+        else:
+            self.status = SongStatus.NOT_PROCESSED
     

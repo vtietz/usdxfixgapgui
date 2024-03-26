@@ -57,7 +57,7 @@ class CreateWaveform(IWorker):
         notes = song.notes
         bpm = song.bpm
         gap = song.gap
-        detected_gap = song.info.detected_gap
+        detected_gap = song.gap_info.detected_gap
         is_relative = song.is_relative
         detected_gap_color = self.detected_gap_color
         waveform_color = self.waveform_color

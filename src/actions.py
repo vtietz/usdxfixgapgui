@@ -10,10 +10,9 @@ from workers.detect_gap import DetectGapWorker
 from workers.normalize_audio import NormalizeAudioWorker
 from workers.loading_songs import LoadSongsWorker
 from workers.create_waveform import CreateWaveform
-from model.song import Song
-from model.info import SongStatus
+from model.song import Song, SongStatus
+from model.gap_info import GapInfoStatus
 import utils.files as files
-import utils.audio as audio
 import utils.usdx as usdx
 
 logger = logging.getLogger(__name__)
@@ -81,19 +80,19 @@ class Actions(QObject):
             bpm, 
             gap, 
             default_detection_time, 
-            False)
+            True)
         
         worker.signals.started.connect(lambda: self.on_song_worker_started(song))
         worker.signals.error.connect(lambda: self.on_song_worker_error(song))
         worker.signals.finished.connect(
             lambda detected_gap: self.on_detect_gap_finished(song, detected_gap)
         )
-        song.info.status = SongStatus.QUEUED
+        song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
 
     def on_song_loaded(self, song: Song):
-        if(song.info.status == SongStatus.NOT_PROCESSED and self.config.spleeter):
+        if(song.gap_info.status == GapInfoStatus.NOT_PROCESSED and self.config.spleeter):
             self.detect_gap(song)
     
     def on_detect_gap_finished(self, song: Song, detected_gap: int):
@@ -104,20 +103,25 @@ class Actions(QObject):
             detected_gap = detected_gap - song.start
         gap_diff = abs(gap - detected_gap)
         if gap_diff > self.config.gap_tolerance:
-            song.info.status = SongStatus.MISMATCH
+            song.status = SongStatus.MISMATCH
         else:
-            song.info.status = SongStatus.MATCH
-        song.info.detected_gap = detected_gap
-        song.info.diff = gap_diff
-        song.info.save()
+            song.status = SongStatus.MATCH
+        song.gap_info.status = GapInfoStatus.MATCH if song.status == SongStatus.MATCH else GapInfoStatus.MISMATCH
+        song.gap_info.detected_gap = detected_gap
+        song.gap_info.diff = gap_diff
+        song.gap_info.save()
         self._create_waveforms(song, True)
 
     def on_song_worker_started(self, song: Song):
-        song.info.status = SongStatus.PROCESSING
+        song.status = SongStatus.PROCESSING
         self.data.songs.updated.emit(song)
 
     def on_song_worker_error(self, song: Song):
-        song.info.status = SongStatus.ERROR
+        song.status = SongStatus.ERROR
+        self.data.songs.updated.emit(song)
+
+    def on_song_worker_finished(self, song: Song):
+        song.update_status_from_gap_info()
         self.data.songs.updated.emit(song)
 
     def _create_waveforms(self, song: Song, overwrite: bool = False):
@@ -145,24 +149,26 @@ class Actions(QObject):
         if not song: return
         song.gap = gap
         song.file.write_gap_tag(gap)
-        song.info.status = SongStatus.UPDATED
-        song.info.updated_gap = gap
-        song.info.save()
+        song.status = SongStatus.UPDATED
+        song.gap_info.status = GapInfoStatus.UPDATED
+        song.gap_info.updated_gap = gap
+        song.gap_info.save()
         self._create_waveforms(song, True)
         self.data.songs.updated.emit(song)
 
     def revert_gap_value(self, song: Song):
         if not song: return
-        song.gap = song.info.original_gap
+        song.gap = song.gap_info.original_gap
         song.file.write_gap_tag(song.gap)
-        song.info.save()
+        song.gap_info.save()
         self._create_waveforms(song, True)
         self.data.songs.updated.emit(song)
 
     def keep_gap_value(self, song: Song):
         if not song: return
-        song.info.status = SongStatus.SOLVED
-        song.info.save()
+        song.status = SongStatus.SOLVED
+        song.gap_info.status = GapInfoStatus.SOLVED
+        song.gap_info.save()
         self.data.songs.updated.emit(song)
 
     def open_usdx(self):
@@ -195,7 +201,7 @@ class Actions(QObject):
             logger.error("No song selected")
             return
         logger.info(f"Reloading song {song.path}")
-        song.reload()
+        song.load()
         self._create_waveforms(song, True)
 
     def delete_selected_song(self):
@@ -217,7 +223,7 @@ class Actions(QObject):
         worker = NormalizeAudioWorker(song)
         worker.signals.started.connect(lambda: self.on_song_worker_started(song))
         worker.signals.error.connect(lambda: self.on_song_worker_error(song))
-        worker.signals.finished.connect(lambda: self.data.songs.updated.emit(song))
+        #worker.signals.finished.connect(lambda: self.data.songs.updated.emit(song))
+        worker.signals.finished.connect(lambda: self.on_song_worker_finished(song))
         worker.signals.finished.connect(lambda: self._create_waveforms(song, True))
         self.worker_queue.add_task(worker, True)
-        

@@ -1,11 +1,7 @@
-from PyQt6.QtWidgets import QWidget, QApplication, QHBoxLayout, QLabel, QSizePolicy
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel
 from PyQt6.QtGui import QColor
-import sys
-from enum import Enum
 
-from model.info import SongStatus
-from model.songs import Songs
+from model.songs import Songs, SongStatus
 
 # Assuming SongStatus and Songs are defined elsewhere
 
@@ -74,7 +70,7 @@ class SongsStatusVisualizer(QWidget):
         # Implement logic to count songs by their status, returning a dictionary
         counts = {status: 0 for status in SongStatus}
         for song in self.songs:
-            counts[song.info.status] += 1
+            counts[song.status] += 1
         return counts
 
     def get_color_for_status(self, status):
