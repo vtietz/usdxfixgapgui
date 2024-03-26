@@ -61,9 +61,9 @@ class USDXFile:
         encodings = ['utf-8', 'utf-16', 'utf-32', 'cp1252', 'cp1250', 'latin-1', 'ascii', 'windows-1252', 'iso-8859-1', 'iso-8859-15']
         for encoding in encodings:
             try:
+                logging.debug(f"Reading ({encoding}): {self.filepath}")
                 content = raw.decode(encoding)
                 if re.search(r"#TITLE:.+", content, re.MULTILINE):
-                    logging.debug(f"Detected encoding: {encoding}")
                     self.encoding = encoding
                     return
             except Exception as e:
