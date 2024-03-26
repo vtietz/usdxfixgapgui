@@ -31,7 +31,7 @@ app = QApplication(sys.argv)
 window = QWidget()
 window.setWindowTitle("USDX Gap Fix Gui")
 window.resize(800, 600)
-
+window.setMinimumSize(600, 600)
 
 menuBar = MenuBar(actions, config)
 songStatus = SongsStatusVisualizer(data.songs)

@@ -34,7 +34,7 @@ class Actions(QObject):
             files.generate_directory_hash(directory)
         )
         if self.data.is_loading_songs: 
-            print("Already loading songs")
+            logger.debug("Already loading songs")
             return
         self.data.is_loading_songs = True
         self.clear_songs()
@@ -59,9 +59,9 @@ class Actions(QObject):
 
     def loadingSongsFinished(self):
         self.data.is_loading_songs = False
-        print("Loading songs finished.")
+        logger.debug("Loading songs finished.")
 
-    def detect_gap(self, song: Song = None, start_now=False):
+    def detect_gap(self, song: Song = None, overwrite=False, start_now=False):
         if not song:
             song: Song = self.data.selected_song
         if not song:
@@ -80,7 +80,7 @@ class Actions(QObject):
             bpm, 
             gap, 
             default_detection_time, 
-            True)
+            overwrite)
         
         worker.signals.started.connect(lambda: self.on_song_worker_started(song))
         worker.signals.error.connect(lambda: self.on_song_worker_error(song))
@@ -92,7 +92,7 @@ class Actions(QObject):
         self.worker_queue.add_task(worker, start_now)
 
     def on_song_loaded(self, song: Song):
-        if(song.gap_info.status == GapInfoStatus.NOT_PROCESSED and self.config.spleeter):
+        if(song.gap_info.status == SongStatus.NOT_PROCESSED and self.config.spleeter):
             self.detect_gap(song)
     
     def on_detect_gap_finished(self, song: Song, detected_gap: int):
@@ -191,7 +191,7 @@ class Actions(QObject):
         logger.info(f"Opening folder for {song.path}")
         url = QUrl.fromLocalFile(song.path)
         if not QDesktopServices.openUrl(url):
-            print("Failed to open the folder.")
+            logger.error("Failed to open the folder.")
             return False
         return True
     

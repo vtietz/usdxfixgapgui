@@ -36,13 +36,13 @@ class LoadSongsWorker(IWorker):
             self.signals.error.emit((e,))
 
     def run(self):
-        print(f"Starting to load songs from {self.directory}")
+        logger.debug(f"Starting to load songs from {self.directory}")
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = []
 
             for root, dirs, files in os.walk(self.directory):
                 if self.is_canceled():
-                    print("Loading cancelled.")
+                    logger.debug("Loading cancelled.")
                     self.signals.canceled.emit()
                     break
 
@@ -64,7 +64,7 @@ class LoadSongsWorker(IWorker):
             # to ensure all paths are submitted before waiting for any to complete.
             for future in as_completed(futures):
                 if self.is_canceled():
-                    print("Loading cancelled.")
+                    logger.debug("Loading cancelled.")
                     self.signals.canceled.emit()
                     # Optionally: Cancel all running or waiting futures
                     for future in futures:
@@ -73,6 +73,6 @@ class LoadSongsWorker(IWorker):
 
         if not self.is_canceled():
             self.signals.finished.emit()
-            print("Finished loading songs.")
+            logger.debug("Finished loading songs.")
 
 

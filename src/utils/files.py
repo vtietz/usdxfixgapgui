@@ -1,10 +1,14 @@
 import hashlib
 import os
 from typing import Any, Dict
+import logging
 
 IGNORE_FILE="usdxfixgap.ignore"
 INFO_FILE="usdxfixgap.info"
 WAVEFORM_FILE="waveform.png"
+
+
+logger = logging.getLogger(__name__)
 
 def get_song_path(txt_file):
     return os.path.dirname(txt_file)
@@ -59,7 +63,7 @@ def delete_folder(folder):
     """Delete the given folder and its contents."""
     if not os.path.exists(folder):
         return
-    print(f"Deleting {folder}...")
+    logger.debug(f"Deleting {folder}...")
     try:
         for root, dirs, files in os.walk(folder, topdown=False):
             for file in files:
@@ -68,7 +72,7 @@ def delete_folder(folder):
                 os.rmdir(os.path.join(root, dir))
         os.rmdir(folder)
     except Exception as e:
-        print(f"Error deleting {folder}: {e}")
+        logger.error(f"Error deleting {folder}: {e}")
 
 def generate_directory_hash(directory_path):
     """

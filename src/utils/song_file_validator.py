@@ -44,11 +44,11 @@ class SongFileValidator:
     def print_issues(self):
         """Prints the errors and warnings encountered during validation."""
         if self.errors:
-            print("Validation errors:")
+            logger.error("Validation errors:")
             for error in self.errors:
                 logger.error(f"- {error}")
         if self.warnings:
-            print("Warnings:")
+            logger.info("Warnings:")
             for warning in self.warnings:
                 logger.warn(f"- {warning}")
         if not self.errors and not self.warnings:

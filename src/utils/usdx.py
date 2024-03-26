@@ -6,7 +6,6 @@ from utils.usdx_file import Note
 logger = logging.getLogger(__name__)
                 
 def get_gap_offset_according_first_note(bpm: int, notes: List[Note]):
-    print(notes)
     start_beat = notes[0].StartBeat
     if start_beat == 0:
         return 0
@@ -41,7 +40,6 @@ def get_syllable(notes: List[Note], position_ms: int, bpm: int, gap: int, is_rel
         end_beat = start_beat + note.Length
         
         if start_beat <= position_beats < end_beat:
-            #print(f"start_beat: {start_beat} - position_beats: {position_beats} - end_beat: {end_beat} - note: {note['Text']}")
             return note.Text  # Return the text of the current syllable
 
     # If no note matches the current position

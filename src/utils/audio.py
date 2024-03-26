@@ -61,8 +61,6 @@ def normalize_audio(audio_file, target_level=0, check_cancellation=None):
         "-tp", "-2"]
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
 
-    print(f"R: {returncode}")
-
     if returncode == 0:
         if(os.path.exists(audio_file)):
             os.remove(audio_file)
@@ -84,7 +82,7 @@ def convert_to_mp3(audio_file, check_cancellation=None):
 
 def detect_nearest_gap(audio_path, start_position_ms, check_cancellation=None):
     # Define the silencedetect filter parameters
-    silence_detect_params = "silencedetect=noise=-20dB:d=0.3"
+    silence_detect_params = "silencedetect=noise=-10dB:d=0.1"
     
     if(not os.path.exists(audio_path)):
         raise Exception(f"Audio file not found: {audio_path}")
@@ -176,7 +174,7 @@ def get_vocals_file(
     logger.debug(f"Vocals extracted to {destination_vocals_file}")
 
     # Normalize the extracted vocals
-    vocals_file = normalize_audio(destination_vocals_file, target_level=0, check_cancellation=check_cancellation)
+    vocals_file = normalize_audio(destination_vocals_file, target_level=-6, check_cancellation=check_cancellation)
 
     # Convert the normalized vocals to MP3
     vocals_file = convert_to_mp3(destination_vocals_file, check_cancellation)

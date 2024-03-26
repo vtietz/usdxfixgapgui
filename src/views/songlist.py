@@ -136,7 +136,6 @@ class SongListView(QTableWidget):
         self.setRowCount(0)
 
     def errorSong(self, song, exception):
-        print(f"Error processing {song.path}: {exception}")
         self.updateSong(song)
 
     def updateFilter(self):

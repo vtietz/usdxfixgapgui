@@ -38,7 +38,7 @@ class CreateWaveform(IWorker):
             self.signals.error.emit((e,))
 
     def cancel(self):
-        print("Cancelling waveform creation...")
+        logger.debug("Cancelling waveform creation...")
         self._isCancelled = True
 
     def check_cancellation(self):
