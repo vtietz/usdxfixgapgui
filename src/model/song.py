@@ -55,14 +55,14 @@ class Song:
         self.txt_file = txt_file
         self.tmp_root = tmp_root
 
-    def load(self):
-        
+    async def load(self):
+        print(f"Loading song {self.txt_file}")
         txt_file = self.txt_file
         if not os.path.exists(txt_file):
            raise FileNotFoundError(f"File not found: {txt_file}")
 
         file = USDXFile(txt_file)
-        file.load()
+        await file.load()
         self.file = file
         
         self.notes = file.notes
@@ -87,11 +87,13 @@ class Song:
 
         gap_info_file = files.get_info_file_path(self.path)
         gap_info = GapInfo(gap_info_file)
-        gap_info.load()
+        await gap_info.load()
         if(not gap_info.original_gap):
             gap_info.original_gap = self.gap
         self.gap_info = gap_info
         self.update_status_from_gap_info()
+
+        print(f"Song loaded: {self}")
 
     def _load_duration(self):
         self._duration_ms=audio.get_audio_duration(self.audio_file)

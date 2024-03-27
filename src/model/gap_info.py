@@ -3,6 +3,7 @@ from enum import Enum
 import json
 import os
 from enum import Enum
+import aiofiles
 
 class GapInfoStatus(Enum):
     NOT_PROCESSED = 'NOT_PROCESSED'
@@ -37,9 +38,9 @@ class GapInfo:
     def __init__(self, file_path: str):
         self.file_path = file_path
 
-    def load(self):
+    async def load(self):
         if os.path.exists(self.file_path):
-            with open(self.file_path, "r", encoding="utf-8") as file:
+            async with aiofiles.open(self.file_path, "r", encoding="utf-8") as file:
                 data = json.load(file)
             self.status = GapInfo.map_string_to_status(data.get("status", "NOT_PROCESSED"))
             self.original_gap = data.get("original_gap", 0)
@@ -48,7 +49,7 @@ class GapInfo:
             self.diff = data.get("diff", 0)
             self.processed_time = data.get("processed_time", "")
 
-    def save(self):
+    async def save(self):
         self.processed_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         data = {
             "status": self.status.value,
@@ -58,7 +59,7 @@ class GapInfo:
             "diff": self.diff,
             "processed_time": self.processed_time
         }
-        with open(self.file_path, "w", encoding="utf-8") as file:
+        async with aiofiles.open(self.file_path, "w", encoding="utf-8") as file:
             json.dump(data, file, indent=4)
 
     def map_string_to_status(status_string):
