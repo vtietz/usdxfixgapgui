@@ -1,4 +1,5 @@
 import os
+from time import sleep
 import traceback
 from PyQt6.QtCore import pyqtSignal
 from utils.run_async import run_async
@@ -59,7 +60,7 @@ class LoadSongsWorker(IWorker):
                     song_path = os.path.join(root, file)
                     self.description = f"Reading {file}"
                     self.signals.progress.emit()
-
+                    #sleep(1)
                     self.load_song(song_path)  # Load each song sequentially
 
         if not self.is_canceled():

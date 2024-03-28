@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QVBoxLayout, QPushButton, QHeaderView
-from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt6.QtCore import pyqtSignal, Qt, QTimer
 
 from actions import Actions
 from model.song import Song
@@ -21,11 +21,32 @@ class SongListView(QTableWidget):
         super().__init__(parent)
         self.actions = actions
         self.songs = songs
-        songs.added.connect(self.addSong)
+
+        self.updateTimer = QTimer(self)
+        self.updateTimer.setInterval(200)
+        self.updateTimer.timeout.connect(self._apply_pending_songs_added)
+        self._pending_songs_added = []
+
+
+        songs.added.connect(self.on_song_loaded)
         songs.updated.connect(self.updateSong)
         songs.error.connect(self.errorSong)
         songs.cleared.connect(self.clearSongs)
         self.setupUi()
+
+    def _apply_pending_songs_added(self):
+        self.setSortingEnabled(False)
+        for song in self._pending_songs_added:
+            self.add_song(song)
+        self._pending_songs_added.clear()
+        self.updateTimer.stop()
+        self.setSortingEnabled(True)
+        self.updateFilter()
+
+    def on_song_loaded(self, song: Song):
+        self._pending_songs_added.append(song)
+        if not self.updateTimer.isActive():
+            self.updateTimer.start()
 
     def setupUi(self):
         self.setColumnCount(9)
@@ -68,9 +89,9 @@ class SongListView(QTableWidget):
         self.actions.data.songs.filterChanged.connect(self.updateFilter)
         self.actions.data.songs.deleted.connect(self.deleteSong)
 
-    def addSong(self, song: Song):
+    def add_song(self, song: Song):
         logger.debug(f"Adding song {song.path}")
-        self.setSortingEnabled(False)
+        
         rowPosition = self.rowCount()
         self.insertRow(rowPosition)
         
@@ -93,9 +114,6 @@ class SongListView(QTableWidget):
         
         # Store the entire Song object in the row's first column for easy retrieval
         self.item(rowPosition, 0).setData(Qt.ItemDataRole.UserRole, song)
-        
-        self.setSortingEnabled(True)
-        self.updateFilter()
     
     def deleteSong(self, song: Song):
         for row in range(self.rowCount()):
