@@ -25,17 +25,17 @@ class LoadSongsWorker(IWorker):
             return
         try:
             song = Song(txt_file_path, self.tmp_path)
-            print("AAAAAAAAAAAAA")
-            run_async(song.load())
-            #song.load()
-            print("XXXXXXXXXX")
-            song.relative_path = os.path.relpath(song.path, self.directory)
-            song.usdb_id = self.path_usdb_id_map.get(song.path, None)
-            self.signals.songLoaded.emit(song)
+            # Note: No need to pass 'song' as an argument to the callback; use it directly in the lambda
+            run_async(song.load(), lambda _: self.on_song_loaded(song))
         except Exception as e:
             stack_trace = traceback.format_exc()
             logger.error(f"Error loading song: {e}\nStack trace:\n{stack_trace}")           
             self.signals.error.emit((e,))
+
+    def on_song_loaded(self, song: Song):
+        song.relative_path = os.path.relpath(song.path, self.directory)
+        song.usdb_id = self.path_usdb_id_map.get(song.path, None)
+        self.signals.songLoaded.emit(song)
 
     def run(self):
         logger.debug(f"Starting to load songs from {self.directory}")

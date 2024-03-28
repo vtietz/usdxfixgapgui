@@ -5,7 +5,9 @@ from model.gap_info import GapInfo, GapInfoStatus
 import utils.files as files
 import utils.audio as audio
 from utils.usdx_file import USDXFile
+import logging
 
+logger = logging.getLogger(__name__)
 
 class SongStatus(Enum):
     NOT_PROCESSED = 'NOT_PROCESSED'
@@ -56,7 +58,7 @@ class Song:
         self.tmp_root = tmp_root
 
     async def load(self):
-        print(f"Loading song {self.txt_file}")
+        logger.debug(f"Loading song {self.txt_file}")
         txt_file = self.txt_file
         if not os.path.exists(txt_file):
            raise FileNotFoundError(f"File not found: {txt_file}")
@@ -93,7 +95,7 @@ class Song:
         self.gap_info = gap_info
         self.update_status_from_gap_info()
 
-        print(f"Song loaded: {self}")
+        logger.debug(f"Song loaded: {self}")
 
     def _load_duration(self):
         self._duration_ms=audio.get_audio_duration(self.audio_file)

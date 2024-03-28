@@ -2,6 +2,8 @@ import re
 from typing import List
 import logging
 
+import aiofiles
+
 logger = logging.getLogger(__name__)
 
 class ValidationError(Exception):
@@ -55,9 +57,9 @@ class USDXFile:
         if not re.search(r"#BPM:\d+", content, re.MULTILINE):
             raise ValidationError("Mandatory attribute missing or incorrect: BPM")
         
-    def determine_encoding(self):
-        with open(self.filepath, 'rb') as file:
-            raw = file.read()
+    async def determine_encoding(self):
+        async with aiofiles.open(self.filepath, 'rb') as file:
+            raw = await file.read()
         encodings = ['utf-8', 'utf-16', 'utf-32', 'cp1252', 'cp1250', 'latin-1', 'ascii', 'windows-1252', 'iso-8859-1', 'iso-8859-15']
         for encoding in encodings:
             try:
@@ -70,11 +72,11 @@ class USDXFile:
                 logger.debug(f"Failed to decode with {encoding}: {e}")
         raise Exception("Failed to determine encoding")
 
-    def load(self):
+    async def load(self):
         if self.encoding is None:
-            self.determine_encoding()
-        with open(self.filepath, 'r', encoding=self.encoding) as file:
-            self.content = file.read()
+            await self.determine_encoding()
+        async with aiofiles.open(self.filepath, 'r', encoding=self.encoding) as file:
+            self.content = await file.read()
         self.validate()
         
         self.tags = USDXFile.parse_tags(self.content)
