@@ -28,6 +28,7 @@ class Actions(QObject):
         self.worker_queue = WorkerQueueManager()
     
     def load_songs(self, directory: str):
+        logger.debug(f"Loading songs from {directory}")
         self.config.directory = directory
         self.data.tmp_folder = os.path.join(
             self.config.tmp_root, 

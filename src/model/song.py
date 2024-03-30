@@ -102,6 +102,10 @@ class Song:
     
     def __str__(self):
         return f"Song {self.artist} - {self.title} - {self.file.tags}"
+
+    def __repr__(self):
+        # This will be used when printing a list of Song objects
+        return f"<Song: {self.artist} - {self.title}>"
     
     def delete(self):
         files.delete_folder(self.path)

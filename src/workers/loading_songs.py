@@ -60,7 +60,7 @@ class LoadSongsWorker(IWorker):
                     song_path = os.path.join(root, file)
                     self.description = f"Reading {file}"
                     self.signals.progress.emit()
-                    #sleep(1)
+                    sleep(0.2)
                     self.load_song(song_path)  # Load each song sequentially
 
         if not self.is_canceled():

@@ -1,15 +1,13 @@
 import os
-from typing import List
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty
 from model.song import Song
 from model.songs import Songs
-from utils.worker_queue_manager import WorkerQueueManager
 
 class Config(QObject):
 
     # Directory where the songs are located
-    directory = os.path.join("..", "samples")
-    #directory: str = "Z:\\UltraStarDeluxe\\Songs\\usdb.animux.de"
+    #directory = os.path.join("..", "samples")
+    directory: str = "Z:\\UltraStarDeluxe\\Songs\\usdb.animux.de"
 
     tmp_root = os.path.join("..", ".tmp")
 
