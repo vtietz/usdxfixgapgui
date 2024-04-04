@@ -1,7 +1,7 @@
 import re
 from typing import List
 import logging
-
+import utils.files as files
 import aiofiles
 
 logger = logging.getLogger(__name__)
@@ -41,22 +41,6 @@ class USDXFile:
         self.content = None
         self.tags = None
 
-    def validate(self):
-
-        content = self.content
-        # Check for TITLE and ARTIST as mandatory attributes
-        for attr, pattern in {"TITLE": r"#TITLE:.+", "ARTIST": r"#ARTIST:.+"}.items():
-            if not re.search(pattern, content, re.MULTILINE):
-                raise ValidationError(f"Mandatory attribute missing or incorrect: {attr}")
-
-        # Check for AUDIO or MP3
-        if not re.search(r"#AUDIO:.+", content, re.MULTILINE) and not re.search(r"#MP3:.+", content, re.MULTILINE):
-            raise ValidationError("Either #AUDIO or #MP3 attribute must be present.")
-
-        # BPM is also mandatory
-        if not re.search(r"#BPM:\d+", content, re.MULTILINE):
-            raise ValidationError("Mandatory attribute missing or incorrect: BPM")
-        
     async def determine_encoding(self):
         async with aiofiles.open(self.filepath, 'rb') as file:
             raw = await file.read()
@@ -69,23 +53,39 @@ class USDXFile:
                     self.encoding = encoding
                     return
             except Exception as e:
-                logger.debug(f"Failed to decode with {encoding}: {e}")
-        raise Exception("Failed to determine encoding")
+                logger.debug(f"Failed to decode '{self.filepath}' with {encoding}: {e}")
+        raise Exception(f"Failed to determine encoding for '{self.filepath}'")
 
     async def load(self):
+
+        logger.debug(f"Loading USDX file: {self.filepath}")
+
+        self.path = files.get_song_path(self.filepath)
+        
         if self.encoding is None:
             await self.determine_encoding()
         async with aiofiles.open(self.filepath, 'r', encoding=self.encoding) as file:
             self.content = await file.read()
-        self.validate()
         
-        self.tags = USDXFile.parse_tags(self.content)
-        self.notes = USDXFile.parse_notes(self.content)
+        self.tags, self.notes = USDXFile.parse(self.content)
         
-    def save(self):
+        if self.tags.TITLE is None:
+            raise ValidationError("TITLE is missing")
+        if self.tags.ARTIST is None:
+            raise ValidationError("ARTIST is missing")
+        if self.tags.GAP is None:
+            raise ValidationError("GAP is missing")
+        if self.tags.AUDIO is None:
+            raise ValidationError("AUDIO is missing")
+        if self.tags.BPM is None:
+            raise ValidationError("BPM is missing")
+        if self.notes is None:
+            raise ValidationError("Notes are missing")
+        
+    async def save(self):
         try:
-            with open(self.filepath, 'w', encoding=self.encoding) as file:
-                file.write(self.content)
+            with aiofiles.open(self.filepath, 'w', encoding=self.encoding) as file:
+                await file.write(self.content)
         except Exception as e:
             self.errors.append(f"Failed to write file: {e}")
             return False
@@ -98,8 +98,9 @@ class USDXFile:
         self.tags.GAP = value
         self._write_tag("GAP", value)
 
-    def parse_tags(content) -> Tags:
+    def parse(content) -> tuple[Tags, List[Note]]:
         tags = Tags()
+        notes: List[Note] = []
         for line in content.splitlines():
             if line.startswith('#GAP:'):
                 value = line.split(':')[1].strip()
@@ -123,12 +124,7 @@ class USDXFile:
             elif line.startswith('#RELATIVE:'):
                 value = line.split(':')[1].strip()
                 tags.RELATIVE = value.lower() == "yes" if value else None
-        return tags
-    
-    def parse_notes(content) -> List[Note]:
-        notes: List[Note] = []
-        for line in content.splitlines():
-            if not line.startswith('#'):
+            elif not line.startswith('#'):
                 parts = line.strip().split()
                 if len(parts) >= 5 and parts[0] in {':', '*', 'R', '-', 'F', 'G'}:
                     note = Note()
@@ -138,4 +134,7 @@ class USDXFile:
                     note.Pitch = int(parts[3])
                     note.Text = ' '.join(parts[4:])
                     notes.append(note)
-        return notes    
+        return tags, notes
+    
+    def is_loaded(self):
+        return self.content is not None

@@ -1,5 +1,5 @@
 from typing import List
-from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QTimer
+from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex
 
 from model.song import Song
 from model.songs import Songs
@@ -16,11 +16,6 @@ class SongTableModel(QAbstractTableModel):
 
         self.pending_songs = [] 
 
-        # QTimer for batch processing
-        self.batch_timer = QTimer(self)
-        self.batch_timer.timeout.connect(self.processPendingSongs)
-        self.batch_timer.setInterval(500)
-
         # Connect signals
         self.songs_model.added.connect(self.song_added)
         self.songs_model.updated.connect(self.song_updated)
@@ -29,26 +24,9 @@ class SongTableModel(QAbstractTableModel):
 
     def song_added(self, song: Song):
         logging.debug("Adding song to model: %s", song)
-        self.pending_songs.append(song)
-        if not self.batch_timer.isActive():
-            self.batch_timer.start()
-
-    def processPendingSongs(self):
-        logging.debug("Starting to process pending songs. Pending count: %d", len(self.pending_songs))
-        if not self.pending_songs:
-            logging.debug("No pending songs to process.")
-            return
-
-        start_row = len(self.songs)
-        new_songs_count = len(self.pending_songs)
-        end_row = start_row + new_songs_count - 1
-
-        self.beginInsertRows(QModelIndex(), start_row, end_row)
-        self.songs.extend(self.pending_songs)
+        self.beginInsertRows(QModelIndex(), len(self.songs), len(self.songs))
+        self.songs.append(song)
         self.endInsertRows()
-
-        self.pending_songs.clear()
-        self.batch_timer.stop()
 
     # Slot for handling song updates
     def song_updated(self, song: Song):
@@ -71,7 +49,7 @@ class SongTableModel(QAbstractTableModel):
         return len(self.songs)
 
     def columnCount(self, parent=QModelIndex()):
-        return 9  # Adjust based on the number of columns you have
+        return 9
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self.songs)):
@@ -81,7 +59,6 @@ class SongTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.UserRole:
             return song
         elif role == Qt.ItemDataRole.DisplayRole:
-            # Return the appropriate value based on the column index
             return [
                 song.relative_path,
                 song.artist,

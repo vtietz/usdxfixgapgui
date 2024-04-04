@@ -7,7 +7,7 @@ from model.songs import Songs
 
 import logging
 
-from views.songlist_model import SongTableModel
+from views.songlist.songlist_model import SongTableModel
 
 logger = logging.getLogger(__name__)
 

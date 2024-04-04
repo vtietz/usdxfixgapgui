@@ -3,8 +3,8 @@ from PyQt6.QtCore import QSortFilterProxyModel
 from actions import Actions
 from model.song import Song
 from model.songs import Songs
-from views.songlist_view import SongListView
-from views.songlist_model import SongTableModel
+from views.songlist.songlist_view import SongListView
+from views.songlist.songlist_model import SongTableModel
 
 class CustomSortFilterProxyModel(QSortFilterProxyModel):
     def __init__(self, *args, **kwargs):

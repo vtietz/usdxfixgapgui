@@ -15,6 +15,7 @@ class DetectGapWorker(IWorker):
             tmp_path,
             bpm, 
             gap, 
+            duration,
             default_detection_time, 
             overwrite=False
         ):
@@ -23,6 +24,7 @@ class DetectGapWorker(IWorker):
         self.tmp_path = tmp_path
         self.bpm = bpm
         self.gap = gap
+        self.duration = duration
         self.default_detection_time = default_detection_time
         self.overwrite = overwrite
         self.signals = WorkerSignals()
@@ -36,6 +38,7 @@ class DetectGapWorker(IWorker):
                 self.audio_file, 
                 self.tmp_path,
                 self.gap, 
+                self.duration,
                 self.default_detection_time, 
                 self.overwrite, 
                 self.is_canceled)

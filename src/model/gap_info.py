@@ -1,9 +1,13 @@
 from datetime import datetime
 from enum import Enum
+from utils import files
+from enum import Enum
 import json
 import os
-from enum import Enum
 import aiofiles
+import logging
+
+logger = logging.getLogger(__name__)
 
 class GapInfoStatus(Enum):
     NOT_PROCESSED = 'NOT_PROCESSED'
@@ -32,13 +36,17 @@ class GapInfo:
     # the difference between the original and detected gap
     diff: int = 0
 
+    # the duration of the song
+    duration: int = 0
+
     # the time when the song was processed
     processed_time: str = ""
 
-    def __init__(self, file_path: str):
-        self.file_path = file_path
+    def __init__(self, song_path: str):
+        self.file_path = files.get_info_file_path(song_path)
 
     async def load(self):
+        logger.debug(f"Try to load {self.file_path}")
         if os.path.exists(self.file_path):
             async with aiofiles.open(self.file_path, "r", encoding="utf-8") as file:
                 content = await file.read()  # Read the content asynchronously
@@ -48,7 +56,16 @@ class GapInfo:
             self.detected_gap = data.get("detected_gap", 0)
             self.updated_gap = data.get("updated_gap", 0)
             self.diff = data.get("diff", 0)
+            self.duration = data.get("duration", 0)
             self.processed_time = data.get("processed_time", "")
+        else:
+            self.status = GapInfoStatus.NOT_PROCESSED
+            self.original_gap = 0
+            self.detected_gap = 0
+            self.updated_gap = 0
+            self.diff = 0
+            self.duration = 0
+            self.processed_time = ""
 
     async def save(self):
         self.processed_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -58,13 +75,14 @@ class GapInfo:
             "detected_gap": self.detected_gap,
             "updated_gap": self.updated_gap,
             "diff": self.diff,
+            "duration": self.duration,
             "processed_time": self.processed_time
         }
         async with aiofiles.open(self.file_path, "w", encoding="utf-8") as file:
             await file.write(json.dumps(data, indent=4))  # Convert data to JSON string and write asynchronously
 
 
-    def map_string_to_status(status_string):
+    def map_string_to_status(status_string) -> GapInfoStatus:
         status_map = {
             'NOT_PROCESSED': GapInfoStatus.NOT_PROCESSED,
             'MATCH': GapInfoStatus.MATCH,
@@ -74,4 +92,4 @@ class GapInfo:
             'SOLVED': GapInfoStatus.SOLVED,
         }
         return status_map.get(status_string, None)
-
+    

@@ -8,9 +8,8 @@ from utils.check_dependencies import check_dependencies
 from views.menu_bar import MenuBar
 
 from views.song_status import SongsStatusVisualizer
-from views.songlist_view import SongListView
 from views.media_player import MediaPlayerComponent, MediaPlayerEventFilter
-from views.songlist_widget import SongListWidget
+from views.songlist.songlist_widget import SongListWidget
 from views.task_queue_viewer import TaskQueueViewer
 
 import logging
@@ -18,8 +17,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 data = AppData()
-config = Config()
-actions = Actions(data, config)
+actions = Actions(data)
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(name)s %(levelname)s: %(message)s',
@@ -34,10 +32,10 @@ window.setWindowTitle("USDX Gap Fix Gui")
 window.resize(800, 600)
 window.setMinimumSize(600, 600)
 
-menuBar = MenuBar(actions, config)
+menuBar = MenuBar(actions, data)
 songStatus = SongsStatusVisualizer(data.songs)
 songListView = SongListWidget(data.songs, actions)
-mediaPlayerComponent = MediaPlayerComponent(data, config, actions)
+mediaPlayerComponent = MediaPlayerComponent(data, actions)
 taskQueueViewer = TaskQueueViewer(actions.worker_queue)
 
 app.installEventFilter(mediaPlayerComponent.globalEventFilter)

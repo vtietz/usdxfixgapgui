@@ -2,17 +2,16 @@ import logging
 import os
 from PyQt6.QtCore import QObject, QUrl
 from PyQt6.QtGui import QDesktopServices
-from data import AppData, Config
+from data import AppData
 from model.song import Song
-from utils import files
 from utils.worker_queue_manager import WorkerQueueManager
+from workers.detect_audio_length import DetectAudioLengthWorker
 from workers.detect_gap import DetectGapWorker
+from workers.load_usdx_files import FindUsdxFilesWorker
 from workers.normalize_audio import NormalizeAudioWorker
-from workers.loading_songs import LoadSongsWorker
 from workers.create_waveform import CreateWaveform
 from model.song import Song, SongStatus
 from model.gap_info import GapInfoStatus
-import utils.files as files
 import utils.usdx as usdx
 
 logger = logging.getLogger(__name__)
@@ -21,30 +20,25 @@ class Actions(QObject):
 
     data: AppData = None
     
-    def __init__(self, data: AppData, config: Config):
+    def __init__(self, data: AppData):
         super().__init__()
         self.data = data
-        self.config = config
+        self.config = data.config
         self.worker_queue = WorkerQueueManager()
-    
-    def load_songs(self, directory: str):
-        logger.debug(f"Loading songs from {directory}")
-        self.config.directory = directory
-        self.data.tmp_folder = os.path.join(
-            self.config.tmp_root, 
-            files.generate_directory_hash(directory)
-        )
-        if self.data.is_loading_songs: 
-            logger.debug("Already loading songs")
-            return
-        self.data.is_loading_songs = True
-        self.clear_songs()
-        worker = LoadSongsWorker(self.config.directory, self.data.tmp_folder)
-        worker.signals.songLoaded.connect(self.data.songs.add)
+
+    def load_songs(self):
+        worker = FindUsdxFilesWorker(self.data.directory, self.data.tmp_path)
         worker.signals.songLoaded.connect(self.on_song_loaded)
         worker.signals.finished.connect(lambda: self.finish_loading_songs())
-        self.worker_queue.add_task(worker)
-    
+        self.worker_queue.add_task(worker, True)
+
+    def on_song_loaded(self, song: Song):
+        self.data.songs.add(song)
+        if(song.gap_info.status == SongStatus.NOT_PROCESSED):
+            song.gap_info.original_gap = song.gap
+            if(self.config.spleeter):
+                self.detect_gap(song)
+        
     def finish_loading_songs(self):
         self.data.is_loading_songs = False
 
@@ -55,10 +49,17 @@ class Actions(QObject):
         logger.debug(f"Selected {path}")
         song: Song = next((s for s in self.data.songs if s.path == path), None)
         if(song):
+            if(not song.duration_ms):
+                self._load_audio_length(song)
             self.data.selected_song = song
             self._create_waveforms(song)
 
-    def loadingSongsFinished(self):
+    def _load_audio_length(self, song: Song):
+        worker = DetectAudioLengthWorker(song)
+        worker.signals.lengthDetected.connect(lambda song: self.data.songs.updated.emit(song))
+        self.worker_queue.add_task(worker, True)
+
+    def loading_songs_finished(self):
         self.data.is_loading_songs = False
         logger.debug("Loading songs finished.")
 
@@ -71,15 +72,18 @@ class Actions(QObject):
         audio_file = song.audio_file
         bpm = song.bpm
         gap = song.gap
+        duration = song.duration_ms
+
         if(song.start):
             gap = gap + (song.start * 1000)
         default_detection_time = self.config.default_detection_time
 
         worker = DetectGapWorker(
             audio_file, 
-            self.data.tmp_folder,
+            self.data.tmp_path,
             bpm, 
             gap, 
+            duration,
             default_detection_time, 
             overwrite)
         
@@ -91,10 +95,6 @@ class Actions(QObject):
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
-
-    def on_song_loaded(self, song: Song):
-        if(song.gap_info.status == SongStatus.NOT_PROCESSED and self.config.spleeter):
-            self.detect_gap(song)
     
     def on_detect_gap_finished(self, song: Song, detected_gap: int):
         gap = song.gap
@@ -202,7 +202,7 @@ class Actions(QObject):
             logger.error("No song selected")
             return
         logger.info(f"Reloading song {song.path}")
-        song.load()
+        song.init()
         self._create_waveforms(song, True)
 
     def delete_selected_song(self):
@@ -228,3 +228,7 @@ class Actions(QObject):
         worker.signals.finished.connect(lambda: self.on_song_worker_finished(song))
         worker.signals.finished.connect(lambda: self._create_waveforms(song, True))
         self.worker_queue.add_task(worker, True)
+
+    def set_directory(self, directory: str):
+        self.data.directory = directory
+        self.load_songs()

@@ -150,7 +150,7 @@ def get_vocals_file(
     if audio_file is None or os.path.exists(audio_file) is False:
         raise Exception(f"Audio file not found: {audio_file}")
 
-    temp_path = files.get_temp_path(temp_root, audio_file)
+    temp_path = files.get_tmp_path(temp_root, audio_file)
     vocals_file = files.get_vocals_path(temp_path, max_detection_time)
     output_path = os.path.join(temp_root, "spleeter")
 
@@ -186,7 +186,8 @@ def detect_gap(
         audio_file,
         tmp_root,
         gap, 
-        default_detection_time, 
+        audio_length=None,
+        default_detection_time=60, 
         overwrite=False, 
         check_cancellation=None):
 
@@ -194,16 +195,18 @@ def detect_gap(
     if not audio_file or not os.path.exists(audio_file):
         raise FileNotFoundError(f"Audio file not found: {audio_file}")
 
-    audio_length = get_audio_duration(audio_file)
-    tmp_path = files.get_temp_path(tmp_root, audio_file)
+    tmp_path = files.get_tmp_path(tmp_root, audio_file)
+
+    if(not audio_length):
+        audio_length = get_audio_duration(audio_file, check_cancellation)
 
     # Calculate the maximum detection time (s), increasing it if necessary
     detection_time = default_detection_time
     while detection_time <= gap / 1000:
-        detection_time += detection_time
+        detection_time += default_detection_time
 
-    logger.debug(f"Audio length: {audio_length}ms, max detection time: {detection_time}s")
-    
+    detection_time = detection_time + int(detection_time / 2)
+
     destination_vocals_file = files.get_vocals_path(tmp_path)
     logger.debug(f"Destination vocals file: {destination_vocals_file}")
 

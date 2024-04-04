@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def get_song_path(txt_file):
     return os.path.dirname(txt_file)
 
-def get_temp_path(tmp_dir, audio_file):
+def get_tmp_path(tmp_dir, audio_file):
     return os.path.join(tmp_dir, os.path.splitext(os.path.basename(audio_file))[0])
 
 def get_vocals_path(tmp_path, max_detection_time=None):
