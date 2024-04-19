@@ -48,13 +48,15 @@ class SongListView(QTableView):
         self.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
         self.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
         self.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
-        self.horizontalHeader().setSectionResizeMode(8, QHeaderView.ResizeMode.Fixed)  # Adjusted index to 8
+        self.horizontalHeader().setSectionResizeMode(8, QHeaderView.ResizeMode.Fixed)  
+        self.horizontalHeader().setSectionResizeMode(9, QHeaderView.ResizeMode.Fixed) 
         self.setColumnWidth(3, 50)
         self.setColumnWidth(4, 65)
         self.setColumnWidth(5, 50)
-        self.setColumnWidth(6, 50)  # Adjusted index to 6
-        self.setColumnWidth(7, 50)  # Adjusted index to 7
-        self.setColumnWidth(8, 100) # Adjusted index to 8
+        self.setColumnWidth(6, 50) 
+        self.setColumnWidth(7, 50) 
+        self.setColumnWidth(8, 50) 
+        self.setColumnWidth(9, 100) 
 
         # Sorting by the first column initially, if needed
         self.sortByColumn(0, Qt.SortOrder.AscendingOrder)

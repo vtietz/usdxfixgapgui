@@ -11,7 +11,7 @@ class IWorkerSignals(QObject):
     finished = pyqtSignal()
     progress = pyqtSignal()
     canceled = pyqtSignal()
-    error = pyqtSignal(tuple)  # Consider defining a specific error class or structure
+    error = pyqtSignal(str)
 
 class WorkerStatus(Enum):
     """Enum to represent the status of a worker task."""

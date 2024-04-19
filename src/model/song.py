@@ -41,6 +41,7 @@ class Song:
     audio_waveform_file: str = ""
     vocals_file: str = ""
     vocals_waveform_file: str = ""
+    vocals_duration_ms: int = 0
 
     gap_info: GapInfo = None
     

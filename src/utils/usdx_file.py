@@ -29,6 +29,9 @@ class Note:
         self.Length = None
         self.Pitch = None
         self.Text = None
+        self.start_ms = None
+        self.duration_ms = None
+        self.end_ms = None
 
     def __str__(self):
         return f"Notes(NoteType={self.NoteType}, StartBeat={self.StartBeat}, Length={self.Length}, Pitch={self.Pitch}, Text={self.Text})"
@@ -82,6 +85,8 @@ class USDXFile:
         if self.notes is None:
             raise ValidationError("Notes are missing")
         
+        self.calculate_note_times()
+        
     async def save(self):
         try:
             with aiofiles.open(self.filepath, 'w', encoding=self.encoding) as file:
@@ -90,11 +95,11 @@ class USDXFile:
             self.errors.append(f"Failed to write file: {e}")
             return False
         
-    def _write_tag(self, tag, value):
+    async def _write_tag(self, tag, value):
         self.content = re.sub(rf"#{tag}:.*", f"#{tag}:{value}", self.content)
         self.save()
 
-    def write_gap_tag(self, value):
+    async def write_gap_tag(self, value):
         self.tags.GAP = value
         self._write_tag("GAP", value)
 
@@ -138,3 +143,14 @@ class USDXFile:
     
     def is_loaded(self):
         return self.content is not None
+    
+    def calculate_note_times(self):
+        beats_per_ms = (self.tags.BPM / 60 / 1000) * 4
+        for note in self.notes:
+            if self.tags.RELATIVE:
+                note.start_ms = note.StartBeat / beats_per_ms
+                note.end_ms = (note.StartBeat + note.Length) / beats_per_ms
+            else:
+                note.start_ms = self.tags.GAP + (note.StartBeat / beats_per_ms)
+                note.end_ms = self.tags.GAP + ((note.StartBeat + note.Length) / beats_per_ms)
+            note.duration_ms = note.end_ms - note.start_ms

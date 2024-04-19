@@ -38,6 +38,9 @@ class GapInfo:
 
     # the duration of the song
     duration: int = 0
+    
+    # the percentage of notes not in silence
+    notes_overlap: float = 0
 
     # the time when the song was processed
     processed_time: str = ""
@@ -57,6 +60,7 @@ class GapInfo:
             self.updated_gap = data.get("updated_gap", 0)
             self.diff = data.get("diff", 0)
             self.duration = data.get("duration", 0)
+            self.notes_overlap = data.get("notes_overlap", 0)
             self.processed_time = data.get("processed_time", "")
         else:
             self.status = GapInfoStatus.NOT_PROCESSED
@@ -65,9 +69,11 @@ class GapInfo:
             self.updated_gap = 0
             self.diff = 0
             self.duration = 0
+            self.notes_overlap = 0
             self.processed_time = ""
 
     async def save(self):
+        logger.debug(f"Saving{self.file_path}")
         self.processed_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         data = {
             "status": self.status.value,
@@ -76,6 +82,7 @@ class GapInfo:
             "updated_gap": self.updated_gap,
             "diff": self.diff,
             "duration": self.duration,
+            "notes_overlap": self.notes_overlap,
             "processed_time": self.processed_time
         }
         async with aiofiles.open(self.file_path, "w", encoding="utf-8") as file:

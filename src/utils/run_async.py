@@ -8,10 +8,8 @@ class AsyncioThread(QThread):
     def __init__(self, loop: asyncio.AbstractEventLoop):
         super().__init__()
         self.loop = loop
-        print("=====")
 
     def run(self):
-        print("------")
         logger.debug("Starting asyncio loop")
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()

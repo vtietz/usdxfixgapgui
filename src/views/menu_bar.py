@@ -37,7 +37,7 @@ class MenuBar(QWidget):
         # Detect Button
         self.detectButton = QPushButton("Detect Gap")
         #self.detectButton.clicked.connect(self.detectClicked.emit)
-        self.detectButton.clicked.connect(lambda: actions.detect_gap(overwrite=True))
+        self.detectButton.clicked.connect(lambda: actions.detect_gap(overwrite=False))
         self.layout.addWidget(self.detectButton)
 
         # Open song folder

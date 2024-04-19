@@ -49,7 +49,7 @@ class SongTableModel(QAbstractTableModel):
         return len(self.songs)
 
     def columnCount(self, parent=QModelIndex()):
-        return 9
+        return 10
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self.songs)):
@@ -68,10 +68,11 @@ class SongTableModel(QAbstractTableModel):
                 str(song.gap),
                 str(song.gap_info.detected_gap),
                 str(song.gap_info.diff),
+                str(song.gap_info.notes_overlap),
                 song.status.name,
             ][column]
         elif role == Qt.ItemDataRole.TextAlignmentRole:
-          if 3 <= column <= 7: 
+          if 3 <= column <= 8: 
               return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
           else:
               return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
@@ -80,5 +81,5 @@ class SongTableModel(QAbstractTableModel):
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
-            return ["Path", "Artist", "Title", "Length", "BPM", "Gap", "Detected Gap", "Diff", "Status"][section]
+            return ["Path", "Artist", "Title", "Length", "BPM", "Gap", "Detected Gap", "Diff", "Notes", "Status"][section]
         return None
