@@ -2,6 +2,7 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog, QSizePolicy, QLineEdit, QMessageBox
 from PyQt6.QtCore import pyqtSignal
 from actions import Actions
+from data import AppData
 import logging
 
 from data import Config
@@ -19,15 +20,14 @@ class MenuBar(QWidget):
 
     _song: Song = None
 
-    actions: Actions = None
-
-    def __init__(self, actions:Actions, config: Config, parent=None):
+    def __init__(self, actions:Actions, data:AppData, parent=None):
       
         super().__init__(parent)
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.actions = actions
-        self.config = config
+        self.data = data
+        self.config = data.config
 
         # Load Songs Button
         self.loadSongsButton = QPushButton("Load Songs")
@@ -37,7 +37,7 @@ class MenuBar(QWidget):
         # Detect Button
         self.detectButton = QPushButton("Detect Gap")
         #self.detectButton.clicked.connect(self.detectClicked.emit)
-        self.detectButton.clicked.connect(lambda: actions.detect_gap(overwrite=True))
+        self.detectButton.clicked.connect(lambda: actions.detect_gap(overwrite=False))
         self.layout.addWidget(self.detectButton)
 
         # Open song folder
@@ -98,7 +98,6 @@ class MenuBar(QWidget):
         if returnValue == QMessageBox.StandardButton.Ok:  # Adjusted for clarity
             self.actions.delete_selected_song()
 
-
     def updateLoadButtonState(self, isLoading: bool):
         self.loadSongsButton.setEnabled(not isLoading) 
 
@@ -118,13 +117,13 @@ class MenuBar(QWidget):
         directory = QFileDialog.getExistingDirectory(
             self, 
             "Select Directory", 
-            directory=self.actions.config.directory
+            directory=self.data.directory
         )
         if directory:  # Check if a directory was selected
             self.on_directory_selected(directory)
 
     def on_directory_selected(self, directory: str):
-        self.actions.load_songs(directory)
+        self.actions.set_directory(directory)
 
     def onFilterChanged(self, selectedStatuses):
         self.actions.data.songs.filter=selectedStatuses

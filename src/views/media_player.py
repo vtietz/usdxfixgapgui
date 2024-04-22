@@ -76,10 +76,10 @@ class MediaPlayerComponent(QWidget):
     _play_position = 0
 
     currentPosition = 0 
-    def __init__(self, data: AppData, config: Config, actions: Actions, parent=None):
+    def __init__(self, data: AppData, actions: Actions, parent=None):
         super().__init__(parent)
         self._data = data
-        self._config = config
+        self._config = data.config
         self._actions = actions
 
         self.globalEventFilter = MediaPlayerEventFilter(

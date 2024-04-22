@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def get_song_path(txt_file):
     return os.path.dirname(txt_file)
 
-def get_temp_path(tmp_dir, audio_file):
+def get_tmp_path(tmp_dir, audio_file):
     return os.path.join(tmp_dir, os.path.splitext(os.path.basename(audio_file))[0])
 
 def get_vocals_path(tmp_path, max_detection_time=None):
@@ -29,21 +29,12 @@ def get_txt_path(info_file):
     return os.path.join(path, f"{os.path.basename(info_file).replace(INFO_FILE, '.txt')}")
 
 def get_waveform_path(tmp_path, type=None, length=None, extension="png"):
-    # Construct the base file name starting with "waveform"
     file_name = "waveform"
-    
-    # Add type to the file name if provided
     if type in ["audio", "vocals"]:
         file_name += f"_{type}"
-    
-    # Add length to the file name if provided
     if length:
         file_name += f"_{length}"
-    
-    # Append the extension
     file_name += f".{extension}"
-    
-    # Join the temp path and the constructed file name
     return os.path.join(tmp_path, file_name)
 
 def list_files(directory, endswith=".txt"):
@@ -88,6 +79,35 @@ def generate_directory_hash(directory_path):
     hash_object = hashlib.sha256(directory_bytes)
     # Get the hexadecimal representation of the hash
     hex_hash = hash_object.hexdigest()
-    # Optionally, you can shorten the hash if needed
-    short_hash = hex_hash[:8]  # Example: take the first 8 characters for brevity
+    short_hash = hex_hash[:8]  # take the first 8 characters for brevity
     return short_hash
+
+def move_file(source, destination, overwrite=False):
+    """
+    Moves a file from source to destination.
+    If overwrite is True and the destination file exists, it will be removed before moving.
+    """
+    # Check if the destination file exists and if overwrite is enabled
+    if os.path.exists(destination) and overwrite:
+        os.remove(destination)
+
+    # Ensure the destination directory exists
+    os.makedirs(os.path.dirname(destination), exist_ok=True)
+
+    # Move the file
+    os.rename(source, destination)
+
+def rmtree(directory):
+    """Recursively remove the directory and its contents."""
+    if not os.path.exists(directory):
+        return
+    logger.debug(f"Removing directory {directory}")
+    try:
+        for root, dirs, files in os.walk(directory, topdown=False):
+            for file in files:
+                os.remove(os.path.join(root, file))
+            for dir in dirs:
+                os.rmdir(os.path.join(root, dir))
+        os.rmdir(directory)
+    except Exception as e:
+        logger.error(f"Error removing directory {directory}: {e}")

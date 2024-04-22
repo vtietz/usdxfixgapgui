@@ -1,44 +1,24 @@
 import os
-from typing import List
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty
+from config import Config
 from model.song import Song
 from model.songs import Songs
-from utils.worker_queue_manager import WorkerQueueManager
-
-class Config(QObject):
-
-    # Directory where the songs are located
-    directory = os.path.join("..", "samples")
-    #directory: str = "Z:\\UltraStarDeluxe\\Songs\\usdb.animux.de"
-
-    tmp_root = os.path.join("..", ".tmp")
-
-    # Detection time in seconds
-    default_detection_time: int = 30
-
-    # Maximum gap tolerance in milliseconds
-    gap_tolerance: int = 500
-
-    detected_gap_color = "blue"
-    playback_position_color = "red"
-    waveform_color = "gray"
-
-    adjust_player_position_step_audio = 100
-    adjust_player_position_step_vocals = 10
-
-    spleeter = True
+from utils import files
 
 class AppData(QObject):
+
+    config:Config = Config()
 
     songs: Songs = Songs()
     
     _selected_song: Song = None
     _is_loading_songs: bool = False
 
-    tmp_folder: None
-
     selected_song_changed = pyqtSignal(Song)
     is_loading_songs_changed = pyqtSignal(bool)
+
+    _directory = config.default_directory
+    _tmp_path = files.generate_directory_hash(_directory)
 
     @pyqtProperty(Song, notify=selected_song_changed)
     def selected_song(self):
@@ -60,4 +40,17 @@ class AppData(QObject):
             self._is_loading_songs = value
             self.is_loading_songs_changed.emit(self._is_loading_songs)
 
+    @property
+    def directory(self):
+        return self._directory
+    
+    @directory.setter
+    def directory(self, value: str):
+        self._directory = value
+        path_hash = files.generate_directory_hash(value)
+        self._tmp_path = os.path.join(self.config.tmp_root, path_hash)
+
+    @property
+    def tmp_path(self):
+        return self._tmp_path
 

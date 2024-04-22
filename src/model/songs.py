@@ -15,7 +15,7 @@ class Songs(QObject):
 
     _filter: List[SongStatus] = []
     _filter_text: str = ""
-    
+
     songs: List[Song] = []
 
     def clear(self):
@@ -29,6 +29,10 @@ class Songs(QObject):
     def remove(self, song: Song):
         self.songs.remove(song)
         self.updated.emit(song)
+
+    def clear(self):
+        self.songs.clear()
+        self.cleared.emit()
 
     def __len__(self):
         return len(self.songs)

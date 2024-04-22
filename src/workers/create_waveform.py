@@ -1,9 +1,9 @@
+from config import Config
 from model.song import Song
 import utils.waveform as waveform
-from utils.worker_queue_manager import IWorker, IWorkerSignals
+from workers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
 import logging
-import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -13,18 +13,16 @@ class CreateWaveform(IWorker):
      
     def __init__(
             self, 
-            song,
+            song: Song,
+            config: Config,
             audio_file,
-            waveform_file,
-            detected_gap_color = "blue",
-            waveform_color = "gray"
-            ):
+            waveform_file
+        ):
         super().__init__()
         self.song = song
+        self.config = config
         self.audio_file = audio_file
         self.waveform_file = waveform_file
-        self.detected_gap_color = detected_gap_color
-        self.waveform_color = waveform_color
         self._isCancelled = False
         self.description = f"Creating waveform for {song.audio_file}."
 
@@ -33,9 +31,8 @@ class CreateWaveform(IWorker):
             self._create_waveform()
             self.signals.finished.emit()
         except Exception as e:
-            stack_trace = traceback.format_exc()
-            logger.error(f"Error creating waveform: {e}\nStack trace:\n{stack_trace}")
-            self.signals.error.emit((e,))
+            logger.error(f"Error creating waveform: {self.waveform_file}")
+            self.signals.error.emit(e)
 
     def cancel(self):
         logger.debug("Cancelling waveform creation...")
@@ -55,16 +52,21 @@ class CreateWaveform(IWorker):
         title = f"{song.artist} - {song.title}"
 
         notes = song.notes
-        bpm = song.bpm
         gap = song.gap
         detected_gap = song.gap_info.detected_gap
-        is_relative = song.is_relative
-        detected_gap_color = self.detected_gap_color
-        waveform_color = self.waveform_color
+        silence_periods = song.gap_info.silence_periods
+
+        silence_periods_color = self.config.silence_periods_color
+        detected_gap_color = self.config.detected_gap_color
+        waveform_color = self.config.waveform_color
 
         waveform.create_waveform_image(audio_file, waveform_file, waveform_color)
+
+        if(song.gap_info.silence_periods):
+            waveform.draw_silence_periods(waveform_file, silence_periods, duration_ms, silence_periods_color)
+
         waveform.draw_gap(waveform_file, gap, duration_ms, waveform_color)
         if detected_gap:
             waveform.draw_gap(waveform_file, detected_gap, duration_ms, detected_gap_color)
-        waveform.draw_notes(waveform_file, notes, bpm, gap, duration_ms, waveform_color, is_relative)
+        waveform.draw_notes(waveform_file, notes, duration_ms, waveform_color)
         waveform.draw_title(waveform_file, title, waveform_color)
