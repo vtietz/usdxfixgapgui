@@ -38,24 +38,17 @@ class SongListView(QTableView):
         self.horizontalHeader().setSortIndicatorShown(True)
         self.horizontalHeader().setSectionsClickable(True)
 
-
         # Adjust column widths and resize modes
         self.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-        self.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
-        self.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
-        self.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
-        self.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
-        self.horizontalHeader().setSectionResizeMode(8, QHeaderView.ResizeMode.Fixed)  
+        self.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        self.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
+        self.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
+        self.horizontalHeader().setSectionResizeMode(8, QHeaderView.ResizeMode.ResizeToContents)  
         self.horizontalHeader().setSectionResizeMode(9, QHeaderView.ResizeMode.Fixed) 
-        self.setColumnWidth(3, 50)
-        self.setColumnWidth(4, 65)
-        self.setColumnWidth(5, 50)
-        self.setColumnWidth(6, 50) 
-        self.setColumnWidth(7, 50) 
-        self.setColumnWidth(8, 50) 
         self.setColumnWidth(9, 100) 
 
         # Sorting by the first column initially, if needed

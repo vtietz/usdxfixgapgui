@@ -1,13 +1,11 @@
 import os
 from PyQt6.QtCore import pyqtSignal
-from model.gap_info import GapInfo, GapInfoStatus
+from model.gap_info import GapInfo
 from model.song import Song
 from utils.usdx_file import USDXFile
-from utils.worker_queue_manager import IWorker, IWorkerSignals
+from workers.worker_queue_manager import IWorker, IWorkerSignals
 from utils.run_async import run_async
-import utils.files as files
 import utils.audio as audio
-import traceback
 import logging
 
 logger = logging.getLogger(__name__)
@@ -41,9 +39,8 @@ class LoadUsdxFilesWorker(IWorker):
             return song
         
         except Exception as e:
-            stack_trace = traceback.format_exc()
-            logger.error(f"Error loading song '{txt_file_path}': {e}\nStack trace:\n{stack_trace}")           
-            self.signals.error.emit((e,))
+            logger.error(f"Error loading song '{txt_file_path}")           
+            self.signals.error.emit(e)
 
     def run(self):
         logger.debug(self.description)

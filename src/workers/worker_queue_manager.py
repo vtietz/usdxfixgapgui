@@ -11,7 +11,7 @@ class IWorkerSignals(QObject):
     finished = pyqtSignal()
     progress = pyqtSignal()
     canceled = pyqtSignal()
-    error = pyqtSignal(str)
+    error = pyqtSignal(Exception)
 
 class WorkerStatus(Enum):
     """Enum to represent the status of a worker task."""
@@ -87,7 +87,7 @@ class WorkerQueueManager(QObject):
         worker.id = self.get_unique_task_id()
         self.active_task_ids.add(worker.id)
         worker.signals.finished.connect(lambda: self.on_task_finished(worker.id))
-        worker.signals.error.connect(lambda error_info: self.on_task_error(worker.id, error_info))
+        worker.signals.error.connect(lambda e: self.on_task_error(worker.id, e))
         worker.signals.canceled.connect(lambda: self.on_task_canceled(worker.id))
         worker.signals.progress.connect(lambda: self.on_task_updated(worker.id))
         
@@ -142,7 +142,7 @@ class WorkerQueueManager(QObject):
 
     def on_task_error(self, task_id, e):
         stack_trace = traceback.format_exc()
-        logger.error(f"Error executing task: {e}\nStack trace:\n{stack_trace}")
+        logger.error(f"Error executing task {task_id}: {e}\nStack trace:\n{stack_trace}")
         self.on_task_finished(task_id)
 
     def on_task_canceled(self, task_id):

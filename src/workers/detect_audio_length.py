@@ -1,9 +1,8 @@
 from PyQt6.QtCore import pyqtSignal
 from model.song import Song
-from utils.worker_queue_manager import IWorker, IWorkerSignals
+from workers.worker_queue_manager import IWorker, IWorkerSignals
 from utils.run_async import run_async
 import utils.audio as audio
-import traceback
 import logging
 
 logger = logging.getLogger(__name__)
@@ -28,9 +27,8 @@ class DetectAudioLengthWorker(IWorker):
             self.song.gap_info.duration = duration
             run_async(self.song.gap_info.save(), lambda: self.signals.lengthDetected.emit(self.song))
         except Exception as e:
-            stack_trace = traceback.format_exc()
-            logger.error(f"Error detecting audio length song '{self.audio_file}': {e}\nStack trace:\n{stack_trace}")           
-            self.signals.error.emit((e,))
+            logger.error(f"Error detecting audio length song '{self.song.audio_file}'")           
+            self.signals.error.emit(e)
 
         if not self.is_canceled():
             self.signals.finished.emit()

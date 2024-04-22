@@ -5,7 +5,7 @@ from PyQt6.QtGui import QDesktopServices
 from data import AppData
 from model.song import Song
 from utils.run_async import run_async
-from utils.worker_queue_manager import WorkerQueueManager
+from workers.worker_queue_manager import WorkerQueueManager
 from workers.detect_audio_length import DetectAudioLengthWorker
 from workers.detect_gap import DetectGapWorker
 from workers.load_usdx_files import LoadUsdxFilesWorker
@@ -55,7 +55,7 @@ class Actions(QObject):
         if(song.status == SongStatus.NOT_PROCESSED):
             song.gap_info.original_gap = song.gap
             if(self.config.spleeter):
-                self.detect_gap(song)
+                self._detect_gap(song)
         
     def _on_loading_songs_finished(self):
         self.data.is_loading_songs = False
@@ -65,14 +65,13 @@ class Actions(QObject):
         worker.signals.lengthDetected.connect(lambda song: self.data.songs.updated.emit(song))
         self.worker_queue.add_task(worker, True)
 
-    def detect_gap(self, song: Song = None, overwrite=False, start_now=False):
-        if not song:
-            song: Song = self.data.selected_song
+    def _detect_gap(self, song: Song, overwrite=False, start_now=False):
         if not song:
             raise Exception("No song given")
 
         worker = DetectGapWorker(
             song, 
+            self.config,
             self.data.tmp_path,
             self.config.default_detection_time,
             overwrite
@@ -80,13 +79,17 @@ class Actions(QObject):
         
         worker.signals.started.connect(lambda: self._on_song_worker_started(song))
         worker.signals.error.connect(lambda: self._on_song_worker_error(song))
-        worker.signals.finished.connect(
-            lambda detected_gap, notes_not_in_silence: 
-            self._on_detect_gap_finished(song, detected_gap, notes_not_in_silence)
-        )
+        worker.signals.finished.connect(self._on_detect_gap_finished)
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
+
+    def detect_gap(self, overwrite=False):
+        song: Song = self.data.selected_song
+        if(song):
+            self._detect_gap(song, overwrite, True)
+        else:
+            logger.error("No song selected")
 
     def get_notes_overlap(self, song: Song, silence_periods, detection_time):
         notes_overlap = usdx.get_notes_overlap(song.notes, silence_periods, detection_time)
@@ -176,23 +179,7 @@ class Actions(QObject):
         worker.signals.finished.connect(lambda: self._create_waveforms(song, True))
         self.worker_queue.add_task(worker, True)
 
-
-    def _on_detect_gap_finished(self, song: Song, detected_gap: int, notes_not_in_silence: float):
-        gap = song.gap
-        firstNoteOffset = usdx.get_gap_offset_according_first_note(song.bpm, song.notes)
-        detected_gap = detected_gap - firstNoteOffset
-        if(song.start):
-            detected_gap = detected_gap - song.start
-        gap_diff = abs(gap - detected_gap)
-        if gap_diff > self.config.gap_tolerance:
-            song.status = SongStatus.MISMATCH
-        else:
-            song.status = SongStatus.MATCH
-        song.gap_info.status = GapInfoStatus.MATCH if song.status == SongStatus.MATCH else GapInfoStatus.MISMATCH
-        song.gap_info.detected_gap = detected_gap
-        song.gap_info.diff = gap_diff
-        song.gap_info.notes_overlap = notes_not_in_silence
-        run_async(song.gap_info.save())
+    def _on_detect_gap_finished(self, song: Song):
         self._create_waveforms(song, True)
 
     def _on_song_worker_started(self, song: Song):
@@ -220,10 +207,9 @@ class Actions(QObject):
         logger.debug(f"Creating waveform creation task for '{audio_file}'")
         worker = CreateWaveform(
             song,
+            self.config,
             audio_file,
             waveform_file,
-            self.config.detected_gap_color,
-            self.config.waveform_color
         )
         worker.signals.finished.connect(lambda song=song: self.data.songs.updated.emit(song))
         self.worker_queue.add_task(worker, True)    

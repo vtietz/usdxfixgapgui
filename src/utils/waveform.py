@@ -33,6 +33,34 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
 
     return image_path
 
+def draw_silence_periods(image_path, silence_periods, duration_ms, color=(105, 105, 105, 128)):
+    """Annotates the waveform image with the silence periods."""
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Waveform image not found: {image_path}")
+
+    logger.debug(f"Annotating waveform image with silence periods: {silence_periods}")
+
+    # Open the base image
+    base = Image.open(image_path).convert("RGBA")
+    image_width, image_height = base.size
+
+    # Create a new transparent layer
+    txt = Image.new("RGBA", base.size, (255, 255, 255, 0))
+    draw = ImageDraw.Draw(txt)
+
+    # Draw semi-transparent rectangles for silence periods
+    for start_ms, end_ms in silence_periods:
+        start_position = (start_ms / duration_ms) * image_width
+        end_position = (end_ms / duration_ms) * image_width
+        draw.rectangle([start_position, 0, end_position, image_height], fill=color)
+
+    # Composite the transparent layer onto the base image
+    out = Image.alpha_composite(base, txt)
+
+    # Save the modified image
+    out.save(image_path)
+
+    
 def draw_title(image_path, songname, color="white"):
     """Annotates the waveform image with the song name."""
 
@@ -81,7 +109,6 @@ def map_pitch_to_vertical_position(pitch, min_pitch, max_pitch, image_height):
         return image_height / 2
     normalized_pitch = (pitch - min_pitch) / pitch_range  # Normalize pitch to 0-1 range
     return (1 - normalized_pitch) * image_height / 2 + image_height / 4
-
 
 def draw_notes(
         image_path: str, 

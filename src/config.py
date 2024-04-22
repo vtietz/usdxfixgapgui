@@ -18,6 +18,7 @@ class Config(QObject):
     detected_gap_color = "blue"
     playback_position_color = "red"
     waveform_color = "gray"
+    silence_periods_color = (105, 105, 105, 128)
 
     adjust_player_position_step_audio = 100
     adjust_player_position_step_vocals = 10

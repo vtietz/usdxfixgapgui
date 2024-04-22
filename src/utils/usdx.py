@@ -1,16 +1,18 @@
 
 import logging
 from typing import List
+from model.song import Song
 from utils.usdx_file import Note
 
 logger = logging.getLogger(__name__)
                 
-def get_gap_offset_according_first_note(bpm: int, notes: List[Note]):
-    start_beat = notes[0].StartBeat
-    if start_beat == 0:
-        return 0
-    position_ms = start_beat / bpm
-    return (int)(position_ms)
+def fix_gap(gap: int, song: Song):
+    """ Corrects gap if first note does not start with beat 0 and song has a start time."""
+    start_beat = song.notes[0].StartBeat
+    if start_beat != 0:
+        position_ms = int(start_beat / song.bpm)
+        gap = gap - position_ms
+    return gap
 
 def get_syllaby_at_position(notes: List[Note], position: int):
     for note in notes:

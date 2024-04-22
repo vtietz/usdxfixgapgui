@@ -45,6 +45,9 @@ class GapInfo:
     # the time when the song was processed
     processed_time: str = ""
 
+    # the silence periods in the vocals file
+    silence_periods: list[tuple[float, float]]
+
     def __init__(self, song_path: str):
         self.file_path = files.get_info_file_path(song_path)
 
@@ -62,6 +65,7 @@ class GapInfo:
             self.duration = data.get("duration", 0)
             self.notes_overlap = data.get("notes_overlap", 0)
             self.processed_time = data.get("processed_time", "")
+            self.silence_periods = data.get("silence_periods", [])
         else:
             self.status = GapInfoStatus.NOT_PROCESSED
             self.original_gap = 0
@@ -71,6 +75,7 @@ class GapInfo:
             self.duration = 0
             self.notes_overlap = 0
             self.processed_time = ""
+            self.silence_periods = []
 
     async def save(self):
         logger.debug(f"Saving{self.file_path}")
@@ -83,7 +88,8 @@ class GapInfo:
             "diff": self.diff,
             "duration": self.duration,
             "notes_overlap": self.notes_overlap,
-            "processed_time": self.processed_time
+            "processed_time": self.processed_time,
+            "silence_periods": self.silence_periods
         }
         async with aiofiles.open(self.file_path, "w", encoding="utf-8") as file:
             await file.write(json.dumps(data, indent=4))  # Convert data to JSON string and write asynchronously

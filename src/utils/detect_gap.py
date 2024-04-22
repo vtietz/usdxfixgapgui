@@ -1,7 +1,5 @@
 import logging
 import os
-import sys
-from utils.cancellable_process import run_cancellable_process
 import utils.files as files
 import shutil
 import utils.audio as audio
@@ -9,32 +7,39 @@ from utils.separate import separate_audio
 
 logger = logging.getLogger(__name__)
 
-def detect_nearest_gap(silence_periods, start_position_ms, check_cancellation=None):
-    """Detect the nearest gap after the given start position in the audio file."""
+def detect_nearest_gap(silence_periods: list[tuple[float, float]], start_position_ms: float) -> int:
+    """Detect the nearest gap before or after the given start position in the audio file."""
+    logger.debug(f"Detecting nearest gap relative to {start_position_ms}ms")
+    logger.debug(f"Silence periods: {silence_periods}")
 
-    closest_silence_end_ms = None
-    closest_gap_diff_ms = float('inf')
+    closest_gap_ms = None
+    closest_gap_diff_ms = float('inf')  # Initialize with infinity
 
+    # Evaluate both the start and end of each silence period
     for start_ms, end_ms in silence_periods:
-        # Check if the start_position_ms is before the current silence period
-        if start_position_ms < start_ms:
-            gap_diff_ms = abs(start_ms - start_position_ms)
-        else:
-            gap_diff_ms = abs(end_ms - start_position_ms)
+        # Calculate the difference from start_position_ms to the start and end of the silence period
+        start_diff = abs(start_ms - start_position_ms)
+        end_diff = abs(end_ms - start_position_ms)
 
-        if gap_diff_ms < closest_gap_diff_ms:
-            closest_gap_diff_ms = gap_diff_ms
-            closest_silence_end_ms = end_ms
+        # Determine which is closer: the start or the end of the silence period
+        if start_diff < closest_gap_diff_ms:
+            closest_gap_diff_ms = start_diff
+            closest_gap_ms = start_ms
 
-    if closest_silence_end_ms is not None:
-        return int(closest_silence_end_ms)
+        if end_diff < closest_gap_diff_ms:
+            closest_gap_diff_ms = end_diff
+            closest_gap_ms = end_ms
+
+    # If a closest gap was found, return its position rounded to the nearest integer
+    if closest_gap_ms is not None:
+        return int(closest_gap_ms)
     else:
         return None
 
 def get_vocals_file(
         audio_file, 
         temp_root, 
-        destination_vocals_file, 
+        destination_vocals_filepath, 
         duration: int = 60,
         overwrite = False, 
         check_cancellation = None
@@ -45,41 +50,32 @@ def get_vocals_file(
     if audio_file is None or os.path.exists(audio_file) is False:
         raise Exception(f"Audio file not found: {audio_file}")
 
-    temp_path = files.get_tmp_path(temp_root, audio_file)
-    vocals_file = files.get_vocals_path(temp_path)
+    if not overwrite and os.path.exists(destination_vocals_filepath):
+        logger.debug(f"Vocals file already exists: {destination_vocals_filepath}")
+        return destination_vocals_filepath
+
     output_path = os.path.join(temp_root, "spleeter")
-
-    if not overwrite and os.path.exists(vocals_file):
-        logger.info(f"Vocals already exists: '{vocals_file}'")
-        return vocals_file
-
-    # Extract vocals from the audio file
     vocals_file, instrumental_file = separate_audio(
         audio_file, 
-        destination_vocals_file,
-        None,
         duration,
-        overwrite=False, 
+        output_path,
+        overwrite, 
         check_cancellation=None
     )
     
     if vocals_file is None:
         raise Exception(f"Failed to extract vocals from '{audio_file}'")
+
+    #vocals_file = audio.normalize_audio(vocals_file, -6, check_cancellation)
+    vocals_file = audio.make_clearer_voice(vocals_file, check_cancellation)
+    vocals_file = audio.convert_to_mp3(vocals_file, check_cancellation)
+
+    if(vocals_file and destination_vocals_filepath):
+        files.move_file(vocals_file, destination_vocals_filepath)
     
-    if os.path.exists(destination_vocals_file):
-        os.remove(destination_vocals_file)
-    os.makedirs(os.path.dirname(destination_vocals_file), exist_ok=True)
-    os.rename(vocals_file, destination_vocals_file)
+    files.rmtree(output_path)
 
-    # Remove the temporary directory
-    shutil.rmtree(output_path)
-
-    logger.debug(f"Vocals extracted to {destination_vocals_file}")
-
-    vocals_file = audio.normalize_audio(destination_vocals_file, -6, check_cancellation)
-    vocals_file = audio.convert_to_mp3(destination_vocals_file, check_cancellation)
-
-    return vocals_file
+    return destination_vocals_filepath
 
 def perform(
         audio_file,
@@ -128,7 +124,7 @@ def perform(
             check_cancellation=check_cancellation
         )
         
-        detected_gap = detect_nearest_gap(silence_periods, gap, check_cancellation)
+        detected_gap = detect_nearest_gap(silence_periods, gap)
         if detected_gap is None:
             raise Exception(f"Failed to detect gap in {audio_file}")
         

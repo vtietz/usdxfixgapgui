@@ -2,22 +2,30 @@ import os
 import logging
 
 from utils.cancellable_process import run_cancellable_process
-from utils import files
-
 
 logger = logging.getLogger(__name__)
 
-def extract_vocals_with_spleeter(
+def separate_audio(
         audio_file, 
-        output_path, 
-        duration, 
+        duration,
+        output_path,
+        overvrite=False,
         check_cancellation=None
     ):
 
-    if(not os.path.exists(audio_file)):
+    if audio_file is None or os.path.exists(audio_file) is False:
         raise Exception(f"Audio file not found: {audio_file}")
+    
+    # spleeter puts the audio files in a subdirectory according to the audio file name
+    path_segment = os.path.splitext(os.path.basename(audio_file))[0]
+    vocals_filepath = os.path.join(output_path, path_segment, "vocals.wav")    
+    accompaniment_filepath = os.path.join(output_path, path_segment, "accompaniment.wav")
 
-    logger.debug(f"Extracting vocals from {audio_file} to {output_path}...")
+    logger.debug(f"Extracting vocals and instrumentals from {audio_file} to {output_path}...")
+
+    if os.path.exists(vocals_filepath) and os.path.exists(accompaniment_filepath) and not overvrite:
+        logger.debug(f"Vocals and instrumentals already extracted. Skipping.")
+        return vocals_filepath, accompaniment_filepath
 
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
@@ -32,65 +40,9 @@ def extract_vocals_with_spleeter(
       ]
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
 
-    spleeter_vocals_file = os.path.join(output_path, "vocals.wav")
-    spleeter_accompaniment_file = os.path.join(output_path, "accompaniment.wav")
+    if not os.path.exists(vocals_filepath) or not os.path.exists(accompaniment_filepath):
+        raise Exception(f"Failed to separate audio. Error: {stderr}")
 
-    if not os.path.exists(spleeter_vocals_file) or not os.path.exists(spleeter_accompaniment_file):
-        raise Exception(f"Failed to separeate audio. Error: {stderr}")
-
-    logger.debug(f"Vocals extracted to {spleeter_vocals_file}")
-    return spleeter_vocals_file, spleeter_accompaniment_file
-
-def separate_audio(
-        audio_file, 
-        final_vocals_path,
-        final_instrumental_path,
-        duration,
-        overwrite=False, 
-        check_cancellation=None
-    ):
-
-    if audio_file is None or os.path.exists(audio_file) is False:
-        raise Exception(f"Audio file not found: {audio_file}")
-    
-    perform_separation = False
-
-    if final_vocals_path:
-        if overwrite and os.path.exists(final_vocals_path):
-            perform_separation = True
-        if not os.path.exists(final_vocals_path):
-            perform_separation = True
-
-    if final_instrumental_path:
-        if overwrite and os.path.exists(final_instrumental_path):
-            perform_separation = True
-        if not os.path.exists(final_instrumental_path):
-            perform_separation = True
-
-    if not perform_separation:
-        return final_vocals_path, final_instrumental_path
-
-    tmp_path = os.path.join(".spleeter", os.path.basename(audio_file))
-
-    # Extract vocals from the audio file
-    vocals_file, instrumental_file = extract_vocals_with_spleeter(
-        audio_file, 
-        tmp_path, 
-        duration, 
-        check_cancellation
-    )
-
-    if vocals_file is None or instrumental_file is None:
-        raise Exception(f"Failed to extract vocals and/or instruementals from '{audio_file}'")
-    
-    if(final_vocals_path and final_instrumental_path):
-        files.move_file(vocals_file, final_vocals_path)
-    
-    if(instrumental_file and final_instrumental_path):
-        files.move_file(instrumental_file, final_instrumental_path)
-        
-    files.rmtree(tmp_path)
-
-    logger.debug(f"Audio file {audio_file} separated to {final_instrumental_path} and {final_instrumental_path}")
-
-    return final_vocals_path, final_instrumental_path
+    logger.debug(f"Vocals extracted to {vocals_filepath}")
+    logger.debug(f"Instrumental extracted to {accompaniment_filepath}")
+    return vocals_filepath, accompaniment_filepath
