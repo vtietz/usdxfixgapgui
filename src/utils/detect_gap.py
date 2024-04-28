@@ -4,10 +4,11 @@ import utils.files as files
 import shutil
 import utils.audio as audio
 from utils.separate import separate_audio
+from typing import List, Tuple 
 
 logger = logging.getLogger(__name__)
 
-def detect_nearest_gap(silence_periods: list[tuple[float, float]], start_position_ms: float) -> int:
+def detect_nearest_gap(silence_periods: List[Tuple[float, float]], start_position_ms: float) -> int:
     """Detect the nearest gap before or after the given start position in the audio file."""
     logger.debug(f"Detecting nearest gap relative to {start_position_ms}ms")
     logger.debug(f"Silence periods: {silence_periods}")
@@ -71,6 +72,8 @@ def get_vocals_file(
     vocals_file = audio.convert_to_mp3(vocals_file, check_cancellation)
 
     if(vocals_file and destination_vocals_filepath):
+        if os.path.exists(destination_vocals_filepath):
+            os.remove(destination_vocals_filepath)
         files.move_file(vocals_file, destination_vocals_filepath)
     
     files.rmtree(output_path)
@@ -83,6 +86,7 @@ def perform(
         gap, 
         audio_length=None,
         default_detection_time=60, 
+        silence_detect_params="silencedetect=noise=-10dB:d=0.2",
         overwrite=False, 
         check_cancellation=None):
 
@@ -121,6 +125,7 @@ def perform(
 
         silence_periods = audio.detect_silence_periods(
             vocals_file, 
+            silence_detect_params=silence_detect_params,
             check_cancellation=check_cancellation
         )
         

@@ -6,6 +6,7 @@ import json
 import os
 import aiofiles
 import logging
+from typing import List, Tuple 
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class GapInfo:
     processed_time: str = ""
 
     # the silence periods in the vocals file
-    silence_periods: list[tuple[float, float]]
+    silence_periods: List[Tuple[float, float]]
 
     def __init__(self, song_path: str):
         self.file_path = files.get_info_file_path(song_path)

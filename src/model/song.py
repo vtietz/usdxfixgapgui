@@ -108,6 +108,8 @@ class Song:
             self.status = SongStatus.ERROR
         elif info.status == GapInfoStatus.UPDATED:
             self.status = SongStatus.UPDATED
+        elif info.status == GapInfoStatus.SOLVED:
+            self.status = SongStatus.SOLVED            
         else:
             self.status = SongStatus.NOT_PROCESSED
     

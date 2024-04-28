@@ -2,6 +2,7 @@ import logging
 import os
 from utils.cancellable_process import run_cancellable_process
 import tempfile
+from typing import List, Tuple 
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +71,9 @@ def convert_to_mp3(audio_file, check_cancellation=None):
 
 def detect_silence_periods(
         audio_file, 
-        silence_detect_params="silencedetect=noise=-30dB:d=0.5", 
+        silence_detect_params="silencedetect=noise=-10dB:d=0.2", 
         check_cancellation=None
-    ) -> list[tuple[float, float]]:
+    ) -> List[Tuple[float, float]]:
     """Detect silence periods in the audio file."""
     if not os.path.exists(audio_file):
         raise Exception(f"Audio file not found: {audio_file}")

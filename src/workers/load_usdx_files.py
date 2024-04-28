@@ -4,8 +4,8 @@ from model.gap_info import GapInfo
 from model.song import Song
 from utils.usdx_file import USDXFile
 from workers.worker_queue_manager import IWorker, IWorkerSignals
-from utils.run_async import run_async
 import utils.audio as audio
+from utils.run_async import run_sync
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ class LoadUsdxFilesWorker(IWorker):
         self.description = f"Searching song files in {directory}."
         self.signals = WorkerSignals()
         self.path_usdb_id_map = {}
+
 
     async def load(self, txt_file_path) -> Song:
         try:
@@ -41,6 +42,7 @@ class LoadUsdxFilesWorker(IWorker):
         except Exception as e:
             logger.error(f"Error loading song '{txt_file_path}")           
             self.signals.error.emit(e)
+
 
     def run(self):
         logger.debug(self.description)
@@ -65,11 +67,10 @@ class LoadUsdxFilesWorker(IWorker):
                 if file.endswith(".txt"):
                     song_path = os.path.join(root, file)
                     self.description = f"Found file {file}"
-                    run_async(
-                        self.load(song_path), 
-                        lambda song: self.signals.songLoaded.emit(song) if song else None
-                    )
-                    self.signals.progress.emit()
+                    song = run_sync(self.load(song_path))
+                    if song:
+                        self.signals.songLoaded.emit(song)
+                self.signals.progress.emit()
 
         if not self.is_canceled():
             self.signals.finished.emit()

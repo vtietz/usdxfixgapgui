@@ -3,6 +3,7 @@ from typing import List
 import logging
 import utils.files as files
 import aiofiles
+from typing import List, Tuple 
 
 logger = logging.getLogger(__name__)
 
@@ -89,21 +90,28 @@ class USDXFile:
         
     async def save(self):
         try:
-            with aiofiles.open(self.filepath, 'w', encoding=self.encoding) as file:
+            async with aiofiles.open(self.filepath, 'w', encoding=self.encoding) as file:
                 await file.write(self.content)
         except Exception as e:
             self.errors.append(f"Failed to write file: {e}")
             return False
+        return True
         
     async def _write_tag(self, tag, value):
-        self.content = re.sub(rf"#{tag}:.*", f"#{tag}:{value}", self.content)
-        self.save()
+        logger.debug(f"Writing {self.filepath}: {tag}={value}")
+        pattern = rf"(?mi)^#\s*{tag}:\s*.*$"
+        replacement = f"#{tag}:{value}"
+        if re.search(pattern, self.content):
+            self.content = re.sub(pattern, replacement, self.content)
+        else:
+            self.content += f"\n{replacement}\n"
+        await self.save()
 
     async def write_gap_tag(self, value):
         self.tags.GAP = value
-        self._write_tag("GAP", value)
+        await self._write_tag("GAP", value)
 
-    def parse(content) -> tuple[Tags, List[Note]]:
+    def parse(content) -> Tuple[Tags, List[Note]]:
         tags = Tags()
         notes: List[Note] = []
         for line in content.splitlines():

@@ -24,3 +24,5 @@ class Config(QObject):
     adjust_player_position_step_vocals = 10
 
     spleeter = True
+
+    silence_detect_params = "silencedetect=noise=-30dB:d=0.2"

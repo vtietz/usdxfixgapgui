@@ -28,7 +28,6 @@ class DetectGapWorker(IWorker):
         self.song = song
         self.config = config
         self.tmp_path = tmp_path
-        self.default_detection_time = default_detection_time
         self.overwrite = overwrite
         self._isCancelled = False
         self.description = f"Detecting gap in {song.audio_file}."
@@ -47,7 +46,8 @@ class DetectGapWorker(IWorker):
                 self.tmp_path,
                 gap, 
                 duration_ms,
-                self.default_detection_time,
+                self.config.default_detection_time,
+                self.config.silence_detect_params,
                 self.overwrite, 
                 self.is_canceled
             )

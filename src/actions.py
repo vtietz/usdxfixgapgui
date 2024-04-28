@@ -98,21 +98,24 @@ class Actions(QObject):
         self.data.songs.updated.emit(song)
 
     def update_gap_value(self, song: Song, gap: int):
-        if not song: return
-        song.gap = gap
-        run_async(song.usdx_file.write_gap_tag(gap))
+        if not song: 
+            return
         song.status = SongStatus.UPDATED
+        song.gap = gap
         song.gap_info.status = GapInfoStatus.UPDATED
         song.gap_info.updated_gap = gap
+        run_async(song.usdx_file.write_gap_tag(gap))
         run_async(song.gap_info.save())
+        song.usdx_file.calculate_note_times()
         self._create_waveforms(song, True)
         self.data.songs.updated.emit(song)
 
     def revert_gap_value(self, song: Song):
         if not song: return
         song.gap = song.gap_info.original_gap
-        song.usdx_file.write_gap_tag(song.gap)
+        run_async(song.usdx_file.write_gap_tag(song.gap))
         run_async(song.gap_info.save())
+        song.usdx_file.calculate_note_times()
         self._create_waveforms(song, True)
         self.data.songs.updated.emit(song)
 
