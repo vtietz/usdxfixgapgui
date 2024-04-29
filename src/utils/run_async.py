@@ -40,4 +40,3 @@ def run_sync(coro):
 
     future = asyncio.run_coroutine_threadsafe(sync_wrapper(), _loop)
     return future.result()
-

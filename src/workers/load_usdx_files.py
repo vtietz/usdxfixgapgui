@@ -44,19 +44,19 @@ class LoadUsdxFilesWorker(IWorker):
             self.signals.error.emit(e)
 
 
-    def run(self):
+    async def run(self):
         logger.debug(self.description)
 
         for root, dirs, files in os.walk(self.directory):
 
-            if self.is_canceled():
+            if self.is_cancelled():
                 logger.debug("Loading cancelled.")
                 self.signals.canceled.emit()
                 break
 
             for file in files:
 
-                if self.is_canceled():
+                if self.is_cancelled():
                     logger.debug("Loading cancelled.")
                     self.signals.canceled.emit()
                     break
@@ -66,12 +66,12 @@ class LoadUsdxFilesWorker(IWorker):
                     self.path_usdb_id_map[root] = int(usdb_id)
                 if file.endswith(".txt"):
                     song_path = os.path.join(root, file)
-                    self.description = f"Found file {file}"
-                    song = run_sync(self.load(song_path))
+                    self.description = f"Loading file {file}"
+                    song = await self.load(song_path)
                     if song:
                         self.signals.songLoaded.emit(song)
                 self.signals.progress.emit()
 
-        if not self.is_canceled():
+        if not self.is_cancelled():
             self.signals.finished.emit()
             logger.debug("Finished loading songs.")
