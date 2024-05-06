@@ -51,6 +51,7 @@ class IWorker(QObject):
     @description.setter
     def description(self, value):
         self._description = value
+        self.signals.progress.emit()
 
     @property
     def status(self):
@@ -60,6 +61,7 @@ class IWorker(QObject):
     @status.setter
     def status(self, value):
         self._status = value
+        self.signals.progress.emit()
 
     async def run(self):
         """
@@ -143,7 +145,7 @@ class WorkerQueueManager(QObject):
         return self.running_tasks.get(task_id, None)
 
     def cancel_task(self, task_id):
-        worker = self.get_worker(task_id)
+        worker: IWorker = self.get_worker(task_id)
         if worker:
             worker.cancel()
 

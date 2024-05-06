@@ -1,7 +1,7 @@
 from typing import List
 from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex
 
-from model.song import Song
+from model.song import Song, SongStatus
 from model.songs import Songs
 import logging
 
@@ -59,24 +59,44 @@ class SongTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.UserRole:
             return song
         elif role == Qt.ItemDataRole.DisplayRole:
+            relative_path = song.relative_path
+            artist = song.artist
+            title = song.title
+            duration_str = song.duration_str
+            bpm = str(song.bpm)
+            gap = str(song.gap)
+            status = song.status
+            if(song.gap_info):
+                detected_gap = str(song.gap_info.detected_gap)
+                diff = str(song.gap_info.diff)
+                notes_overlap = str(song.gap_info.notes_overlap)
+                processed_time = song.gap_info.processed_time
+            else:
+                detected_gap = ""
+                diff = ""
+                notes_overlap = ""
+                processed_time = ""
             return [
-                song.relative_path,
-                song.artist,
-                song.title,
-                song.duration_str,
-                str(song.bpm),
-                str(song.gap),
-                str(song.gap_info.detected_gap),
-                str(song.gap_info.diff),
-                str(song.gap_info.notes_overlap),
-                song.gap_info.processed_time,
-                song.status.name,
+                relative_path,
+                artist,
+                title,
+                duration_str,
+                bpm,
+                gap,
+                detected_gap,
+                diff,
+                notes_overlap,
+                processed_time,
+                status.name,
             ][column]
         elif role == Qt.ItemDataRole.TextAlignmentRole:
           if 3 <= column <= 8: 
               return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
           else:
               return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        elif role == Qt.ItemDataRole.BackgroundRole:
+            if song.status == SongStatus.ERROR:
+                return Qt.GlobalColor.red
 
         return None
 

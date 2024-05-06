@@ -44,11 +44,8 @@ class Actions(QObject):
     def select_song(self, path: str):
         logger.debug(f"Selected {path}")
         song: Song = next((s for s in self.data.songs if s.path == path), None)
-        if(song):
-            if(not song.duration_ms):
-                self._get_audio_length(song)
-            self.data.selected_song = song
-            self._create_waveforms(song)
+        self.data.selected_song = song
+        self._create_waveforms(song)
 
     def _on_song_loaded(self, song: Song):
         self.data.songs.add(song)
