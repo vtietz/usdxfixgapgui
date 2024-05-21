@@ -2,11 +2,11 @@ from PyQt6.QtCore import pyqtSignal
 from config import Config
 from model.gap_info import GapInfoStatus
 from model.song import Song, SongStatus
-from utils.run_async import run_async
 from workers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
 import utils.usdx as usdx
 import utils.detect_gap as detect_gap
+import time
 
 import logging
 
@@ -38,7 +38,11 @@ class DetectGapWorker(IWorker):
         duration_ms = song.duration_ms
         
         gap = song.gap
-    
+
+        # wait 3 seconds
+        logger.debug(f"Detecting gap for '{audio_file}' in 3 seconds...")
+        time.sleep(3)  
+        
         try:
         
             detected_gap, silence_periods = detect_gap.perform(

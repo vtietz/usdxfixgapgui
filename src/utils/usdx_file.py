@@ -74,15 +74,15 @@ class USDXFile:
         self.tags, self.notes = USDXFile.parse(self.content)
         
         if self.tags.TITLE is None:
-            raise ValidationError("TITLE is missing")
+            raise ValidationError("TITLE tag is missing")
         if self.tags.ARTIST is None:
-            raise ValidationError("ARTIST is missing")
+            raise ValidationError("ARTIST tag is missing")
         if self.tags.GAP is None:
-            raise ValidationError("GAP is missing")
+            raise ValidationError("GAP tag is missing")
         if self.tags.AUDIO is None:
-            raise ValidationError("AUDIO is missing")
+            raise ValidationError("AUDIO tag is missing")
         if self.tags.BPM is None:
-            raise ValidationError("BPM is missing")
+            raise ValidationError("BPM tag is missing")
         if self.notes is None:
             raise ValidationError("Notes are missing")
         

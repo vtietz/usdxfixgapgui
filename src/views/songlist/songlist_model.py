@@ -1,5 +1,5 @@
 from typing import List
-from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex
+from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QTimer
 
 from model.song import Song, SongStatus
 from model.songs import Songs
@@ -22,16 +22,34 @@ class SongTableModel(QAbstractTableModel):
         self.songs_model.deleted.connect(self.song_deleted)
         self.songs_model.cleared.connect(self.songs_cleared)
 
+        # timer for adding pending songs
+        self.timer = QTimer()
+        self.timer.setInterval(1000)
+        self.timer.timeout.connect(self.add_pending_songs)
+
     def song_added(self, song: Song):
-        logging.debug("Adding song to model: %s", song)
-        self.beginInsertRows(QModelIndex(), len(self.songs), len(self.songs))
-        self.songs.append(song)
-        self.endInsertRows()
+        self.pending_songs.append(song)
+        if not self.timer.isActive():
+            self.timer.start()
+
+    def add_pending_songs(self):
+        if self.pending_songs:
+            self.beginInsertRows(QModelIndex(), len(self.songs), len(self.songs) + len(self.pending_songs) - 1)
+            self.songs.extend(self.pending_songs)
+            self.pending_songs.clear()
+            self.endInsertRows()
+        if not self.pending_songs:
+            self.timer.stop()
 
     # Slot for handling song updates
     def song_updated(self, song: Song):
-        row_index = self.songs.index(song)
-        self.dataChanged.emit(self.createIndex(row_index, 0), self.createIndex(row_index, self.columnCount() - 1))
+        for idx, s in enumerate(self.songs):
+            if s.path == song.path:  # Assuming 'path' is a unique identifier
+                row_index = idx
+                self.dataChanged.emit(self.createIndex(row_index, 0), self.createIndex(row_index, self.columnCount() - 1))
+                return
+        logger.error(f"Song not found: {song}")
+
 
     # Slot for handling song deletion
     def song_deleted(self, song: Song):

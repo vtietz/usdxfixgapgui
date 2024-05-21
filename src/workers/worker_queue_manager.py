@@ -124,7 +124,8 @@ class WorkerQueueManager(QObject):
             await worker.run()
             self.on_task_finished(worker.id)
         except Exception as e:
-            logger.error(f"Exception in _start_worker for {worker.description}: {e}")
+            logger.error(f"Exception in _start_worker for {worker.description}")
+            logger.exception(e)
 
     def on_task_finished(self, task_id):
         self._finalize_task(task_id)

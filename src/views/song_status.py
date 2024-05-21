@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel
 from PyQt6.QtGui import QColor
+from PyQt6.QtCore import Qt
 
 from model.songs import Songs, SongStatus
 
@@ -13,7 +14,7 @@ class SongsStatusVisualizer(QWidget):
         self.setLayout(self.layout)
         self.layout.setSpacing(0)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        self.setFixedHeight(3)
+        #self.setFixedHeight(5)
 
         # Optional: Store labels for updating without recreation
         self.status_labels = {}
@@ -44,7 +45,7 @@ class SongsStatusVisualizer(QWidget):
 
             if status not in self.status_labels:
                 label = QLabel(self)
-                label.setStyleSheet(f"background-color: {self.get_color_for_status(status).name()};")
+                label.setStyleSheet(f"background-color: {self.get_color_for_status(status).name()}; color: rgba(255, 255, 255, 0.5); font-size: 8px;")
                 self.status_labels[status] = label
                 self.layout.addWidget(label)
             else:
@@ -58,6 +59,9 @@ class SongsStatusVisualizer(QWidget):
                 policy.setHorizontalStretch(int(proportion * 100))  # Use the proportion to influence the stretch factor
                 label.setSizePolicy(policy)
                 label.setMinimumWidth(int(proportion * 100))  # This helps in making sure that the QLabel's size changes dynamically based on the proportion
+                label.setText(str(count))
+                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
             else:
                 label.setVisible(False)  # Hide labels for statuses with 0 count
 

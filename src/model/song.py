@@ -13,11 +13,11 @@ class SongStatus(Enum):
     NOT_PROCESSED = 'NOT_PROCESSED'
     QUEUED = 'QUEUED'
     PROCESSING = 'PROCESSING'
-    ERROR = 'ERROR'
     SOLVED = 'SOLVED'
     UPDATED = 'UPDATED'
     MATCH = 'MATCH'
     MISMATCH = 'MISMATCH'
+    ERROR = 'ERROR'
 
 class Song:
 

@@ -34,6 +34,7 @@ class LoadUsdxFilesWorker(IWorker):
         except Exception as e:
             song.status = SongStatus.ERROR
             logger.error(f"Error loading song '{txt_file_path}")
+            logger.exception(e)
         return song
         #self.signals.error.emit(e)
 
