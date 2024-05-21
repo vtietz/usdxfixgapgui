@@ -2,11 +2,11 @@ from PyQt6.QtCore import pyqtSignal
 from config import Config
 from model.gap_info import GapInfoStatus
 from model.song import Song, SongStatus
-from utils.run_async import run_async
 from workers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
 import utils.usdx as usdx
 import utils.detect_gap as detect_gap
+import time
 
 import logging
 
@@ -32,13 +32,17 @@ class DetectGapWorker(IWorker):
         self._isCancelled = False
         self.description = f"Detecting gap in {song.audio_file}."
 
-    def run(self):
+    async def run(self):
         song: Song = self.song
         audio_file = song.audio_file
         duration_ms = song.duration_ms
         
         gap = song.gap
-    
+
+        # wait 3 seconds
+        logger.debug(f"Detecting gap for '{audio_file}' in 3 seconds...")
+        time.sleep(3)  
+        
         try:
         
             detected_gap, silence_periods = detect_gap.perform(
@@ -49,7 +53,7 @@ class DetectGapWorker(IWorker):
                 self.config.default_detection_time,
                 self.config.silence_detect_params,
                 self.overwrite, 
-                self.is_canceled
+                self.is_cancelled
             )
             
             detected_gap = usdx.fix_gap(detected_gap, song)
@@ -57,7 +61,7 @@ class DetectGapWorker(IWorker):
             info_status = GapInfoStatus.MISMATCH if gap_diff > self.config.gap_tolerance else GapInfoStatus.MATCH
             song_status = SongStatus.MATCH if info_status == GapInfoStatus.MATCH else SongStatus.MISMATCH
             
-            vocals_duration_ms = audio.get_audio_duration(song.vocals_file, self.is_canceled)
+            vocals_duration_ms = audio.get_audio_duration(song.vocals_file, self.is_cancelled)
             notes_overlap = usdx.get_notes_overlap(song.notes, silence_periods, vocals_duration_ms)
 
             song.gap_info.detected_gap = detected_gap
@@ -68,7 +72,7 @@ class DetectGapWorker(IWorker):
             
             song.status = song_status
 
-            run_async(song.gap_info.save())
+            await song.gap_info.save()
 
             self.signals.finished.emit(song) 
         except Exception as e:

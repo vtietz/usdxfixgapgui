@@ -26,7 +26,7 @@ class CreateWaveform(IWorker):
         self._isCancelled = False
         self.description = f"Creating waveform for {song.audio_file}."
 
-    def run(self):
+    async def run(self):
         try:
             self._create_waveform()
             self.signals.finished.emit()

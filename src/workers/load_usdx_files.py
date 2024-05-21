@@ -1,7 +1,7 @@
 import os
 from PyQt6.QtCore import pyqtSignal
-from model.gap_info import GapInfo
-from model.song import Song
+from model.gap_info import GapInfo, GapInfoStatus
+from model.song import Song, SongStatus
 from utils.usdx_file import USDXFile
 from workers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
@@ -16,62 +16,49 @@ class WorkerSignals(IWorkerSignals):
 class LoadUsdxFilesWorker(IWorker):
     def __init__(self, directory, tmp_root):
         super().__init__()
+        self.signals = WorkerSignals()
         self.directory = directory
         self.tmp_root = tmp_root
         self.description = f"Searching song files in {directory}."
-        self.signals = WorkerSignals()
         self.path_usdb_id_map = {}
 
 
     async def load(self, txt_file_path) -> Song:
+        self.description = f"Loading file {txt_file_path}"
+        song = Song(txt_file_path, self.directory, self.tmp_root)
         try:
-            usdx_file = USDXFile(txt_file_path)
-            await usdx_file.load()
-
-            gap_file = GapInfo(usdx_file.path)
-            await gap_file.load()
-
-            song = Song(usdx_file, gap_file, self.tmp_root)
-            song.relative_path = os.path.relpath(song.path, self.directory)
+            await song.load()
             song.usdb_id = self.path_usdb_id_map.get(song.path, None)
-
             if(not song.duration_ms):
-                song.duration_ms = audio.get_audio_duration(song.audio_file)
-            return song
-        
+                song.duration_ms = audio.get_audio_duration(song.audio_file, self.is_cancelled())
         except Exception as e:
-            logger.error(f"Error loading song '{txt_file_path}")           
-            self.signals.error.emit(e)
+            song.status = SongStatus.ERROR
+            logger.error(f"Error loading song '{txt_file_path}")
+            logger.exception(e)
+        return song
+        #self.signals.error.emit(e)
 
-
-    def run(self):
+    async def run(self):
         logger.debug(self.description)
-
         for root, dirs, files in os.walk(self.directory):
-
-            if self.is_canceled():
-                logger.debug("Loading cancelled.")
-                self.signals.canceled.emit()
-                break
+            self.description = f"Searching song files in {root}"
+            if self.is_cancelled(): 
+                return
 
             for file in files:
-
-                if self.is_canceled():
-                    logger.debug("Loading cancelled.")
-                    self.signals.canceled.emit()
-                    break
-
+                if self.is_cancelled(): 
+                    return
                 if file.endswith(".usdb"):
                     usdb_id = os.path.splitext(file)[0]
                     self.path_usdb_id_map[root] = int(usdb_id)
                 if file.endswith(".txt"):
                     song_path = os.path.join(root, file)
-                    self.description = f"Found file {file}"
-                    song = run_sync(self.load(song_path))
+                    song = await self.load(song_path)
                     if song:
                         self.signals.songLoaded.emit(song)
                 self.signals.progress.emit()
+            self.signals.progress.emit()
 
-        if not self.is_canceled():
+        if not self.is_cancelled():
             self.signals.finished.emit()
             logger.debug("Finished loading songs.")

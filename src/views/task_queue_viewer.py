@@ -1,6 +1,6 @@
 import logging
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton
-
+from PyQt6.QtCore import QMetaObject, Qt, QThread
 from workers.worker_queue_manager import WorkerQueueManager
 
 logger = logging.getLogger(__name__)
@@ -31,12 +31,15 @@ class TaskQueueViewer(QWidget):
 
     def updateTaskList(self):
         self.tableWidget.setRowCount(0)
-        # Add running tasks
-        for task_id, worker in self.workerQueueManager.running_tasks.items(): 
+        # Take a snapshot of running tasks and then iterate
+        running_tasks_snapshot = list(self.workerQueueManager.running_tasks.items())
+        for task_id, worker in running_tasks_snapshot:
             self.addTaskToTable(task_id, worker.description, worker.status.name)
-        # Add queued tasks
-        for worker in self.workerQueueManager.queue:
+        # Take a snapshot of the queue and then iterate
+        queue_snapshot = list(self.workerQueueManager.queued_tasks)
+        for worker in queue_snapshot:
             self.addTaskToTable(worker.id, worker.description, worker.status.name)
+
 
     def addTaskToTable(self, task_id, description, status):
         rowPosition = self.tableWidget.rowCount()

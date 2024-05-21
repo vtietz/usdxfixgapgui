@@ -9,3 +9,7 @@ it seems that spleeter could only be installed with python 3.8
 `python -m pip install pip setuptools --upgrade`
 
 `pip install spleeter Pillow chardet ffmpeg-normalize ffmpeg`
+
+`cd src`
+
+`python qpp.py`

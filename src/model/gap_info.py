@@ -54,29 +54,31 @@ class GapInfo:
 
     async def load(self):
         logger.debug(f"Try to load {self.file_path}")
+        self.status = GapInfoStatus.NOT_PROCESSED
+        self.original_gap = 0
+        self.detected_gap = 0
+        self.updated_gap = 0
+        self.diff = 0
+        self.duration = 0
+        self.notes_overlap = 0
+        self.processed_time = ""
+        self.silence_periods = []
         if os.path.exists(self.file_path):
-            async with aiofiles.open(self.file_path, "r", encoding="utf-8") as file:
-                content = await file.read()  # Read the content asynchronously
-                data = json.loads(content)  # Parse the JSON from the string
-            self.status = GapInfo.map_string_to_status(data.get("status", "NOT_PROCESSED"))
-            self.original_gap = data.get("original_gap", 0)
-            self.detected_gap = data.get("detected_gap", 0)
-            self.updated_gap = data.get("updated_gap", 0)
-            self.diff = data.get("diff", 0)
-            self.duration = data.get("duration", 0)
-            self.notes_overlap = data.get("notes_overlap", 0)
-            self.processed_time = data.get("processed_time", "")
-            self.silence_periods = data.get("silence_periods", [])
-        else:
-            self.status = GapInfoStatus.NOT_PROCESSED
-            self.original_gap = 0
-            self.detected_gap = 0
-            self.updated_gap = 0
-            self.diff = 0
-            self.duration = 0
-            self.notes_overlap = 0
-            self.processed_time = ""
-            self.silence_periods = []
+            try:
+                async with aiofiles.open(self.file_path, "r", encoding="utf-8") as file:
+                    content = await file.read()  # Read the content asynchronously
+                    data = json.loads(content)  # Parse the JSON from the string
+                self.status = GapInfo.map_string_to_status(data.get("status", "NOT_PROCESSED"))
+                self.original_gap = data.get("original_gap", 0)
+                self.detected_gap = data.get("detected_gap", 0)
+                self.updated_gap = data.get("updated_gap", 0)
+                self.diff = data.get("diff", 0)
+                self.duration = data.get("duration", 0)
+                self.notes_overlap = data.get("notes_overlap", 0)
+                self.processed_time = data.get("processed_time", "")
+                self.silence_periods = data.get("silence_periods", [])
+            except Exception as e:
+                logger.error(f"Error loading gap info: {e}")
 
     async def save(self):
         logger.debug(f"Saving{self.file_path}")

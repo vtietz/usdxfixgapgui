@@ -13,11 +13,11 @@ class SongStatus(Enum):
     NOT_PROCESSED = 'NOT_PROCESSED'
     QUEUED = 'QUEUED'
     PROCESSING = 'PROCESSING'
-    ERROR = 'ERROR'
     SOLVED = 'SOLVED'
     UPDATED = 'UPDATED'
     MATCH = 'MATCH'
     MISMATCH = 'MISMATCH'
+    ERROR = 'ERROR'
 
 class Song:
 
@@ -38,6 +38,8 @@ class Song:
 
     usdb_id: int = None
     
+    duration_ms: int = 0
+
     audio_waveform_file: str = ""
     vocals_file: str = ""
     vocals_waveform_file: str = ""
@@ -49,18 +51,23 @@ class Song:
 
     notes: list = []
 
-    def __init__(self, usdx_file: USDXFile, gap_info: GapInfo, tmp_root: str):
-        self.usdx_file = usdx_file
-        self.gap_info = gap_info
+    def __init__(self, txt_file: str, songs_root:str, tmp_root: str):
+        self.txt_file = txt_file
         self.tmp_root = tmp_root
+        self.path = os.path.dirname(txt_file)
+        self.relative_path = os.path.relpath(self.path, songs_root)
+        self.usdx_file = USDXFile(txt_file)
+        self.gap_info = GapInfo(self.path)
+
+    async def load(self):
+        await self.usdx_file.load()
+        await self.gap_info.load()
         self.init()
 
     def init(self):
 
-        txt_file = self.usdx_file.filepath
-
-        if not os.path.exists(txt_file):
-           raise FileNotFoundError(f"File not found: {txt_file}")
+        if not os.path.exists(self.txt_file):
+           raise FileNotFoundError(f"File not found: {self.txt_file}")
 
         self.notes = self.usdx_file.notes
         self.title = self.usdx_file.tags.TITLE
@@ -96,7 +103,10 @@ class Song:
 
     @property
     def duration_str(self):
-        return audio.milliseconds_to_str(self.duration_ms)
+        if(self.duration_ms):
+            return audio.milliseconds_to_str(self.duration_ms)
+        else:
+            "N/A"
     
     def update_status_from_gap_info(self):
         info = self.gap_info

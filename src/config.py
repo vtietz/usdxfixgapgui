@@ -6,8 +6,8 @@ class Config(QObject):
     tmp_root = os.path.join("..", ".tmp")
         
     # Directory where the songs are located
-    default_directory = os.path.join("..", "samples")
-    #_directory: str = "Z:\\UltraStarDeluxe\\Songs\\usdb.animux.de"
+    default_directory: str = os.path.join("..", "samples")
+    #default_directory: str = "Z:\\UltraStarDeluxe\\Songs\\usdb.animux.de"
 
     # Detection time in seconds
     default_detection_time: int = 30

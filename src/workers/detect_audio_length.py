@@ -19,17 +19,18 @@ class DetectAudioLengthWorker(IWorker):
         self.song = song
         self.signals = WorkerSignals()
 
-    def run(self):
+    async def run(self):
         logger.debug(self.description)
         try:
             duration = audio.get_audio_duration(self.song.audio_file)
             self.song.duration_ms = duration
             self.song.gap_info.duration = duration
-            run_async(self.song.gap_info.save(), lambda: self.signals.lengthDetected.emit(self.song))
+            await self.song.gap_info.save()
+            self.signals.lengthDetected.emit(self.song)
         except Exception as e:
             logger.error(f"Error detecting audio length song '{self.song.audio_file}'")           
             self.signals.error.emit(e)
 
-        if not self.is_canceled():
+        if not self.is_cancelled():
             self.signals.finished.emit()
             logger.debug("Canceled detecting audio length.")

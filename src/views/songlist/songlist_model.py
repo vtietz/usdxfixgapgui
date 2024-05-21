@@ -1,7 +1,7 @@
 from typing import List
-from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex
+from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QTimer
 
-from model.song import Song
+from model.song import Song, SongStatus
 from model.songs import Songs
 import logging
 
@@ -22,16 +22,34 @@ class SongTableModel(QAbstractTableModel):
         self.songs_model.deleted.connect(self.song_deleted)
         self.songs_model.cleared.connect(self.songs_cleared)
 
+        # timer for adding pending songs
+        self.timer = QTimer()
+        self.timer.setInterval(1000)
+        self.timer.timeout.connect(self.add_pending_songs)
+
     def song_added(self, song: Song):
-        logging.debug("Adding song to model: %s", song)
-        self.beginInsertRows(QModelIndex(), len(self.songs), len(self.songs))
-        self.songs.append(song)
-        self.endInsertRows()
+        self.pending_songs.append(song)
+        if not self.timer.isActive():
+            self.timer.start()
+
+    def add_pending_songs(self):
+        if self.pending_songs:
+            self.beginInsertRows(QModelIndex(), len(self.songs), len(self.songs) + len(self.pending_songs) - 1)
+            self.songs.extend(self.pending_songs)
+            self.pending_songs.clear()
+            self.endInsertRows()
+        if not self.pending_songs:
+            self.timer.stop()
 
     # Slot for handling song updates
     def song_updated(self, song: Song):
-        row_index = self.songs.index(song)
-        self.dataChanged.emit(self.createIndex(row_index, 0), self.createIndex(row_index, self.columnCount() - 1))
+        for idx, s in enumerate(self.songs):
+            if s.path == song.path:  # Assuming 'path' is a unique identifier
+                row_index = idx
+                self.dataChanged.emit(self.createIndex(row_index, 0), self.createIndex(row_index, self.columnCount() - 1))
+                return
+        logger.error(f"Song not found: {song}")
+
 
     # Slot for handling song deletion
     def song_deleted(self, song: Song):
@@ -59,24 +77,44 @@ class SongTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.UserRole:
             return song
         elif role == Qt.ItemDataRole.DisplayRole:
+            relative_path = song.relative_path
+            artist = song.artist
+            title = song.title
+            duration_str = song.duration_str
+            bpm = str(song.bpm)
+            gap = str(song.gap)
+            status = song.status
+            if(song.gap_info):
+                detected_gap = str(song.gap_info.detected_gap)
+                diff = str(song.gap_info.diff)
+                notes_overlap = str(song.gap_info.notes_overlap)
+                processed_time = song.gap_info.processed_time
+            else:
+                detected_gap = ""
+                diff = ""
+                notes_overlap = ""
+                processed_time = ""
             return [
-                song.relative_path,
-                song.artist,
-                song.title,
-                song.duration_str,
-                str(song.bpm),
-                str(song.gap),
-                str(song.gap_info.detected_gap),
-                str(song.gap_info.diff),
-                str(song.gap_info.notes_overlap),
-                song.gap_info.processed_time,
-                song.status.name,
+                relative_path,
+                artist,
+                title,
+                duration_str,
+                bpm,
+                gap,
+                detected_gap,
+                diff,
+                notes_overlap,
+                processed_time,
+                status.name,
             ][column]
         elif role == Qt.ItemDataRole.TextAlignmentRole:
           if 3 <= column <= 8: 
               return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
           else:
               return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        elif role == Qt.ItemDataRole.BackgroundRole:
+            if song.status == SongStatus.ERROR:
+                return Qt.GlobalColor.red
 
         return None
 

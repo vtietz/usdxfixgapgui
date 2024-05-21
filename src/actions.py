@@ -4,7 +4,7 @@ from PyQt6.QtCore import QObject, QUrl
 from PyQt6.QtGui import QDesktopServices
 from data import AppData
 from model.song import Song
-from utils.run_async import run_async
+from utils.run_async import run_async, run_sync
 from workers.worker_queue_manager import WorkerQueueManager
 from workers.detect_audio_length import DetectAudioLengthWorker
 from workers.detect_gap import DetectGapWorker
@@ -44,11 +44,8 @@ class Actions(QObject):
     def select_song(self, path: str):
         logger.debug(f"Selected {path}")
         song: Song = next((s for s in self.data.songs if s.path == path), None)
-        if(song):
-            if(not song.duration_ms):
-                self._get_audio_length(song)
-            self.data.selected_song = song
-            self._create_waveforms(song)
+        self.data.selected_song = song
+        self._create_waveforms(song)
 
     def _on_song_loaded(self, song: Song):
         self.data.songs.add(song)
@@ -156,8 +153,11 @@ class Actions(QObject):
             logger.error("No song selected")
             return
         logger.info(f"Reloading song {song.path}")
-        run_async(self._reload_song(song))
-        self._create_waveforms(song, True)
+        try:
+            run_sync(song.load())
+            self._create_waveforms(song, True)
+        except Exception as e:
+            logger.exception(e)
 
     def delete_selected_song(self):
         song: Song = self.data.selected_song
@@ -217,7 +217,3 @@ class Actions(QObject):
         worker.signals.finished.connect(lambda song=song: self.data.songs.updated.emit(song))
         self.worker_queue.add_task(worker, True)    
     
-    async def _reload_song(self, song: Song):
-        await song.usdx_file.load()
-        await song.gap_info.load()
-        song.init()
