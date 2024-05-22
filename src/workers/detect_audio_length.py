@@ -28,7 +28,8 @@ class DetectAudioLengthWorker(IWorker):
             await self.song.gap_info.save()
             self.signals.lengthDetected.emit(self.song)
         except Exception as e:
-            logger.error(f"Error detecting audio length song '{self.song.audio_file}'")           
+            logger.error(f"Error detecting audio length song '{self.song.audio_file}'")       
+            self.song.error_message = str(e)    
             self.signals.error.emit(e)
 
         if not self.is_cancelled():

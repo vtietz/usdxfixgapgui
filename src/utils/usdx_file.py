@@ -58,7 +58,7 @@ class USDXFile:
                     return
             except Exception as e:
                 logger.debug(f"Failed to decode '{self.filepath}' with {encoding}: {e}")
-        raise Exception(f"Failed to determine encoding for '{self.filepath}'")
+        raise Exception(f"Failed to determine encoding")
 
     async def load(self):
 
@@ -89,13 +89,8 @@ class USDXFile:
         self.calculate_note_times()
         
     async def save(self):
-        try:
-            async with aiofiles.open(self.filepath, 'w', encoding=self.encoding) as file:
-                await file.write(self.content)
-        except Exception as e:
-            self.errors.append(f"Failed to write file: {e}")
-            return False
-        return True
+        async with aiofiles.open(self.filepath, 'w', encoding=self.encoding) as file:
+            await file.write(self.content)
         
     async def _write_tag(self, tag, value):
         logger.debug(f"Writing {self.filepath}: {tag}={value}")

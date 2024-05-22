@@ -77,5 +77,6 @@ class DetectGapWorker(IWorker):
             self.signals.finished.emit(song) 
         except Exception as e:
             logger.exception(f"Error detecting gap for '{audio_file}")
+            song.error_message = str(e)
             self.signals.error.emit(e)
 

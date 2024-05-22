@@ -33,10 +33,10 @@ class LoadUsdxFilesWorker(IWorker):
                 song.duration_ms = audio.get_audio_duration(song.audio_file, self.is_cancelled())
         except Exception as e:
             song.status = SongStatus.ERROR
+            song.error_message = str(e)
             logger.error(f"Error loading song '{txt_file_path}")
             logger.exception(e)
         return song
-        #self.signals.error.emit(e)
 
     async def run(self):
         logger.debug(self.description)

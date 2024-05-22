@@ -51,6 +51,8 @@ class Song:
 
     notes: list = []
 
+    error_message: str = ""
+
     def __init__(self, txt_file: str, songs_root:str, tmp_root: str):
         self.txt_file = txt_file
         self.tmp_root = tmp_root

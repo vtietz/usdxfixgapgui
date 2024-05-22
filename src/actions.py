@@ -157,6 +157,7 @@ class Actions(QObject):
             run_sync(song.load())
             self._create_waveforms(song, True)
         except Exception as e:
+            song.error_message = str(e)
             logger.exception(e)
 
     def delete_selected_song(self):
@@ -165,9 +166,9 @@ class Actions(QObject):
             logger.error("No song selected")
             return
         logger.info(f"Deleting song {song.path}")
+        song.delete()
         self.data.songs.remove(song)
         self.data.songs.deleted.emit(song)
-        song.delete()
 
     def normalize_song(self):
         song: Song = self.data.selected_song

@@ -29,6 +29,7 @@ class SongTableModel(QAbstractTableModel):
 
     def song_added(self, song: Song):
         self.pending_songs.append(song)
+        logger.info(f"Pending addition of song: {song}")
         if not self.timer.isActive():
             self.timer.start()
 
@@ -47,15 +48,20 @@ class SongTableModel(QAbstractTableModel):
             if s.path == song.path:  # Assuming 'path' is a unique identifier
                 row_index = idx
                 self.dataChanged.emit(self.createIndex(row_index, 0), self.createIndex(row_index, self.columnCount() - 1))
+                logger.info(f"Updated song: {song}")
                 return
         logger.error(f"Song not found: {song}")
 
-
     # Slot for handling song deletion
     def song_deleted(self, song: Song):
-        row_index = self.songs.index(song)
-        self.beginRemoveRows(QModelIndex(), row_index, row_index)
-        self.endRemoveRows()
+        try:
+            row_index = self.songs.index(song)
+            self.beginRemoveRows(QModelIndex(), row_index, row_index)
+            self.songs.pop(row_index)
+            self.endRemoveRows()
+            logger.info(f"Deleted song: {song}")
+        except ValueError:
+            logger.error(f"Attempted to delete a song not in the list: {song}")
 
     # Slot for handling clearing songs
     def songs_cleared(self):
@@ -83,7 +89,10 @@ class SongTableModel(QAbstractTableModel):
             duration_str = song.duration_str
             bpm = str(song.bpm)
             gap = str(song.gap)
+            status_name = song.status.name
             status = song.status
+            if(status == SongStatus.ERROR):
+                status_name = f"ERROR: {song.error_message}"
             if(song.gap_info):
                 detected_gap = str(song.gap_info.detected_gap)
                 diff = str(song.gap_info.diff)
@@ -105,7 +114,7 @@ class SongTableModel(QAbstractTableModel):
                 diff,
                 notes_overlap,
                 processed_time,
-                status.name,
+                status_name,
             ][column]
         elif role == Qt.ItemDataRole.TextAlignmentRole:
           if 3 <= column <= 8: 
@@ -122,3 +131,10 @@ class SongTableModel(QAbstractTableModel):
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             return ["Path", "Artist", "Title", "Length", "BPM", "Gap", "Detected Gap", "Diff", "Notes", "Time", "Status"][section]
         return None
+
+    def sort(self, column, order):
+        self.layoutAboutToBeChanged.emit()
+        self.songs.sort(key=lambda song: self.data(self.createIndex(self.songs.index(song), column), Qt.ItemDataRole.DisplayRole))
+        if order == Qt.SortOrder.DescendingOrder:
+            self.songs.reverse()
+        self.layoutChanged.emit()
