@@ -59,7 +59,6 @@ logger.debug(f"PYTHONPATH: {sys.path}")
 dependencies = [
     ('spleeter', '--version'),
     ('ffmpeg', '-version'),  # Note that ffmpeg uses '-version' instead of '--version'
-    ('ffmpeg-normalize', '--version')
 ]
 if(not check_dependencies(dependencies)):
     logger.error("Some dependencies are not installed.")
