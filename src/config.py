@@ -3,7 +3,7 @@ from PyQt6.QtCore import QObject
 
 class Config(QObject):
 
-    # Temporary directory for vocal files and waceform images
+    # Temporary directory for vocal files and waveform images
     tmp_root = os.path.join("..", ".tmp")
         
     # Directory where the songs are located
@@ -28,5 +28,5 @@ class Config(QObject):
     # use spleeter
     spleeter = True
 
-    # ffmpeg paramters for silence detection
+    # ffmpeg parameters for silence detection
     silence_detect_params = "silencedetect=noise=-30dB:d=0.2"

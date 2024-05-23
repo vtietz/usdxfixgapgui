@@ -2,9 +2,9 @@
 
 Ultrastar Deluxe (USDX) Fix Gap Gui is a Python application designed to scan a directory for Ultrastar files and verify if the given GAP value matches the song or not. The GAP value defines the delay for the start of the lyric in milliseconds. A proper value is crucial for a good karaoke experience.
 
-A semi-automatic tool helps to validate the GAP value after "downloading" songs using [USDB Syncer](https://github.com/bohning/usdb_syncer). Since audio files are created from YouTube videos, the GAP value sometimes does not match. Additionally, the community may not always update or set the correct GAP value on [USDB](https://usdb.animux.de/). This tool addresses these issues by verifying and suggesting the correct GAP values to ensure mass detection and accurate synchronization.
+This semi-automatic tool helps to validate the GAP value after "downloading" songs from [USDB](https://usdb.animux.de/) using [USDB Syncer](https://github.com/bohning/usdb_syncer). Since audio files are created from YouTube videos, the GAP value sometimes does not match. Additionally, the community may not always update or set the correct GAP value for the video. This tool addresses these issues by verifying and suggesting the correct GAP values to a bunch of song files to ensure accurate synchronization.
 
-The app uses `spleeter` to separate vocals from music, detect silence parts, and suggest a correct GAP value if a mismatch is found. The suggested GAP value is marked on a waveform, allowing the user to decide which value should be chosen.
+The app uses `spleeter` to separate vocals from music with help of AI, detect silence parts, and suggest a correct GAP value if a mismatch is found. The suggested GAP value is marked on a waveform, allowing the user to decide which value should be chosen.
 
 ## Features
 
