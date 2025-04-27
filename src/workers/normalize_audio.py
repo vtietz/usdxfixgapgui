@@ -15,7 +15,7 @@ class NormalizeAudioWorker(IWorker):
 
     async def run(self):
         try:
-            audio.normalize_audio(self.song.audio_file, target_level=-23, check_cancellation=self.is_cancelled)
+            audio.normalize_audio(self.song.audio_file, target_level=-20, check_cancellation=self.is_cancelled)
             self.signals.finished.emit()
         except Exception as e:
             logger.error(f"Error normalizing audio: {self.song.audio_file}")

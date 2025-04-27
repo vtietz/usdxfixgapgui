@@ -50,7 +50,7 @@ class LoadUsdxFilesWorker(IWorker):
                     return
                 if file.endswith(".usdb"):
                     usdb_id = os.path.splitext(file)[0]
-                    self.path_usdb_id_map[root] = int(usdb_id)
+                    self.path_usdb_id_map[root] = usdb_id
                 if file.endswith(".txt"):
                     song_path = os.path.join(root, file)
                     song = await self.load(song_path)

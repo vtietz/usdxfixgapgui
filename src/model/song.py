@@ -36,7 +36,7 @@ class Song:
     start: int = 0
     is_relative: bool = False
 
-    usdb_id: int = None
+    usdb_id: str = None
     
     duration_ms: int = 0
 

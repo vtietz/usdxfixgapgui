@@ -20,7 +20,7 @@ _thread = AsyncioThread(_loop)
 _thread.start()
 
 # Create a semaphore with a specific limit, e.g., 10 concurrent tasks
-_semaphore = asyncio.Semaphore(10, loop=_loop)
+_semaphore = asyncio.Semaphore(10)
 
 def run_async(coro, callback=None):
     async def task_wrapper():

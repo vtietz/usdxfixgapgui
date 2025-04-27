@@ -39,7 +39,7 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
 4. **Install the required dependencies:**
 
     ```bash
-    pip install spleeter ffmpeg
+    pip install -r requirements.txt
     ```
 
 ## Configuration

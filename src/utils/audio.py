@@ -56,10 +56,10 @@ def run_ffmpeg(audio_file, command, check_cancellation=None):
 
     return audio_file
 
-def normalize_audio(audio_file, target_level=-23, check_cancellation=None):
+def normalize_audio(audio_file, target_level=-20, check_cancellation=None):
     """Normalize the audio file to the target level. Default seetings are equal to USDB Syncher."""
     logger.debug(f"Normalizing {audio_file}...")
-    command = ['-af', f'loudnorm=I={target_level}:LRA=7:TP=-2', '-ar','48000']
+    command = ['-af', f'loudnorm=I={target_level}:LRA=11:TP=-2', '-ar','48000']
     return run_ffmpeg(audio_file, command, check_cancellation)
 
 def convert_to_mp3(audio_file, check_cancellation=None):
