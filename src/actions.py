@@ -176,12 +176,17 @@ class Actions(QObject):
             logger.error("No song selected")
             return
         logger.info(f"Normalizing song {song.path}")
+        self._normalize_song(song, True)  # Start immediately when user explicitly requests it
+
+    def _normalize_song(self, song: Song, start_now=False):
         worker = NormalizeAudioWorker(song)
         worker.signals.started.connect(lambda: self._on_song_worker_started(song))
         worker.signals.error.connect(lambda: self._on_song_worker_error(song))
         worker.signals.finished.connect(lambda: self._on_song_worker_finished(song))
         worker.signals.finished.connect(lambda: self._create_waveforms(song, True))
-        self.worker_queue.add_task(worker, True)
+        song.status = SongStatus.QUEUED
+        self.data.songs.updated.emit(song)
+        self.worker_queue.add_task(worker, start_now)
 
     def _on_detect_gap_finished(self, song: Song):
         self._create_waveforms(song, True)

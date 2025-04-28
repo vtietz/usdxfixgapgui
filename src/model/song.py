@@ -1,4 +1,3 @@
-
 from enum import Enum
 import os
 from model.gap_info import GapInfo, GapInfoStatus
@@ -110,6 +109,13 @@ class Song:
         else:
             "N/A"
     
+    @property
+    def normalized_str(self):
+        """Return a string representation of the normalization status"""
+        if self.gap_info and self.gap_info.is_normalized:
+            return "YES"
+        return "NO"
+    
     def update_status_from_gap_info(self):
         info = self.gap_info
         if info.status == GapInfoStatus.MATCH:
@@ -124,4 +130,3 @@ class Song:
             self.status = SongStatus.SOLVED            
         else:
             self.status = SongStatus.NOT_PROCESSED
-    

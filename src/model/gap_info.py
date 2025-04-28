@@ -49,6 +49,10 @@ class GapInfo:
     # the silence periods in the vocals file
     silence_periods: List[Tuple[float, float]]
 
+    # Normalization data
+    is_normalized: bool = False
+    normalized_date: str = None
+
     def __init__(self, song_path: str):
         self.file_path = files.get_info_file_path(song_path)
 
@@ -63,6 +67,8 @@ class GapInfo:
         self.notes_overlap = 0
         self.processed_time = ""
         self.silence_periods = []
+        self.is_normalized = False
+        self.normalized_date = None
         if os.path.exists(self.file_path):
             try:
                 async with aiofiles.open(self.file_path, "r", encoding="utf-8") as file:
@@ -77,6 +83,8 @@ class GapInfo:
                 self.notes_overlap = data.get("notes_overlap", 0)
                 self.processed_time = data.get("processed_time", "")
                 self.silence_periods = data.get("silence_periods", [])
+                self.is_normalized = data.get("is_normalized", False)
+                self.normalized_date = data.get("normalized_date", None)
             except Exception as e:
                 logger.error(f"Error loading gap info: {e}")
 
@@ -92,11 +100,17 @@ class GapInfo:
             "duration": self.duration,
             "notes_overlap": self.notes_overlap,
             "processed_time": self.processed_time,
-            "silence_periods": self.silence_periods
+            "silence_periods": self.silence_periods,
+            "is_normalized": self.is_normalized,
+            "normalized_date": self.normalized_date
         }
         async with aiofiles.open(self.file_path, "w", encoding="utf-8") as file:
             await file.write(json.dumps(data, indent=4))  # Convert data to JSON string and write asynchronously
 
+    def set_normalized(self):
+        """Mark the audio as normalized with the current timestamp"""
+        self.is_normalized = True
+        self.normalized_date = datetime.now().isoformat()
 
     def map_string_to_status(status_string) -> GapInfoStatus:
         status_map = {
@@ -108,4 +122,4 @@ class GapInfo:
             'SOLVED': GapInfoStatus.SOLVED,
         }
         return status_map.get(status_string, None)
-    
+

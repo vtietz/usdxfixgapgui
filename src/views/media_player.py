@@ -212,7 +212,12 @@ class MediaPlayerComponent(QWidget):
         self._actions.update_gap_value(self._song, self._song.gap_info.detected_gap)
 
     def on_song_changed(self, song: Song):
-        logger.debug(f"Song changed: {song}")
+        logger.debug(f"Song changed in media player: {song}")
+        logger.debug(f"Song path: {song.path}, Audio file: {song.audio_file}")
+        logger.debug(f"Audio file exists: {os.path.exists(song.audio_file) if song.audio_file else False}")
+        logger.debug(f"Vocals file: {song.vocals_file}")
+        logger.debug(f"Vocals file exists: {os.path.exists(song.vocals_file) if song.vocals_file else False}")
+        
         self._song = song
         self.update_button_states()
         self.update_player_files()
@@ -228,6 +233,7 @@ class MediaPlayerComponent(QWidget):
 
     def on_media_status_changed(self, status):
         self._media_is_loaded = status == QMediaPlayer.MediaStatus.LoadedMedia
+        logger.debug(f"Media status changed: {status}, loaded: {self._media_is_loaded}")
         self.update_button_states()
 
     def on_audio_file_status_changed(self):
@@ -275,13 +281,18 @@ class MediaPlayerComponent(QWidget):
     def update_player_files(self):
         song = self._song
         if(not song or song.status == SongStatus.PROCESSING): 
+            logger.debug("No song or song is processing - not loading media")
             self.load_media(None)
             self.load_waveform(None)
             return
+            
+        logger.debug(f"Updating player files. Audio status: {self._audioFileStatus}")
         if(self._audioFileStatus == AudioFileStatus.AUDIO):
+            logger.debug(f"Loading audio file: {song.audio_file}")
             self.load_media(song.audio_file)
             self.load_waveform(song.audio_waveform_file)
         if(self._audioFileStatus == AudioFileStatus.VOCALS):
+            logger.debug(f"Loading vocals file: {song.vocals_file}")
             self.load_media(song.vocals_file)
             self.load_waveform(song.vocals_waveform_file)
 
@@ -295,9 +306,21 @@ class MediaPlayerComponent(QWidget):
 
     def load_media(self, file: str):
         old_source = self.media_player.source()
-        new_source = QUrl.fromLocalFile(file)
-        if(old_source.toString() == new_source.toString()):
+        
+        if not file:
+            logger.debug("No media file to load")
+            self.media_player.stop()
+            self.media_player.setSource(QUrl())
             return
+            
+        new_source = QUrl.fromLocalFile(file)
+        logger.debug(f"Loading media file: {file}, exists: {os.path.exists(file)}")
+        
+        if(old_source.toString() == new_source.toString()):
+            logger.debug("Media source unchanged - not reloading")
+            return
+            
+        logger.debug(f"Setting new media source: {new_source}")
         self.media_player.stop()
         self.media_player_loader.load(file)
     
@@ -353,10 +376,13 @@ class MediaPlayerComponent(QWidget):
         self.save_current_play_position_btn.setText(f"Save play position ({position} ms)")
 
     def play(self):
+        logger.debug(f"Play button clicked. Is playing: {self.media_player.isPlaying()}")
         if self.media_player.isPlaying():
             self.media_player.pause()
+            logger.debug("Media player paused")
         else:
             self.media_player.play()
+            logger.debug("Media player started playing")
     
     def stop(self):
         self.media_player.stop()

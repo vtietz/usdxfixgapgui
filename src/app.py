@@ -67,7 +67,7 @@ if(not check_dependencies(dependencies)):
 # Show the window
 window.show()
 
-enable_dark_mode(app)
+# enable_dark_mode(app)
 
 # Start the event loop
 sys.exit(app.exec())

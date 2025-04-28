@@ -1,5 +1,6 @@
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QTableView
+from PyQt6.QtWidgets import QHeaderView, QTableView
 from PyQt6.QtCore import pyqtSignal, Qt, QTimer
+import os
 
 from actions import Actions
 from model.song import Song
@@ -49,7 +50,8 @@ class SongListView(QTableView):
         self.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
         self.horizontalHeader().setSectionResizeMode(8, QHeaderView.ResizeMode.ResizeToContents)  
         self.horizontalHeader().setSectionResizeMode(9, QHeaderView.ResizeMode.ResizeToContents)  
-        self.horizontalHeader().setSectionResizeMode(10, QHeaderView.ResizeMode.ResizeToContents) 
+        self.horizontalHeader().setSectionResizeMode(10, QHeaderView.ResizeMode.ResizeToContents)
+        self.horizontalHeader().setSectionResizeMode(11, QHeaderView.ResizeMode.ResizeToContents)
         self.setColumnWidth(9, 100) 
 
         # Sorting by the first column initially, if needed
@@ -67,7 +69,11 @@ class SongListView(QTableView):
             source_model = self.model().sourceModel()
             song: Song = source_model.songs[source_index.row()]
             
+            logger.debug(f"Selected song details - Title: {song.title}, Artist: {song.artist}")
+            logger.debug(f"Song path: {song.path}, Exists: {os.path.exists(song.path)}")
+            logger.debug(f"Audio file: {song.audio_file}, Exists: {os.path.exists(song.audio_file) if song.audio_file else False}")
+            
             self.actions.select_song(song.path)
 
-            logger.debug(f"Selected song: {song.title} by {song.artist}")
+            logger.debug(f"After calling actions.select_song with path: {song.path}")
 

@@ -73,7 +73,7 @@ class SongTableModel(QAbstractTableModel):
         return len(self.songs)
 
     def columnCount(self, parent=QModelIndex()):
-        return 11
+        return 12  # Increase column count by 1 for normalization status
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self.songs)):
@@ -91,6 +91,7 @@ class SongTableModel(QAbstractTableModel):
             gap = str(song.gap)
             status_name = song.status.name
             status = song.status
+            normalized = song.normalized_str  # Added normalized status
             if(status == SongStatus.ERROR):
                 status_name = f"ERROR: {song.error_message}"
             if(song.gap_info):
@@ -114,10 +115,11 @@ class SongTableModel(QAbstractTableModel):
                 diff,
                 notes_overlap,
                 processed_time,
+                normalized,  # Added normalized status column
                 status_name,
             ][column]
         elif role == Qt.ItemDataRole.TextAlignmentRole:
-          if 3 <= column <= 8: 
+          if 3 <= column <= 8 or column == 10: 
               return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
           else:
               return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
@@ -129,7 +131,7 @@ class SongTableModel(QAbstractTableModel):
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
-            return ["Path", "Artist", "Title", "Length", "BPM", "Gap", "Detected Gap", "Diff", "Notes", "Time", "Status"][section]
+            return ["Path", "Artist", "Title", "Length", "BPM", "Gap", "Detected Gap", "Diff", "Notes", "Time", "Normalized", "Status"][section]
         return None
 
     def sort(self, column, order):
