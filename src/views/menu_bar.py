@@ -38,7 +38,7 @@ class MenuBar(QWidget):
         self.layout.addWidget(self.loadSongsButton)
 
         # Detect Button - Now triggers action for multiple songs
-        self.detectButton = QPushButton("Detect Gap(s)") # Renamed for clarity
+        self.detectButton = QPushButton("Detect") # Renamed for clarity
         self.detectButton.clicked.connect(lambda: actions.detect_gap(overwrite=True)) # Action handles iteration
         self.layout.addWidget(self.detectButton)
 

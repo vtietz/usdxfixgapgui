@@ -25,6 +25,7 @@ class NormalizeAudioWorker(IWorker):
             
             # Update normalization info
             self.song.gap_info.set_normalized()
+            self.song.gap_info.normalization_level = normalization_level
             await self.song.gap_info.save()
             logger.info(f"Audio normalized to {normalization_level} dB and info saved: {self.song.audio_file}")
             

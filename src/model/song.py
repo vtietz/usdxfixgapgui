@@ -111,9 +111,11 @@ class Song:
     
     @property
     def normalized_str(self):
-        """Return a string representation of the normalization status"""
+        """Return a string representation of the normalization status with level"""
         if self.gap_info and self.gap_info.is_normalized:
-            return "YES"
+            if self.gap_info.normalization_level is not None:
+                return f"{self.gap_info.normalization_level:.1f} dB"
+            return "YES"  # Fallback if level not available
         return "NO"
     
     def update_status_from_gap_info(self):
