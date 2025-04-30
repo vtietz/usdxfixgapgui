@@ -15,7 +15,7 @@ jobs:
     steps:
     # Step 1: Check out the code
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     # Step 2: Set up Python
     - name: Set up Python
@@ -37,7 +37,7 @@ jobs:
 
     # Step 5: Upload the EXE as an artifact
     - name: Upload EXE
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: usdxfixgap-exe
         path: dist/usdxfixgap.exe
