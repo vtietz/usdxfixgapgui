@@ -1,4 +1,4 @@
-from PyQt6.QtCore import pyqtSignal
+from PySide6.QtCore import Signal as pyqtSignal
 from config import Config
 from model.gap_info import GapInfoStatus
 from model.song import Song, SongStatus

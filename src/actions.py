@@ -1,7 +1,7 @@
 import logging
 import os
-from PyQt6.QtCore import QObject, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PySide6.QtCore import QObject, QUrl
+from PySide6.QtGui import QDesktopServices
 from data import AppData
 from model.song import Song
 from utils.run_async import run_async, run_sync
@@ -221,5 +221,4 @@ class Actions(QObject):
             waveform_file,
         )
         worker.signals.finished.connect(lambda song=song: self.data.songs.updated.emit(song))
-        self.worker_queue.add_task(worker, True)    
-    
+        self.worker_queue.add_task(worker, True)

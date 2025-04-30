@@ -1,17 +1,15 @@
-
 from typing import List
-from PyQt6.QtCore import QObject, pyqtSignal
+from PySide6.QtCore import QObject, Signal  # Updated import
 from model.song import Song, SongStatus
-from typing import List
 
 class Songs(QObject):
     
-    cleared = pyqtSignal()
-    added = pyqtSignal(Song)
-    updated = pyqtSignal(Song)
-    deleted = pyqtSignal(Song)
-    error = pyqtSignal(Song, Exception)
-    filterChanged = pyqtSignal()
+    cleared = Signal()  # Updated
+    added = Signal(Song)  # Updated
+    updated = Signal(Song)  # Updated
+    deleted = Signal(Song)  # Updated
+    error = Signal(Song, Exception)  # Updated
+    filterChanged = Signal()  # Updated
 
     _filter: List[SongStatus] = []
     _filter_text: str = ""

@@ -1,7 +1,6 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QComboBox, QSizePolicy, QListView, QLineEdit
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QStandardItemModel, QStandardItem, QMouseEvent 
-import sys
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QComboBox, QSizePolicy, QListView, QLineEdit
+from PySide6.QtCore import Qt, Signal # Changed from pyqtSignal
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QMouseEvent
 
 class CheckableComboBoxListView(QListView):
     def mousePressEvent(self, event: QMouseEvent):
@@ -26,7 +25,7 @@ class ClickableLineEdit(QLineEdit):
 
 
 class MultiSelectComboBox(QWidget):
-    selectionChanged = pyqtSignal(list)
+    selectionChanged = Signal(list) # Changed from pyqtSignal
 
     def __init__(self, items=[], parent=None):
         super().__init__(parent=parent)
@@ -90,6 +89,7 @@ class MultiSelectComboBox(QWidget):
 
 # Example usage
 if __name__ == '__main__':
+    import sys # Added import sys for example usage
     app = QApplication(sys.argv)
     # Example list of strings to be used as items in the combo box
     items = ["Item 1", "Item 2", "Item 3", "Item 4"]

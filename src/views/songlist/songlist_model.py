@@ -1,9 +1,9 @@
 from typing import List
-from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QTimer
+from PySide6.QtCore import QAbstractTableModel, Qt, QModelIndex, QTimer
+import logging
 
 from model.song import Song, SongStatus
 from model.songs import Songs
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -11,10 +11,8 @@ class SongTableModel(QAbstractTableModel):
     def __init__(self, songs_model: Songs, parent=None):
         super().__init__(parent)
         self.songs_model = songs_model
-
-        self.songs: List[Song] = list(self.songs_model.songs)  # Creates a shallow copy
-
-        self.pending_songs = [] 
+        self.songs: List[Song] = list(self.songs_model.songs)
+        self.pending_songs = []
 
         # Connect signals
         self.songs_model.added.connect(self.song_added)
@@ -22,7 +20,7 @@ class SongTableModel(QAbstractTableModel):
         self.songs_model.deleted.connect(self.song_deleted)
         self.songs_model.cleared.connect(self.songs_cleared)
 
-        # timer for adding pending songs
+        # Timer for adding pending songs
         self.timer = QTimer()
         self.timer.setInterval(1000)
         self.timer.timeout.connect(self.add_pending_songs)
@@ -42,17 +40,14 @@ class SongTableModel(QAbstractTableModel):
         if not self.pending_songs:
             self.timer.stop()
 
-    # Slot for handling song updates
     def song_updated(self, song: Song):
         for idx, s in enumerate(self.songs):
-            if s.path == song.path:  # Assuming 'path' is a unique identifier
-                row_index = idx
-                self.dataChanged.emit(self.createIndex(row_index, 0), self.createIndex(row_index, self.columnCount() - 1))
+            if s.path == song.path:
+                self.dataChanged.emit(self.createIndex(idx, 0), self.createIndex(idx, self.columnCount() - 1))
                 logger.info(f"Updated song: {song}")
                 return
         logger.error(f"Song not found: {song}")
 
-    # Slot for handling song deletion
     def song_deleted(self, song: Song):
         try:
             row_index = self.songs.index(song)
@@ -63,7 +58,6 @@ class SongTableModel(QAbstractTableModel):
         except ValueError:
             logger.error(f"Attempted to delete a song not in the list: {song}")
 
-    # Slot for handling clearing songs
     def songs_cleared(self):
         self.beginResetModel()
         self.songs.clear()
@@ -73,7 +67,7 @@ class SongTableModel(QAbstractTableModel):
         return len(self.songs)
 
     def columnCount(self, parent=QModelIndex()):
-        return 12  # Increase column count by 1 for normalization status
+        return 12
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self.songs)):
@@ -83,50 +77,24 @@ class SongTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.UserRole:
             return song
         elif role == Qt.ItemDataRole.DisplayRole:
-            relative_path = song.relative_path
-            artist = song.artist
-            title = song.title
-            duration_str = song.duration_str
-            bpm = str(song.bpm)
-            gap = str(song.gap)
-            status_name = song.status.name
-            status = song.status
-            normalized = song.normalized_str  # Added normalized status
-            if(status == SongStatus.ERROR):
-                status_name = f"ERROR: {song.error_message}"
-            if(song.gap_info):
-                detected_gap = str(song.gap_info.detected_gap)
-                diff = str(song.gap_info.diff)
-                notes_overlap = str(song.gap_info.notes_overlap)
-                processed_time = song.gap_info.processed_time
-            else:
-                detected_gap = ""
-                diff = ""
-                notes_overlap = ""
-                processed_time = ""
             return [
-                relative_path,
-                artist,
-                title,
-                duration_str,
-                bpm,
-                gap,
-                detected_gap,
-                diff,
-                notes_overlap,
-                processed_time,
-                normalized,  # Added normalized status column
-                status_name,
+                song.relative_path,
+                song.artist,
+                song.title,
+                song.duration_str,
+                str(song.bpm),
+                str(song.gap),
+                str(song.gap_info.detected_gap) if song.gap_info else "",
+                str(song.gap_info.diff) if song.gap_info else "",
+                str(song.gap_info.notes_overlap) if song.gap_info else "",
+                song.gap_info.processed_time if song.gap_info else "",
+                song.normalized_str,
+                f"ERROR: {song.error_message}" if song.status == SongStatus.ERROR else song.status.name,
             ][column]
         elif role == Qt.ItemDataRole.TextAlignmentRole:
-          if 3 <= column <= 8 or column == 10: 
-              return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-          else:
-              return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        elif role == Qt.ItemDataRole.BackgroundRole:
-            if song.status == SongStatus.ERROR:
-                return Qt.GlobalColor.red
-
+            return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter if 3 <= column <= 8 or column == 10 else Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        elif role == Qt.ItemDataRole.BackgroundRole and song.status == SongStatus.ERROR:
+            return Qt.GlobalColor.red
         return None
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):

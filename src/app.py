@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout
-from PyQt6.QtCore import QT_VERSION_STR, qVersion
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
+from PySide6.QtCore import __version__  # Updated import
 import sys
 from actions import Actions
 from data import AppData, Config
@@ -14,6 +14,10 @@ from views.task_queue_viewer import TaskQueueViewer
 
 import logging
 
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
+from PySide6.QtCore import QUrl
+import os
+
 logger = logging.getLogger(__name__)
 
 data = AppData()
@@ -22,7 +26,6 @@ actions = Actions(data)
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(name)s %(levelname)s: %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
-
 
 app = QApplication(sys.argv)
 
@@ -50,8 +53,7 @@ layout.addWidget(taskQueueViewer, 1)  # Adjust stretch factor as needed
 
 window.setLayout(layout)
 
-logger.debug("Runtime Qt version: %s", qVersion())
-logger.debug(f"Compile-time Qt version: {QT_VERSION_STR}")
+logger.debug("Runtime PySide6 version: %s", __version__)  # Updated logging
 logger.debug(f"Python Executable: {sys.executable}")
 logger.debug(f"PYTHONPATH: {sys.path}")
 
@@ -64,10 +66,24 @@ if(not check_dependencies(dependencies)):
     logger.error("Some dependencies are not installed.")
     #sys.exit(1)
 
+# Check available audio output devices
+available_audio_outputs = QMediaDevices.audioOutputs()
+if not available_audio_outputs:
+    logger.error("No audio output devices available.")
+else:
+    logger.debug(f"Available audio outputs: {available_audio_outputs}")
+
+# Check available multimedia backends
+try:
+    supported_mime_types = QMediaDevices.supportedMimeTypes()
+    logger.debug(f"Available multimedia backends: {supported_mime_types}")
+except AttributeError:
+    logger.warning("Unable to retrieve supported multimedia backends. This feature may not be available in your PySide6 version.")
+
 # Show the window
 window.show()
 
-# enable_dark_mode(app)
+enable_dark_mode(app)
 
 # Start the event loop
 sys.exit(app.exec())

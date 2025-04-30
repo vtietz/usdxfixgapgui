@@ -1,10 +1,10 @@
 from enum import Enum
 import logging
 import os
-from PyQt6.QtWidgets import  QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy
-from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PyQt6.QtCore import QObject, QUrl, Qt, pyqtSignal, QTimer, QEvent
-from PyQt6.QtGui import QPainter, QPen, QPixmap
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+from PySide6.QtCore import QObject, QUrl, Qt, Signal, QTimer, QEvent
+from PySide6.QtGui import QPainter, QPen, QPixmap
 
 from actions import Actions
 from data import AppData, Config
@@ -63,9 +63,9 @@ class AudioFileStatus(Enum):
 
 class MediaPlayerComponent(QWidget):
 
-    position_changed = pyqtSignal(int)
-    is_playing_changed = pyqtSignal(bool)
-    audio_file_status_changed = pyqtSignal(AudioFileStatus)
+    position_changed = Signal(int)
+    is_playing_changed = Signal(bool)
+    audio_file_status_changed = Signal(AudioFileStatus)
 
     globalEventFilter = None
 

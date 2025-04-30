@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QApplication, QMainWindow
-from PyQt6.QtGui import QPalette, QColor
-from PyQt6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QMainWindow
+from PySide6.QtGui import QPalette, QColor
+from PySide6.QtCore import Qt
 
 def enable_dark_mode(app):
     app.setStyle("Fusion")

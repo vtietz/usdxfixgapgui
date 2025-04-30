@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout
-from PyQt6.QtCore import QSortFilterProxyModel
+from PySide6.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtCore import QSortFilterProxyModel
 from actions import Actions
 from model.song import Song
 from model.songs import Songs
@@ -16,7 +16,7 @@ class CustomSortFilterProxyModel(QSortFilterProxyModel):
         # Access the source model's data for the given row
         song: Song = self.sourceModel().songs[source_row]
 
-        # Implement your filtering logic
+        # Implement filtering logic
         statusMatch = song.status.name in self.selectedStatuses if self.selectedStatuses else True
         textMatch = self.textFilter in song.artist.lower() or self.textFilter in song.title.lower()
 
@@ -25,7 +25,7 @@ class CustomSortFilterProxyModel(QSortFilterProxyModel):
 class SongListWidget(QWidget):
     def __init__(self, songs_model: Songs, actions: Actions, parent=None):
         super().__init__(parent)
-        self.actions = actions  # Assuming 'actions' has attributes for filtering
+        self.actions = actions
 
         # Create the table model and proxy model
         self.songs_model = songs_model
@@ -39,8 +39,7 @@ class SongListWidget(QWidget):
         layout.addWidget(self.tableView)
         self.setLayout(layout)
 
-        # Example of connecting a signal to update the filter.
-        # You'll need to implement or connect an actual signal that triggers filter updates.
+        # Connect signal to update the filter
         self.songs_model.filterChanged.connect(self.updateFilter)
 
     def updateFilter(self):

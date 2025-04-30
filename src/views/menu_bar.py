@@ -1,6 +1,6 @@
 # button_bar.py
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog, QSizePolicy, QLineEdit, QMessageBox
-from PyQt6.QtCore import pyqtSignal
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog, QSizePolicy, QLineEdit, QMessageBox
+from PySide6.QtCore import Signal
 from actions import Actions
 from data import AppData
 import logging
@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 
 class MenuBar(QWidget):
     
-    loadSongsClicked = pyqtSignal()
-    extractVocalsClicked = pyqtSignal()
-    detectClicked = pyqtSignal()
-    deleteClicked = pyqtSignal()
+    loadSongsClicked = Signal()
+    extractVocalsClicked = Signal()
+    detectClicked = Signal()
+    deleteClicked = Signal()
 
     _song: Song = None
 
@@ -117,7 +117,7 @@ class MenuBar(QWidget):
         directory = QFileDialog.getExistingDirectory(
             self, 
             "Select Directory", 
-            directory=self.data.directory
+            self.data.directory  # Pass the directory path as the third positional argument
         )
         if directory:  # Check if a directory was selected
             self.on_directory_selected(directory)

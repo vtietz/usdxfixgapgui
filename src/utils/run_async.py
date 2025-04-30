@@ -1,5 +1,5 @@
 import asyncio
-from PyQt6.QtCore import QThread
+from PySide6.QtCore import QThread
 import logging
 
 logger = logging.getLogger(__name__)

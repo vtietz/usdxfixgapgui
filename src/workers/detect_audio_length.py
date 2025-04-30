@@ -1,4 +1,4 @@
-from PyQt6.QtCore import pyqtSignal
+from PySide6.QtCore import Signal as pyqtSignal
 from model.song import Song
 from workers.worker_queue_manager import IWorker, IWorkerSignals
 from utils.run_async import run_async

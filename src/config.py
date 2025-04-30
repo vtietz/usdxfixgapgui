@@ -1,5 +1,5 @@
 import os
-from PyQt6.QtCore import QObject
+from PySide6.QtCore import QObject
 
 class Config(QObject):
 

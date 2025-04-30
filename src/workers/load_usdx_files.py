@@ -1,5 +1,5 @@
 import os
-from PyQt6.QtCore import pyqtSignal
+from PySide6.QtCore import Signal as pyqtSignal
 from model.gap_info import GapInfo, GapInfoStatus
 from model.song import Song, SongStatus
 from utils.usdx_file import USDXFile
