@@ -30,8 +30,13 @@ jobs:
         pip install pyinstaller
         pip install -r requirements.txt
 
-    # Step 4: Build the EXE
+    # Step 4a: Debug - List files
+    - name: List files
+      run: dir
+
+    # Step 4b: Build the EXE
     - name: Build EXE
+      shell: cmd
       run: |
         build.bat
 
