@@ -3,10 +3,10 @@ name: Build EXE
 on:
   push:
     branches:
-      - main  # Run on every push to the main branch
+      - master
   pull_request:
     branches:
-      - main  # Run on pull requests to the main branch
+      - master
 
 jobs:
   build:
