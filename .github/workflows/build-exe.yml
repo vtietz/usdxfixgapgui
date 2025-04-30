@@ -40,9 +40,9 @@ jobs:
       run: |
         build.bat
 
-    # Step 5: Upload the EXE as an artifact
-    - name: Upload EXE
+    # Step 5: Upload the EXE and config as an artifact
+    - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: usdxfixgap-exe
-        path: dist/usdxfixgap.exe
+        name: usdxfixgap-dist
+        path: dist/ # Upload the entire dist directory

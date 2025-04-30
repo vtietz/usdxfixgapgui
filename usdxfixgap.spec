@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['src\\usdxfixgap.py'],
+    ['C:\\Users\\live\\.coding\\usdxfixgapgui\\src\\usdxfixgap.py'],
     pathex=[],
     binaries=[],
-    datas=[('src/assets', 'assets')],
+    datas=[],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -29,11 +29,11 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['src\\assets\\usdxfixgap-icon.ico'],
+    icon=['C:\\Users\\live\\.coding\\usdxfixgapgui\\src\\assets\\usdxfixgap-icon.ico'],
 )
