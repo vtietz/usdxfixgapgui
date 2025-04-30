@@ -1,5 +1,5 @@
 from PySide6.QtCore import Signal as pyqtSignal
-from config import Config
+from common.config import Config
 from model.gap_info import GapInfoStatus
 from model.song import Song, SongStatus
 from workers.worker_queue_manager import IWorker, IWorkerSignals

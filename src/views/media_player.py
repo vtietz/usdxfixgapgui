@@ -6,8 +6,8 @@ from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import QObject, QUrl, Qt, Signal, QTimer, QEvent
 from PySide6.QtGui import QPainter, QPen, QPixmap
 
-from actions import Actions
-from data import AppData, Config
+from common.actions import Actions
+from common.data import AppData, Config
 from model.song import Song, SongStatus
 
 import utils.usdx as usdx
@@ -90,6 +90,9 @@ class MediaPlayerComponent(QWidget):
         )
 
         self.initUI()
+        
+        # Connect to the selected_songs_changed signal to handle multi-selection
+        self._data.selected_songs_changed.connect(self.on_selected_songs_changed)
 
     def initUI(self):
 
@@ -218,6 +221,10 @@ class MediaPlayerComponent(QWidget):
         logger.debug(f"Vocals file: {song.vocals_file}")
         logger.debug(f"Vocals file exists: {os.path.exists(song.vocals_file) if song.vocals_file else False}")
         
+        # Only process if player is enabled (not multiple selection)
+        if not self.isEnabled():
+            return
+            
         self._song = song
         self.update_button_states()
         self.update_player_files()
@@ -410,3 +417,24 @@ class MediaPlayerComponent(QWidget):
             ms = self._config.adjust_player_position_step_vocals
         newPosition = max(0, self.media_player.position() + ms)
         self.media_player.setPosition(newPosition)
+
+    def on_selected_songs_changed(self, songs: list):
+        """Disable player when multiple songs are selected"""
+        multiple_songs_selected = len(songs) > 1
+        
+        # Handle UI state for multiple selection
+        if multiple_songs_selected:
+            # Disable the player controls when multiple songs are selected
+            self.setEnabled(False)
+            # Optionally show a message or placeholder
+            self.position_label.setText("Player disabled (multiple songs selected)")
+            self.syllable_label.setText("")
+            # Stop and unload current media
+            self.media_player.stop()
+            self.waveform_label.setPixmap(QPixmap())
+        else:
+            # Re-enable the player controls
+            self.setEnabled(True)
+            # Clear any placeholder message
+            self.position_label.setText("")
+            # If one song is selected, the normal on_song_changed logic will handle it

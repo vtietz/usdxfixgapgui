@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtCore import __version__  # Updated import
 import sys
-from actions import Actions
-from data import AppData, Config
-from enable_darkmode import enable_dark_mode
+from common.actions import Actions
+from common.data import AppData, Config
+from utils.enable_darkmode import enable_dark_mode
 from utils.check_dependencies import check_dependencies
 from views.menu_bar import MenuBar
 
@@ -14,8 +14,9 @@ from views.task_queue_viewer import TaskQueueViewer
 
 import logging
 
-from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
-from PySide6.QtCore import QUrl
+from PySide6.QtMultimedia import QMediaDevices
+from PySide6.QtGui import QIcon
+
 import os
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,17 @@ logging.basicConfig(level=logging.DEBUG,
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 app = QApplication(sys.argv)
+
+def resource_path(relative_path):
+    """Get the absolute path to a resource, works for dev and PyInstaller."""
+    if hasattr(sys, '_MEIPASS'):
+        # Running in a PyInstaller bundle
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+# Example usage
+icon_path = resource_path("assets/usdxfixgap-icon.ico")
+app.setWindowIcon(QIcon(icon_path))
 
 # Create the main window and set its properties
 window = QWidget()

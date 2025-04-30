@@ -2,6 +2,7 @@ from model.song import Song
 from workers.worker_queue_manager import IWorker
 import utils.audio as audio
 from datetime import datetime
+from common.data import AppData
 
 import logging
 
@@ -13,15 +14,19 @@ class NormalizeAudioWorker(IWorker):
         self.song = song
         self._isCancelled = False
         self.description = f"Normalizing {song.audio_file}."
+        # Get the configuration
+        self.config = AppData().config
 
     async def run(self):
         try:
-            audio.normalize_audio(self.song.audio_file, target_level=-20, check_cancellation=self.is_cancelled)
+            # Use the normalization level from config
+            normalization_level = self.config.normalization_level
+            audio.normalize_audio(self.song.audio_file, target_level=normalization_level, check_cancellation=self.is_cancelled)
             
             # Update normalization info
             self.song.gap_info.set_normalized()
             await self.song.gap_info.save()
-            logger.info(f"Audio normalized and info saved: {self.song.audio_file}")
+            logger.info(f"Audio normalized to {normalization_level} dB and info saved: {self.song.audio_file}")
             
             self.signals.finished.emit()
         except Exception as e:

@@ -18,7 +18,15 @@ def read_output(stream, collector):
 
 def run_cancellable_process(command, check_cancellation=None):
     logger.debug("Running command: %s", ' '.join(command))
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    
+    # Add `creationflags=subprocess.CREATE_NO_WINDOW` to suppress the cmd window on Windows
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        creationflags=subprocess.CREATE_NO_WINDOW  # Suppress cmd window
+    )
 
     stdout, stderr = [], []
 

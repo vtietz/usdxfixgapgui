@@ -1,4 +1,4 @@
-from config import Config
+from common.config import Config
 from model.song import Song
 import utils.waveform as waveform
 from workers.worker_queue_manager import IWorker, IWorkerSignals

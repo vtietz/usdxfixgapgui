@@ -1,0 +1,1 @@
+pyinstaller --add-data "src/config.ini;." --icon=assets/usdxfixgap-icon.ico src/usdxfixgap.py

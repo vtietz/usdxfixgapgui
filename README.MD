@@ -14,11 +14,35 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
 - Provides a graphical user interface (GUI) to visualize the waveform and suggested GAP values.
 - Allows users to manually choose the correct GAP value if mismatched.
 
+## GUI Overview
+
+![Screenshot](./screenshot.png)
+
+- **Load Songs:** Button to load Ultrastar files.
+- **Detect Gap:** Button to start the GAP detection process.
+- **Results Table:** Displays the path, artist, title, length, BPM, original GAP, detected GAP, difference, notes, time, and status for each song.
+- **Waveform Display:** Shows the waveform of the song with marked GAP values.
+- **Control Buttons:** Options to keep the original GAP, save the play position, save the detected GAP, or revert to the original GAP.
+
+## How It Works
+
+1. **Load Songs:** Load Ultrastar songs from the specified directory.
+2. **Detect Gap:** The application uses `spleeter` to separate vocals from music and detect silence parts.
+3. **Check Gap:** Verifies if the given GAP value matches the song.
+4. **Display Results:** Displays the results in the GUI, showing the detected GAP, difference, and status (MATCH or MISMATCH).
+5. **Manual Adjustment:** If a mismatch is detected, the user can view the suggested GAP on the waveform and manually choose the correct value.
+
 ## Installation
 
-### Recommended: Setup a Conda Environment
+### Run with Windows executable
 
-1. **Create a new conda environment:**
+Download and run standalone `usdxfixgap.exe`.
+
+> [`ffmpeg`](https://www.ffmpeg.org/) is required!
+
+### Run with python
+
+1. **Create a new conda environment (recommneded):**
 
     ```bash
     conda create -n usdxfixgapgui python=3.8
@@ -42,41 +66,63 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
     pip install -r requirements.txt
     ```
 
-## Configuration
-
-The configuration  is managed through a `config.py` file located in the `src` directory. This file allows you to customize various settings for the application.
-
-## Usage
-
-1. **Navigate to the `src` directory:**
+5. **Navigate to the `src` directory:**
 
     ```bash
     cd src
     ```
 
-2. **Run the application:**
+6. **Run the application:**
 
     ```bash
-    python app.py
+    python usdxfixgap.py
     ```
 
-## How It Works
+### Create executable Windows app
 
-1. **Load Songs:** Load Ultrastar songs from the specified directory.
-2. **Detect Gap:** The application uses `spleeter` to separate vocals from music and detect silence parts.
-3. **Check Gap:** Verifies if the given GAP value matches the song.
-4. **Display Results:** Displays the results in the GUI, showing the detected GAP, difference, and status (MATCH or MISMATCH).
-5. **Manual Adjustment:** If a mismatch is detected, the user can view the suggested GAP on the waveform and manually choose the correct value.
+For creating an executable you need the PyInstaller.
 
-## GUI Overview
+```bash
+pip install pyinstaller
+```
 
-![Screenshot](./screenshot.png)
+Then run either `buil.bat` or the following command:
 
-- **Load Songs:** Button to load Ultrastar files.
-- **Detect Gap:** Button to start the GAP detection process.
-- **Results Table:** Displays the path, artist, title, length, BPM, original GAP, detected GAP, difference, notes, time, and status for each song.
-- **Waveform Display:** Shows the waveform of the song with marked GAP values.
-- **Control Buttons:** Options to keep the original GAP, save the play position, save the detected GAP, or revert to the original GAP.
+```bash
+pyinstaller --onefile --windowed --icon=src/assets/usdxfixgap-icon.ico --add-data "src/assets;assets" src/usdxfixgap.py
+```
+
+## Configuration
+
+The configuration is managed through a `config.ini` file located in the `src` directory. This file allows you to customize various settings for the application.
+
+### Configuration Options
+
+#### [Paths]
+- **tmp_root**: Directory where temporary files are stored (e.g., separated vocals, waveform images)
+- **default_directory**: Default directory to scan for Ultrastar songs
+
+#### [Detection]
+- **default_detection_time**: Duration in seconds to analyze for gap detection
+- **gap_tolerance**: Maximum allowed difference in milliseconds between detected and original gap values before flagging as a mismatch
+
+#### [Colors]
+- **detected_gap_color**: Color for highlighting the detected gap position in the waveform
+- **playback_position_color**: Color for the playback position indicator
+- **waveform_color**: Color for the main waveform visualization
+- **silence_periods_color**: RGBA color values for highlighting silent periods (format: 105,105,105,128)
+
+#### [Player]
+- **adjust_player_position_step_audio**: Milliseconds to move when navigating audio with arrow keys
+- **adjust_player_position_step_vocals**: Milliseconds to move when navigating vocals track with arrow keys
+
+#### [Processing]
+- **spleeter**: Enable/disable vocal isolation using Spleeter (true/false)
+- **silence_detect_params**: FFmpeg parameters for silence detection
+- **normalization_level**: Target level in dB for audio normalization
+- **auto_normalize**: Whether to automatically normalize audio after gap detection (true/false)
+
+You can modify these settings by editing the `config.ini` file with a text editor.
 
 ## Contributions
 
