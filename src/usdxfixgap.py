@@ -121,6 +121,8 @@ except AttributeError:
 # Show the window
 window.show()
 
+actions.auto_load_last_directory()
+
 enable_dark_mode(app)
 
 # Start the event loop

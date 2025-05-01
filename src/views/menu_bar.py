@@ -152,10 +152,13 @@ class MenuBar(QWidget):
         # self.editButton.setEnabled(num_selected == 1)
 
     def choose_directory(self):
+        # Use the last directory from config if available, otherwise use the current directory
+        start_dir = self.data.directory if self.data.directory else self.config.last_directory
+        
         directory = QFileDialog.getExistingDirectory(
             self, 
             "Select Directory", 
-            self.data.directory  # Pass the directory path as the third positional argument
+            start_dir  
         )
         if directory:  # Check if a directory was selected
             self.on_directory_selected(directory)
