@@ -4,7 +4,6 @@ from model.gap_info import GapInfo, GapInfoStatus
 import utils.files as files
 import utils.audio as audio
 from utils.usdx_file import USDXFile
-from utils.usdx_file_cached import USDXFileCached
 import logging
 
 logger = logging.getLogger(__name__)
