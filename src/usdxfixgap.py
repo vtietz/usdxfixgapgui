@@ -13,6 +13,7 @@ from views.songlist.songlist_widget import SongListWidget
 from views.task_queue_viewer import TaskQueueViewer
 
 import logging
+import logging.handlers # Import handlers
 
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
@@ -21,12 +22,33 @@ import os
 
 logger = logging.getLogger(__name__)
 
+# --- Logging Setup ---
+def get_app_dir():
+    """Get the directory of the executable or script."""
+    if hasattr(sys, '_MEIPASS'):
+        # Running in a PyInstaller bundle
+        return os.path.dirname(sys.executable)
+    # Running as a script
+    return os.path.dirname(os.path.abspath(__file__))
+
+log_file_path = os.path.join(get_app_dir(), 'usdxfixgap.log')
+
+# Configure root logger
+log_formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+log_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10*1024*1024, backupCount=3, encoding='utf-8') # Rotate logs (e.g., 10MB * 3 backups)
+log_handler.setFormatter(log_formatter)
+
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
+root_logger.addHandler(log_handler)
+
+# Remove basicConfig if it was called elsewhere or rely on the root logger configuration
+# logging.basicConfig(...) # REMOVE THIS LINE if present
+
+# --- End Logging Setup ---
+
 data = AppData()
 actions = Actions(data)
-
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(name)s %(levelname)s: %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S')
 
 app = QApplication(sys.argv)
 
@@ -37,9 +59,13 @@ def resource_path(relative_path):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
 
-# Example usage
+# Example usage - This should now work correctly with the bundled asset
 icon_path = resource_path("assets/usdxfixgap-icon.ico")
-app.setWindowIcon(QIcon(icon_path))
+if os.path.exists(icon_path):
+    app.setWindowIcon(QIcon(icon_path))
+    logger.info(f"Loaded icon from: {icon_path}")
+else:
+    logger.error(f"Icon file not found at expected path: {icon_path}")
 
 # Create the main window and set its properties
 window = QWidget()

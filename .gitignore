@@ -5,3 +5,4 @@ pretrained_models
 spleeter-env
 dist
 build
+.spec
