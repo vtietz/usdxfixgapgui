@@ -1,6 +1,7 @@
 import logging
-from PySide6.QtCore import QObject, Signal as pyqtSignal
+from PySide6.QtCore import QObject, Signal as pyqtSignal, QTimer
 from enum import Enum
+import threading
 
 from utils.run_async import run_async
 
@@ -20,6 +21,7 @@ class WorkerStatus(Enum):
     WAITING = 2
     CANCELLING = 3
     FINISHED = 4
+    ERROR = 5
 
 class IWorker(QObject):
     """
@@ -92,6 +94,25 @@ class WorkerQueueManager(QObject):
         super().__init__()
         self.queued_tasks = []
         self.running_tasks = {}
+        # Remove the QTimer implementation
+        self._heartbeat_active = True
+        # Start a regular Python thread for heartbeat
+        self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
+        self._heartbeat_thread.start()
+
+    def _heartbeat_loop(self):
+        """Background thread that periodically signals UI updates"""
+        import time
+        while self._heartbeat_active:
+            time.sleep(1.0)  # Sleep for 1 second
+            if self.running_tasks or self.queued_tasks:
+                # Use a signal-safe way to update the UI
+                self.on_task_list_changed.emit()
+
+    def check_task_status(self):
+        """Manually trigger UI updates when needed"""
+        if self.running_tasks or self.queued_tasks:
+            self.on_task_list_changed.emit()
 
     def add_task(self, worker: IWorker, start_now=False):
         worker.id = self.get_unique_task_id()
@@ -122,18 +143,33 @@ class WorkerQueueManager(QObject):
             worker.signals.started.emit()
             self.running_tasks[worker.id] = worker
             await worker.run()
-            self.on_task_finished(worker.id)
+            
+            # Only emit signals if the task wasn't already canceled
+            if worker.status != WorkerStatus.CANCELLING:
+                worker.status = WorkerStatus.FINISHED
+                # Use direct signal emission instead of QTimer
+                worker.signals.finished.emit()
+            
         except Exception as e:
             logger.error(f"Exception in _start_worker for {worker.description}")
             logger.exception(e)
+            worker.status = WorkerStatus.ERROR
+            # Use direct signal emission instead of QTimer
+            worker.signals.error.emit(e)
 
     def on_task_finished(self, task_id):
+        logger.info(f"Task {task_id} finished")
+        worker = self.get_worker(task_id)
+        if worker:
+            worker.status = WorkerStatus.FINISHED
         self._finalize_task(task_id)
 
     def _finalize_task(self, task_id):
         self.running_tasks.pop(task_id, None)
-        if self.queued_tasks:
+        if self.queued_tasks and not self.running_tasks:
+            # Start next task directly, no need for QTimer
             self.start_next_task()
+        # Signal directly
         self.on_task_list_changed.emit()
 
     def start_next_task(self):
@@ -146,9 +182,17 @@ class WorkerQueueManager(QObject):
         return self.running_tasks.get(task_id, None)
 
     def cancel_task(self, task_id):
-        worker: IWorker = self.get_worker(task_id)
+        worker = self.get_worker(task_id)
         if worker:
             worker.cancel()
+        else:
+            # Check if it's in the queue
+            for i, worker in enumerate(self.queued_tasks):
+                if worker.id == task_id:
+                    worker.cancel()
+                    self.queued_tasks.pop(i)
+                    self.on_task_list_changed.emit()
+                    break
 
     def cancel_queue(self):
         while self.queued_tasks:
@@ -160,6 +204,9 @@ class WorkerQueueManager(QObject):
 
     def on_task_error(self, task_id, e):
         logger.error(f"Error executing task {task_id}: {e}")
+        worker = self.get_worker(task_id)
+        if worker:
+            worker.status = WorkerStatus.ERROR
         self.on_task_finished(task_id)
 
     def on_task_canceled(self, task_id):
@@ -167,4 +214,11 @@ class WorkerQueueManager(QObject):
         self.on_task_finished(task_id)
 
     def on_task_updated(self, task_id):
+        # Signal directly
         self.on_task_list_changed.emit()
+        
+    # Add method to clean up when app closes
+    def cleanup(self):
+        self._heartbeat_active = False
+        if self._heartbeat_thread.is_alive():
+            self._heartbeat_thread.join(timeout=0.5)

@@ -5,31 +5,24 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-def read_output(stream, collector):
-    """Read subprocess output in a thread and collect lines."""
-    try:
-        while True:
-            line = stream.readline()
-            if not line:  # If line is empty, end of file is reached
-                break
-            collector.append(line.decode('utf-8', errors='ignore'))
-    finally:
-        stream.close()
-
 def run_cancellable_process(command, check_cancellation=None):
     logger.debug("Running command: %s", ' '.join(command))
     
     # Add `creationflags=subprocess.CREATE_NO_WINDOW` to suppress the cmd window on Windows
+    # Explicitly set encoding to utf-8 and handle errors
     process = subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        creationflags=subprocess.CREATE_NO_WINDOW  # Suppress cmd window
+        encoding='utf-8',  # Specify UTF-8 encoding
+        errors='ignore',   # Ignore decoding errors
+        creationflags=subprocess.CREATE_NO_WINDOW # Suppress cmd window
     )
 
     stdout, stderr = [], []
 
+    # This function now reads already decoded strings
     def read_output(pipe, output_list):
         for line in pipe:
             output_list.append(line)
@@ -44,8 +37,21 @@ def run_cancellable_process(command, check_cancellation=None):
         if process.poll() is not None:
             break
         if check_cancellation and check_cancellation():
+            logger.info("Cancellation requested, terminating process.")
             process.kill()
-            process.communicate()
+            # Wait briefly for threads to potentially finish reading after kill
+            stdout_thread.join(timeout=0.5)
+            stderr_thread.join(timeout=0.5)
+            # Ensure streams are closed if threads are still alive
+            if process.stdout:
+                process.stdout.close()
+            if process.stderr:
+                process.stderr.close()
+            # Wait for process termination
+            try:
+                process.wait(timeout=1.0) 
+            except subprocess.TimeoutExpired:
+                logger.warning("Process did not terminate gracefully after kill.")
             raise Exception("Process cancelled.")
         time.sleep(0.1)
 
