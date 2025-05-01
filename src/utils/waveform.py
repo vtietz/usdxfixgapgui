@@ -1,7 +1,7 @@
-
 import logging
 import os
 import subprocess
+import platform
 from typing import List
 
 from PIL import Image, ImageDraw, ImageFont
@@ -26,7 +26,12 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
         '-filter_complex', f"showwavespic=s={width}x{height}:colors={color}:scale=lin:split_channels=1",
         '-frames:v', '1', image_path
     ]
-    result = subprocess.run(command)
+    
+    # Hide command window on Windows
+    if platform.system() == 'Windows':
+        result = subprocess.run(command, creationflags=subprocess.CREATE_NO_WINDOW)
+    else:
+        result = subprocess.run(command)
 
     if not os.path.exists(image_path):
         raise Exception(f"Failed to create waveform image '{image_path}'. Error: {result.stderr}")
