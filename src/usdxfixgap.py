@@ -5,6 +5,7 @@ from common.actions import Actions
 from common.data import AppData, Config
 from utils.enable_darkmode import enable_dark_mode
 from utils.check_dependencies import check_dependencies
+from utils.files import get_app_dir, resource_path
 from views.menu_bar import MenuBar
 
 from views.song_status import SongsStatusVisualizer
@@ -23,14 +24,6 @@ import os
 logger = logging.getLogger(__name__)
 
 # --- Logging Setup ---
-def get_app_dir():
-    """Get the directory of the executable or script."""
-    if hasattr(sys, '_MEIPASS'):
-        # Running in a PyInstaller bundle
-        return os.path.dirname(sys.executable)
-    # Running as a script
-    return os.path.dirname(os.path.abspath(__file__))
-
 log_file_path = os.path.join(get_app_dir(), 'usdxfixgap.log')
 
 # Configure root logger
@@ -42,22 +35,12 @@ root_logger = logging.getLogger()
 root_logger.setLevel(logging.DEBUG)
 root_logger.addHandler(log_handler)
 
-# Remove basicConfig if it was called elsewhere or rely on the root logger configuration
-# logging.basicConfig(...) # REMOVE THIS LINE if present
-
 # --- End Logging Setup ---
 
 data = AppData()
 actions = Actions(data)
 
 app = QApplication(sys.argv)
-
-def resource_path(relative_path):
-    """Get the absolute path to a resource, works for dev and PyInstaller."""
-    if hasattr(sys, '_MEIPASS'):
-        # Running in a PyInstaller bundle
-        return os.path.join(sys._MEIPASS, relative_path)
-    return os.path.join(os.path.abspath("."), relative_path)
 
 # Example usage - This should now work correctly with the bundled asset
 icon_path = resource_path("assets/usdxfixgap-icon.ico")

@@ -5,6 +5,7 @@ from common.config import Config  # This was from config import Config
 from model.song import Song
 from model.songs import Songs
 from utils import files
+from workers.worker_queue_manager import WorkerQueueManager
 
 class AppData(QObject):
 
@@ -23,6 +24,17 @@ class AppData(QObject):
 
     _directory = config.default_directory
     _tmp_path = files.generate_directory_hash(_directory)
+
+    def __init__(self, config=None):
+        super().__init__()  # Add this line if it's missing
+        # Use provided config or the class attribute
+        if config is not None:
+            self.config = config
+            
+        # Initialize the worker queue
+        self.worker_queue = WorkerQueueManager()
+        
+        # ...rest of initialization...
 
     @Property(list, notify=selected_songs_changed)  # Property still uses list
     def selected_songs(self):

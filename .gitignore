@@ -3,6 +3,10 @@ samples
 __pycache__
 pretrained_models
 spleeter-env
-dist
-build
+dist/
+build/
 .spec
+.db
+data/
+.log*
+.ini
