@@ -1,9 +1,6 @@
 name: Build EXE and Publish Release
 
 on:
-  push:
-    branches:
-      - main  # Trigger on pushes to the main branch
   workflow_dispatch:  # Allow manual triggering of the workflow
 
 jobs:
@@ -64,3 +61,5 @@ jobs:
         asset_path: dist/usdxfixgap.exe  # Path to the generated EXE
         asset_name: usdxfixgap.exe
         asset_content_type: application/octet-stream
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
