@@ -8,9 +8,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 class CreateWaveform(IWorker):
-        
-    signals = IWorkerSignals()
-     
     def __init__(
             self, 
             song: Song,
@@ -19,6 +16,7 @@ class CreateWaveform(IWorker):
             waveform_file
         ):
         super().__init__()
+        self.signals = IWorkerSignals()
         self.song = song
         self.config = config
         self.audio_file = audio_file
@@ -29,7 +27,7 @@ class CreateWaveform(IWorker):
     async def run(self):
         try:
             self._create_waveform()
-            self.signals.finished.emit()
+            self.signals.finished.emit()  # This matches the base IWorkerSignals.finished
         except Exception as e:
             logger.error(f"Error creating waveform: {self.waveform_file}")
             self.song.error_message = str(e)
@@ -39,7 +37,7 @@ class CreateWaveform(IWorker):
         logger.debug("Cancelling waveform creation...")
         self._isCancelled = True
 
-    def check_cancellation(self):
+    def is_cancelled(self):
         return self._isCancelled
 
     def _create_waveform(self):
