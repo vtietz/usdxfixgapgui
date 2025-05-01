@@ -34,19 +34,29 @@ jobs:
       shell: cmd
       run: build.bat
 
-    # Step 5: Create a GitHub Release
+    # Step 5: Create a Tag
+    - name: Create Tag
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        TAG_NAME="v1.0.0-$(date +'%Y%m%d%H%M%S')"
+        echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+        git tag -a $TAG_NAME -m "Release $TAG_NAME"
+        git push origin $TAG_NAME
+
+    # Step 6: Create a GitHub Release
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
       with:
-        tag_name: ${{ github.sha }}  # Use the commit SHA as the tag name
-        release_name: Build ${{ github.sha }}
+        tag_name: ${{ env.TAG_NAME }}
+        release_name: Release ${{ env.TAG_NAME }}
         draft: false
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    # Step 6: Upload the EXE to the Release
+    # Step 7: Upload the EXE to the Release
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
       with:
