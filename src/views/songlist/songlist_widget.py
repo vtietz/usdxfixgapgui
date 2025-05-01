@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import QSortFilterProxyModel
 from common.actions import Actions
 from model.song import Song
@@ -34,16 +34,36 @@ class SongListWidget(QWidget):
         self.proxyModel.setSourceModel(self.tableModel)
 
         self.tableView = SongListView(self.proxyModel, actions)
+        
+        # Create status label
+        self.statusLabel = QLabel()
+        self.updateStatusLabel()
 
         layout = QVBoxLayout()
         layout.addWidget(self.tableView)
+        layout.addWidget(self.statusLabel)
         self.setLayout(layout)
 
-        # Connect signal to update the filter
+        # Connect signals to update the filter and status label
         self.songs_model.filterChanged.connect(self.updateFilter)
+        self.songs_model.added.connect(lambda _: self.updateStatusLabel())
+        self.songs_model.deleted.connect(lambda _: self.updateStatusLabel())
+        self.songs_model.cleared.connect(self.updateStatusLabel)
 
     def updateFilter(self):
         self.proxyModel.selectedStatuses = self.songs_model.filter
         self.proxyModel.textFilter = self.songs_model.filter_text.lower()
         self.proxyModel.invalidateFilter()
+        self.updateStatusLabel()
+        
+    def updateStatusLabel(self):
+        total_songs = len(self.songs_model)
+        visible_songs = self.proxyModel.rowCount()
+        
+        if visible_songs == total_songs:
+            text = f"{total_songs} song{'s' if total_songs != 1 else ''}"
+        else:
+            text = f"{visible_songs} of {total_songs} song{'s' if total_songs != 1 else ''}"
+            
+        self.statusLabel.setText(text)
 
