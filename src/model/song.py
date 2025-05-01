@@ -3,7 +3,7 @@ import os
 from model.gap_info import GapInfo, GapInfoStatus
 import utils.files as files
 import utils.audio as audio
-from utils.usdx_file import USDXFile
+from utils.usdx_file_cached import USDXFileCached
 import logging
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ class Song:
         self.tmp_root = tmp_root
         self.path = os.path.dirname(txt_file)
         self.relative_path = os.path.relpath(self.path, songs_root)
-        self.usdx_file = USDXFile(txt_file)
+        self.usdx_file = USDXFileCached(txt_file)
         self.gap_info = GapInfo(self.path)
 
     async def load(self):
