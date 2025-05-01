@@ -157,3 +157,22 @@ class USDXFile:
                 note.start_ms = self.tags.GAP + (note.StartBeat / beats_per_ms)
                 note.end_ms = self.tags.GAP + ((note.StartBeat + note.Length) / beats_per_ms)
             note.duration_ms = note.end_ms - note.start_ms
+
+    async def load_notes_only(self):
+        """
+        Loads only the notes from the file without parsing all the metadata
+        since we already have the metadata from cache.
+        """
+        try:
+            # Open the file and read only the notes section
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            # Find and parse notes
+            self.notes = []
+            for line in lines:
+                if line.startswith(':'):
+                    self.notes.append(line.strip())
+        except Exception as e:
+            logger.error(f"Error loading notes from file: {e}")
+            raise

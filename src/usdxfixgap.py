@@ -6,6 +6,7 @@ from common.data import AppData, Config
 from utils.enable_darkmode import enable_dark_mode
 from utils.check_dependencies import check_dependencies
 from views.menu_bar import MenuBar
+from common.database import initialize_song_cache  # Add this import
 
 from views.song_status import SongsStatusVisualizer
 from views.media_player import MediaPlayerComponent, MediaPlayerEventFilter
@@ -46,6 +47,10 @@ root_logger.addHandler(log_handler)
 # logging.basicConfig(...) # REMOVE THIS LINE if present
 
 # --- End Logging Setup ---
+
+# Initialize database before creating AppData
+db_path = initialize_song_cache()
+logger.info(f"Song cache database initialized at: {db_path}")
 
 data = AppData()
 actions = Actions(data)
