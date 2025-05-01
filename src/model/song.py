@@ -61,7 +61,17 @@ class Song:
         self.usdx_file = USDXFile(txt_file)
         self.gap_info = GapInfo(self.path)
 
-    async def load(self):
+    async def load(self, force_reload=False):
+        # If force_reload is True, bypass the cache and load directly from file
+        if force_reload:
+            logger.debug(f"Force reloading song from file: {self.txt_file}")
+            await self.usdx_file.load()
+            await self.gap_info.load()
+            self.init()
+            # Still update the cache for future use
+            self._cache_song_data()
+            return
+            
         # Try to load from cache first
         try:
             cache = SongCache.get_instance()
@@ -79,9 +89,15 @@ class Song:
                 self.is_relative = cached_data['is_relative']
                 self.usdb_id = cached_data['usdb_id']
                 
-                # Still need to load notes and setup paths
-                await self.usdx_file.load_notes_only()  # Assuming this method exists or can be added
+                # Make sure USDXFile knows the correct file path
+                # This ensures file_path is properly set before calling load_notes_only
+                self.usdx_file = USDXFile(self.txt_file)  # Reinitialize to ensure path is correct
+                
+                # Now load notes
+                await self.usdx_file.load_notes_only()
                 self.notes = self.usdx_file.notes
+                
+                # Load gap_info
                 await self.gap_info.load()
                 
                 # Set up paths and other properties
@@ -92,8 +108,11 @@ class Song:
                 self.vocals_file = files.get_vocals_path(tmp_path)
                 self.audio_waveform_file = files.get_waveform_path(tmp_path, "audio")
                 self.vocals_waveform_file = files.get_waveform_path(tmp_path, "vocals")
+                
+                # Make sure duration is set from gap_info
                 self.duration_ms = self.gap_info.duration
                 
+                # Update status based on gap_info
                 self.update_status_from_gap_info()
             else:
                 # Fall back to loading from file

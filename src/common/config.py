@@ -38,10 +38,10 @@ class Config(QObject):
         self._set_defaults()
         
         # Ensure config file exists (creates with defaults if it doesn't)
-        config_path = self.ensure_config_file_exists()
+        self.config_path = self.ensure_config_file_exists()
         
         # Load the config file (either existing or newly created)
-        self._config.read(config_path)
+        self._config.read(self.config_path)
         
         # Initialize properties from config values
         self._initialize_properties()
@@ -73,7 +73,8 @@ class Config(QObject):
         """Set default configuration values"""
         self._config['Paths'] = {
             'tmp_root': os.path.join(get_app_dir(), '.tmp'),
-            'default_directory': os.path.join(get_app_dir(), 'samples')
+            'default_directory': os.path.join(get_app_dir(), 'samples'),
+            'last_directory': ''  # New parameter for last used directory
         }
         
         self._config['Detection'] = {
@@ -115,6 +116,7 @@ class Config(QObject):
         # Paths
         self.tmp_root = self._config.get('Paths', 'tmp_root')
         self.default_directory = self._config.get('Paths', 'default_directory')
+        self.last_directory = self._config.get('Paths', 'last_directory')
         
         # Detection
         self.default_detection_time = self._config.getint('Detection', 'default_detection_time')
@@ -139,3 +141,14 @@ class Config(QObject):
         self.silence_detect_params = self._config.get('Processing', 'silence_detect_params')
         self.normalization_level = self._config.getint('Processing', 'normalization_level')
         self.auto_normalize = self._config.getboolean('Processing', 'auto_normalize')
+        
+    def save(self):
+        """Save current configuration to file"""
+        # Update config object with current property values
+        self._config['Paths']['last_directory'] = self.last_directory
+        
+        # Write to file
+        with open(self.config_path, 'w') as configfile:
+            self._config.write(configfile)
+        
+        logger.debug(f"Configuration saved to {self.config_path}")
