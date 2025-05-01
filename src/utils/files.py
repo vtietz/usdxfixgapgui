@@ -1,5 +1,6 @@
 import hashlib
 import os
+import sys
 from typing import Any, Dict
 import logging
 
@@ -9,6 +10,29 @@ WAVEFORM_FILE="waveform.png"
 
 
 logger = logging.getLogger(__name__)
+
+def get_app_dir():
+    """Get the directory of the executable or script."""
+    if hasattr(sys, '_MEIPASS'):
+        # Running in a PyInstaller bundle
+        return os.path.dirname(sys.executable)
+    # Running as a script
+    return os.path.dirname(os.path.abspath(sys.argv[0]))
+
+def resource_path(relative_path):
+    """Get the absolute path to a resource, works for dev and PyInstaller."""
+    if hasattr(sys, '_MEIPASS'):
+        # Running in a PyInstaller bundle
+        return os.path.join(sys._MEIPASS, relative_path)
+    
+    # Check in the application directory first
+    app_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
+    app_path = os.path.join(app_dir, relative_path)
+    if os.path.exists(app_path):
+        return app_path
+        
+    # Otherwise check in the current directory
+    return os.path.join(os.path.abspath("."), relative_path)
 
 def get_song_path(txt_file):
     return os.path.dirname(txt_file)

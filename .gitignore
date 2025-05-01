@@ -6,5 +6,7 @@ spleeter-env
 dist/
 build/
 .spec
-*.log*
+.db
 data/
+.log*
+.ini

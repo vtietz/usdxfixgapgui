@@ -33,11 +33,13 @@ jobs:
 
     # Step 5: Create a Tag
     - name: Create Tag
+      shell: pwsh
       run: |
         git config user.name "github-actions"
         git config user.email "github-actions@github.com"
-        TAG_NAME="v1.0.0-$(date +'%Y%m%d%H%M%S')"
-        echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+        $VERSION = Get-Content VERSION
+        $TAG_NAME = "$VERSION-" + (Get-Date -Format "yyyyMMddHHmmss")
+        echo "TAG_NAME=$TAG_NAME" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         git tag -a $TAG_NAME -m "Release $TAG_NAME"
         git push origin $TAG_NAME
 

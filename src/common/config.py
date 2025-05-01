@@ -3,31 +3,9 @@ import sys
 import configparser
 import logging
 from PySide6.QtCore import QObject
+from utils.files import get_app_dir
 
 logger = logging.getLogger(__name__)
-
-def get_app_dir():
-    """Get the directory of the executable or script."""
-    if hasattr(sys, '_MEIPASS'):
-        # Running in a PyInstaller bundle
-        return os.path.dirname(sys.executable)
-    # Running as a script
-    return os.path.dirname(os.path.abspath(sys.argv[0]))
-
-def resource_path(relative_path):
-    """Get the absolute path to a resource, works for dev and PyInstaller."""
-    if hasattr(sys, '_MEIPASS'):
-        # Running in a PyInstaller bundle
-        return os.path.join(sys._MEIPASS, relative_path)
-    
-    # Check in the application directory first
-    app_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
-    app_path = os.path.join(app_dir, relative_path)
-    if os.path.exists(app_path):
-        return app_path
-        
-    # Otherwise check in the current directory
-    return os.path.join(os.path.abspath("."), relative_path)
 
 class Config(QObject):
     def __init__(self):

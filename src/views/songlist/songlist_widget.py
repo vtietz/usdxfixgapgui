@@ -35,35 +35,36 @@ class SongListWidget(QWidget):
 
         self.tableView = SongListView(self.proxyModel, actions)
         
-        # Create status label
-        self.statusLabel = QLabel()
-        self.updateStatusLabel()
+        # Create song count label
+        self.countLabel = QLabel()
 
         layout = QVBoxLayout()
         layout.addWidget(self.tableView)
-        layout.addWidget(self.statusLabel)
+        layout.addWidget(self.countLabel)
         self.setLayout(layout)
 
         # Connect signals to update the filter and status label
         self.songs_model.filterChanged.connect(self.updateFilter)
-        self.songs_model.added.connect(lambda _: self.updateStatusLabel())
-        self.songs_model.deleted.connect(lambda _: self.updateStatusLabel())
-        self.songs_model.cleared.connect(self.updateStatusLabel)
+        
+        # Connect model signals to update count when data changes
+        self.tableModel.rowsInserted.connect(self.updateCountLabel)
+        self.tableModel.rowsRemoved.connect(self.updateCountLabel)
+        self.tableModel.modelReset.connect(self.updateCountLabel)
+        self.proxyModel.rowsInserted.connect(self.updateCountLabel)
+        self.proxyModel.rowsRemoved.connect(self.updateCountLabel)
+        self.proxyModel.modelReset.connect(self.updateCountLabel)
+        
+        # Initial update of the count label
+        self.updateCountLabel()
 
     def updateFilter(self):
         self.proxyModel.selectedStatuses = self.songs_model.filter
         self.proxyModel.textFilter = self.songs_model.filter_text.lower()
         self.proxyModel.invalidateFilter()
-        self.updateStatusLabel()
+        self.updateCountLabel()
         
-    def updateStatusLabel(self):
-        total_songs = len(self.songs_model)
-        visible_songs = self.proxyModel.rowCount()
-        
-        if visible_songs == total_songs:
-            text = f"{total_songs} song{'s' if total_songs != 1 else ''}"
-        else:
-            text = f"{visible_songs} of {total_songs} song{'s' if total_songs != 1 else ''}"
-            
-        self.statusLabel.setText(text)
+    def updateCountLabel(self):
+        total_songs = len(self.songs_model.songs)
+        shown_songs = self.proxyModel.rowCount()
+        self.countLabel.setText(f"Showing {shown_songs} of {total_songs} songs")
 

@@ -62,73 +62,15 @@ class Song:
         self.gap_info = GapInfo(self.path)
 
     async def load(self, force_reload=False):
-        # If force_reload is True, bypass the cache and load directly from file
-        if force_reload:
-            logger.debug(f"Force reloading song from file: {self.txt_file}")
-            await self.usdx_file.load()
-            await self.gap_info.load()
-            self.init()
-            # Still update the cache for future use
-            self._cache_song_data()
-            return
-            
-        # Try to load from cache first
-        try:
-            cache = SongCache.get_instance()
-            cached_data = cache.get_song_data(self.txt_file)
-            
-            if cached_data:
-                logger.debug(f"Loading song from cache: {self.txt_file}")
-                # Set basic metadata from cache
-                self.title = cached_data['title']
-                self.artist = cached_data['artist']
-                self.audio = cached_data['audio']
-                self.gap = cached_data['gap']
-                self.bpm = cached_data['bpm']
-                self.start = cached_data['start']
-                self.is_relative = cached_data['is_relative']
-                self.usdb_id = cached_data['usdb_id']
-                
-                # Make sure USDXFile knows the correct file path
-                # This ensures file_path is properly set before calling load_notes_only
-                self.usdx_file = USDXFile(self.txt_file)  # Reinitialize to ensure path is correct
-                
-                # Now load notes
-                await self.usdx_file.load_notes_only()
-                self.notes = self.usdx_file.notes
-                
-                # Load gap_info
-                await self.gap_info.load()
-                
-                # Set up paths and other properties
-                self.path = os.path.dirname(self.txt_file)
-                self.audio_file = os.path.join(self.path, self.audio)
-                tmp_path = files.get_tmp_path(self.tmp_root, self.audio_file)
-                self.tmp_path = tmp_path
-                self.vocals_file = files.get_vocals_path(tmp_path)
-                self.audio_waveform_file = files.get_waveform_path(tmp_path, "audio")
-                self.vocals_waveform_file = files.get_waveform_path(tmp_path, "vocals")
-                
-                # Make sure duration is set from gap_info
-                self.duration_ms = self.gap_info.duration
-                
-                # Update status based on gap_info
-                self.update_status_from_gap_info()
-            else:
-                # Fall back to loading from file
-                logger.debug(f"Loading song from file: {self.txt_file}")
-                await self.usdx_file.load()
-                await self.gap_info.load()
-                self.init()
-                
-                # Cache the song data
-                self._cache_song_data()
-        except Exception as e:
-            logger.error(f"Error using song cache: {e}")
-            # Fall back to loading from file directly
-            await self.usdx_file.load()
-            await self.gap_info.load()
-            self.init()
+        """
+        Load the song data from the file.
+        
+        Args:
+            force_reload (bool): If True, force reload even if cached
+        """
+        await self.usdx_file.load()
+        await self.gap_info.load()
+        self.init()
 
     def init(self):
 
