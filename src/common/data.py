@@ -21,6 +21,12 @@ class AppData(QObject):
     selected_songs_changed = Signal(list)  # Signal still uses list
     is_loading_songs_changed = Signal(bool)
 
+    # Add these new signals to support manager communication
+    gap_detection_finished = Signal(object)  # Emits the song when gap detection is finished
+    gap_updated = Signal(object)             # Emits the song when gap value is updated
+    gap_reverted = Signal(object)            # Emits the song when gap value is reverted
+    selection_changed = Signal()             # Emits when song selection changes
+
     _directory = config.default_directory
     _tmp_path = files.generate_directory_hash(_directory)
 
