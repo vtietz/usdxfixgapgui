@@ -5,8 +5,8 @@ pretrained_models
 spleeter-env
 dist/
 build/
-.spec
-.db
+*.spec
+*.db
 data/
-.log*
+*.log*
 .ini
