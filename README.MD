@@ -23,9 +23,9 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
 - Detects silence parts to verify the accuracy of the GAP value.
 - Provides a graphical user interface (GUI) to visualize the waveform and suggested GAP values.
 - Allows users to manually choose the correct GAP value if mismatched.
+- Normalizes audio to ensure consistent playback levels.
 
 ## GUI Overview
-
 
 - **Load Songs:** Button to load Ultrastar files.
 - **Detect Gap:** Button to start the GAP detection process.
