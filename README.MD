@@ -1,4 +1,9 @@
+
 # Ultrastar Deluxe (USDX) Fix Gap Gui
+
+<div style="float: right">
+  <img width="150" src="./src/assets/usdxfixgap-icon.png" alt="Logo">
+</div>
 
 Ultrastar Deluxe (USDX) Fix Gap Gui is a Python application designed to scan a directory for Ultrastar files and verify if the given GAP value matches the song or not. The GAP value defines the delay for the start of the lyric in milliseconds. A proper value is crucial for a good karaoke experience.
 
@@ -36,7 +41,7 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
 
 ### Run with executables (recommended):
 
-Download and run standalone versions fpr Windows, MacOS and Linux from [Releases](https://github.com/vtietz/usdxfixgapgui/releases).
+Download and run standalone versions for Windows and Linux from [Releases](https://github.com/vtietz/usdxfixgapgui/releases).
 
 > [`ffmpeg`](https://www.ffmpeg.org/) is required!
 
@@ -86,10 +91,10 @@ For creating an executable you need the PyInstaller.
 pip install pyinstaller
 ```
 
-Then run either `buil.bat` or the following command:
+Then run either `build.bat` or the following command:
 
 ```bash
-pyinstaller --onefile --windowed --icon=src/assets/usdxfixgap-icon.ico --add-data "src/assets;assets" src/usdxfixgap.py
+pyinstaller --onefile --windowed --icon="%~dp0src\assets\usdxfixgap-icon.ico" --add-data "%~dp0src\assets;assets" "%~dp0src\usdxfixgap.py"
 ```
 
 ## Configuration
