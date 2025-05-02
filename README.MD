@@ -34,9 +34,9 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
 
 ## Installation
 
-### Run with Windows executable (recommended):
+### Run with executables (recommended):
 
-Download and run standalone `usdxfixgap.exe` from [Releases](https://github.com/vtietz/usdxfixgapgui/releases).
+Download and run standalone versions fpr Windows, MacOS and Linux from [Releases](https://github.com/vtietz/usdxfixgapgui/releases).
 
 > [`ffmpeg`](https://www.ffmpeg.org/) is required!
 
