@@ -1,15 +1,15 @@
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
-from PySide6.QtCore import __version__  # Updated import
+from PySide6.QtCore import __version__
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
 import sys
 import os
 import logging
-import logging.handlers # Import handlers
 
 from common.actions import Actions
 from common.data import AppData, Config
-from common.database import initialize_song_cache  # Add this import
+from common.database import initialize_song_cache
+from common.utils.async_logging import setup_async_logging, shutdown_async_logging
 
 from utils.enable_darkmode import enable_dark_mode
 from utils.check_dependencies import check_dependencies
@@ -21,101 +21,104 @@ from views.media_player import MediaPlayerComponent, MediaPlayerEventFilter
 from views.songlist.songlist_widget import SongListWidget
 from views.task_queue_viewer import TaskQueueViewer
 
-# First create config to get log level before configuring logging
-config = Config()
+def main():
+    # First create config to get log level before configuring logging
+    config = Config()
 
-# --- Logging Setup ---
-log_file_path = os.path.join(get_app_dir(), 'usdxfixgap.log')
+    # --- Async Logging Setup ---
+    log_file_path = os.path.join(get_app_dir(), 'usdxfixgap.log')
+    setup_async_logging(
+        log_level=config.log_level,
+        log_file_path=log_file_path,
+        max_bytes=10*1024*1024,  # 10MB
+        backup_count=3
+    )
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"Application started with log level: {config.log_level_str}")
+    # --- End Logging Setup ---
 
-# Configure root logger
-log_formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-log_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10*1024*1024, backupCount=3, encoding='utf-8') # Rotate logs (e.g., 10MB * 3 backups)
-log_handler.setFormatter(log_formatter)
+    # Initialize database before creating AppData
+    db_path = initialize_song_cache()
+    logger.info(f"Song cache database initialized at: {db_path}")
 
-root_logger = logging.getLogger()
-root_logger.setLevel(config.log_level)  # Use log level from config
-root_logger.addHandler(log_handler)
+    data = AppData()
+    data.config = config  # Make sure AppData uses our already created config
+    actions = Actions(data)
 
-logger = logging.getLogger(__name__)
-logger.info(f"Application started with log level: {config.log_level_str}")
+    app = QApplication(sys.argv)
 
-# --- End Logging Setup ---
+    # Example usage - This should now work correctly with the bundled asset
+    icon_path = resource_path("assets/usdxfixgap-icon.ico")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+        logger.info(f"Loaded icon from: {icon_path}")
+    else:
+        logger.error(f"Icon file not found at expected path: {icon_path}")
 
-# Initialize database before creating AppData
-db_path = initialize_song_cache()
-logger.info(f"Song cache database initialized at: {db_path}")
+    # Create the main window and set its properties
+    window = QWidget()
+    window.setWindowTitle("USDX Gap Fix Gui")
+    window.resize(800, 600)
+    window.setMinimumSize(600, 600)
 
-data = AppData()
-data.config = config  # Make sure AppData uses our already created config
-actions = Actions(data)
+    menuBar = MenuBar(actions, data)
+    songStatus = SongsStatusVisualizer(data.songs)
+    songListView = SongListWidget(data.songs, actions)
+    mediaPlayerComponent = MediaPlayerComponent(data, actions)
+    taskQueueViewer = TaskQueueViewer(actions.worker_queue)
 
-app = QApplication(sys.argv)
+    app.installEventFilter(mediaPlayerComponent.globalEventFilter)
 
-# Example usage - This should now work correctly with the bundled asset
-icon_path = resource_path("assets/usdxfixgap-icon.ico")
-if os.path.exists(icon_path):
-    app.setWindowIcon(QIcon(icon_path))
-    logger.info(f"Loaded icon from: {icon_path}")
-else:
-    logger.error(f"Icon file not found at expected path: {icon_path}")
+    # Set up the layout and add your components
+    layout = QVBoxLayout()
+    layout.addWidget(menuBar)
+    layout.addWidget(songStatus)
+    layout.addWidget(songListView, 2)  # Adjust stretch factor as needed
+    layout.addWidget(mediaPlayerComponent, 1)  # Adjust stretch factor as needed
+    layout.addWidget(taskQueueViewer, 1)  # Adjust stretch factor as needed
 
-# Create the main window and set its properties
-window = QWidget()
-window.setWindowTitle("USDX Gap Fix Gui")
-window.resize(800, 600)
-window.setMinimumSize(600, 600)
+    window.setLayout(layout)
 
-menuBar = MenuBar(actions, data)
-songStatus = SongsStatusVisualizer(data.songs)
-songListView = SongListWidget(data.songs, actions)
-mediaPlayerComponent = MediaPlayerComponent(data, actions)
-taskQueueViewer = TaskQueueViewer(actions.worker_queue)
+    logger.debug("Runtime PySide6 version: %s", __version__)  # Updated logging
+    logger.debug(f"Python Executable: {sys.executable}")
+    logger.debug(f"PYTHONPATH: {sys.path}")
 
-app.installEventFilter(mediaPlayerComponent.globalEventFilter)
+    # Example usage
+    dependencies = [
+        ('spleeter', '--version'),
+        ('ffmpeg', '-version'),  # Note that ffmpeg uses '-version' instead of '--version'
+    ]
+    if(not check_dependencies(dependencies)):
+        logger.error("Some dependencies are not installed.")
+        #sys.exit(1)
 
-# Set up the layout and add your components
-layout = QVBoxLayout()
-layout.addWidget(menuBar)
-layout.addWidget(songStatus)
-layout.addWidget(songListView, 2)  # Adjust stretch factor as needed
-layout.addWidget(mediaPlayerComponent, 1)  # Adjust stretch factor as needed
-layout.addWidget(taskQueueViewer, 1)  # Adjust stretch factor as needed
+    # Check available audio output devices
+    available_audio_outputs = QMediaDevices.audioOutputs()
+    if not available_audio_outputs:
+        logger.error("No audio output devices available.")
+    else:
+        logger.debug(f"Available audio outputs: {available_audio_outputs}")
 
-window.setLayout(layout)
+    # Check available multimedia backends
+    try:
+        supported_mime_types = QMediaDevices.supportedMimeTypes()
+        logger.debug(f"Available multimedia backends: {supported_mime_types}")
+    except AttributeError:
+        logger.warning("Unable to retrieve supported multimedia backends. This feature may not be available in your PySide6 version.")
 
-logger.debug("Runtime PySide6 version: %s", __version__)  # Updated logging
-logger.debug(f"Python Executable: {sys.executable}")
-logger.debug(f"PYTHONPATH: {sys.path}")
+    # Show the window
+    window.show()
 
-# Example usage
-dependencies = [
-    ('spleeter', '--version'),
-    ('ffmpeg', '-version'),  # Note that ffmpeg uses '-version' instead of '--version'
-]
-if(not check_dependencies(dependencies)):
-    logger.error("Some dependencies are not installed.")
-    #sys.exit(1)
+    actions.auto_load_last_directory()
 
-# Check available audio output devices
-available_audio_outputs = QMediaDevices.audioOutputs()
-if not available_audio_outputs:
-    logger.error("No audio output devices available.")
-else:
-    logger.debug(f"Available audio outputs: {available_audio_outputs}")
+    enable_dark_mode(app)
 
-# Check available multimedia backends
-try:
-    supported_mime_types = QMediaDevices.supportedMimeTypes()
-    logger.debug(f"Available multimedia backends: {supported_mime_types}")
-except AttributeError:
-    logger.warning("Unable to retrieve supported multimedia backends. This feature may not be available in your PySide6 version.")
+    # Set up proper shutdown
+    app.aboutToQuit.connect(shutdown_async_logging)
+    
+    # Start the event loop
+    sys.exit(app.exec())
 
-# Show the window
-window.show()
-
-actions.auto_load_last_directory()
-
-enable_dark_mode(app)
-
-# Start the event loop
-sys.exit(app.exec())
+if __name__ == "__main__":
+    main()
