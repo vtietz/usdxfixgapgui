@@ -1,7 +1,9 @@
-<p align="center" style="text-align: center"> 
+<p align="center"> 
     <img width="150" src="./src/assets/usdxfixgap-icon.png" alt="Logo">
     <h3 align="center">Effortlessly synchronize your Ultrastar Deluxe songs with AI-powered GAP detection and correction for the ultimate karaoke experience!</h3>
     <br/>
+</p>
+<p align="center"> 
     <img style="width:80%;" src="./screenshot.png" alt="Screenshot">
     <br/>
 </p>
