@@ -21,8 +21,8 @@ from views.media_player import MediaPlayerComponent, MediaPlayerEventFilter
 from views.songlist.songlist_widget import SongListWidget
 from views.task_queue_viewer import TaskQueueViewer
 
-
-logger = logging.getLogger(__name__)
+# First create config to get log level before configuring logging
+config = Config()
 
 # --- Logging Setup ---
 log_file_path = os.path.join(get_app_dir(), 'usdxfixgap.log')
@@ -33,8 +33,11 @@ log_handler = logging.handlers.RotatingFileHandler(log_file_path, maxBytes=10*10
 log_handler.setFormatter(log_formatter)
 
 root_logger = logging.getLogger()
-root_logger.setLevel(logging.DEBUG)
+root_logger.setLevel(config.log_level)  # Use log level from config
 root_logger.addHandler(log_handler)
+
+logger = logging.getLogger(__name__)
+logger.info(f"Application started with log level: {config.log_level_str}")
 
 # --- End Logging Setup ---
 
@@ -43,6 +46,7 @@ db_path = initialize_song_cache()
 logger.info(f"Song cache database initialized at: {db_path}")
 
 data = AppData()
+data.config = config  # Make sure AppData uses our already created config
 actions = Actions(data)
 
 app = QApplication(sys.argv)

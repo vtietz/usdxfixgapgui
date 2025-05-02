@@ -1,9 +1,12 @@
+<p align="center" style="text-align: center"> 
+    <img width="150" src="./src/assets/usdxfixgap-icon.png" alt="Logo">
+    <h3 align="center">Effortlessly synchronize your Ultrastar Deluxe songs with AI-powered GAP detection and correction for the ultimate karaoke experience!</h3>
+    <br/>
+    <img style="width:80%;" src="./screenshot.png" alt="Screenshot">
+    <br/>
+</p>
 
 # Ultrastar Deluxe (USDX) Fix Gap Gui
-
-<div style="float: right">
-  <img width="150" src="./src/assets/usdxfixgap-icon.png" alt="Logo">
-</div>
 
 Ultrastar Deluxe (USDX) Fix Gap Gui is a Python application designed to scan a directory for Ultrastar files and verify if the given GAP value matches the song or not. The GAP value defines the delay for the start of the lyric in milliseconds. A proper value is crucial for a good karaoke experience.
 
@@ -21,7 +24,6 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
 
 ## GUI Overview
 
-![Screenshot](./screenshot.png)
 
 - **Load Songs:** Button to load Ultrastar files.
 - **Detect Gap:** Button to start the GAP detection process.

@@ -120,6 +120,21 @@ class Config(QObject):
         self.normalization_level = self._config.getint('Processing', 'normalization_level')
         self.auto_normalize = self._config.getboolean('Processing', 'auto_normalize')
         
+        # General
+        self.log_level_str = self._config.get('General', 'LogLevel')
+        self.log_level = self._get_log_level(self.log_level_str)
+        
+    def _get_log_level(self, level_str):
+        """Convert string log level to logging level constant"""
+        levels = {
+            'DEBUG': logging.DEBUG,
+            'INFO': logging.INFO,
+            'WARNING': logging.WARNING,
+            'ERROR': logging.ERROR,
+            'CRITICAL': logging.CRITICAL
+        }
+        return levels.get(level_str.upper(), logging.INFO)  # Default to INFO if invalid
+        
     def save(self):
         """Save current configuration to file"""
         # Update config object with current property values
