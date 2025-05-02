@@ -63,6 +63,7 @@ jobs:
           path: dist/usdxfixgap
 
   build-macos:
+    if: false
     permissions: write-all
     runs-on: macos-latest
     steps:
@@ -93,7 +94,7 @@ jobs:
           path: dist/usdxfixgap
 
   release:
-    needs: [build-windows, build-linux, build-macos]
+    needs: [build-windows, build-linux]
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
