@@ -9,7 +9,7 @@ from utils.usdx_file import USDXFile
 from workers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
 from utils.run_async import run_sync
-from common.database import get_all_cache_entries, cleanup_stale_entries
+from common.database import get_all_cache_entries, cleanup_stale_entries, set_cache_entry
 import logging
 
 logger = logging.getLogger(__name__)
@@ -62,6 +62,12 @@ class LoadUsdxFilesWorker(IWorker):
                 
             # Update USDB ID if needed
             song.usdb_id = self.path_usdb_id_map.get(song.path, song.usdb_id)
+            
+            # Check if duration is missing and populate it
+            if not song.duration_ms and hasattr(song, 'audio_file') and os.path.exists(song.audio_file):
+                logger.debug(f"Updating missing duration for cached song: {song.title}")
+                song.duration_ms = audio.get_audio_duration(song.audio_file, self.is_cancelled())
+                set_cache_entry(file_path, song)
             
             # Emit the loaded song
             self.signals.songLoaded.emit(song)

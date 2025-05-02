@@ -31,11 +31,10 @@ class SongCached(Song):
         if cached_song:
             logger.debug(f"Using cached version of song {self.txt_file}")
             
-            # First load the core components that have their own caching
-            await self.usdx_file.load()
+            # Load the gap_info only, usdx_file will be lazy-loaded when needed
             await self.gap_info.load()
             
-            # Initialize the song data based on usdx_file
+            # Initialize the song data
             self.init()
             
             # Now copy cached attributes that aren't derived from usdx_file

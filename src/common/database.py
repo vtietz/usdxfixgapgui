@@ -46,6 +46,11 @@ def init_database():
 # Initialize the database when the module is loaded
 init_database()
 
+def initialize_song_cache():
+    """Initialize the song cache database and return its path."""
+    init_database()
+    return DB_PATH
+
 def get_cache_entry(key, modified_time=None):
     """
     Retrieve a cache entry by key.
@@ -91,7 +96,7 @@ def get_cache_entry(key, modified_time=None):
 
 def set_cache_entry(key, obj):
     """
-    Store an object in the cache.
+    Store or update an object in the cache.
     
     Args:
         key (str): The cache key (filepath)
@@ -108,6 +113,7 @@ def set_cache_entry(key, obj):
         data_blob = pickle.dumps(obj)
         timestamp = datetime.datetime.now().isoformat()
         
+        # This will update existing entries or insert new ones
         cursor.execute(
             'INSERT OR REPLACE INTO song_cache (file_path, song_data, timestamp) VALUES (?, ?, ?)',
             (key, data_blob, timestamp)

@@ -1,26 +1,26 @@
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtCore import __version__  # Updated import
+from PySide6.QtMultimedia import QMediaDevices
+from PySide6.QtGui import QIcon
 import sys
+import os
+import logging
+import logging.handlers # Import handlers
+
 from common.actions import Actions
 from common.data import AppData, Config
+from common.database import initialize_song_cache  # Add this import
+
 from utils.enable_darkmode import enable_dark_mode
 from utils.check_dependencies import check_dependencies
 from utils.files import get_app_dir, resource_path
-from views.menu_bar import MenuBar
-from common.database import initialize_song_cache  # Add this import
 
+from views.menu_bar import MenuBar
 from views.song_status import SongsStatusVisualizer
 from views.media_player import MediaPlayerComponent, MediaPlayerEventFilter
 from views.songlist.songlist_widget import SongListWidget
 from views.task_queue_viewer import TaskQueueViewer
 
-import logging
-import logging.handlers # Import handlers
-
-from PySide6.QtMultimedia import QMediaDevices
-from PySide6.QtGui import QIcon
-
-import os
 
 logger = logging.getLogger(__name__)
 

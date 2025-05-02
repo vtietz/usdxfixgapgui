@@ -44,6 +44,7 @@ class USDXFile:
         self.encoding = None
         self.content = None
         self.tags = None
+        self._loaded = False
 
     async def determine_encoding(self):
         async with aiofiles.open(self.filepath, 'rb') as file:
@@ -87,6 +88,8 @@ class USDXFile:
             raise ValidationError("Notes are missing")
         
         self.calculate_note_times()
+        self._loaded = True
+        logger.debug(f"Successfully completed USDXFile.load() and set _loaded=True for {self.filepath}")
         
     async def save(self):
         async with aiofiles.open(self.filepath, 'w', encoding=self.encoding) as file:
