@@ -2,7 +2,7 @@
 import logging
 from typing import List
 from model.song import Song
-from utils.usdx_file import Note
+from model.usdx_file import Note
 
 logger = logging.getLogger(__name__)
                 

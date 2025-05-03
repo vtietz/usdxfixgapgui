@@ -1,9 +1,9 @@
+import logging
 from common.config import Config
 from model.song import Song
-import utils.waveform as waveform
 from workers.worker_queue_manager import IWorker, IWorkerSignals
+import utils.waveform as waveform
 import utils.audio as audio
-import logging
 
 logger = logging.getLogger(__name__)
 

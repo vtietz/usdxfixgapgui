@@ -3,6 +3,7 @@ from workers.worker_queue_manager import IWorker
 import utils.audio as audio
 from datetime import datetime
 from common.data import AppData
+from services.gap_info_service import GapInfoService  # Add this import
 
 import logging
 
@@ -23,10 +24,9 @@ class NormalizeAudioWorker(IWorker):
             normalization_level = self.config.normalization_level
             audio.normalize_audio(self.song.audio_file, target_level=normalization_level, check_cancellation=self.is_cancelled)
             
-            # Update normalization info
-            self.song.gap_info.set_normalized()
-            self.song.gap_info.normalization_level = normalization_level
-            await self.song.gap_info.save()
+            # Update normalization info using service
+            GapInfoService.set_normalized(self.song.gap_info, normalization_level)
+            await GapInfoService.save(self.song.gap_info)
             logger.info(f"Audio normalized to {normalization_level} dB and info saved: {self.song.audio_file}")
             
             self.signals.finished.emit()

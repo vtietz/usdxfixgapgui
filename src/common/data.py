@@ -40,8 +40,6 @@ class AppData(QObject):
         # Initialize the worker queue
         self.worker_queue = WorkerQueueManager()
         
-        # ...rest of initialization...
-
     @Property(list, notify=selected_songs_changed)  # Property still uses list
     def selected_songs(self):
         return self._selected_songs

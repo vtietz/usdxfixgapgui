@@ -25,7 +25,14 @@ class AudioActions(BaseActions):
         logger.info(f"Queueing normalization for {len(selected_songs)} songs.")
         
         # Use async queuing to prevent UI freeze
-        self._queue_tasks_non_blocking(selected_songs, self._normalize_song_if_valid)
+        # self._queue_tasks_non_blocking(selected_songs, self._normalize_song_if_valid)
+
+        if len(selected_songs) == 1:
+            # If only one song is selected, normalize it immediately
+            self._normalize_song_if_valid(selected_songs[0], True)
+        else:
+            for song in selected_songs:
+                self._normalize_song_if_valid(song, False)
     
     def _normalize_song_if_valid(self, song, is_first):
         if song.audio_file:
@@ -38,7 +45,11 @@ class AudioActions(BaseActions):
         worker.signals.started.connect(lambda: self._on_song_worker_started(song))
         worker.signals.error.connect(lambda: self._on_song_worker_error(song))
         worker.signals.finished.connect(lambda: self._on_song_worker_finished(song))
-        worker.signals.finished.connect(lambda: self._create_waveforms(song, True))
+        
+        # Only create waveforms if this is the first selected song
+        if song == self.data.first_selected_song:
+            worker.signals.finished.connect(lambda: self._create_waveforms(song, True))
+        
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
@@ -46,12 +57,20 @@ class AudioActions(BaseActions):
     def _create_waveforms(self, song: Song, overwrite: bool = False):
         if not song:
             raise Exception("No song given")
-        if overwrite or (os.path.exists(song.audio_file) and not os.path.exists(song.audio_waveform_file)):
-            self._create_waveform(song, song.audio_file, song.audio_waveform_file)
-        if overwrite or (os.path.exists(song.vocals_file) and not os.path.exists(song.vocals_waveform_file)):
-            self._create_waveform(song, song.vocals_file, song.vocals_waveform_file)
+        
+        self._create_waveform(song, song.audio_file, song.audio_waveform_file, overwrite)
+        self._create_waveform(song, song.vocals_file, song.vocals_waveform_file, overwrite)
 
-    def _create_waveform(self, song: Song, audio_file: str, waveform_file: str):
+    def _create_waveform(self, song: Song, audio_file: str, waveform_file: str, overwrite: bool = False):
+
+        if not os.path.exists(audio_file):
+            logger.error(f"Audio file does not exist: {audio_file}")
+            return
+        
+        if os.path.exists(waveform_file) and not overwrite:
+            logger.info(f"Waveform file already exists and overwrite is False: {waveform_file}")
+            return
+        
         logger.debug(f"Creating waveform creation task for '{audio_file}'")
         worker = CreateWaveform(
             song,

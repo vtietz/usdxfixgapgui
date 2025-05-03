@@ -1,3 +1,4 @@
+import time
 from PySide6.QtCore import Signal as pyqtSignal
 from common.config import Config
 from model.gap_info import GapInfoStatus
@@ -6,7 +7,7 @@ from workers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
 import utils.usdx as usdx
 import utils.detect_gap as detect_gap
-import time
+from services.gap_info_service import GapInfoService  # Add this import
 
 import logging
 
@@ -69,10 +70,16 @@ class DetectGapWorker(IWorker):
             song.gap_info.status = info_status
             song.gap_info.notes_overlap = notes_overlap
             song.gap_info.silence_periods = silence_periods
+
+            if song.duration_ms:
+                song.gap_info.duration = duration_ms
+            else:
+                song.gap_info.duration = audio.get_audio_duration(song.audio_file, self.is_cancelled)
             
             song.status = song_status
 
-            await song.gap_info.save()
+            # Use service to save gap info
+            await GapInfoService.save(song.gap_info)
 
             self.signals.finished.emit(song) 
         except Exception as e:

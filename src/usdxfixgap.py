@@ -1,10 +1,12 @@
+import sys
+import os
+import logging
+
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtCore import __version__
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
-import sys
-import os
-import logging
+
 
 from common.actions import Actions
 from common.data import AppData, Config
@@ -17,7 +19,7 @@ from utils.files import get_app_dir, resource_path
 
 from views.menu_bar import MenuBar
 from views.song_status import SongsStatusVisualizer
-from views.media_player import MediaPlayerComponent, MediaPlayerEventFilter
+from views.mediaplayer import MediaPlayerComponent
 from views.songlist.songlist_widget import SongListWidget
 from views.task_queue_viewer import TaskQueueViewer
 

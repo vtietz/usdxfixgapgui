@@ -6,7 +6,7 @@ from typing import List
 
 from PIL import Image, ImageDraw, ImageFont
 
-from utils.usdx_file import Note
+from model.usdx_file import Note
 
 logger = logging.getLogger(__name__)
 

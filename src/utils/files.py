@@ -11,6 +11,34 @@ WAVEFORM_FILE="waveform.png"
 
 logger = logging.getLogger(__name__)
 
+def find_txt_file(path):
+    """
+    Finds a .txt file in the given path.
+    If path is a directory, returns the first .txt file found in it.
+    If path is a .txt file, returns the path itself.
+    Otherwise, returns the path as is (it might be assumed to be a txt file path).
+    
+    Args:
+        path: A directory path or file path
+        
+    Returns:
+        Path to a .txt file or the original path
+    """
+    if os.path.isdir(path):
+        # If path is a directory, find the .txt file
+        for file in os.listdir(path):
+            if file.endswith('.txt'):
+                return os.path.join(path, file)
+        # No .txt file found
+        return None
+    elif path.endswith('.txt'):
+        # If path is already the txt file
+        return path
+    else:
+        # If path is not a directory or a txt file
+        # it might be the directory path or txt file path without extension
+        return path
+
 def get_app_dir():
     """Get the directory of the executable or script."""
     if hasattr(sys, '_MEIPASS'):

@@ -1,9 +1,9 @@
+import logging
 from PySide6.QtCore import Signal as pyqtSignal
 from model.song import Song
 from workers.worker_queue_manager import IWorker, IWorkerSignals
-from utils.run_async import run_async
 import utils.audio as audio
-import logging
+from services.gap_info_service import GapInfoService 
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,8 @@ class DetectAudioLengthWorker(IWorker):
             duration = audio.get_audio_duration(self.song.audio_file)
             self.song.duration_ms = duration
             self.song.gap_info.duration = duration
-            await self.song.gap_info.save()
+            # Use service to save gap info
+            await GapInfoService.save(self.song.gap_info)
             self.signals.lengthDetected.emit(self.song)
         except Exception as e:
             logger.error(f"Error detecting audio length song '{self.song.audio_file}'")       
