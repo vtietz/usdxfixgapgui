@@ -1,7 +1,7 @@
 import logging
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton
 from PySide6.QtCore import QMetaObject, Qt, QThread
-from workers.worker_queue_manager import WorkerQueueManager
+from workers.worker_queue_manager import WorkerQueueManager, WorkerStatus
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +13,8 @@ class TaskQueueViewer(QWidget):
         self.initUI()
         self.updateTaskList()
         self.workerQueueManager.on_task_list_changed.connect(self.updateTaskList)
+        # Track the tasks that are being cancelled to prevent UI flicker
+        self.cancelling_tasks = set()
 
     def initUI(self):
         self.layout = QVBoxLayout(self)
@@ -30,28 +32,102 @@ class TaskQueueViewer(QWidget):
         self.tableWidget.setColumnWidth(1, 100)  # Set width of "Status" column
 
     def updateTaskList(self):
-        self.tableWidget.setRowCount(0)
-        # Take a snapshot of running tasks and then iterate
-        running_tasks_snapshot = list(self.workerQueueManager.running_tasks.items())
-        for task_id, worker in running_tasks_snapshot:
-            self.addTaskToTable(task_id, worker.description, worker.status.name)
-        # Take a snapshot of the queue and then iterate
-        queue_snapshot = list(self.workerQueueManager.queued_tasks)
-        for worker in queue_snapshot:
-            self.addTaskToTable(worker.id, worker.description, worker.status.name)
-
-
-    def addTaskToTable(self, task_id, description, status):
-        rowPosition = self.tableWidget.rowCount()
-        self.tableWidget.insertRow(rowPosition)
-        self.tableWidget.setItem(rowPosition, 0, QTableWidgetItem(description))
-        self.tableWidget.setItem(rowPosition, 1, QTableWidgetItem(status))
-        # Create and add the Cancel button
-        cancelButton = QPushButton("Cancel")
-        cancelButton.clicked.connect(lambda: self.cancel_task(task_id))
-        self.tableWidget.setCellWidget(rowPosition, 2, cancelButton)
+        # Save current scroll position
+        vscroll_pos = self.tableWidget.verticalScrollBar().value() if self.tableWidget.verticalScrollBar() else 0
+        
+        # Get current tasks
+        running_tasks = list(self.workerQueueManager.running_tasks.items())
+        queued_tasks = list(self.workerQueueManager.queued_tasks)
+        
+        # Create a map of task IDs to their data
+        task_map = {}
+        for task_id, worker in running_tasks:
+            task_map[task_id] = (worker.description, worker.status.name)
+        for worker in queued_tasks:
+            task_map[worker.id] = (worker.description, worker.status.name)
+            
+        # Process existing rows first
+        rows_to_remove = []
+        for row in range(self.tableWidget.rowCount()):
+            # Get the task ID stored in the first column
+            desc_item = self.tableWidget.item(row, 0)
+            if not desc_item:
+                rows_to_remove.append(row)
+                continue
+                
+            task_id = desc_item.data(Qt.ItemDataRole.UserRole)
+            if not task_id or task_id not in task_map:
+                rows_to_remove.append(row)
+                continue
+                
+            # Update the existing row
+            description, status = task_map[task_id]
+            desc_item.setText(description)
+            
+            status_item = self.tableWidget.item(row, 1)
+            if status_item:
+                status_item.setText(status)
+                
+            # Update button state
+            button = self.tableWidget.cellWidget(row, 2)
+            if button:
+                if status == WorkerStatus.CANCELLING.name or task_id in self.cancelling_tasks:
+                    button.setText("Cancelling...")
+                    button.setEnabled(False)
+                else:
+                    button.setText("Cancel")
+                    button.setEnabled(True)
+            
+            # Mark this task as handled
+            del task_map[task_id]
+        
+        # Remove rows in reverse order to avoid index issues
+        for row in sorted(rows_to_remove, reverse=True):
+            self.tableWidget.removeRow(row)
+            
+        # Add rows for remaining tasks
+        for task_id, (description, status) in task_map.items():
+            row = self.tableWidget.rowCount()
+            self.tableWidget.insertRow(row)
+            
+            # Create and populate description item with task_id
+            desc_item = QTableWidgetItem(description)
+            desc_item.setData(Qt.ItemDataRole.UserRole, task_id)
+            self.tableWidget.setItem(row, 0, desc_item)
+            
+            # Create status item
+            self.tableWidget.setItem(row, 1, QTableWidgetItem(status))
+            
+            # Create cancel button
+            cancel_button = QPushButton("Cancel")
+            cancel_button.clicked.connect(lambda checked=False, tid=task_id: self.cancel_task(tid))
+            
+            # Set button state based on status
+            if status == WorkerStatus.CANCELLING.name or task_id in self.cancelling_tasks:
+                cancel_button.setText("Cancelling...")
+                cancel_button.setEnabled(False)
+                
+            self.tableWidget.setCellWidget(row, 2, cancel_button)
+            
+        # Restore scroll position
+        if self.tableWidget.verticalScrollBar():
+            self.tableWidget.verticalScrollBar().setValue(vscroll_pos)
     
     def cancel_task(self, task_id):
         logger.debug(f"Cancelling task {task_id}")
+        
+        # Mark this task as being cancelled
+        self.cancelling_tasks.add(task_id)
+        
+        # Update the UI immediately for better feedback
+        for row in range(self.tableWidget.rowCount()):
+            desc_item = self.tableWidget.item(row, 0)
+            if desc_item and desc_item.data(Qt.ItemDataRole.UserRole) == task_id:
+                button = self.tableWidget.cellWidget(row, 2)
+                if button:
+                    button.setText("Cancelling...")
+                    button.setEnabled(False)
+                break
+        
+        # Actually cancel the task
         self.workerQueueManager.cancel_task(task_id)
-        self.updateTaskList()

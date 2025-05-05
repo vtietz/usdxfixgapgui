@@ -202,13 +202,16 @@ class WorkerQueueManager(QObject):
         worker = self.get_worker(task_id)
         if worker:
             worker.cancel()
+            # Force an immediate UI update when cancelling
+            self.on_task_list_changed.emit()
         else:
             # Check if it's in the queue
             for i, worker in enumerate(self.queued_tasks):
                 if worker.id == task_id:
                     worker.cancel()
                     self.queued_tasks.pop(i)
-                    self._mark_ui_update_needed()
+                    # Force an immediate UI update
+                    self.on_task_list_changed.emit()
                     break
 
     def cancel_queue(self):

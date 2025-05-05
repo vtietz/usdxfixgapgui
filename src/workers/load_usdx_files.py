@@ -29,6 +29,10 @@ class LoadUsdxFilesWorker(IWorker):
         """Load a song from file, optionally forcing reload."""
         self.description = f"Loading file {txt_file_path}"
         
+        # Check for cancellation before loading
+        if self.is_cancelled():
+            return None
+            
         try:
             # Use the service to load the song
             song = await self.song_service.load_song(txt_file_path, self.directory, force_reload)
@@ -79,6 +83,7 @@ class LoadUsdxFilesWorker(IWorker):
                 return
 
             for file in files:
+                # Check for cancellation on every file
                 if self.is_cancelled(): 
                     return
                 
@@ -87,6 +92,10 @@ class LoadUsdxFilesWorker(IWorker):
                     self.path_usdb_id_map[root] = usdb_id
                 
                 if file.endswith(".txt"):
+                    # Check for cancellation again before heavy operation
+                    if self.is_cancelled():
+                        return
+                        
                     song_path = os.path.join(root, file)
                     
                     # If already loaded from cache, skip
