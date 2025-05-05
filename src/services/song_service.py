@@ -75,7 +75,7 @@ class SongService:
             return song
         
         # Check if duration needs to be determined from audio file
-        if not song.duration_ms and (song.audio_file and os.path.exists(song.audio_file)):
+        if not song.duration_ms or song.duration_ms == 0 and (song.audio_file and os.path.exists(song.audio_file)):
             song.duration_ms = audio.get_audio_duration(song.audio_file, cancel_check)
 
         if not song.status == SongStatus.ERROR:

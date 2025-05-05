@@ -100,15 +100,14 @@ class SongActions(BaseActions):
                 logger.info(f"Successfully reloaded {song}")
                 break
 
-    def _update_song_attributes(self, target_song, source_song):
+    def _update_song_attributes(self, target_song: Song, source_song: Song):
         """Transfer all relevant attributes from source_song to target_song"""
         # Copy all attributes from source to target song object
         attributes_to_copy = [
             'title', 'artist', 'audio', 'gap', 'bpm', 'start', 'is_relative',
-            'path', 'txt_file', 'audio_file', 'relative_path', 'duration_ms', 
-            'status', 'error_message', 'usdb_id', 'notes'
+            'path', 'txt_file', 'audio_file', 'relative_path', 'usdb_id', 'notes'
         ]
-        
+              
         for attr in attributes_to_copy:
             if hasattr(source_song, attr):
                 try:
@@ -118,6 +117,12 @@ class SongActions(BaseActions):
                     # If we can't set it directly, log this issue
                     logger.warning(f"Could not set attribute {attr} on song {target_song.title}")
         
+        # Copy status and error_message after other attributes to ensure they're properly set
+        if hasattr(source_song, 'status'):
+            target_song.status = source_song.status
+        if hasattr(source_song, 'error_message'):
+            target_song.error_message = source_song.error_message
+            
         # Handle special objects like gap_info
         if hasattr(source_song, 'gap_info') and source_song.gap_info:
             try:
@@ -128,12 +133,24 @@ class SongActions(BaseActions):
                 if hasattr(target_song, 'gap_info') and target_song.gap_info is not None:
                     # Copy attributes from source gap_info to target gap_info
                     for gap_attr in dir(source_song.gap_info):
-                        if not gap_attr.startswith('_'):  # Skip private attributes
+                        if not gap_attr.startswith('_') and gap_attr != 'owner':  # Skip private attributes and owner
                             try:
                                 setattr(target_song.gap_info, gap_attr, 
                                         getattr(source_song.gap_info, gap_attr))
                             except AttributeError:
                                 pass
+                    
+                    # Explicitly update duration from gap_info if available
+                    if source_song.gap_info.duration:
+                        target_song.duration_ms = source_song.gap_info.duration
+
+        # Double-check duration after all other operations
+        if target_song.duration_ms == 0 and target_song.audio_file and os.path.exists(target_song.audio_file):
+            try:
+                target_song.duration_ms = audio.get_audio_duration_ms(target_song.audio_file)
+                logger.info(f"Fallback method: set duration to {target_song.duration_ms}ms from audio file")
+            except Exception as e:
+                logger.warning(f"Could not load duration from audio file: {e}")
 
     def delete_selected_song(self):
         selected_songs = self.data.selected_songs

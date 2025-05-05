@@ -100,7 +100,8 @@ class Song:
         else:
             self.status = SongStatus.NOT_PROCESSED
 
-        self.duration_ms = info.duration
+        if info.duration and info.duration > 0:
+            self.duration_ms = info.duration
     
     def __str__(self):
         return f"Song [{self.artist} - {self.title}]"
