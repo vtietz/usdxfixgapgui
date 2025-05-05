@@ -1,7 +1,6 @@
 import hashlib
 import os
 import sys
-from typing import Any, Dict
 import logging
 
 IGNORE_FILE="usdxfixgap.ignore"
@@ -10,6 +9,10 @@ WAVEFORM_FILE="waveform.png"
 
 
 logger = logging.getLogger(__name__)
+
+def get_relative_path(root, path):
+    return os.path.relpath(path, root)
+   
 
 def find_txt_file(path):
     """

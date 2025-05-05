@@ -1,5 +1,6 @@
 import logging
 from PySide6.QtCore import QObject, Signal as pyqtSignal, QTimer
+from PySide6.QtWidgets import QApplication
 from enum import Enum
 import threading
 import time
@@ -242,3 +243,22 @@ class WorkerQueueManager(QObject):
         self._heartbeat_active = False
         if self._heartbeat_thread.is_alive():
             self._heartbeat_thread.join(timeout=0.5)
+
+    # Add this method to the WorkerQueueManager class
+    def shutdown(self):
+        """Properly shut down all workers when the application is closing"""
+        logger.info("Shutting down worker queue")
+        
+        # Cancel all pending tasks
+        self.cancel_queue()  # Use existing method instead of cancel_all_tasks
+        
+        # Wait for running tasks to finish (with a timeout)
+        if self.running_tasks:  # Check if there are running tasks instead of current_worker
+            MAX_WAIT_MS = 2000  # 2 seconds max wait
+            start_time = time.time()
+            while self.running_tasks and time.time() - start_time < (MAX_WAIT_MS / 1000):
+                QApplication.processEvents()
+                time.sleep(0.1)
+        
+        # Clean up resources
+        self.cleanup()

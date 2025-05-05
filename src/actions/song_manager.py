@@ -105,12 +105,12 @@ class SongManager(BaseManager):
         # Confirmation should happen in the UI layer (MenuBar) before calling this
         songs_to_remove = list(selected_songs) # Copy list as we modify the source
         for song in songs_to_remove:
-            logger.info(f"Deleting song {song.path}")
+            logger.info(f"Deleting song {song}")
             try:
                 song.delete() # Assuming song.delete() handles file/folder removal
                 self.data.songs.remove(song) # Remove from the model's list
             except Exception as e:
-                logger.error(f"Failed to delete song {song.path}: {e}")
+                logger.error(f"Failed to delete song {song}: {e}")
 
         # After attempting deletion, clear the selection
         self.set_selected_songs([])

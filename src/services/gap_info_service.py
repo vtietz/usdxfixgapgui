@@ -43,7 +43,6 @@ class GapInfoService:
             gap_info.normalized_date = data.get("normalized_date", None)
             gap_info.normalization_level = data.get("normalization_level", None)
 
-            logger.debug(f"Gap info loaded successfully: {gap_info.file_path}")
         except Exception as e:
             logger.error(f"Error loading gap info: {e}")
         
@@ -83,7 +82,6 @@ class GapInfoService:
             async with aiofiles.open(gap_info.file_path, "w", encoding="utf-8") as file:
                 await file.write(json.dumps(data, indent=4))
             
-            logger.debug(f"Gap info saved successfully: {gap_info.file_path}")
             return True
         except Exception as e:
             logger.error(f"Error saving gap info: {e}")

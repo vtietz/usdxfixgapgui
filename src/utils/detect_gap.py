@@ -4,9 +4,36 @@ import utils.files as files
 import shutil
 import utils.audio as audio
 from utils.separate import separate_audio
-from typing import List, Tuple 
+from typing import List, Tuple, Optional
 
 logger = logging.getLogger(__name__)
+
+class DetectGapOptions:
+    """Options for gap detection."""
+    
+    def __init__(self, 
+                 audio_file: str,
+                 tmp_root: str,
+                 original_gap: int,
+                 audio_length: Optional[int] = None,
+                 default_detection_time: int = 60,
+                 silence_detect_params: str = "silencedetect=noise=-10dB:d=0.2",
+                 overwrite: bool = False):
+        self.audio_file = audio_file
+        self.tmp_root = tmp_root
+        self.original_gap = original_gap
+        self.audio_length = audio_length
+        self.default_detection_time = default_detection_time
+        self.silence_detect_params = silence_detect_params
+        self.overwrite = overwrite
+
+class DetectGapResult:
+    """Results of gap detection."""
+    
+    def __init__(self, detected_gap: int, silence_periods: List[Tuple[float, float]], vocals_file: str):
+        self.detected_gap = detected_gap
+        self.silence_periods = silence_periods
+        self.vocals_file = vocals_file
 
 def detect_nearest_gap(silence_periods: List[Tuple[float, float]], start_position_ms: float) -> int:
     """Detect the nearest gap before or after the given start position in the audio file."""
@@ -80,29 +107,24 @@ def get_vocals_file(
 
     return destination_vocals_filepath
 
-def perform(
-        audio_file,
-        tmp_root,
-        gap, 
-        audio_length=None,
-        default_detection_time=60, 
-        silence_detect_params="silencedetect=noise=-10dB:d=0.2",
-        overwrite=False, 
-        check_cancellation=None):
+def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResult:
+    """
+    Perform gap detection with the given options.
+    Returns a DetectGapResult with the detected gap, silence periods, and vocals file path.
+    """
+    logger.info(f"Detecting gap for {options.audio_file}")
+    if not options.audio_file or not os.path.exists(options.audio_file):
+        raise FileNotFoundError(f"Audio file not found: {options.audio_file}")
 
-    logger.info(f"Detecting gap for {audio_file}")
-    if not audio_file or not os.path.exists(audio_file):
-        raise FileNotFoundError(f"Audio file not found: {audio_file}")
+    tmp_path = files.get_tmp_path(options.tmp_root, options.audio_file)
 
-    tmp_path = files.get_tmp_path(tmp_root, audio_file)
-
-    if(not audio_length):
-        audio_length = audio.get_audio_duration(audio_file, check_cancellation)
+    if(not options.audio_length):
+        options.audio_length = audio.get_audio_duration(options.audio_file, check_cancellation)
 
     # Calculate the maximum detection time (s), increasing it if necessary
-    detection_time = default_detection_time
-    while detection_time <= gap / 1000:
-        detection_time += default_detection_time
+    detection_time = options.default_detection_time
+    while detection_time <= options.original_gap / 1000:
+        detection_time += options.default_detection_time
 
     detection_time = detection_time + int(detection_time / 2)
 
@@ -111,38 +133,38 @@ def perform(
 
     # detect gap, increasing the detection time if necessary
     while True:
-        if os.path.exists(destination_vocals_file) and not overwrite:
+        if os.path.exists(destination_vocals_file) and not options.overwrite:
             vocals_file = destination_vocals_file
         else:
             vocals_file = get_vocals_file(
-                audio_file, 
-                tmp_root, 
+                options.audio_file, 
+                options.tmp_root, 
                 destination_vocals_file,
                 detection_time,
-                overwrite,
+                options.overwrite,
                 check_cancellation
             )
 
         silence_periods = audio.detect_silence_periods(
             vocals_file, 
-            silence_detect_params=silence_detect_params,
+            silence_detect_params=options.silence_detect_params,
             check_cancellation=check_cancellation
         )
         
-        detected_gap = detect_nearest_gap(silence_periods, gap)
+        detected_gap = detect_nearest_gap(silence_periods, options.original_gap)
         if detected_gap is None:
-            raise Exception(f"Failed to detect gap in {audio_file}")
+            raise Exception(f"Failed to detect gap in {options.audio_file}")
         
-        if detected_gap < detection_time * 1000 or detection_time * 1000 >= audio_length:
+        if detected_gap < detection_time * 1000 or detection_time * 1000 >= options.audio_length:
             break
 
         logger.info(f"Detected GAP seems not to be correct. Increasing detection time to {detection_time + detection_time}s.")
         detection_time += detection_time
  
-        if detection_time >= audio_length and detected_gap > audio_length:
-            raise Exception(f"Error: Unable to detect gap within the length of the audio: {audio_file}")
+        if detection_time >= options.audio_length and detected_gap > options.audio_length:
+            raise Exception(f"Error: Unable to detect gap within the length of the audio: {options.audio_file}")
 
-    logger.info(f"Detected GAP: {detected_gap}m in {audio_file}")
+    logger.info(f"Detected GAP: {detected_gap}m in {options.audio_file}")
 
-    return detected_gap, silence_periods
+    return DetectGapResult(detected_gap, silence_periods, vocals_file)
 

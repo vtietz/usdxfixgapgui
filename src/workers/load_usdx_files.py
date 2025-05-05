@@ -23,7 +23,7 @@ class LoadUsdxFilesWorker(IWorker):
         self.path_usdb_id_map = {}
         self.loaded_paths = set()  # Track files we've loaded to detect stale cache entries
         self.reload_single_file = None  # Path to single file to reload (when used for reload)
-        self.song_service = SongService(tmp_root)  # Create song service
+        self.song_service = SongService()  # Create song service
 
     async def load(self, txt_file_path, force_reload=False) -> Song:
         """Load a song from file, optionally forcing reload."""
@@ -37,7 +37,7 @@ class LoadUsdxFilesWorker(IWorker):
             
         except Exception as e:
             # Create minimal song data for error reporting
-            song = Song(txt_file_path, self.directory, self.tmp_root)
+            song = Song(txt_file_path)
             song.status = SongStatus.ERROR
             song.error_message = str(e)
             logger.error(f"Error loading song '{txt_file_path}")

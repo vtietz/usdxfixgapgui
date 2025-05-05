@@ -2,14 +2,17 @@ from typing import List
 from PySide6.QtCore import QAbstractTableModel, Qt, QModelIndex, QTimer
 import logging
 
+from common.data import AppData
 from model.song import Song, SongStatus
 from model.songs import Songs
+from utils import files
 
 logger = logging.getLogger(__name__)
 
 class SongTableModel(QAbstractTableModel):
-    def __init__(self, songs_model: Songs, parent=None):
+    def __init__(self, songs_model: Songs, data: AppData, parent=None):
         super().__init__(parent)
+        self.app_data = data
         self.songs_model = songs_model
         self.songs: List[Song] = list(self.songs_model.songs)
         self.pending_songs = []
@@ -27,7 +30,7 @@ class SongTableModel(QAbstractTableModel):
 
     def song_added(self, song: Song):
         self.pending_songs.append(song)
-        logger.info(f"Added to list: {song}")
+        logger.info(f"Added to songlist model: {song}")
         if not self.timer.isActive():
             self.timer.start()
 
@@ -78,7 +81,7 @@ class SongTableModel(QAbstractTableModel):
             return song
         elif role == Qt.ItemDataRole.DisplayRole:
             return [
-                song.relative_path,
+                files.get_relative_path(self.app_data.directory, song.path),
                 song.artist,
                 song.title,
                 song.duration_str,

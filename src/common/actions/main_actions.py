@@ -30,9 +30,9 @@ class Actions(BaseActions):
     def set_selected_songs(self, songs):
         self._song_actions.set_selected_songs(songs)
         
-    def reload_song(self):
-        self._song_actions.reload_song()
-        
+    def reload_song(self, specific_song=None):
+        self._song_actions.reload_song(specific_song)
+
     def delete_selected_song(self):
         self._song_actions.delete_selected_song()
     

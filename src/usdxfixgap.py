@@ -66,7 +66,7 @@ def main():
 
     menuBar = MenuBar(actions, data)
     songStatus = SongsStatusVisualizer(data.songs)
-    songListView = SongListWidget(data.songs, actions)
+    songListView = SongListWidget(data.songs, actions, data)
     mediaPlayerComponent = MediaPlayerComponent(data, actions)
     taskQueueViewer = TaskQueueViewer(actions.worker_queue)
 
@@ -119,6 +119,10 @@ def main():
     # Set up proper shutdown
     app.aboutToQuit.connect(shutdown_async_logging)
     
+    # Add this near the end of your main application setup
+    app = QApplication.instance()
+    app.aboutToQuit.connect(lambda: data.worker_queue.shutdown())
+
     # Start the event loop
     sys.exit(app.exec())
 

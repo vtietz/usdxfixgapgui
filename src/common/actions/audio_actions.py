@@ -1,7 +1,10 @@
 import logging
 import os
 from common.actions.base_actions import BaseActions
+from common.actions.song_actions import SongActions
 from model.song import Song, SongStatus
+from utils import files
+from services.waveform_path_service import WaveformPathService
 from workers.detect_audio_length import DetectAudioLengthWorker
 from workers.normalize_audio import NormalizeAudioWorker
 from workers.create_waveform import CreateWaveform
@@ -38,7 +41,7 @@ class AudioActions(BaseActions):
         if song.audio_file:
             self._normalize_song(song, is_first)
         else:
-            logger.warning(f"Skipping normalization for '{song.title}': No audio file.")
+            logger.warning(f"Skipping normalization for {song}: No audio file.")
 
     def _normalize_song(self, song: Song, start_now=False):
         worker = NormalizeAudioWorker(song)
@@ -58,8 +61,28 @@ class AudioActions(BaseActions):
         if not song:
             raise Exception("No song given")
         
-        self._create_waveform(song, song.audio_file, song.audio_waveform_file, overwrite)
-        self._create_waveform(song, song.vocals_file, song.vocals_waveform_file, overwrite)
+        # Check if audio file exists
+        if not hasattr(song, 'audio_file') or not song.audio_file:
+            logger.warning(f"Cannot create waveforms for song '{song.title if hasattr(song, 'title') else 'Unknown'}': Missing audio file")
+            # Trigger song reload to properly load the audio file
+            song_actions = SongActions(self.data)
+            song_actions.reload_song(song) 
+            return
+        
+        # Check if notes are loaded before creating waveforms
+        if not hasattr(song, 'notes') or not song.notes:
+            logger.warning(f"Loading notes fpr {song}...")
+            song_actions = SongActions(self.data)
+            song_actions.load_notes_for_song(song)
+        
+        # Use the WaveformPathService to get all paths
+        paths = WaveformPathService.get_paths(song, self.data.tmp_path)
+        if not paths:
+            logger.error(f"Could not get waveform paths for song: {song.title if hasattr(song, 'title') else 'Unknown'}")
+            return
+        
+        self._create_waveform(song, paths["audio_file"], paths["audio_waveform_file"], overwrite)
+        self._create_waveform(song, paths["vocals_file"], paths["vocals_waveform_file"], overwrite)
 
     def _create_waveform(self, song: Song, audio_file: str, waveform_file: str, overwrite: bool = False):
 
@@ -71,7 +94,7 @@ class AudioActions(BaseActions):
             logger.info(f"Waveform file already exists and overwrite is False: {waveform_file}")
             return
         
-        logger.debug(f"Creating waveform creation task for '{audio_file}'")
+        logger.debug(f"Creating waveform creation task for {song}")
         worker = CreateWaveform(
             song,
             self.config,

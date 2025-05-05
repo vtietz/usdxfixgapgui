@@ -3,7 +3,8 @@ from common.actions.base_actions import BaseActions
 from common.actions.audio_actions import AudioActions
 from model.song import Song, SongStatus
 from model.gap_info import GapInfoStatus
-from workers.detect_gap import DetectGapWorker
+from services.gap_info_service import GapInfoService
+from workers.detect_gap import DetectGapWorker, GapDetectionResult, DetectGapWorkerOptions
 from utils.run_async import run_async
 import utils.usdx as usdx
 
@@ -16,20 +17,27 @@ class GapActions(BaseActions):
         if not song:
             raise Exception("No song given")
 
-        worker = DetectGapWorker(
-            song, 
-            self.config,
-            self.data.tmp_path,
-            self.config.default_detection_time,
-            overwrite
+        options = DetectGapWorkerOptions(
+            audio_file=song.audio_file,
+            txt_file=song.txt_file,
+            notes=song.notes,
+            bpm=song.bpm,
+            original_gap=song.gap,
+            duration_ms=song.duration_ms,
+            config=self.config,
+            tmp_path=self.data.tmp_path,
+            overwrite=overwrite
         )
+        
+        worker = DetectGapWorker(options)
         
         worker.signals.started.connect(lambda: self._on_song_worker_started(song))
         worker.signals.error.connect(lambda: self._on_song_worker_error(song))
-        worker.signals.finished.connect(lambda song=song: self._on_detect_gap_finished(song))
+        worker.signals.finished.connect(lambda result: self._on_detect_gap_finished(song, result))
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
+
 
     def detect_gap(self, overwrite=False):
         selected_songs = self.data.selected_songs
@@ -51,15 +59,37 @@ class GapActions(BaseActions):
         else:
             logger.warning(f"Skipping gap detection for '{song.title}': No audio file or Spleeter not configured.")
 
-    def _on_detect_gap_finished(self, song: Song):
+    def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
+        # Validate that the result matches the song
+        if song.txt_file != result.song_file_path:
+            logger.error(f"Gap detection result mismatch: {song.txt_file} vs {result.song_file_path}")
+            return
+            
+        # Update song with detection results
+        song.gap_info.detected_gap = result.detected_gap
+        song.gap_info.diff = result.gap_diff
+        song.gap_info.status = result.status
+        song.gap_info.notes_overlap = result.notes_overlap
+        song.gap_info.silence_periods = result.silence_periods
+        song.gap_info.duration = result.duration_ms
+        
+        # Set song status based on the result status
+        song.status = SongStatus.MATCH if result.status == GapInfoStatus.MATCH else SongStatus.MISMATCH
+        
+        # Save gap info
+        run_async(GapInfoService.save(song.gap_info))
+        
         # Create waveforms first
         audio_actions = AudioActions(self.data)
         audio_actions._create_waveforms(song, True)
         
         # Check if auto-normalization is enabled
         if self.config.auto_normalize and song.audio_file:
-            logger.info(f"Auto-normalizing audio for {song.title} after gap detection")
+            logger.info(f"Auto-normalizing audio for {song} after gap detection")
             audio_actions._normalize_song(song)
+            
+        # Notify that the song has been updated
+        self.data.songs.updated.emit(song)
 
     def get_notes_overlap(self, song: Song, silence_periods, detection_time):
         song_to_process = song or self.data.first_selected_song

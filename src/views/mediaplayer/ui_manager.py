@@ -56,6 +56,8 @@ class UIManager:
     def set_playback_state(self, is_playing):
         """Update UI for play/pause state"""
         self.play_btn.setChecked(is_playing)
+        # Update button text based on playback state
+        self.play_btn.setText("Stop" if is_playing else "Play")
     
     def update_position_label(self, position, is_media_loaded, is_playing):
         """Update the position label with the current playback position"""

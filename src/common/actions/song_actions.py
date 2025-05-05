@@ -2,11 +2,10 @@ import logging
 import os
 from typing import List
 from common.actions.base_actions import BaseActions
-from common.actions.audio_actions import AudioActions
 from model.song import Song
-from utils.run_async import run_sync
 from workers.reload_song_worker import ReloadSongWorker
-from workers.load_usdx_files import LoadUsdxFilesWorker
+from services.usdx_file_service import USDXFileService
+from model.usdx_file import USDXFile
 
 logger = logging.getLogger(__name__)
 
@@ -16,37 +15,34 @@ class SongActions(BaseActions):
     def set_selected_songs(self, songs: List[Song]):
         logger.debug(f"Setting selected songs: {[s.title for s in songs]}")
         self.data.selected_songs = songs
-        if songs:
-            # Create waveforms for the first selected song for preview
-            audio_actions = AudioActions(self.data)
-            audio_actions._create_waveforms(songs[0])
+        # Removed waveform creation here - will be handled by MediaPlayerComponent
 
-    def reload_song(self):
-        selected_songs = self.data.selected_songs
-        if not selected_songs:
+    def reload_song(self, specific_song=None):
+        """
+        Reload a song or songs from disk.
+        If specific_song is provided, only loads that song.
+        Otherwise loads all selected songs.
+        """
+        if specific_song:
+            songs_to_load = [specific_song]
+        else:
+            songs_to_load = self.data.selected_songs
+            
+        if not songs_to_load:
             logger.error("No songs selected to reload.")
             return
-        logger.info(f"Reloading {len(selected_songs)} selected songs.")
         
-        for song in selected_songs:
+        logger.info(f"Reloading {len(songs_to_load)} songs.")
+        
+        for song in songs_to_load:
             logger.info(f"Reloading song {song.path}")
             try:
                 # Extract directory from song.path (which should be the full file path)
                 song_directory = os.path.dirname(song.path)
                 
-                # Get the tmp_root from the data object or use a default
-                tmp_root = None
-                if hasattr(self.data, 'tmp_directory'):
-                    tmp_root = self.data.tmp_directory
-                elif hasattr(song, 'tmp_root'):
-                    tmp_root = song.tmp_root
-                else:
-                    # Use a default temporary directory if none is found
-                    tmp_root = os.path.join(os.path.dirname(song_directory), "tmp")
-                
                 # Create the new ReloadSongWorker for this specific song reload
-                worker = ReloadSongWorker(song.path, song_directory, tmp_root)
-                worker.signals.songReloaded.connect(self._on_song_reloaded)
+                worker = ReloadSongWorker(song.path, song_directory)
+                worker.signals.songReloaded.connect(self._on_song_loaded)
                 
                 # Add the task to the worker queue
                 self.worker_queue.add_task(worker, True)  # True to start immediately
@@ -56,7 +52,29 @@ class SongActions(BaseActions):
                 logger.exception(f"Error setting up song reload: {e}")
                 self.data.songs.updated.emit(song)
 
-    def _on_song_reloaded(self, reloaded_song):
+    def load_notes_for_song(self, song: Song):
+        """Load just the notes for a song without fully reloading it"""
+        if not song:
+            logger.error("No song provided to load notes for")
+            return
+            
+        logger.info(f"Loading notes for {song}")
+        
+        try:
+            # Use USDXFile and USDXFileService directly to load just the notes
+            usdx_file = USDXFile(song.txt_file)
+            song.notes = USDXFileService.load_notes_only(usdx_file)
+            logger.debug(f"Notes loaded for song: {song.title}, count: {len(song.notes) if song.notes else 0}")
+            
+            # Notify that the song was updated
+            self.data.songs.updated.emit(song)
+            
+        except Exception as e:
+            logger.error(f"Error loading notes for song {song.title}: {e}", exc_info=True)
+            song.error_message = str(e)
+            self.data.songs.updated.emit(song)
+
+    def _on_song_loaded(self, reloaded_song):
         """Handle a reloaded song from the worker"""
         # Find the matching song in our data model
         for i, song in enumerate(self.data.songs):
@@ -66,6 +84,7 @@ class SongActions(BaseActions):
                 self._update_song_attributes(song, reloaded_song)
                 
                 # Recreate waveforms for the reloaded song
+                from common.actions.audio_actions import AudioActions
                 audio_actions = AudioActions(self.data)
                 audio_actions._create_waveforms(song, True)
                 
@@ -78,7 +97,7 @@ class SongActions(BaseActions):
                     # Just refresh the selection to trigger UI updates
                     self.set_selected_songs(self.data.selected_songs)
                 
-                logger.info(f"Successfully reloaded song: {song.title}")
+                logger.info(f"Successfully reloaded {song}")
                 break
 
     def _update_song_attributes(self, target_song, source_song):
@@ -86,18 +105,35 @@ class SongActions(BaseActions):
         # Copy all attributes from source to target song object
         attributes_to_copy = [
             'title', 'artist', 'audio', 'gap', 'bpm', 'start', 'is_relative',
-            'path', 'txt_file', 'audio_file', 'relative_path', 'tmp_path',
-            'duration_ms', 'audio_waveform_file', 'vocals_file', 'vocals_waveform_file', 
-            'vocals_duration_ms', 'status', 'error_message', 'usdb_id'
+            'path', 'txt_file', 'audio_file', 'relative_path', 'duration_ms', 
+            'status', 'error_message', 'usdb_id', 'notes'
         ]
         
         for attr in attributes_to_copy:
             if hasattr(source_song, attr):
-                setattr(target_song, attr, getattr(source_song, attr))
+                try:
+                    # First check if the attribute is accessible via setattr
+                    setattr(target_song, attr, getattr(source_song, attr))
+                except AttributeError:
+                    # If we can't set it directly, log this issue
+                    logger.warning(f"Could not set attribute {attr} on song {target_song.title}")
         
         # Handle special objects like gap_info
         if hasattr(source_song, 'gap_info') and source_song.gap_info:
-            target_song.gap_info = source_song.gap_info
+            try:
+                target_song.gap_info = source_song.gap_info
+            except AttributeError:
+                # If gap_info is a property with no setter, try to update its contents
+                logger.warning(f"Could not set gap_info directly, attempting to update contents")
+                if hasattr(target_song, 'gap_info') and target_song.gap_info is not None:
+                    # Copy attributes from source gap_info to target gap_info
+                    for gap_attr in dir(source_song.gap_info):
+                        if not gap_attr.startswith('_'):  # Skip private attributes
+                            try:
+                                setattr(target_song.gap_info, gap_attr, 
+                                        getattr(source_song.gap_info, gap_attr))
+                            except AttributeError:
+                                pass
 
     def delete_selected_song(self):
         selected_songs = self.data.selected_songs

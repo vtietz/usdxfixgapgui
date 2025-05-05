@@ -31,7 +31,7 @@ class AudioProcessor(BaseManager):
         if song.audio_file:
             self._normalize_song(song, is_first)
         else:
-            logger.warning(f"Skipping normalization for '{song.title}': No audio file.")
+            logger.warning(f"Skipping normalization for '{song}': No audio file.")
 
     def _normalize_song(self, song: Song, start_now=False):
         worker = NormalizeAudioWorker(song)
@@ -56,7 +56,7 @@ class AudioProcessor(BaseManager):
             self._create_waveform(song, song.vocals_file, song.vocals_waveform_file)
 
     def _create_waveform(self, song: Song, audio_file: str, waveform_file: str):
-        logger.debug(f"Creating waveform creation task for '{audio_file}'")
+        logger.debug(f"Creating waveform creation task for '{song}'")
         worker = CreateWaveform(
             song,
             self.config,
@@ -75,5 +75,4 @@ class AudioProcessor(BaseManager):
         self.data.songs.updated.emit(song)
 
     def _on_song_worker_finished(self, song: Song):
-        song.update_status_from_gap_info()
         self.data.songs.updated.emit(song)

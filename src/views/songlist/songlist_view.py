@@ -58,8 +58,6 @@ class SongListView(QTableView):
         if selected_songs:
             first_song = selected_songs[0]
             logger.debug(f"Selected {len(selected_songs)} songs. First: {first_song.title} by {first_song.artist}")
-            logger.debug(f"First song path: {first_song.path}, Exists: {os.path.exists(first_song.path)}")
-            logger.debug(f"First song audio file: {first_song.audio_file}, Exists: {os.path.exists(first_song.audio_file) if first_song.audio_file else False}")
         else:
             logger.debug("Selection cleared.")
 

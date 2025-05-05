@@ -6,11 +6,10 @@ from model.usdx_file import Note
 
 logger = logging.getLogger(__name__)
                 
-def fix_gap(gap: int, song: Song):
+def fix_gap(gap: int, start_beat: int, bpm: int):
     """ Corrects gap if first note does not start with beat 0 and song has a start time."""
-    start_beat = song.notes[0].StartBeat
     if start_beat != 0:
-        position_ms = int(start_beat / song.bpm)
+        position_ms = int(start_beat / bpm)
         gap = gap - position_ms
     return gap
 

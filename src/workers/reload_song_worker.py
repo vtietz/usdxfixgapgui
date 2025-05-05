@@ -16,20 +16,19 @@ class WorkerSignals(IWorkerSignals):
 class ReloadSongWorker(IWorker):
     """Worker specifically designed for reloading a single song"""
     
-    def __init__(self, song_path, directory, tmp_root):
+    def __init__(self, song_path, directory):
         super().__init__()
         self.signals = WorkerSignals()
         self.song_path = song_path
         self.directory = directory
-        self.tmp_root = tmp_root
-        self.description = f"Reloading song {os.path.basename(song_path)}"
-        self.song_service = song_service.SongService(tmp_root) 
+        self.description = f"Loading song {os.path.basename(song_path)}"
+        self.song_service = song_service.SongService() 
 
     async def load(self) -> Song:
         """Load a song from file, forcing reload."""
         try:
             txt_file = files.find_txt_file(self.song_path)
-            song = await self.song_service.load_song(txt_file, self.directory, True, self.is_cancelled)
+            song = await self.song_service.load_song(txt_file, True, self.is_cancelled)
             return song
             
         except RuntimeError as e:
@@ -48,7 +47,7 @@ class ReloadSongWorker(IWorker):
 
     async def run(self):
         """Execute the worker's task."""
-        logger.info(f"Reloading song: {self.song_path}")
+        logger.info(f"Loading song: {self.song_path}")
         
         song = await self.load()
          

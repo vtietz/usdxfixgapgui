@@ -61,5 +61,4 @@ class BaseActions(QObject):
         self.data.songs.updated.emit(song)
 
     def _on_song_worker_finished(self, song: Song):
-        song.update_status_from_gap_info()
         self.data.songs.updated.emit(song)

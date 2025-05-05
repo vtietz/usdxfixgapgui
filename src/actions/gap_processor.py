@@ -29,7 +29,7 @@ class GapProcessor(BaseManager):
         if song.audio_file and self.config.spleeter:
             self._detect_gap(song, self._overwrite_gap, is_first)
         else:
-            logger.warning(f"Skipping gap detection for '{song.title}': No audio file or Spleeter not configured.")
+            logger.warning(f"Skipping gap detection for {song}: No audio file or Spleeter not configured.")
     
     def _detect_gap(self, song: Song, overwrite=False, start_now=False):
         if not song:

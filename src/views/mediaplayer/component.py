@@ -5,6 +5,7 @@ from PySide6.QtCore import Signal, Qt
 from common.actions import Actions
 from common.data import AppData
 from model.song import Song, SongStatus
+from services.waveform_path_service import WaveformPathService
 
 from views.mediaplayer.constants import AudioFileStatus
 from views.mediaplayer.event_filter import MediaPlayerEventFilter
@@ -58,9 +59,9 @@ class MediaPlayerComponent(QWidget):
         
         # Connect to the data signals
         self._data.selected_song_changed.connect(self.on_song_changed)
+        self._data.selected_songs_changed.connect(self.on_selected_songs_changed)
         self._data.songs.updated.connect(self.on_song_updated)
         self._data.songs.deleted.connect(lambda: self.player.unload_all_media())
-        self._data.selected_songs_changed.connect(self.on_selected_songs_changed)
 
     def initUI(self):
         # Create control buttons
@@ -194,6 +195,9 @@ class MediaPlayerComponent(QWidget):
             return
             
         self._song = song
+        if not song.notes or not WaveformPathService.waveforms_exists(song, self._data.tmp_path):
+            self._actions.reload_song(song)
+            
         self.update_ui()
         self.update_player_files()
     
@@ -215,16 +219,24 @@ class MediaPlayerComponent(QWidget):
         # Check if song has notes attribute but don't prevent playback
         if not hasattr(song, 'notes') or song.notes is None:
             logger.warning(f"Song '{song.title}' does not have notes data, but will play audio anyway")
+        
+        # Get paths using WaveformPathService
+        paths = WaveformPathService.get_paths(song, self._data.tmp_path)
+        if not paths:
+            logger.error(f"Could not get waveform paths for song: {song.title}")
+            self.player.load_media(None)
+            self.waveform_widget.load_waveform(None)
+            return
             
         logger.debug(f"Updating player files. Audio status: {self.player.get_audio_status()}")
         if self.player.get_audio_status() == AudioFileStatus.AUDIO:
-            logger.debug(f"Loading audio file: {song.audio_file}")
-            self.player.load_media(song.audio_file)
-            self.waveform_widget.load_waveform(song.audio_waveform_file)
+            logger.debug(f"Loading audio file: {paths['audio_file']}")
+            self.player.load_media(paths['audio_file'])
+            self.waveform_widget.load_waveform(paths['audio_waveform_file'])
         else:
-            logger.debug(f"Loading vocals file: {song.vocals_file}")
-            self.player.load_media(song.vocals_file)
-            self.waveform_widget.load_waveform(song.vocals_waveform_file)
+            logger.debug(f"Loading vocals file: {paths['vocals_file']}")
+            self.player.load_media(paths['vocals_file'])
+            self.waveform_widget.load_waveform(paths['vocals_waveform_file'])
 
     def on_selected_songs_changed(self, songs: list):
         """Disable player when multiple songs are selected"""
