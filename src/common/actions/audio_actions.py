@@ -29,7 +29,7 @@ class AudioActions(BaseActions):
         
         # Use async queuing to prevent UI freeze
         # self._queue_tasks_non_blocking(selected_songs, self._normalize_song_if_valid)
-
+        
         if len(selected_songs) == 1:
             # If only one song is selected, normalize it immediately
             self._normalize_song_if_valid(selected_songs[0], True)

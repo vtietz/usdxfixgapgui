@@ -21,6 +21,7 @@ class BaseActions(QObject):
         self.config = data.config
         self.worker_queue = data.worker_queue  # Use the shared worker queue from AppData
     
+    # TODO: currently not sure if this is helpful
     def _queue_tasks_non_blocking(self, songs: List[Song], callback: Callable):
         """Queue tasks with a small delay between them to avoid UI freeze"""
         if not songs:
