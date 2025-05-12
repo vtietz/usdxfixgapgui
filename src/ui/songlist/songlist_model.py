@@ -2,15 +2,15 @@ from typing import List
 from PySide6.QtCore import QAbstractTableModel, Qt, QModelIndex, QTimer
 import logging
 
-from common.data import AppData
+from app.app_data import AppData
 from model.song import Song, SongStatus
-from model.songs import Songs
+from model.song_list import SongList
 from utils import files
 
 logger = logging.getLogger(__name__)
 
 class SongTableModel(QAbstractTableModel):
-    def __init__(self, songs_model: Songs, data: AppData, parent=None):
+    def __init__(self, songs_model: SongList, data: AppData, parent=None):
         super().__init__(parent)
         self.app_data = data
         self.songs_model = songs_model

@@ -3,11 +3,11 @@ from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog, QS
 from PySide6.QtCore import Signal
 from typing import List # Import List
 from common.actions import Actions
-from common.data import AppData
+from app.app_data import AppData
 import logging
 import os # Import os for path checks
 
-from common.data import Config
+from app.app_data import Config
 from model.song import Song, SongStatus
 from views.multi_select_box import MultiSelectComboBox
 

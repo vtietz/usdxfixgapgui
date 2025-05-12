@@ -2,12 +2,12 @@ from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 
-from model.songs import Songs, SongStatus
+from model.song_list import SongList, SongStatus
 
 # Assuming SongStatus and Songs are defined elsewhere
 
 class SongsStatusVisualizer(QWidget):
-    def __init__(self, songs: Songs, parent=None):
+    def __init__(self, songs: SongList, parent=None):
         super().__init__(parent)
         self.songs = songs
         self.layout = QHBoxLayout()

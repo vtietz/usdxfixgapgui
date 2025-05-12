@@ -1,13 +1,13 @@
 import logging
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton
 from PySide6.QtCore import QMetaObject, Qt, QThread
-from workers.worker_queue_manager import WorkerQueueManager, WorkerStatus
+from managers.worker_queue_manager import WorkerManager, WorkerStatus
 
 logger = logging.getLogger(__name__)
 
 class TaskQueueViewer(QWidget):
 
-    def __init__(self, workerQueueManager:WorkerQueueManager, parent=None):
+    def __init__(self, workerQueueManager:WorkerManager, parent=None):
         super().__init__(parent)
         self.workerQueueManager = workerQueueManager
         self.initUI()

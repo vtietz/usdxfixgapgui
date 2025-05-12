@@ -2,7 +2,7 @@ import os
 import time
 from typing import List
 from PySide6.QtCore import Signal
-from common.config import Config
+from services.config_service import ConfigService
 from model.gap_info import GapInfoStatus
 from model.song import Song, SongStatus
 from model.usdx_file import Note
@@ -27,7 +27,7 @@ class DetectGapWorkerOptions:
                  bpm,
                  original_gap: int,
                  duration_ms: int,
-                 config: Config,
+                 config: ConfigService,
                  tmp_path: str,
                  overwrite=False):
         self.audio_file = audio_file

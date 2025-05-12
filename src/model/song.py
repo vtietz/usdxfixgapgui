@@ -72,7 +72,7 @@ class Song:
         return self._gap_info
         
     @gap_info.setter
-    def gap_info(self, value):
+    def gap_info(self, value) -> GapInfo:
         self._gap_info = value
         if value:
             value.owner = self  # Set the song as owner of gap_info

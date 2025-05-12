@@ -1,31 +1,33 @@
-import sys
-import os
 import logging
+import os
+import sys
 
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtCore import __version__
-from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
+from PySide6.QtMultimedia import QMediaDevices
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 
 
 from common.actions import Actions
-from common.data import AppData, Config
 from common.database import initialize_song_cache
 from common.utils.async_logging import setup_async_logging, shutdown_async_logging
 
-from utils.enable_darkmode import enable_dark_mode
+from app.app_data import AppData
+from services.config_service import ConfigService  # Updated import
+
 from utils.check_dependencies import check_dependencies
+from utils.enable_darkmode import enable_dark_mode
 from utils.files import get_app_dir, resource_path
 
-from views.menu_bar import MenuBar
-from views.song_status import SongsStatusVisualizer
-from views.mediaplayer import MediaPlayerComponent
-from views.songlist.songlist_widget import SongListWidget
-from views.task_queue_viewer import TaskQueueViewer
+from ui.mediaplayer import MediaPlayerComponent
+from ui.menu_bar import MenuBar
+from ui.song_status import SongsStatusVisualizer
+from ui.songlist.songlist_widget import SongListWidget
+from ui.task_queue_viewer import TaskQueueViewer
 
 def main():
     # First create config to get log level before configuring logging
-    config = Config()
+    config = ConfigService()  # Updated to use ConfigService instead of Config
 
     # --- Async Logging Setup ---
     log_file_path = os.path.join(get_app_dir(), 'usdxfixgap.log')
@@ -44,8 +46,8 @@ def main():
     db_path = initialize_song_cache()
     logger.info(f"Song cache database initialized at: {db_path}")
 
-    data = AppData()
-    data.config = config  # Make sure AppData uses our already created config
+    # Create AppData with the config already initialized
+    data = AppData(config=config)  # Pass config directly to the constructor
     actions = Actions(data)
 
     app = QApplication(sys.argv)
@@ -68,7 +70,7 @@ def main():
     songStatus = SongsStatusVisualizer(data.songs)
     songListView = SongListWidget(data.songs, actions, data)
     mediaPlayerComponent = MediaPlayerComponent(data, actions)
-    taskQueueViewer = TaskQueueViewer(actions.worker_queue)
+    taskQueueViewer = TaskQueueViewer(data.worker_manager)  # Updated to use worker_manager instead of worker_queue
 
     app.installEventFilter(mediaPlayerComponent.globalEventFilter)
 
@@ -82,7 +84,7 @@ def main():
 
     window.setLayout(layout)
 
-    logger.debug("Runtime PySide6 version: %s", __version__)  # Updated logging
+    logger.debug("Runtime PySide6 version: %s", __version__)
     logger.debug(f"Python Executable: {sys.executable}")
     logger.debug(f"PYTHONPATH: {sys.path}")
 
@@ -119,9 +121,9 @@ def main():
     # Set up proper shutdown
     app.aboutToQuit.connect(shutdown_async_logging)
     
-    # Add this near the end of your main application setup
+    # Update the shutdown call to use worker_manager
     app = QApplication.instance()
-    app.aboutToQuit.connect(lambda: data.worker_queue.shutdown())
+    app.aboutToQuit.connect(lambda: data.worker_manager.shutdown())
 
     # Start the event loop
     sys.exit(app.exec())

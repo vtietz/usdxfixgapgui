@@ -2,7 +2,7 @@ from model.song import Song
 from workers.worker_queue_manager import IWorker
 import utils.audio as audio
 from datetime import datetime
-from common.data import AppData
+from app.app_data import AppData
 from services.gap_info_service import GapInfoService  # Add this import
 
 import logging

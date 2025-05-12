@@ -7,7 +7,7 @@ from utils.files import get_app_dir
 
 logger = logging.getLogger(__name__)
 
-class Config(QObject):
+class ConfigService(QObject):
     def __init__(self):
         super().__init__()
         self._config = configparser.ConfigParser()

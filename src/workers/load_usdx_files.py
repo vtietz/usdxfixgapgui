@@ -1,11 +1,12 @@
 import os
 import logging
+import datetime
 from PySide6.QtCore import Signal
 from model.song import Song, SongStatus
 from services.song_service import SongService
 from workers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
-from common.database import get_all_cache_entries, cleanup_stale_entries
+from common.database import get_all_cache_entries, cleanup_stale_entries, get_cache_entry
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,6 @@ class LoadUsdxFilesWorker(IWorker):
         self.description = f"Loading songs from cache and searching in {directory}."
         self.path_usdb_id_map = {}
         self.loaded_paths = set()  # Track files we've loaded to detect stale cache entries
-        self.reload_single_file = None  # Path to single file to reload (when used for reload)
         self.song_service = SongService()  # Create song service
 
     async def load(self, txt_file_path, force_reload=False) -> Song:
@@ -34,7 +34,17 @@ class LoadUsdxFilesWorker(IWorker):
             return None
             
         try:
-            # Use the service to load the song
+            # Get file modification time
+            mod_time = datetime.datetime.fromtimestamp(os.path.getmtime(txt_file_path))
+            
+            # Check if we need to reload based on modification time
+            cached_song = get_cache_entry(txt_file_path, modified_time=mod_time)
+            if cached_song and not force_reload:
+                # Use cached version if it's up to date
+                cached_song.usdb_id = self.path_usdb_id_map.get(cached_song.path, None)
+                return cached_song
+            
+            # Cache miss or forced reload - use the service to load the song
             song = await self.song_service.load_song(txt_file_path, self.directory, force_reload)
             song.usdb_id = self.path_usdb_id_map.get(song.path, None)
             return song
@@ -122,20 +132,6 @@ class LoadUsdxFilesWorker(IWorker):
     async def run(self):
         logger.debug(self.description)
         
-        # If this is a single file reload operation
-        if self.reload_single_file:
-            self.description = f"Reloading song {self.reload_single_file}"
-            logger.info(f"Reloading song: {self.reload_single_file}")
-            
-            song = await self.load(self.reload_single_file, force_reload=True)
-            if song:
-                self.signals.songLoaded.emit(song)
-                self.loaded_paths.add(song.txt_file)  # Changed from song.path to song.txt_file
-            
-            self.signals.finished.emit()
-            return
-            
-        # Regular operation - loading all songs
         # First load from cache for immediate UI feedback
         await self.load_from_cache()
         

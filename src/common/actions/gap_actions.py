@@ -1,12 +1,17 @@
 import logging
 from common.actions.base_actions import BaseActions
 from common.actions.audio_actions import AudioActions
+from common.actions.song_actions import SongActions
 from model.song import Song, SongStatus
 from model.gap_info import GapInfoStatus
 from services.gap_info_service import GapInfoService
+from services.usdx_file_service import USDXFileService
+from model.usdx_file import USDXFile
 from workers.detect_gap import DetectGapWorker, GapDetectionResult, DetectGapWorkerOptions
 from utils.run_async import run_async
 import utils.usdx as usdx
+from PySide6.QtCore import QTimer # Changed import from PyQt5 to PySide6
+from utils.signal_manager import SignalManager
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +36,15 @@ class GapActions(BaseActions):
         
         worker = DetectGapWorker(options)
         
-        worker.signals.started.connect(lambda: self._on_song_worker_started(song))
-        worker.signals.error.connect(lambda: self._on_song_worker_error(song))
-        worker.signals.finished.connect(lambda result: self._on_detect_gap_finished(song, result))
+        # Replace direct signal connections with SignalManager
+        self.signal_manager.connect_worker_signals(
+            worker,
+            song,
+            self.data,
+            on_finished=lambda result: self._on_detect_gap_finished(song, result)
+        )
+        
+        # Set status and queue the worker
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
@@ -51,7 +62,8 @@ class GapActions(BaseActions):
         self._overwrite_gap = overwrite
         
         # Use async queuing to prevent UI freeze
-        self._queue_tasks_non_blocking(selected_songs, self._detect_gap_if_valid)
+        for song in selected_songs:
+            self._detect_gap_if_valid(song, False)
     
     def _detect_gap_if_valid(self, song, is_first):
         if song.audio_file and self.config.spleeter:
@@ -79,15 +91,20 @@ class GapActions(BaseActions):
         # Save gap info
         run_async(GapInfoService.save(song.gap_info))
         
-        # Create waveforms first
-        audio_actions = AudioActions(self.data)
-        audio_actions._create_waveforms(song, True)
+        # Recalculate note timings based on the detected gap
+        song.usdx_file.calculate_note_times()
         
         # Check if auto-normalization is enabled
         if self.config.auto_normalize and song.audio_file:
             logger.info(f"Auto-normalizing audio for {song} after gap detection")
+            audio_actions = AudioActions(self.data)
             audio_actions._normalize_song(song)
-            
+        
+        # Reload the song to ensure all data is in sync
+        # This will automatically create waveforms as part of the reload process
+        song_actions = SongActions(self.data)
+        song_actions.reload_song(song)
+        
         # Notify that the song has been updated
         self.data.songs.updated.emit(song)
 
@@ -97,26 +114,46 @@ class GapActions(BaseActions):
         
         notes_overlap = usdx.get_notes_overlap(song_to_process.notes, silence_periods, detection_time)
         song_to_process.gap_info.notes_overlap = notes_overlap
-        run_async(song_to_process.gap_info.save())
+        run_async(GapInfoService.save(song_to_process.gap_info))
         self.data.songs.updated.emit(song_to_process)
 
+    async def _update_gap_value(self, song: Song, gap: int):
+        """Asynchronous implementation of gap value update"""
+        if not song:
+            logger.error("No song selected for updating gap value.")
+            return
+            
+        # Update song status and gap info
+        song.status = SongStatus.UPDATED
+        song.gap = gap
+        song.gap_info.status = GapInfoStatus.UPDATED
+        song.gap_info.updated_gap = gap
+        
+        # Save the gap value to the file
+        usdx_file = USDXFile(song.txt_file)
+        await USDXFileService.load(usdx_file)
+        await USDXFileService.write_gap_tag(usdx_file, gap)
+        
+        # Save gap info
+        await GapInfoService.save(song.gap_info)
+        
+        # Notify that the song has been updated
+        self.data.songs.updated.emit(song)
+
     def update_gap_value(self, song: Song, gap: int):
+        """Update the gap value for a song"""
         song_to_process = song or self.data.first_selected_song
         if not song_to_process:
             logger.error("No song selected for updating gap value.")
             return
             
-        song_to_process.status = SongStatus.UPDATED
-        song_to_process.gap = gap
-        song_to_process.gap_info.status = GapInfoStatus.UPDATED
-        song_to_process.gap_info.updated_gap = gap
-        run_async(song_to_process.usdx_file.write_gap_tag(gap))
-        run_async(song_to_process.gap_info.save())
-        song_to_process.usdx_file.calculate_note_times()
+        # Validate the gap value
+        if gap < 0:
+            logger.error(f"Invalid gap value: {gap}. Must be non-negative.")
+            return
         
-        audio_actions = AudioActions(self.data)
-        audio_actions._create_waveforms(song_to_process, True)
-        self.data.songs.updated.emit(song_to_process)
+        # Update the gap value asynchronously
+        run_async(self._update_gap_value(song_to_process, gap))
 
     def revert_gap_value(self, song: Song):
         song_to_process = song or self.data.first_selected_song
@@ -124,14 +161,37 @@ class GapActions(BaseActions):
             logger.error("No song selected for reverting gap value.")
             return
             
-        song_to_process.gap = song_to_process.gap_info.original_gap
-        run_async(song_to_process.usdx_file.write_gap_tag(song_to_process.gap))
-        run_async(song_to_process.gap_info.save())
-        song_to_process.usdx_file.calculate_note_times()
+        original_gap = song_to_process.gap_info.original_gap
+        song_to_process.gap = original_gap
         
-        audio_actions = AudioActions(self.data)
-        audio_actions._create_waveforms(song_to_process, True)
-        self.data.songs.updated.emit(song_to_process)
+        # Create a coroutine for the revert process to ensure correct sequence
+        async def revert_sequence():
+            # Save the gap value to the USDX file using the USDXFileService
+            usdx_file = USDXFile(song_to_process.txt_file)
+            await USDXFileService.load(usdx_file)
+            await USDXFileService.write_gap_tag(usdx_file, original_gap)
+            
+            # Save gap info
+            await GapInfoService.save(song_to_process.gap_info)
+            
+            # Now that file is saved, reload the song on the main thread
+            def on_complete():
+                # Reload the song to ensure all data is in sync
+                song_actions = SongActions(self.data)
+                song_actions.reload_song(song_to_process)
+                
+                # Create waveforms with the updated gap value
+                audio_actions = AudioActions(self.data)
+                audio_actions._create_waveforms(song_to_process, True)
+                
+                # Notify that the song has been updated
+                self.data.songs.updated.emit(song_to_process)
+            
+            # Schedule the UI update on the main thread after async operations
+            QTimer.singleShot(0, on_complete) # Use PySide6 QTimer
+        
+        # Start the sequence
+        run_async(revert_sequence())
 
     def keep_gap_value(self, song: Song):
         song_to_process = song or self.data.first_selected_song
@@ -141,5 +201,5 @@ class GapActions(BaseActions):
             
         song_to_process.status = SongStatus.SOLVED
         song_to_process.gap_info.status = GapInfoStatus.SOLVED
-        run_async(song_to_process.gap_info.save())
+        run_async(GapInfoService.save(song_to_process.gap_info))
         self.data.songs.updated.emit(song_to_process)

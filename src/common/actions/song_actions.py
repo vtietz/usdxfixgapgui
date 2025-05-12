@@ -2,15 +2,24 @@ import logging
 import os
 from typing import List
 from common.actions.base_actions import BaseActions
+from app.app_data import AppData
 from model.song import Song
+from utils import audio
 from workers.reload_song_worker import ReloadSongWorker
 from services.usdx_file_service import USDXFileService
 from model.usdx_file import USDXFile
+from utils.run_async import run_async
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QDesktopServices
 
 logger = logging.getLogger(__name__)
 
 class SongActions(BaseActions):
-    """Song selection and management actions"""
+    """Song selection, management, and UI interaction actions"""
+
+    def __init__(self, data: AppData):
+        super().__init__(data)
+        self.data.songs.updated.connect(self.reload_song)
 
     def set_selected_songs(self, songs: List[Song]):
         logger.debug(f"Setting selected songs: {[s.title for s in songs]}")
@@ -42,7 +51,7 @@ class SongActions(BaseActions):
                 
                 # Create the new ReloadSongWorker for this specific song reload
                 worker = ReloadSongWorker(song.path, song_directory)
-                worker.signals.songReloaded.connect(self._on_song_loaded)
+                worker.signals.songReloaded.connect(self._on_song_reloaded)
                 
                 # Add the task to the worker queue
                 self.worker_queue.add_task(worker, True)  # True to start immediately
@@ -60,45 +69,70 @@ class SongActions(BaseActions):
             
         logger.info(f"Loading notes for {song}")
         
-        try:
-            # Use USDXFile and USDXFileService directly to load just the notes
-            usdx_file = USDXFile(song.txt_file)
-            song.notes = USDXFileService.load_notes_only(usdx_file)
-            logger.debug(f"Notes loaded for song: {song.title}, count: {len(song.notes) if song.notes else 0}")
-            
-            # Notify that the song was updated
-            self.data.songs.updated.emit(song)
-            
-        except Exception as e:
-            logger.error(f"Error loading notes for song {song.title}: {e}", exc_info=True)
-            song.error_message = str(e)
-            self.data.songs.updated.emit(song)
+        async def load_notes_async():
+            try:
+                # Use USDXFile and USDXFileService directly to load just the notes
+                usdx_file = USDXFile(song.txt_file)
+                notes = await USDXFileService.load_notes_only(usdx_file)
+                
+                # Update the song with the loaded notes
+                song.notes = notes
+                logger.debug(f"Notes loaded for song: {song.title}, count: {len(song.notes) if song.notes else 0}")
+                
+                # Notify that the song was updated
+                self.data.songs.updated.emit(song)
+                
+            except Exception as e:
+                logger.error(f"Error loading notes for song {song.title}: {e}", exc_info=True)
+                song.error_message = str(e)
+                self.data.songs.updated.emit(song)
+        
+        # Run the async function properly
+        run_async(load_notes_async())
 
-    def _on_song_loaded(self, reloaded_song):
+    def _on_song_reloaded(self, reloaded_song):
         """Handle a reloaded song from the worker"""
+        logging.debug(f"Reloaded song: {reloaded_song}")
         # Find the matching song in our data model
         for i, song in enumerate(self.data.songs):
             if song.path == reloaded_song.path:
                 # Instead of replacing the song object, update its attributes
-                # This avoids 'Songs' object does not support item assignment error
                 self._update_song_attributes(song, reloaded_song)
                 
-                # Recreate waveforms for the reloaded song
-                from common.actions.audio_actions import AudioActions
-                audio_actions = AudioActions(self.data)
-                audio_actions._create_waveforms(song, True)
+                # Ensure note timings are properly calculated with the current gap value
+                self._ensure_note_times_calculated(song)
+                
+                # Always recreate waveforms after reload to ensure they reflect current state
+                self._create_waveforms_for_song(song)
                 
                 # Notify update after successful reload
                 self.data.songs.updated.emit(song)
                 
-                # If this was a selected song, update the selection
-                if song in self.data.selected_songs:
-                    # No need to replace in the selection array since we modified the object in-place
-                    # Just refresh the selection to trigger UI updates
-                    self.set_selected_songs(self.data.selected_songs)
-                
                 logger.info(f"Successfully reloaded {song}")
                 break
+    
+    def _ensure_note_times_calculated(self, song: Song):
+        """Ensure note timings are properly calculated"""
+        if hasattr(song, 'usdx_file') and song.usdx_file:
+            try:
+                # Recalculate note timings based on current gap value
+                logger.debug(f"Recalculating note times with gap: {song.gap}")
+                song.usdx_file.calculate_note_times()
+            except Exception as e:
+                logger.error(f"Error calculating note times: {e}")
+    
+    def _create_waveforms_for_song(self, song: Song):
+        """Create waveforms for the given song"""
+        try:
+            # Import here to avoid circular imports
+            from common.actions.audio_actions import AudioActions
+            audio_actions = AudioActions(self.data)
+            
+            # Force waveform recreation
+            logger.debug(f"Creating waveforms for {song}")
+            audio_actions._create_waveforms(song, True)
+        except Exception as e:
+            logger.error(f"Error creating waveforms: {e}")
 
     def _update_song_attributes(self, target_song: Song, source_song: Song):
         """Transfer all relevant attributes from source_song to target_song"""
@@ -172,3 +206,39 @@ class SongActions(BaseActions):
         self.set_selected_songs([])
         # Explicitly trigger a list change signal
         self.data.songs.list_changed()
+
+    # UI-related actions moved from ui_actions.py
+    def open_usdx(self):
+        # Should only work for a single selected song
+        if len(self.data.selected_songs) != 1:
+            logger.error("Please select exactly one song to open in USDB.")
+            return
+        song: Song = self.data.first_selected_song
+        if not song:
+            logger.error("No song selected")
+            return
+        
+        # More robust check for usdb_id validity
+        if not song.usdb_id or song.usdb_id == "0" or song.usdb_id == "":
+            logger.error(f"Song '{song.title}' has no valid USDB ID.")
+            return
+            
+        logger.info(f"Opening USDB in web browser for {song.txt_file} with ID {song.usdb_id}")
+        url = QUrl(f"https://usdb.animux.de/index.php?link=detail&id={song.usdb_id}")
+        success = QDesktopServices.openUrl(url)
+        
+        if not success:
+            logger.error(f"Failed to open URL: {url.toString()}")
+
+    def open_folder(self):
+        # Opens the folder of the first selected song
+        song: Song = self.data.first_selected_song
+        if not song:
+            logger.error("No song selected to open folder.")
+            return
+        logger.info(f"Opening folder for {song.path}")
+        url = QUrl.fromLocalFile(song.path)
+        if not QDesktopServices.openUrl(url):
+            logger.error("Failed to open the folder.")
+            return False
+        return True

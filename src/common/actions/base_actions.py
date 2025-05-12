@@ -1,8 +1,10 @@
 import logging
 from PySide6.QtCore import QObject, QTimer
 from typing import List, Callable
-from common.data import AppData
-from model.song import Song
+from app.app_data import AppData
+from model.song import Song, SongStatus
+from utils.worker_helper import WorkerHelper
+from utils.signal_manager import SignalManager
 
 logger = logging.getLogger(__name__)
 
@@ -20,46 +22,39 @@ class BaseActions(QObject):
         self.data = data
         self.config = data.config
         self.worker_queue = data.worker_queue  # Use the shared worker queue from AppData
-    
-    # TODO: currently not sure if this is helpful
-    def _queue_tasks_non_blocking(self, songs: List[Song], callback: Callable):
-        """Queue tasks with a small delay between them to avoid UI freeze"""
-        if not songs:
-            return
-            
-        # Create a copy of the songs list to avoid modification issues
-        songs_to_process = list(songs)
-        
-        # Process the first song immediately
-        first_song = songs_to_process.pop(0)
-        callback(first_song, True)  # True = is first song
-        
-        # If there are more songs, queue them with a small delay
-        if songs_to_process:
-            QTimer.singleShot(100, lambda: self._process_next_song(songs_to_process, callback))
-    
-    def _process_next_song(self, remaining_songs: List[Song], callback: Callable):
-        """Process the next song in the queue with a delay"""
-        if not remaining_songs:
-            return
-            
-        # Process the next song
-        next_song = remaining_songs.pop(0)
-        callback(next_song, False)  # False = not first song
-        
-        # If there are more songs, queue the next one with a delay
-        if remaining_songs:
-            QTimer.singleShot(50, lambda: self._process_next_song(remaining_songs, callback))
-
+        self.worker_helper = WorkerHelper  # Reference the WorkerHelper class
+        self.signal_manager = SignalManager  # Reference the SignalManager class
+   
     def _on_song_worker_started(self, song: Song):
-        from model.song import SongStatus
+        """Legacy method maintained for backward compatibility"""
         song.status = SongStatus.PROCESSING
         self.data.songs.updated.emit(song)
 
     def _on_song_worker_error(self, song: Song):
-        from model.song import SongStatus
+        """Legacy method maintained for backward compatibility"""
         song.status = SongStatus.ERROR
         self.data.songs.updated.emit(song)
 
     def _on_song_worker_finished(self, song: Song):
+        """Legacy method maintained for backward compatibility"""
         self.data.songs.updated.emit(song)
+        
+    def queue_worker(self, worker_class, song=None, start_now=False, on_finished=None, **kwargs):
+        """Helper method to create and queue workers with standard signal connections"""
+        worker = self.worker_helper.create_worker(worker_class, **kwargs)
+        
+        if song:
+            # Set status before connecting signals
+            song.status = SongStatus.QUEUED
+            self.data.songs.updated.emit(song)
+            
+            # Use SignalManager for handling signals
+            self.signal_manager.connect_worker_signals(
+                worker, 
+                song, 
+                self.data,
+                on_finished=on_finished if on_finished else None
+            )
+            
+        self.worker_queue.add_task(worker, start_now)
+        return worker

@@ -15,9 +15,12 @@ class AudioActions(BaseActions):
     """Audio processing actions like normalization and waveform generation"""
 
     def _get_audio_length(self, song: Song):
-        worker = DetectAudioLengthWorker(song)
-        worker.signals.lengthDetected.connect(lambda song: self.data.songs.updated.emit(song))
-        self.worker_queue.add_task(worker, True)
+        self.queue_worker(
+            DetectAudioLengthWorker, 
+            song=song,
+            start_now=True,
+            song=song
+        )
 
     def normalize_song(self):
         selected_songs = self.data.selected_songs
@@ -26,9 +29,6 @@ class AudioActions(BaseActions):
             return
         
         logger.info(f"Queueing normalization for {len(selected_songs)} songs.")
-        
-        # Use async queuing to prevent UI freeze
-        # self._queue_tasks_non_blocking(selected_songs, self._normalize_song_if_valid)
         
         if len(selected_songs) == 1:
             # If only one song is selected, normalize it immediately
@@ -44,18 +44,19 @@ class AudioActions(BaseActions):
             logger.warning(f"Skipping normalization for {song}: No audio file.")
 
     def _normalize_song(self, song: Song, start_now=False):
-        worker = NormalizeAudioWorker(song)
-        worker.signals.started.connect(lambda: self._on_song_worker_started(song))
-        worker.signals.error.connect(lambda: self._on_song_worker_error(song))
-        worker.signals.finished.connect(lambda: self._on_song_worker_finished(song))
-        
-        # Only create waveforms if this is the first selected song
-        if song == self.data.first_selected_song:
-            worker.signals.finished.connect(lambda: self._create_waveforms(song, True))
-        
-        song.status = SongStatus.QUEUED
-        self.data.songs.updated.emit(song)
-        self.worker_queue.add_task(worker, start_now)
+        def on_normalize_finished():
+            self._on_song_worker_finished(song)
+            # Only create waveforms if this is the first selected song
+            if song == self.data.first_selected_song:
+                self._create_waveforms(song, True)
+
+        self.queue_worker(
+            NormalizeAudioWorker,
+            song=song,
+            start_now=start_now,
+            on_finished=on_normalize_finished,
+            song=song
+        )
 
     def _create_waveforms(self, song: Song, overwrite: bool = False):
         if not song:
@@ -101,5 +102,5 @@ class AudioActions(BaseActions):
             audio_file,
             waveform_file,
         )
-        worker.signals.finished.connect(lambda song=song: self.data.songs.updated.emit(song))
+        # worker.signals.finished.connect(lambda song=song: self.data.songs.updated.emit(song))
         self.worker_queue.add_task(worker, True)

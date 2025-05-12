@@ -1,100 +1,15 @@
 import logging
-from PySide6.QtCore import QObject, Signal as pyqtSignal, QTimer
+from PySide6.QtCore import QObject, Signal as pyqtSignal
 from PySide6.QtWidgets import QApplication
-from enum import Enum
 import threading
 import time
 
 from utils.run_async import run_async
+from .worker_components import Worker, WorkerSignals, WorkerStatus
 
 logger = logging.getLogger(__name__)
 
-class IWorkerSignals(QObject):
-    """Signals to be used by the IWorker class for inter-task communication."""
-    started = pyqtSignal()
-    finished = pyqtSignal()
-    progress = pyqtSignal()
-    canceled = pyqtSignal()
-    error = pyqtSignal(Exception)
-
-class WorkerStatus(Enum):
-    """Enum to represent the status of a worker task."""
-    RUNNING = 1
-    WAITING = 2
-    CANCELLING = 3
-    FINISHED = 4
-    ERROR = 5
-
-class IWorker(QObject):
-    """
-    Base class to provide a common interface and functionality for worker tasks.
-    This class is designed to be subclassed with specific implementations of the asynchronous run method.
-    """
-    def __init__(self):
-        super().__init__()
-        self.signals = IWorkerSignals()
-        self._status = WorkerStatus.WAITING
-        self._task_id = None
-        self._description = "Undefined"
-        self._is_canceled = False
-
-    @property
-    def id(self):
-        """Unique identifier for the worker task."""
-        return self._task_id
-
-    @id.setter
-    def id(self, value):
-        self._task_id = value
-
-    @property
-    def description(self):
-        """A description for the worker task."""
-        return self._description
-
-    @description.setter
-    def description(self, value):
-        self._description = value
-        self.signals.progress.emit()
-
-    @property
-    def status(self):
-        """The current status of the worker task."""
-        return self._status
-    
-    @status.setter
-    def status(self, value):
-        self._status = value
-        self.signals.progress.emit()
-
-    async def run(self):
-        """
-        Asynchronous method to execute the worker's task. This method should be implemented
-        by subclasses to define specific task behavior.
-        """
-        raise NotImplementedError("Worker subclass must implement an async run method.")
-
-    def cancel(self):
-        """
-        Method to cancel the worker's task. This method can be overridden by subclasses
-        to define custom cancellation behavior.
-        """
-        logger.info(f"Cancelling task: {self._task_id} {self._description}")
-        self._is_canceled = True
-        self._status = WorkerStatus.CANCELLING
-        self.signals.canceled.emit()
-
-    def is_cancelled(self):
-        """Check if the worker's task has been cancelled."""
-        return self._is_canceled
-    
-    # New method to let workers handle completion logic
-    def complete(self):
-        """Mark the worker as complete - this should be called by the worker itself"""
-        self.status = WorkerStatus.FINISHED
-        # Base implementation doesn't emit any signals - each worker handles this
-    
-class WorkerQueueManager(QObject):
+class WorkerManager(QObject):
     task_id_counter = 0
     on_task_list_changed = pyqtSignal()
 
@@ -133,7 +48,7 @@ class WorkerQueueManager(QObject):
         if self.running_tasks or self.queued_tasks:
             self._mark_ui_update_needed()
 
-    def add_task(self, worker: IWorker, start_now=False):
+    def add_task(self, worker: Worker, start_now=False):
         worker.id = self.get_unique_task_id()
         logger.info(f"Adding task: {worker.description}")
         worker.signals.finished.connect(lambda: self.on_task_finished(worker.id))
@@ -152,10 +67,10 @@ class WorkerQueueManager(QObject):
         self._mark_ui_update_needed()
 
     def get_unique_task_id(self):
-        WorkerQueueManager.task_id_counter += 1
-        return str(WorkerQueueManager.task_id_counter)
+        WorkerManager.task_id_counter += 1
+        return str(WorkerManager.task_id_counter)
 
-    async def _start_worker(self, worker: IWorker):
+    async def _start_worker(self, worker: Worker):
         try:
             logger.info(f"Starting worker: {worker.description}")
             worker.status = WorkerStatus.RUNNING
@@ -214,7 +129,7 @@ class WorkerQueueManager(QObject):
                     self.on_task_list_changed.emit()
                     break
 
-    def cancel_queue(self):
+    def cancel_all_tasks(self):
         while self.queued_tasks:
             worker = self.queued_tasks.pop()
             worker.cancel()
@@ -253,10 +168,10 @@ class WorkerQueueManager(QObject):
         logger.info("Shutting down worker queue")
         
         # Cancel all pending tasks
-        self.cancel_queue()  # Use existing method instead of cancel_all_tasks
+        self.cancel_all_tasks()
         
         # Wait for running tasks to finish (with a timeout)
-        if self.running_tasks:  # Check if there are running tasks instead of current_worker
+        if self.running_tasks:
             MAX_WAIT_MS = 2000  # 2 seconds max wait
             start_time = time.time()
             while self.running_tasks and time.time() - start_time < (MAX_WAIT_MS / 1000):

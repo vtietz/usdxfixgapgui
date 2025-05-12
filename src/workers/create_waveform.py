@@ -1,5 +1,5 @@
 import logging
-from common.config import Config
+from services.config_service import ConfigService
 from model.song import Song
 from workers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.waveform as waveform
@@ -11,7 +11,7 @@ class CreateWaveform(IWorker):
     def __init__(
             self, 
             song: Song,
-            config: Config,
+            config: ConfigService,
             audio_file,
             waveform_file
         ):

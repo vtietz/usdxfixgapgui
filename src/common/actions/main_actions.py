@@ -1,10 +1,9 @@
-from common.data import AppData
+from app.app_data import AppData
 from common.actions.base_actions import BaseActions
 from common.actions.core_actions import CoreActions
 from common.actions.song_actions import SongActions
 from common.actions.gap_actions import GapActions
 from common.actions.audio_actions import AudioActions
-from common.actions.ui_actions import UiActions
 
 class Actions(BaseActions):
     """Main actions class that combines all action modules"""
@@ -17,7 +16,6 @@ class Actions(BaseActions):
         self._song_actions = SongActions(data)
         self._gap_actions = GapActions(data)
         self._audio_actions = AudioActions(data)
-        self._ui_actions = UiActions(data)
         
     # Core Actions
     def auto_load_last_directory(self):
@@ -56,9 +54,9 @@ class Actions(BaseActions):
     def normalize_song(self):
         self._audio_actions.normalize_song()
     
-    # UI Actions
+    # UI Actions (now part of SongActions)
     def open_usdx(self):
-        self._ui_actions.open_usdx()
+        self._song_actions.open_usdx()
         
     def open_folder(self):
-        return self._ui_actions.open_folder()
+        return self._song_actions.open_folder()

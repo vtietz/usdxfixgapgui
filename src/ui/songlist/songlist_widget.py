@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import QSortFilterProxyModel
 from common.actions import Actions
-from common.data import AppData
+from app.app_data import AppData
 from model.song import Song
-from model.songs import Songs
+from model.song_list import SongList
 from views.songlist.songlist_view import SongListView
 from views.songlist.songlist_model import SongTableModel
 
@@ -24,7 +24,7 @@ class CustomSortFilterProxyModel(QSortFilterProxyModel):
         return statusMatch and textMatch
 
 class SongListWidget(QWidget):
-    def __init__(self, songs_model: Songs, actions: Actions, data: AppData,parent=None):
+    def __init__(self, songs_model: SongList, actions: Actions, data: AppData,parent=None):
         super().__init__(parent)
         self.actions = actions
 

@@ -3,15 +3,15 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushBu
 from PySide6.QtCore import Signal, Qt
 
 from common.actions import Actions
-from common.data import AppData
+from app.app_data import AppData
 from model.song import Song, SongStatus
 from services.waveform_path_service import WaveformPathService
 
-from views.mediaplayer.constants import AudioFileStatus
-from views.mediaplayer.event_filter import MediaPlayerEventFilter
-from views.mediaplayer.waveform_widget import WaveformWidget
-from views.mediaplayer.player_controller import PlayerController
-from views.mediaplayer.ui_manager import UIManager
+from ui.mediaplayer.constants import AudioFileStatus
+from ui.mediaplayer.event_filter import MediaPlayerEventFilter
+from ui.mediaplayer.waveform_widget import WaveformWidget
+from ui.mediaplayer.player_controller import PlayerController
+from ui.mediaplayer.ui_manager import UIManager
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class MediaPlayerComponent(QWidget):
         self._actions = actions
         
         # Initialize state variables
-        self._song = None
+        self._song: Song = None
         
         # Initialize controllers
         self.player = PlayerController(self._config)
@@ -190,6 +190,12 @@ class MediaPlayerComponent(QWidget):
         """Handle when a different song is selected"""
         logger.debug(f"Song changed in media player: {song}")
         
+        if not song:
+            logger.debug("No song selected")
+            self.player.stop()
+            self.waveform_widget.load_waveform(None)
+            return
+
         # Only process if player is enabled (not multiple selection)
         if not self.isEnabled():
             return

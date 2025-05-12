@@ -49,8 +49,11 @@ class CoreActions(BaseActions):
     def _load_songs(self):
         logger.info(f"Loading songs from directory: {self.data.directory}")
         worker = LoadUsdxFilesWorker(self.data.directory, self.data.tmp_path)
-        worker.signals.songLoaded.connect(self._on_song_loaded)
-        worker.signals.finished.connect(self._on_loading_songs_finished)
+        
+        # Use SignalManager to connect custom signals
+        self.signal_manager.connect_custom_signal(worker, 'songLoaded', self._on_song_loaded)
+        self.signal_manager.connect_custom_signal(worker, 'finished', self._on_loading_songs_finished)
+        
         self.worker_queue.add_task(worker, True)
 
     def _on_song_loaded(self, song: Song):
