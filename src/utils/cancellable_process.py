@@ -2,23 +2,28 @@ import logging
 import time
 import subprocess
 import threading
+import platform  # Import platform module to detect the OS
 
 logger = logging.getLogger(__name__)
 
 def run_cancellable_process(command, check_cancellation=None):
     logger.debug("Running command: %s", ' '.join(command))
     
-    # Add `creationflags=subprocess.CREATE_NO_WINDOW` to suppress the cmd window on Windows
-    # Explicitly set encoding to utf-8 and handle errors
-    process = subprocess.Popen(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding='utf-8',  # Specify UTF-8 encoding
-        errors='ignore',   # Ignore decoding errors
-        creationflags=subprocess.CREATE_NO_WINDOW # Suppress cmd window
-    )
+    # Set up the process creation parameters
+    popen_kwargs = {
+        'stdout': subprocess.PIPE,
+        'stderr': subprocess.PIPE,
+        'text': True,
+        'encoding': 'utf-8',  # Specify UTF-8 encoding
+        'errors': 'ignore'    # Ignore decoding errors
+    }
+    
+    # Only add creationflags on Windows
+    if platform.system() == 'Windows':
+        popen_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW  # Suppress cmd window
+    
+    # Create the process with the appropriate arguments
+    process = subprocess.Popen(command, **popen_kwargs)
 
     stdout, stderr = [], []
 
