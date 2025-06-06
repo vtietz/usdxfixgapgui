@@ -106,7 +106,7 @@ class SongActions(BaseActions):
         # Copy all attributes from source to target song object
         attributes_to_copy = [
             'title', 'artist', 'audio', 'gap', 'bpm', 'start', 'is_relative',
-            'path', 'txt_file', 'audio_file', 'relative_path', 'usdb_id', 'notes'
+            'txt_file', 'audio_file', 'relative_path', 'usdb_id', 'notes'
         ]
               
         for attr in attributes_to_copy:

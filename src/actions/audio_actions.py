@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 class AudioActions(BaseActions):
     """Audio processing actions like normalization and waveform generation"""
 
+    def __init__(self, data):
+        super().__init__(data)
+        self.song_actions = SongActions(data)
+
     def _get_audio_length(self, song: Song):
         worker = DetectAudioLengthWorker(song)
         worker.signals.lengthDetected.connect(lambda song: self.data.songs.updated.emit(song))
@@ -49,10 +53,9 @@ class AudioActions(BaseActions):
         worker.signals.error.connect(lambda: self._on_song_worker_error(song))
         worker.signals.finished.connect(lambda: self._on_song_worker_finished(song))
         
-        # Only create waveforms if this is the first selected song
-        if song == self.data.first_selected_song:
-            worker.signals.finished.connect(lambda: self._create_waveforms(song, True))
-        
+        # Trigger reload_song after normalization finishes
+        worker.signals.finished.connect(lambda: self.song_actions.reload_song(specific_song=song))
+
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
@@ -65,15 +68,13 @@ class AudioActions(BaseActions):
         if not hasattr(song, 'audio_file') or not song.audio_file:
             logger.warning(f"Cannot create waveforms for song '{song.title if hasattr(song, 'title') else 'Unknown'}': Missing audio file")
             # Trigger song reload to properly load the audio file
-            song_actions = SongActions(self.data)
-            song_actions.reload_song(song) 
+            self.song_actions.reload_song(song) 
             return
         
         # Check if notes are loaded before creating waveforms
         if not hasattr(song, 'notes') or not song.notes:
-            logger.warning(f"Loading notes fpr {song}...")
-            song_actions = SongActions(self.data)
-            song_actions.load_notes_for_song(song)
+            logger.warning(f"Loading notes for {song}...")
+            self.song_actions.load_notes_for_song(song)
         
         # Use the WaveformPathService to get all paths
         paths = WaveformPathService.get_paths(song, self.data.tmp_path)
@@ -87,7 +88,7 @@ class AudioActions(BaseActions):
     def _create_waveform(self, song: Song, audio_file: str, waveform_file: str, overwrite: bool = False):
 
         if not os.path.exists(audio_file):
-            logger.error(f"Audio file does not exist: {audio_file}")
+            logger.warning(f"Audio file does not exist: {audio_file}")
             return
         
         if os.path.exists(waveform_file) and not overwrite:

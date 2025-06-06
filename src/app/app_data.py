@@ -28,6 +28,9 @@ class AppData(QObject):
     gap_reverted = Signal(object)            # Emits the song when gap value is reverted
     selection_changed = Signal()             # Emits when song selection changes
 
+    # Add this signal
+    media_files_refreshed = Signal()
+
     _directory = config.default_directory
     _tmp_path = files.generate_directory_hash(_directory)
 

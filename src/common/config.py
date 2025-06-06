@@ -123,6 +123,8 @@ class Config(QObject):
         # General
         self.log_level_str = self._config.get('General', 'LogLevel')
         self.log_level = self._get_log_level(self.log_level_str)
+
+        logger.debug(f"Configuration loaded: {self.config_path}")
         
     def _get_log_level(self, level_str):
         """Convert string log level to logging level constant"""

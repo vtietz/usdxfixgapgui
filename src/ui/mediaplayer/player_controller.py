@@ -1,7 +1,8 @@
+import os
 import logging
 from PySide6.QtCore import QObject, Signal, QUrl
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
-import os
+from utils.files import get_file_checksum
 
 from ui.mediaplayer.constants import AudioFileStatus
 from ui.mediaplayer.loader import MediaPlayerLoader
@@ -20,6 +21,8 @@ class PlayerController(QObject):
         self._audioFileStatus = AudioFileStatus.AUDIO
         self._media_is_loaded = False
         self._is_playing = False
+        self.old_source = None
+        self.old_checksum = None
         
         # Setup audio components
         self.audio_output = QAudioOutput()
@@ -70,13 +73,15 @@ class PlayerController(QObject):
         new_source = QUrl.fromLocalFile(file)
         logger.debug(f"Loading media file: {file}, exists: {os.path.exists(file)}")
         
-        if old_source.toString() == new_source.toString():
+        if old_source.toString() == new_source.toString() and self.old_checksum == get_file_checksum(file):
             logger.debug("Media source unchanged - not reloading")
             return
             
         logger.debug(f"Setting new media source: {new_source}")
         self.media_player.stop()
         self.media_player_loader.load(file)
+        self.old_source = new_source
+        self.old_checksum = get_file_checksum(file)
     
     def unload_all_media(self):
         """Unload all media from the player"""

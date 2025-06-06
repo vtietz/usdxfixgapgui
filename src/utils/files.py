@@ -166,3 +166,35 @@ def rmtree(directory):
         os.rmdir(directory)
     except Exception as e:
         logger.error(f"Error removing directory {directory}: {e}")
+
+def get_file_checksum(file_path, algorithm='sha256', buffer_size=65536):
+    """
+    Calculate the checksum of a file using the specified algorithm.
+    
+    Args:
+        file_path: Path to the file
+        algorithm: Hash algorithm to use ('md5', 'sha1', 'sha256', etc.)
+        buffer_size: Size of chunks to read at a time
+        
+    Returns:
+        String containing the hexadecimal digest of the file
+    """
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        logger.error(f"File not found or not accessible: {file_path}")
+        return None
+        
+    try:
+        hash_algo = getattr(hashlib, algorithm.lower())()
+        
+        with open(file_path, 'rb') as f:
+            # Read the file in chunks to handle large files efficiently
+            while chunk := f.read(buffer_size):
+                hash_algo.update(chunk)
+                
+        return hash_algo.hexdigest()
+    except (IOError, OSError) as e:
+        logger.error(f"Error calculating checksum for {file_path}: {e}")
+        return None
+    except AttributeError:
+        logger.error(f"Hash algorithm not available: {algorithm}")
+        return None
