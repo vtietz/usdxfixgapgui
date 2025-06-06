@@ -2,7 +2,7 @@
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog, QSizePolicy, QLineEdit, QMessageBox
 from PySide6.QtCore import Signal
 from typing import List # Import List
-from common.actions import Actions
+from actions import Actions
 from app.app_data import AppData
 import logging
 import os # Import os for path checks

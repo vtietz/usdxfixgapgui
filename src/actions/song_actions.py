@@ -1,11 +1,12 @@
 import logging
 import os
 from typing import List
-from common.actions.base_actions import BaseActions
+from actions.base_actions import BaseActions
 from model.song import Song
 from workers.reload_song_worker import ReloadSongWorker
 from services.usdx_file_service import USDXFileService
 from model.usdx_file import USDXFile
+from utils.audio import get_audio_duration
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ class SongActions(BaseActions):
                 self._update_song_attributes(song, reloaded_song)
                 
                 # Recreate waveforms for the reloaded song
-                from common.actions.audio_actions import AudioActions
+                from actions.audio_actions import AudioActions
                 audio_actions = AudioActions(self.data)
                 audio_actions._create_waveforms(song, True)
                 
@@ -147,7 +148,7 @@ class SongActions(BaseActions):
         # Double-check duration after all other operations
         if target_song.duration_ms == 0 and target_song.audio_file and os.path.exists(target_song.audio_file):
             try:
-                target_song.duration_ms = audio.get_audio_duration_ms(target_song.audio_file)
+                target_song.duration_ms = get_audio_duration(target_song.audio_file)
                 logger.info(f"Fallback method: set duration to {target_song.duration_ms}ms from audio file")
             except Exception as e:
                 logger.warning(f"Could not load duration from audio file: {e}")

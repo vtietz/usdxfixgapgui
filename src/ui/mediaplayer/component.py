@@ -2,7 +2,7 @@ import logging
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Signal, Qt
 
-from common.actions import Actions
+from actions import Actions
 from app.app_data import AppData
 from model.song import Song, SongStatus
 from services.waveform_path_service import WaveformPathService

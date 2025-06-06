@@ -8,7 +8,7 @@ from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
 
 
-from common.actions import Actions
+from actions import Actions
 from app.app_data import AppData, Config
 from common.database import initialize_song_cache
 from common.utils.async_logging import setup_async_logging, shutdown_async_logging

@@ -1,7 +1,7 @@
 import logging
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
-from common.actions.base_actions import BaseActions
+from actions.base_actions import BaseActions
 from model.song import Song
 
 logger = logging.getLogger(__name__)

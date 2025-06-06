@@ -1,7 +1,7 @@
 import logging
 import os
-from common.actions.base_actions import BaseActions
-from common.actions.song_actions import SongActions
+from actions.base_actions import BaseActions
+from actions.song_actions import SongActions
 from model.song import Song, SongStatus
 from utils import files
 from services.waveform_path_service import WaveformPathService

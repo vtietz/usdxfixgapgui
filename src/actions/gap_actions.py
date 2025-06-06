@@ -1,6 +1,6 @@
 import logging
-from common.actions.base_actions import BaseActions
-from common.actions.audio_actions import AudioActions
+from actions.base_actions import BaseActions
+from actions.audio_actions import AudioActions
 from model.song import Song, SongStatus
 from model.gap_info import GapInfoStatus
 from services.gap_info_service import GapInfoService

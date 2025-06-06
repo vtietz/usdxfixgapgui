@@ -1,10 +1,10 @@
 from app.app_data import AppData
-from common.actions.base_actions import BaseActions
-from common.actions.core_actions import CoreActions
-from common.actions.song_actions import SongActions
-from common.actions.gap_actions import GapActions
-from common.actions.audio_actions import AudioActions
-from common.actions.ui_actions import UiActions
+from actions.base_actions import BaseActions
+from actions.core_actions import CoreActions
+from actions.song_actions import SongActions
+from actions.gap_actions import GapActions
+from actions.audio_actions import AudioActions
+from actions.ui_actions import UiActions
 
 class Actions(BaseActions):
     """Main actions class that combines all action modules"""

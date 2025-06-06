@@ -1,6 +1,6 @@
 import logging
 import os
-from common.actions.base_actions import BaseActions
+from actions.base_actions import BaseActions
 from model.song import Song, SongStatus
 from workers.load_usdx_files import LoadUsdxFilesWorker
 
@@ -58,7 +58,7 @@ class CoreActions(BaseActions):
         if song.status == SongStatus.NOT_PROCESSED:
             song.gap_info.original_gap = song.gap
             if self.config.spleeter:
-                from common.actions.gap_actions import GapActions
+                from actions.gap_actions import GapActions
                 gap_actions = GapActions(self.data)
                 gap_actions._detect_gap(song)
     

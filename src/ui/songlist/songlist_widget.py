@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import QSortFilterProxyModel
-from common.actions import Actions
+from actions import Actions
 from app.app_data import AppData
 from model.song import Song
 from model.songs import Songs

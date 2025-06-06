@@ -1,9 +1,8 @@
 from PySide6.QtWidgets import QHeaderView, QTableView
 from PySide6.QtCore import Signal, Qt
-import os
 import logging
 
-from common.actions import Actions
+from actions import Actions
 from model.song import Song
 from ui.songlist.songlist_model import SongTableModel
 
