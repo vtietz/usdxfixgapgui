@@ -1,11 +1,11 @@
 import logging
 from PySide6.QtCore import QObject
-from common.data import AppData
-from common.song_manager import SongManager
-from common.gap_processor import GapProcessor
-from common.audio_processor import AudioProcessor
-from common.external_interactions import ExternalInteractions
-from workers.worker_queue_manager import WorkerQueueManager
+from app.app_data import AppData
+from managers.song_manager import SongManager
+from actions.gap_processor import GapProcessor
+from actions.audio_processor import AudioProcessor
+from actions.external_interactions import ExternalInteractions
+from managers.worker_queue_manager import WorkerQueueManager
 
 logger = logging.getLogger(__name__)
 

@@ -3,8 +3,8 @@ from PySide6.QtCore import QObject, Signal, QUrl
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 import os
 
-from views.mediaplayer.constants import AudioFileStatus
-from views.mediaplayer.loader import MediaPlayerLoader
+from ui.mediaplayer.constants import AudioFileStatus
+from ui.mediaplayer.loader import MediaPlayerLoader
 
 logger = logging.getLogger(__name__)
 

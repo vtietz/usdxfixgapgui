@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import List
-from common.base_manager import BaseManager
+from base_manager import BaseManager
 from model.song import Song, SongStatus
 from workers.load_usdx_files import LoadUsdxFilesWorker
 from utils.run_async import run_sync

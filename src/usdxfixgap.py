@@ -9,7 +9,7 @@ from PySide6.QtGui import QIcon
 
 
 from common.actions import Actions
-from common.data import AppData, Config
+from app.app_data import AppData, Config
 from common.database import initialize_song_cache
 from common.utils.async_logging import setup_async_logging, shutdown_async_logging
 
@@ -17,11 +17,11 @@ from utils.enable_darkmode import enable_dark_mode
 from utils.check_dependencies import check_dependencies
 from utils.files import get_app_dir, resource_path
 
-from views.menu_bar import MenuBar
-from views.song_status import SongsStatusVisualizer
-from views.mediaplayer import MediaPlayerComponent
-from views.songlist.songlist_widget import SongListWidget
-from views.task_queue_viewer import TaskQueueViewer
+from ui.menu_bar import MenuBar
+from ui.song_status import SongsStatusVisualizer
+from ui.mediaplayer import MediaPlayerComponent
+from ui.songlist.songlist_widget import SongListWidget
+from ui.task_queue_viewer import TaskQueueViewer
 
 def main():
     # First create config to get log level before configuring logging

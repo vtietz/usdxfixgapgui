@@ -1,8 +1,8 @@
 import logging
 from PySide6.QtCore import QObject, QTimer
 from typing import List, Callable, Any
-from common.data import AppData
-from workers.worker_queue_manager import WorkerQueueManager
+from app.app_data import AppData
+from managers.worker_queue_manager import WorkerQueueManager
 from model.song import Song
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,7 @@ from common.config import Config  # This was from config import Config
 from model.song import Song
 from model.songs import Songs
 from utils import files
-from workers.worker_queue_manager import WorkerQueueManager
+from managers.worker_queue_manager import WorkerQueueManager
 
 class AppData(QObject):
 

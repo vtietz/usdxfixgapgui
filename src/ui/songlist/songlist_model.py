@@ -2,7 +2,7 @@ from typing import List
 from PySide6.QtCore import QAbstractTableModel, Qt, QModelIndex, QTimer
 import logging
 
-from common.data import AppData
+from app.app_data import AppData
 from model.song import Song, SongStatus
 from model.songs import Songs
 from utils import files

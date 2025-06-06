@@ -3,7 +3,7 @@ import logging
 from PySide6.QtCore import Signal
 from model.song import Song, SongStatus
 from services.song_service import SongService
-from workers.worker_queue_manager import IWorker, IWorkerSignals
+from managers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
 from common.database import get_all_cache_entries, cleanup_stale_entries
 

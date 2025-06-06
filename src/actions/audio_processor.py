@@ -1,6 +1,6 @@
 import os
 import logging
-from actions.base_manager import BaseManager
+from managers.base_manager import BaseManager
 from model.song import Song, SongStatus
 from workers.detect_audio_length import DetectAudioLengthWorker
 from workers.normalize_audio import NormalizeAudioWorker

@@ -1,7 +1,7 @@
 import logging
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton
 from PySide6.QtCore import QMetaObject, Qt, QThread
-from workers.worker_queue_manager import WorkerQueueManager, WorkerStatus
+from managers.worker_queue_manager import WorkerQueueManager, WorkerStatus
 
 logger = logging.getLogger(__name__)
 

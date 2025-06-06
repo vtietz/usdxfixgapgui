@@ -1,5 +1,5 @@
 import logging
-from common.base_manager import BaseManager
+from managers.base_manager import BaseManager
 from model.song import Song, SongStatus
 from model.gap_info import GapInfoStatus
 from workers.detect_gap import DetectGapWorker

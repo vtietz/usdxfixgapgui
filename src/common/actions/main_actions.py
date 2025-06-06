@@ -1,4 +1,4 @@
-from common.data import AppData
+from app.app_data import AppData
 from common.actions.base_actions import BaseActions
 from common.actions.core_actions import CoreActions
 from common.actions.song_actions import SongActions

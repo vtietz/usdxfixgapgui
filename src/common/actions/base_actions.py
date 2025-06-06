@@ -1,7 +1,7 @@
 import logging
 from PySide6.QtCore import QObject, QTimer
 from typing import List, Callable
-from common.data import AppData
+from app.app_data import AppData
 from model.song import Song
 
 logger = logging.getLogger(__name__)

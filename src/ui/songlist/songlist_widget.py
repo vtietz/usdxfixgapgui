@@ -1,11 +1,11 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import QSortFilterProxyModel
 from common.actions import Actions
-from common.data import AppData
+from app.app_data import AppData
 from model.song import Song
 from model.songs import Songs
-from views.songlist.songlist_view import SongListView
-from views.songlist.songlist_model import SongTableModel
+from ui.songlist.songlist_view import SongListView
+from ui.songlist.songlist_model import SongTableModel
 
 class CustomSortFilterProxyModel(QSortFilterProxyModel):
     def __init__(self, *args, **kwargs):
