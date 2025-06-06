@@ -4,7 +4,7 @@ from PySide6.QtCore import Signal
 from model.song import Song, SongStatus
 from services import song_service
 from utils import files
-from workers.worker_queue_manager import IWorker, IWorkerSignals
+from managers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
 from services.gap_info_service import GapInfoService
 

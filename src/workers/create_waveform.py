@@ -1,7 +1,7 @@
 import logging
 from common.config import Config
 from model.song import Song
-from workers.worker_queue_manager import IWorker, IWorkerSignals
+from managers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.waveform as waveform
 import utils.audio as audio
 

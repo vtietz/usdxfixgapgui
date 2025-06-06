@@ -1,7 +1,7 @@
 import logging
 from PySide6.QtCore import QObject, QUrl
 from PySide6.QtGui import QDesktopServices
-from common.data import AppData
+from app.app_data import AppData
 
 logger = logging.getLogger(__name__)
 

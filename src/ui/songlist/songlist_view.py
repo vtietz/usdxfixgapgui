@@ -5,7 +5,7 @@ import logging
 
 from common.actions import Actions
 from model.song import Song
-from views.songlist.songlist_model import SongTableModel
+from ui.songlist.songlist_model import SongTableModel
 
 logger = logging.getLogger(__name__)
 

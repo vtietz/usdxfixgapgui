@@ -6,7 +6,7 @@ from common.config import Config
 from model.gap_info import GapInfoStatus
 from model.song import Song, SongStatus
 from model.usdx_file import Note
-from workers.worker_queue_manager import IWorker, IWorkerSignals
+from managers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
 import utils.usdx as usdx
 import utils.detect_gap as detect_gap

@@ -4,7 +4,7 @@ from model.song import Song, SongStatus
 import utils.audio as audio
 import utils.usdx as usdx
 
-from views.mediaplayer.constants import AudioFileStatus
+from ui.mediaplayer.constants import AudioFileStatus
 
 logger = logging.getLogger(__name__)
 
