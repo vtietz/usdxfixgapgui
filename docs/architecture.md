@@ -193,6 +193,63 @@ class Song:
         self.error_message = None
 ```
 
+#### **Centralized Status Mapping via GapInfo**
+**GapInfo is the single source of truth for MATCH/MISMATCH/UPDATED/SOLVED/ERROR statuses.**
+
+Actions/services/workers must update `gap_info` fields and status; `Song.status` updates automatically via the owner hook in `_gap_info_updated()`.
+
+**Allowed direct Song.status writes:**
+- `QUEUED` and `PROCESSING` - Transient workflow states set by actions
+- `set_error()` calls - For non-gap-related errors
+
+**Disallowed direct Song.status writes:**
+- `MATCH`, `MISMATCH`, `UPDATED`, `SOLVED`, `ERROR` - Must come from `gap_info.status` mapping
+
+**Correct pattern:**
+```python
+class GapActions:
+    def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
+        # ✅ Update gap_info - status mapping happens via owner hook
+        song.gap_info.detected_gap = result.detected_gap
+        song.gap_info.diff = result.gap_diff
+        song.gap_info.status = result.status  # Triggers _gap_info_updated()
+        
+        # ❌ DO NOT set song.status directly
+        # song.status = SongStatus.MATCH  # WRONG!
+        
+        self.data.songs.updated.emit(song)
+    
+    def update_gap_value(self, song: Song, gap: int):
+        # ✅ Update gap_info.status - Song.status updates automatically
+        song.gap_info.updated_gap = gap
+        song.gap_info.status = GapInfoStatus.UPDATED
+        
+        # ❌ DO NOT set song.status directly
+        # song.status = SongStatus.UPDATED  # WRONG!
+```
+
+**Workflow sequence diagram:**
+```
+UI → Actions: Detect gap
+Actions: set song.status = QUEUED  (✅ allowed transient state)
+Actions → Worker: enqueue
+Worker → Actions: started
+Actions: set song.status = PROCESSING  (✅ allowed transient state)
+Worker → Actions: finished(result)
+Actions: set gap_info.status = result.status  (✅ correct pattern)
+GapInfo → Song: owner hook triggers _gap_info_updated()  (automatic)
+Song → UI: status updated via data model signal
+```
+
+**Error handling:**
+```python
+# Gap-related errors: set gap_info.status
+gap_info.status = GapInfoStatus.ERROR
+
+# Non-gap errors (I/O, loading, etc.): use set_error()
+song.set_error("File not found")
+```
+
 #### **Action Error Orchestration**
 Actions should orchestrate error handling without directly manipulating model state:
 
@@ -201,7 +258,8 @@ class SongActions:
     def process_song(self, song):
         try:
             result = self.service.process(song)
-            song.clear_error()  # Clear any previous errors on success
+            if song.status == SongStatus.ERROR:
+                song.clear_error()  # Clear errors after success
         except Exception as e:
             song.set_error(f"Processing failed: {str(e)}")
             self.data.songs.updated.emit(song)  # Signal via data model

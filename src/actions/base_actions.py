@@ -56,9 +56,10 @@ class BaseActions(QObject):
         song.status = SongStatus.PROCESSING
         self.data.songs.updated.emit(song)
 
-    def _on_song_worker_error(self, song: Song):
-        from model.song import SongStatus
-        song.status = SongStatus.ERROR
+    def _on_song_worker_error(self, song: Song, error: Exception = None):
+        """Handle worker error - use set_error for non-gap errors"""
+        error_msg = str(error) if error else "Unknown error occurred"
+        song.set_error(error_msg)
         self.data.songs.updated.emit(song)
 
     def _on_song_worker_finished(self, song: Song):

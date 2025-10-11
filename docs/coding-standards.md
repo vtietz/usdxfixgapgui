@@ -382,6 +382,70 @@ class Song:
 
 ## **3. Architecture Compliance**
 
+### **Centralized Status Mapping**
+
+**GapInfo is the single source of truth for status mapping.**
+
+#### **Status Write Policy:**
+```python
+# ✅ ALLOWED: Transient workflow states (QUEUED, PROCESSING)
+song.status = SongStatus.QUEUED      # Before worker starts
+song.status = SongStatus.PROCESSING  # When worker begins
+
+# ✅ ALLOWED: Error handling via set_error()
+song.set_error("File not found")  # Non-gap errors
+
+# ❌ FORBIDDEN: Direct mapped status writes
+song.status = SongStatus.MATCH      # WRONG - use gap_info.status
+song.status = SongStatus.MISMATCH   # WRONG - use gap_info.status
+song.status = SongStatus.UPDATED    # WRONG - use gap_info.status
+song.status = SongStatus.SOLVED     # WRONG - use gap_info.status
+song.status = SongStatus.ERROR      # WRONG - use set_error() or gap_info.status
+```
+
+#### **Correct Status Update Patterns:**
+```python
+# ✅ Good: Update gap_info.status - Song.status updates automatically
+class GapActions:
+    def _on_detect_gap_finished(self, song: Song, result):
+        song.gap_info.detected_gap = result.detected_gap
+        song.gap_info.diff = result.gap_diff
+        song.gap_info.status = result.status  # Triggers _gap_info_updated()
+        # Song.status is now automatically set via owner hook
+        self.data.songs.updated.emit(song)
+    
+    def update_gap_value(self, song: Song, gap: int):
+        song.gap = gap
+        song.gap_info.updated_gap = gap
+        song.gap_info.status = GapInfoStatus.UPDATED  # Automatic mapping
+        self.data.songs.updated.emit(song)
+
+# ❌ Bad: Direct Song.status writes for mapped statuses
+class GapActions:
+    def _on_detect_gap_finished(self, song: Song, result):
+        song.gap_info.status = result.status
+        song.status = SongStatus.MATCH  # DUPLICATE - already set by mapping!
+        # This creates duplicate writes and violates single source of truth
+```
+
+#### **Error Handling Patterns:**
+```python
+# ✅ Good: Gap-related errors via gap_info.status
+if detection_failed:
+    gap_info.status = GapInfoStatus.ERROR
+    # Song.status = ERROR automatically via mapping
+
+# ✅ Good: Non-gap errors via set_error()
+try:
+    load_file(song.txt_file)
+except FileNotFoundError as e:
+    song.set_error(f"File not found: {e}")
+    # Song.status = ERROR and error_message set
+
+# ❌ Bad: Direct status assignment
+song.status = SongStatus.ERROR  # WRONG - bypasses error message
+```
+
 ### **Layer Responsibility Adherence**
 
 #### **Models - Data Only:**

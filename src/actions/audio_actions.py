@@ -50,7 +50,7 @@ class AudioActions(BaseActions):
     def _normalize_song(self, song: Song, start_now=False):
         worker = NormalizeAudioWorker(song)
         worker.signals.started.connect(lambda: self._on_song_worker_started(song))
-        worker.signals.error.connect(lambda: self._on_song_worker_error(song))
+        worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
         worker.signals.finished.connect(lambda: self._on_song_worker_finished(song))
         
         # Trigger reload_song after normalization finishes

@@ -32,7 +32,7 @@ class GapActions(BaseActions):
         worker = DetectGapWorker(options)
         
         worker.signals.started.connect(lambda: self._on_song_worker_started(song))
-        worker.signals.error.connect(lambda: self._on_song_worker_error(song))
+        worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
         worker.signals.finished.connect(lambda result: self._on_detect_gap_finished(song, result))
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
@@ -65,16 +65,14 @@ class GapActions(BaseActions):
             logger.error(f"Gap detection result mismatch: {song.txt_file} vs {result.song_file_path}")
             return
             
-        # Update song with detection results
+        # Update gap_info with detection results - status mapping happens via owner hook
         song.gap_info.detected_gap = result.detected_gap
         song.gap_info.diff = result.gap_diff
-        song.gap_info.status = result.status
         song.gap_info.notes_overlap = result.notes_overlap
         song.gap_info.silence_periods = result.silence_periods
         song.gap_info.duration = result.duration_ms
-        
-        # Set song status based on the result status
-        song.status = SongStatus.MATCH if result.status == GapInfoStatus.MATCH else SongStatus.MISMATCH
+        # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
+        song.gap_info.status = result.status
         
         # Save gap info
         run_async(GapInfoService.save(song.gap_info))
@@ -105,11 +103,12 @@ class GapActions(BaseActions):
         if not song_to_process:
             logger.error("No song selected for updating gap value.")
             return
-            
-        song_to_process.status = SongStatus.UPDATED
+        
+        # Update gap value and gap_info - status mapping happens via owner hook
         song_to_process.gap = gap
-        song_to_process.gap_info.status = GapInfoStatus.UPDATED
         song_to_process.gap_info.updated_gap = gap
+        # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
+        song_to_process.gap_info.status = GapInfoStatus.UPDATED
         run_async(song_to_process.usdx_file.write_gap_tag(gap))
         run_async(song_to_process.gap_info.save())
         song_to_process.usdx_file.calculate_note_times()
@@ -138,8 +137,9 @@ class GapActions(BaseActions):
         if not song_to_process:
             logger.error("No song selected for keeping gap value.")
             return
-            
-        song_to_process.status = SongStatus.SOLVED
+        
+        # Mark as solved - status mapping happens via owner hook
+        # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
         song_to_process.gap_info.status = GapInfoStatus.SOLVED
         run_async(song_to_process.gap_info.save())
         self.data.songs.updated.emit(song_to_process)

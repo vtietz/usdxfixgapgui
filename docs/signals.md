@@ -117,22 +117,34 @@ error
 - Actions should act as the **bridge** between workers, services, and the UI.
 - Workers should emit signals, but the actions should handle them and decide how to update the UI or trigger further logic.
 
-**Example:**
+**Example - Correct Pattern (Centralized Status Mapping):**
 ```python
 # In GapActions
 def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
-    # Update song data
+    # ✅ Update gap_info - Song.status updates automatically via owner hook
     song.gap_info.detected_gap = result.detected_gap
-    song.gap_info.status = result.status
-    self.data.songs.updated.emit(song)  # Notify UI indirectly via data model
+    song.gap_info.diff = result.gap_diff
+    song.gap_info.status = result.status  # Triggers _gap_info_updated()
+    
+    # ✅ Notify UI via data model signal
+    self.data.songs.updated.emit(song)
 ```
 
+**Anti-pattern - Duplicate Status Writes:**
+```python
+# ❌ WRONG - Duplicate status writes
+def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
+    song.gap_info.status = result.status  # Sets Song.status via mapping
+    song.status = SongStatus.MATCH  # DUPLICATE - violates single source of truth!
+```
+
+**Status Mapping Policy:**
+- **MATCH/MISMATCH/UPDATED/SOLVED/ERROR** - Must come from `gap_info.status` via `_gap_info_updated()` mapping
+- **QUEUED/PROCESSING** - Transient workflow states, set directly by actions
+- **Errors** - Use `set_error()` for non-gap errors, `gap_info.status = ERROR` for gap errors
+
 #### **b. Use Signals for UI Updates**
-- Use signals to notify the UI about changes in the data model (
-
-songs.updated.emit()
-
-).
+- Use signals to notify the UI about changes in the data model (`songs.updated.emit()`).
 - Avoid directly modifying the UI from workers or services.
 
 **Example:**
