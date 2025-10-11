@@ -22,13 +22,15 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
 - **Multiple detection methods**: Choose between fast VAD-based detection or traditional Spleeter separation
   - **vad_preview** (default): Fast CPU-only detection using Voice Activity Detection and HPSS (~0.5-2s)
   - **spleeter** (legacy): Full stem separation for high-quality vocal isolation (~30-60s)
-  - See [Detection Methods Documentation](docs/detection-methods.md) for detailed comparison
+  - **hq_segment**: Windowed Spleeter for balanced speed/quality (~3-5s)
+  - See [Detection Providers Documentation](docs/detection-providers.md) for detailed comparison
 - Detects silence parts and vocal onsets to verify the accuracy of the GAP value.
 - Provides a graphical user interface (GUI) to visualize the waveform and suggested GAP values.
 - Allows users to manually choose the correct GAP value if mismatched.
 - Normalizes audio to ensure consistent playback levels.
 - **Confidence scoring**: Each detection includes a confidence metric to assess quality
 - **Preview generation**: Automatically creates focused audio previews and waveform visualizations
+- **Spectral flux snap**: Refines onset detection to precise transient peaks for improved accuracy
 
 ## GUI Overview
 
@@ -43,12 +45,17 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
 1. **Load Songs:** Load Ultrastar songs from the specified directory.
 2. **Detect Gap:** The application uses one of the following methods:
    - **VAD Preview (Default)**: Fast onset detection using Voice Activity Detection on harmonic audio
+     - Applies vocal-range band-pass filter (80Hz-8kHz)
+     - Identifies speech segments and finds nearest vocal onset
+     - Optionally snaps to spectral flux peak for precise onset timing
    - **Spleeter (Legacy)**: Full vocal separation using AI-powered stem separation
+     - Separates vocals from accompaniment across entire track
+     - Detects silence boundaries in isolated vocal stem
 3. **Check Gap:** Verifies if the given GAP value matches the detected vocal onset.
 4. **Display Results:** Displays the results in the GUI, showing the detected GAP, difference, confidence score, and status (MATCH or MISMATCH).
 5. **Manual Adjustment:** If a mismatch is detected, the user can view the suggested GAP on the waveform and manually choose the correct value.
 
-For more details on detection methods, see the [Detection Methods Documentation](docs/detection-methods.md).
+For detailed information about detection methods, provider semantics, and "extracted voices" behavior, see the [Detection Providers Documentation](docs/detection-providers.md).
 
 ## Installation
 
@@ -194,7 +201,7 @@ The configuration is managed through a `config.ini` file located in the `src` di
 - **method**: Detection method to use (vad_preview, spleeter, hq_segment)
   - **vad_preview** (default): Fast CPU-only detection using VAD and HPSS
   - **spleeter**: Traditional full stem separation (slower but proven)
-  - **hq_segment**: Future high-quality short-window method (placeholder)
+  - **hq_segment**: Windowed Spleeter for balanced speed/quality
 - **normalization_level**: Target level in dB for audio normalization
 - **auto_normalize**: Whether to automatically normalize audio after gap detection (true/false)
 
@@ -207,16 +214,21 @@ The configuration is managed through a `config.ini` file located in the `src` di
 - **vad_frame_ms**: VAD frame duration in ms - 10, 20, or 30 (default: 30)
 - **vad_min_speech_ms**: Minimum speech segment duration (default: 120)
 - **vad_min_silence_ms**: Minimum silence to split segments (default: 200)
-- **flux_snap_window_ms**: Window for onset snap (default: 150)
+- **flux_snap_window_ms**: Window for spectral flux onset snap (default: 150)
+- **flux_snap_enabled**: Enable/disable onset snap refinement (default: true)
 - **vad_aggressiveness**: VAD sensitivity 0-3, higher = more aggressive (default: 3)
 
-#### [hq_segment] (for future hq_segment method)
-- **hq_reanalyze_threshold**: Confidence threshold for HQ re-analysis (default: 0.6)
-- **hq_model**: Model to use (mdx_small, demucs_segment)
-- **preview_pre_ms**: Preview window before gap
-- **preview_post_ms**: Preview window after gap
+#### [hq_segment] (for hq_segment method)
+- **hq_preview_pre_ms**: Preview window before gap (default: 3000)
+- **hq_preview_post_ms**: Preview window after gap (default: 9000)
+- **silence_detect_params**: FFmpeg parameters for silence detection (same as spleeter)
 
-See [Detection Methods Documentation](docs/detection-methods.md) for detailed information about each method.
+**Important**: The "extracted voices" you receive depends on the method:
+- **vad_preview**: Returns a vocal-forward **preview snippet** (NOT isolated vocals) for debugging
+- **spleeter**: Returns a true **isolated vocal stem** for the entire track
+- **hq_segment**: Returns a true **local vocal stem** for the preview window only (windowed Spleeter)
+
+See [Detection Providers Documentation](docs/detection-providers.md) for detailed information about each method and what "extracted voices" means for each provider.
 
 You can modify these settings by editing the `config.ini` file with a text editor.
 
@@ -228,6 +240,7 @@ This project follows a layered architecture with strict separation of concerns. 
 - **[Architecture](docs/architecture.md)** - System design, layers, and component responsibilities
 - **[Coding Standards](docs/coding-standards.md)** - DRY principle, SOLID principles, and clean code practices  
 - **[Signal Usage](docs/signals.md)** - Signal flow patterns and communication guidelines
+- **[Detection Providers](docs/detection-providers.md)** - Provider semantics, "extracted voices" behavior, and configuration guide
 - **[GitHub Copilot Instructions](.github/copilot-instructions.md)** - AI assistance guidelines for consistent code generation
 
 ### **🧪 Testing**

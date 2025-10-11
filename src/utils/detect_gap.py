@@ -6,6 +6,9 @@ import utils.audio as audio
 from utils.separate import separate_audio
 from typing import List, Tuple, Optional
 from common.config import Config
+from utils.types import DetectGapResult
+from utils.providers import get_detection_provider
+from utils.providers.exceptions import DetectionFailedError
 
 logger = logging.getLogger(__name__)
 
@@ -30,21 +33,8 @@ class DetectGapOptions:
         self.overwrite = overwrite
         self.config = config  # Configuration for provider selection
 
-class DetectGapResult:
-    """Results of gap detection."""
-    
-    def __init__(self, detected_gap: int, silence_periods: List[Tuple[float, float]], vocals_file: str):
-        self.detected_gap = detected_gap
-        self.silence_periods = silence_periods
-        self.vocals_file = vocals_file
-        # Extended fields for new detection metadata
-        self.confidence: Optional[float] = None
-        self.detection_method: str = "unknown"
-        self.preview_wav_path: Optional[str] = None
-        self.waveform_json_path: Optional[str] = None
-        self.detected_gap_ms: Optional[float] = None
 
-def detect_nearest_gap(silence_periods: List[Tuple[float, float]], start_position_ms: float) -> int:
+def detect_nearest_gap(silence_periods: List[Tuple[float, float]], start_position_ms: float) -> Optional[int]:
     """Detect the nearest gap before or after the given start position in the audio file."""
     logger.debug(f"Detecting nearest gap relative to {start_position_ms}ms")
     logger.debug(f"Silence periods: {silence_periods}")
@@ -74,7 +64,7 @@ def detect_nearest_gap(silence_periods: List[Tuple[float, float]], start_positio
         return None
 
 
-def detect_nearest_speech_start(speech_segments: List[Tuple[float, float]], start_position_ms: float) -> int:
+def detect_nearest_speech_start(speech_segments: List[Tuple[float, float]], start_position_ms: float) -> Optional[int]:
     """
     Detect the nearest speech start boundary relative to the given start position.
     
@@ -139,7 +129,6 @@ def get_vocals_file(
 
     # Use provider system if config available, otherwise fallback to legacy
     if config:
-        from utils.detection_provider import get_detection_provider
         provider = get_detection_provider(config)
         return provider.get_vocals_file(
             audio_file,
@@ -205,7 +194,6 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
     # Get detection provider
     provider = None
     if options.config:
-        from utils.detection_provider import get_detection_provider
         provider = get_detection_provider(options.config)
         detection_method = provider.get_method_name()
     else:

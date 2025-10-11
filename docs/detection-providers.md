@@ -4,6 +4,90 @@
 
 USDXFixGap uses a **provider pattern** for gap detection, offering three distinct methods optimized for different use cases. Each provider has different semantics for what "extracted voices" means and how gap boundaries are detected.
 
+## Architecture
+
+### Module Structure
+
+The detection system is organized into a clean, modular architecture:
+
+```
+src/utils/
+├── providers/               # Provider package (pluggable strategies)
+│   ├── __init__.py         # Public API exports
+│   ├── base.py             # IDetectionProvider interface
+│   ├── factory.py          # Provider selection logic
+│   ├── exceptions.py       # Provider-specific exceptions
+│   ├── spleeter_provider.py      # Full-track AI separation
+│   ├── vad_preview_provider.py   # Fast VAD + HPSS preview
+│   └── hq_segment_provider.py    # Windowed Spleeter
+├── types.py                # Dataclass definitions (DetectGapResult, etc.)
+└── detect_gap.py           # Orchestration layer (perform() function)
+```
+
+### Provider Interface
+
+All providers implement the `IDetectionProvider` interface with four core methods:
+
+```python
+class IDetectionProvider(ABC):
+    def get_vocals_file(...) -> str:
+        """Get or create vocals/preview file for gap detection"""
+        
+    def detect_silence_periods(...) -> List[Tuple[float, float]]:
+        """Detect silence or speech boundary periods in audio"""
+        
+    def compute_confidence(...) -> float:
+        """Compute confidence score for the detected gap"""
+        
+    def get_method_name() -> str:
+        """Return provider identifier ('vad_preview', 'spleeter', etc.)"""
+```
+
+### Factory Pattern
+
+Provider selection is handled by `get_detection_provider(config)`:
+
+```python
+from utils.providers import get_detection_provider
+
+provider = get_detection_provider(config)
+method = provider.get_method_name()  # 'vad_preview', 'spleeter', 'hq_segment'
+```
+
+Falls back to `VadPreviewProvider` for unknown methods.
+
+### Exception Hierarchy
+
+Custom exceptions provide clear error handling:
+
+- `ProviderError`: Base exception for all provider errors
+- `ProviderInitializationError`: Provider cannot be initialized (missing config, dependencies)
+- `DetectionFailedError`: Gap detection failed during processing (includes provider name and cause)
+
+### Data Flow
+
+```mermaid
+graph LR
+    A[Config] --> B[Factory]
+    B --> C[Provider Instance]
+    C --> D[get_vocals_file]
+    D --> E[detect_silence_periods]
+    E --> F[Boundary Selection]
+    F --> G[compute_confidence]
+    G --> H[DetectGapResult]
+```
+
+### Adding New Providers
+
+To add a new detection provider:
+
+1. Create `utils/providers/my_provider.py`
+2. Implement `IDetectionProvider` interface
+3. Add to `factory.py` method selection
+4. Export in `providers/__init__.py`
+5. Add configuration section to `Config`
+6. Update documentation with provider details
+
 ## Provider Types
 
 ### 1. VAD Preview (`vad_preview`) - Default Method
@@ -74,32 +158,45 @@ USDXFixGap uses a **provider pattern** for gap detection, offering three distinc
 
 ---
 
-### 3. HQ Segment (`hq_segment`) - Future On-Demand Method
+### 3. HQ Segment (`hq_segment`) - Windowed Stem Method
 
 **Purpose**: True local vocal stem only for the preview window
 
-**What You Get** (when implemented):
-- **Genuine isolated vocal stem** for the 12s preview window only
-- MDX or Demucs separation applied to short segment
-- Best of both worlds: speed + quality
+**What You Get**:
+- **True isolated vocal stem** for a focused time window around the gap
+- Quality comparable to full Spleeter, but only for the preview region
+- Fast processing by analyzing only the relevant segment
 
-**Detection Pipeline** (planned):
-1. **Initial Detection**: Use `vad_preview` for fast gap detection
-2. **Confidence Check**: If confidence < 0.6 threshold, trigger HQ re-analysis
-3. **Window Extraction**: Extract 12s segment around detected gap
-4. **Local Separation**: Apply MDX/Demucs model to short window only
-5. **Replace Preview**: Swap VAD preview with true stem segment
+**Detection Pipeline**:
+1. **Window Extraction**: Extract focused segment (3s pre + 9s post gap) from audio
+2. **Windowed Stem Separation**: Run Spleeter on the segment only (not full track)
+3. **Silence Detection**: FFmpeg silencedetect on windowed vocal stem
+4. **Boundary Selection**: Finds nearest silence boundary within the window
+5. **Fallback**: If processing fails, automatically falls back to VAD preview
 
-**Confidence Score**: Inherits from initial VAD detection
+**Confidence Score**: 85% (high quality stem, but windowed context)
 
-**Performance** (estimated): 3-5 seconds per song
+**Performance**: 3-5 seconds per song (significantly faster than full Spleeter)
 
-**Best For** (when available):
-- Low-confidence detections needing verification
-- User-triggered "Re-analyze (HQ)" action
-- Songs with dense arrangements near gap
+**Best For**:
+- When you need true vocal isolation but full-track processing is too slow
+- Quality vocal playback for the gap region
+- Songs where VAD preview is insufficient but full Spleeter is overkill
+- Balanced speed/quality tradeoff
 
-**Current Status**: Placeholder implementation (returns VAD preview)
+**Limitations**:
+- Only processes the preview window (not full track)
+- Requires more time than VAD preview
+- Window boundaries may affect very early/late gaps
+
+**Configuration**:
+```ini
+[hq_segment]
+hq_preview_pre_ms = 3000    # Time before gap to extract
+hq_preview_post_ms = 9000   # Time after gap to extract
+# Uses same silence detection as spleeter
+silence_detect_params = -30dB d=0.3
+```
 
 ---
 
@@ -341,14 +438,15 @@ method = provider.get_method_name()  # 'vad_preview', 'spleeter', etc.
 
 ## Summary
 
-| Feature              | VAD Preview            | Spleeter               | HQ Segment (planned)    |
+| Feature              | VAD Preview            | Spleeter               | HQ Segment              |
 |---------------------|------------------------|------------------------|-------------------------|
 | **Output**          | Vocal-forward snippet  | Full vocal stem        | Local vocal stem        |
-| **Speed**           | 0.5-2s                 | 30-60s                 | ~3-5s (estimated)       |
+| **Speed**           | 0.5-2s                 | 30-60s                 | 3-5s                    |
 | **Quality**         | Debug/timing quality   | Listening quality      | Listening quality       |
-| **Detection**       | Speech-start (onset)   | Silence boundary       | Hybrid (onset + stem)   |
-| **Confidence**      | Yes (VAD + flux)       | No                     | Yes (inherited)         |
-| **Use Case**        | Batch gap verification | Manual adjustment      | Low-confidence re-check |
-| **Isolated Vocals** | ❌ No                   | ✅ Yes                  | ✅ Yes (local only)      |
+| **Detection**       | Speech-start (onset)   | Silence boundary       | Silence boundary (windowed) |
+| **Confidence**      | Yes (VAD + flux)       | No                     | Yes (0.85)              |
+| **Use Case**        | Batch gap verification | Manual adjustment      | Balanced speed/quality  |
+| **Isolated Vocals** | ❌ No                   | ✅ Yes (full track)     | ✅ Yes (window only)     |
+| **Fallback**        | N/A                    | N/A                    | VAD preview on error    |
 
-**Recommendation**: Use `vad_preview` for initial batch processing, switch to `spleeter` when you need actual isolated vocals for specific songs.
+**Recommendation**: Use `vad_preview` for fast batch processing, `hq_segment` for quality results with reasonable speed, or `spleeter` when you need full-track vocal stems.

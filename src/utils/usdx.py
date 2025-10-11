@@ -7,10 +7,30 @@ from model.usdx_file import Note
 logger = logging.getLogger(__name__)
                 
 def fix_gap(gap: int, start_beat: int, bpm: int):
-    """ Corrects gap if first note does not start with beat 0 and song has a start time."""
+    """
+    Corrects gap if first note does not start with beat 0 and song has a start time.
+    
+    Ultrastar uses quarter-note interpretation:
+    - BPM value represents quarter notes per minute
+    - beats_per_ms = (bpm / 60 / 1000) * 4
+    - ms_per_beat = 1000 / beats_per_ms = (60 * 1000) / (bpm * 4) = 15000 / bpm
+    
+    Args:
+        gap: Original gap value in milliseconds
+        start_beat: Starting beat of the first note (0 if starts on beat 0)
+        bpm: Song BPM (quarter notes per minute)
+        
+    Returns:
+        Corrected gap in milliseconds
+    """
     if start_beat != 0:
-        position_ms = int(start_beat / bpm)
+        # Convert beats to milliseconds using Ultrastar's quarter-note interpretation
+        # beats_per_ms = (bpm / 60 / 1000) * 4, so ms_per_beat = 15000 / bpm
+        ms_per_beat = 15000.0 / bpm
+        position_ms = int(start_beat * ms_per_beat)
         gap = gap - position_ms
+        logger.debug(f"fix_gap: start_beat={start_beat}, bpm={bpm}, ms_per_beat={ms_per_beat:.3f}, "
+                    f"position_ms={position_ms}, adjusted_gap={gap}")
     return gap
 
 def get_syllaby_at_position(notes: List[Note], position: int):
