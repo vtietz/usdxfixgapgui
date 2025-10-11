@@ -21,6 +21,7 @@ class AudioActions(BaseActions):
     def _get_audio_length(self, song: Song):
         worker = DetectAudioLengthWorker(song)
         worker.signals.lengthDetected.connect(lambda song: self.data.songs.updated.emit(song))
+        worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
         self.worker_queue.add_task(worker, True)
 
     def normalize_song(self):
@@ -102,5 +103,6 @@ class AudioActions(BaseActions):
             audio_file,
             waveform_file,
         )
+        worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
         worker.signals.finished.connect(lambda song=song: self.data.songs.updated.emit(song))
         self.worker_queue.add_task(worker, True)

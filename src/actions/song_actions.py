@@ -45,12 +45,13 @@ class SongActions(BaseActions):
                 # Create the new ReloadSongWorker for this specific song reload
                 worker = ReloadSongWorker(song.path, song_directory)
                 worker.signals.songReloaded.connect(self._on_song_loaded)
+                worker.signals.error.connect(lambda e, s=song: self._on_song_worker_error(s, e))
                 
                 # Add the task to the worker queue
                 self.worker_queue.add_task(worker, True)  # True to start immediately
                 
             except Exception as e:
-                song.error_message = str(e)
+                song.set_error(str(e))
                 logger.exception(f"Error setting up song reload: {e}")
                 self.data.songs.updated.emit(song)
 

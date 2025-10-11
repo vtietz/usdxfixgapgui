@@ -143,7 +143,33 @@ def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
 - **QUEUED/PROCESSING** - Transient workflow states, set directly by actions
 - **Errors** - Use `set_error()` for non-gap errors, `gap_info.status = ERROR` for gap errors
 
-#### **b. Use Signals for UI Updates**
+#### **b. Always Wire Worker Error Signals with Exception Payload**
+Worker error signals carry exception context that must be forwarded to error handlers.
+
+**Correct Pattern - Accept and Forward Exception:**
+```python
+# ✅ CORRECT - Accept exception parameter and forward it
+def _detect_gap(self, song: Song):
+    worker = DetectGapWorker(options)
+    worker.signals.started.connect(lambda: self._on_song_worker_started(song))
+    worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))  # ✅
+    worker.signals.finished.connect(lambda result: self._on_detect_gap_finished(song, result))
+    self.worker_queue.add_task(worker)
+```
+
+**Anti-pattern - Discard Exception Payload:**
+```python
+# ❌ WRONG - Discards exception details
+worker.signals.error.connect(lambda: self._on_song_worker_error(song))  # ❌ No 'e' parameter
+```
+
+**Why This Matters:**
+- `IWorkerSignals.error` is defined as `error = pyqtSignal(Exception)`
+- The exception contains crucial debugging information (stack trace, error message, error type)
+- `_on_song_worker_error(song, error)` uses the exception to call `song.set_error(str(error))`
+- Discarding the payload means error messages will show "Unknown error occurred" instead of actual error details
+
+#### **c. Use Signals for UI Updates**
 - Use signals to notify the UI about changes in the data model (`songs.updated.emit()`).
 - Avoid directly modifying the UI from workers or services.
 
@@ -155,7 +181,7 @@ def updateTaskList(self):
     self.workerQueueManager.on_task_list_changed.connect(self.updateTaskList)
 ```
 
-#### **c. Avoid Overusing Signals**
+#### **d. Avoid Overusing Signals**
 - Do not emit signals for trivial operations or internal logic. Use direct method calls instead.
 - For example, instead of emitting a signal every time a song attribute changes, emit a signal when the entire song list is updated.
 
