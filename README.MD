@@ -51,6 +51,25 @@ Download and run standalone versions for Windows and Linux from [Releases](https
 
 ### Run with python
 
+**Option 1: Using run scripts (Recommended - Automatic Setup)**
+
+Simply use the provided run scripts that handle everything automatically:
+
+```bash
+# Windows
+.\run.bat start
+
+# Linux/macOS (same commands, just use ./run.sh instead)
+./run.sh start
+```
+
+The scripts will automatically:
+- Create the conda environment if it doesn't exist
+- Install all dependencies
+- Start the application
+
+**Option 2: Manual Setup**
+
 1. **Create a new conda environment (recommneded):**
 
     ```bash
@@ -86,6 +105,43 @@ Download and run standalone versions for Windows and Linux from [Releases](https
     ```bash
     python usdxfixgap.py
     ```
+
+### Quick Start with Run Scripts (Recommended)
+
+For convenience, you can use the provided run scripts that automatically handle conda environment setup:
+
+```cmd
+# Show available commands
+.\run.bat          # Windows
+./run.sh           # Linux/macOS
+
+# Start the application
+.\run.bat start
+
+# Run tests
+.\run.bat test
+
+# Install/update requirements
+.\run.bat install
+
+# Clean cache files
+.\run.bat clean
+
+# Get environment info
+.\run.bat info
+
+# Run any Python command
+.\run.bat python --version
+.\run.bat pip list
+```
+
+> **Note:** Linux/macOS users can use `./run.sh` with the exact same commands as shown above.
+
+These scripts will:
+- Automatically check if the conda environment is active
+- Create and activate the environment if it doesn't exist
+- Install requirements automatically on first run
+- Provide convenient shortcuts for common tasks
 
 ### Create executable Windows app
 
@@ -132,6 +188,35 @@ The configuration is managed through a `config.ini` file located in the `src` di
 - **auto_normalize**: Whether to automatically normalize audio after gap detection (true/false)
 
 You can modify these settings by editing the `config.ini` file with a text editor.
+
+## Development
+
+This project follows a layered architecture with strict separation of concerns. For developers contributing to this project:
+
+### **📋 Documentation**
+- **[Architecture](docs/architecture.md)** - System design, layers, and component responsibilities
+- **[Coding Standards](docs/coding-standards.md)** - DRY principle, SOLID principles, and clean code practices  
+- **[Signal Usage](docs/signals.md)** - Signal flow patterns and communication guidelines
+- **[GitHub Copilot Instructions](.github/copilot-instructions.md)** - AI assistance guidelines for consistent code generation
+
+### **🧪 Testing**
+Run tests with pytest:
+```bash
+# Using the run scripts (recommended)
+.\run.bat test    # Windows (use ./run.sh test on Linux/macOS)
+
+# Or directly with pytest
+python -m pytest tests/ -v
+```
+
+### **🏗️ Architecture Layers**
+- **Models**: Data structures and state management
+- **Services**: Business logic and stateless operations  
+- **Actions**: Orchestration between layers
+- **UI**: User interface and presentation logic
+- **Workers**: Background tasks and async operations
+
+Before contributing, please review the documentation to understand the project's architecture and coding standards.
 
 ## Contributions
 

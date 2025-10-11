@@ -103,6 +103,16 @@ class Song:
         if info.duration and info.duration > 0:
             self.duration_ms = info.duration
     
+    def set_error(self, error_message: str):
+        """Set error status and message"""
+        self.status = SongStatus.ERROR
+        self.error_message = error_message
+    
+    def clear_error(self):
+        """Clear error status and message"""
+        self.error_message = ""
+        # Don't automatically change status - let caller decide appropriate status
+    
     def __str__(self):
         return f"Song [{self.artist} - {self.title}]"
 

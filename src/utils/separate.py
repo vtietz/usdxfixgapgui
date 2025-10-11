@@ -1,5 +1,6 @@
 import os
 import logging
+import sys  # Use current interpreter to invoke spleeter
 
 from utils.cancellable_process import run_cancellable_process
 
@@ -31,13 +32,15 @@ def separate_audio(
         os.makedirs(os.path.dirname(output_path))
 
     command = [
-        "spleeter", 
-        "separate", 
-        "-o", output_path, 
-        "-p", "spleeter:2stems", 
-        "-d", str(duration), 
-        audio_file
-      ]
+        sys.executable,
+        "-m", "spleeter",
+        "separate",
+        "-o", output_path,
+        "-p", "spleeter:2stems",
+        "-d", str(duration),
+        audio_file,
+    ]
+    logger.debug("Spleeter command: %s", ' '.join(command))
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
 
     if not os.path.exists(vocals_filepath) or not os.path.exists(accompaniment_filepath):

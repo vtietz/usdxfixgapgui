@@ -1,6 +1,10 @@
 
 ## **1. Target Architecture Overview** -- not yet achieved!
 
+> **📋 Related Documentation:**
+> - [Coding Standards](coding-standards.md) - DRY principle, clean code practices, and implementation guidelines
+> - [Signals](signals.md) - Signal flow patterns and usage guidelines
+
 ### **Layers**
 1. **Models (Data Layer)**:
    - Represents the core data structures of the application (e.g., `Song`, `Songs`).
@@ -170,3 +174,113 @@ src/
 
 5. **Flexibility**:
    - Dependency injection allows for easy replacement or extension of components (e.g., swapping out `WorkerManager` for a different implementation).
+
+### **8. Error Handling Patterns**
+
+#### **Model Error State Management**
+Models should manage their own error states via dedicated methods:
+
+```python
+class Song:
+    def set_error(self, error_message: str):
+        """Set error status and message"""
+        self.status = SongStatus.ERROR
+        self.error_message = error_message
+    
+    def clear_error(self):
+        """Clear error status"""
+        self.status = SongStatus.READY
+        self.error_message = None
+```
+
+#### **Action Error Orchestration**
+Actions should orchestrate error handling without directly manipulating model state:
+
+```python
+class SongActions:
+    def process_song(self, song):
+        try:
+            result = self.service.process(song)
+            song.clear_error()  # Clear any previous errors on success
+        except Exception as e:
+            song.set_error(f"Processing failed: {str(e)}")
+            self.data.songs.updated.emit(song)  # Signal via data model
+```
+
+#### **Service Error Communication**
+Services should return results or raise exceptions, not set model state:
+
+```python
+class SongService:
+    def delete_song(self, song: Song) -> bool:
+        """Returns True if successful, False if failed, raises exception for errors"""
+        try:
+            # Deletion logic here
+            return True
+        except PermissionError:
+            return False  # Soft failure
+        except Exception:
+            raise  # Hard failure - let action handle it
+```
+
+### **9. Testing Strategy by Layer**
+
+#### **Model Testing**
+- Test data validation and derived properties
+- Test state management methods (e.g., `set_error`)
+- Mock external dependencies if any
+- Focus on pure data logic
+
+```python
+def test_song_set_error():
+    song = Song()
+    song.set_error("Test error")
+    assert song.status == SongStatus.ERROR
+    assert song.error_message == "Test error"
+```
+
+#### **Service Testing**
+- Test business logic in isolation
+- Mock external dependencies (file system, network)
+- Test error conditions and edge cases
+- Services should be stateless and easily testable
+
+```python
+def test_song_service_delete_success():
+    service = SongService()
+    with patch('utils.files.delete_folder') as mock_delete:
+        mock_delete.return_value = None
+        result = service.delete_song(mock_song)
+        assert result is True
+```
+
+### **10. Code Quality and Standards**
+
+This architecture relies on consistent application of clean code principles:
+
+- **DRY Principle**: Common functionality is extracted into reusable components (e.g., generic `set_error` method, shared service utilities)
+- **SOLID Principles**: Each layer has single responsibilities, and components depend on abstractions
+- **Clean Code**: Meaningful names, small functions, consistent error handling patterns
+- **Layer Compliance**: Models handle data, services handle business logic, actions orchestrate
+
+For detailed coding standards, clean code practices, and implementation guidelines, see [Coding Standards](coding-standards.md).
+
+### **11. Documentation References**
+
+- **[Coding Standards](coding-standards.md)**: DRY principle, SOLID principles, clean code practices, testing standards
+- **[Signals](signals.md)**: Signal flow patterns, best practices, and anti-patterns
+- **[GitHub Copilot Instructions](../.github/copilot-instructions.md)**: AI assistance guidelines for consistent code generation
+
+#### **Action Testing**
+- Test orchestration logic
+- Mock services and verify they're called correctly
+- Test error handling paths
+- Verify correct model state updates and signal emissions
+
+```python
+def test_delete_song_action_with_service_failure():
+    with patch('actions.song_actions.SongService') as mock_service:
+        mock_service.return_value.delete_song.return_value = False
+        actions.delete_selected_song()
+        song.set_error.assert_called_with("Failed to delete song files")
+```

@@ -195,6 +195,14 @@ class MediaPlayerComponent(QWidget):
             return
             
         self._song = song
+        
+        # Guard against None song
+        if song is None:
+            logger.debug("Song is None, clearing player")
+            self.update_ui()
+            self.update_player_files()
+            return
+            
         if not song.notes or not WaveformPathService.waveforms_exists(song, self._data.tmp_path):
             self._actions.reload_song(song)
             

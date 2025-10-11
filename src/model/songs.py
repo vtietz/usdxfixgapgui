@@ -10,6 +10,7 @@ class Songs(QObject):
     deleted = Signal(Song)  # Updated
     error = Signal(Song, Exception)  # Updated
     filterChanged = Signal()  # Updated
+    listChanged = Signal()  # Signal for when the list structure changes
 
     _filter: List[SongStatus] = []
     _filter_text: str = ""
@@ -19,18 +20,21 @@ class Songs(QObject):
     def clear(self):
         self.songs.clear()
         self.cleared.emit()
+        self.listChanged.emit()  # Emit list changed signal
 
     def add(self, song: Song):
         self.songs.append(song)
         self.added.emit(song)
+        self.listChanged.emit()  # Emit list changed signal
 
     def remove(self, song: Song):
         self.songs.remove(song)
-        self.updated.emit(song)
-
-    def clear(self):
-        self.songs.clear()
-        self.cleared.emit()
+        self.deleted.emit(song)  # Changed from updated to deleted signal
+        self.listChanged.emit()  # Emit list changed signal
+    
+    def list_changed(self):
+        """Manually trigger list changed signal"""
+        self.listChanged.emit()
 
     def __len__(self):
         return len(self.songs)

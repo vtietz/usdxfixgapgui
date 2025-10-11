@@ -2,9 +2,10 @@ import logging
 import os
 from typing import List
 from actions.base_actions import BaseActions
-from model.song import Song
+from model.song import Song, SongStatus
 from workers.reload_song_worker import ReloadSongWorker
 from services.usdx_file_service import USDXFileService
+from services.song_service import SongService
 from model.usdx_file import USDXFile
 from utils.audio import get_audio_duration
 
@@ -154,20 +155,50 @@ class SongActions(BaseActions):
                 logger.warning(f"Could not load duration from audio file: {e}")
 
     def delete_selected_song(self):
+        """
+        Delete selected songs following architecture principles:
+        - Actions orchestrate between services and models
+        - Services handle business logic
+        - Models only update their own state via methods
+        - Signals emitted through data model, not directly from actions
+        """
         selected_songs = self.data.selected_songs
         if not selected_songs:
             logger.error("No songs selected to delete.")
             return
+            
         logger.info(f"Attempting to delete {len(selected_songs)} songs.")
         # Confirmation should happen in the UI layer (MenuBar) before calling this
         songs_to_remove = list(selected_songs) # Copy list as we modify the source
+        successfully_deleted = []
+        
+        # Use service for deletion logic
+        song_service = SongService()
+        
         for song in songs_to_remove:
             logger.info(f"Deleting song {song.path}")
             try:
-                song.delete() # Assuming song.delete() handles file/folder removal
-                self.data.songs.remove(song) # Remove from the model's list
+                if song_service.delete_song(song):  # Service handles the deletion
+                    successfully_deleted.append(song)
+                    logger.info(f"Successfully deleted song {song.path}")
+                else:
+                    # Delete returned False - let model handle its state
+                    song.set_error("Failed to delete song files")
+                    self.data.songs.updated.emit(song)  # Signal via data model
+                    logger.error(f"Failed to delete song {song.path}")
             except Exception as e:
-                logger.error(f"Failed to delete song {song.path}: {e}")
+                # Exception occurred - let model handle its state
+                song.set_error(f"Delete error: {str(e)}")
+                self.data.songs.updated.emit(song)  # Signal via data model
+                logger.error(f"Exception deleting song {song.path}: {e}")
+        
+        # Only remove successfully deleted songs from the list
+        for song in successfully_deleted:
+            try:
+                self.data.songs.remove(song)
+            except ValueError:
+                # Song was already removed somehow
+                pass
 
         # After attempting deletion, clear the selection
         self.set_selected_songs([])

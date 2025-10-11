@@ -1,4 +1,10 @@
 
+# Signal Usage Guidelines
+
+> **📋 Related Documentation:**
+> - [Architecture](architecture.md) - Overall system design and layer responsibilities  
+> - [Coding Standards](coding-standards.md) - Clean code practices and DRY principles
+
 ### **1. When to Use Signals**
 Signals are best used for **asynchronous communication** between components, especially when:
 - **UI updates** are required based on background tasks (e.g., workers).
@@ -17,6 +23,58 @@ songs.updated.emit()
 #### **Avoid Using Signals**
 - For **direct method calls** where synchronous behavior is expected (e.g., calling a service method from an action).
 - For **internal logic** within a single class or tightly coupled components. Use direct method calls instead.
+- **Actions should NOT emit signals directly** - they should update models and let models emit signals.
+
+#### **Signal Anti-Patterns to Avoid**
+1. **❌ Actions Emitting Signals Directly:**
+   ```python
+   # BAD: Action emitting signals directly
+   def delete_song(self, song):
+       result = service.delete(song)
+       self.song_deleted.emit(song)  # ❌ Action emitting directly
+   ```
+
+2. **❌ Models Calling Services:**
+   ```python
+   # BAD: Model depending on services
+   class Song:
+       def delete(self):
+           from services.song_service import SongService  # ❌ Model importing service
+           return SongService().delete_song(self)
+   ```
+
+3. **❌ Services Emitting Signals:**
+   ```python
+   # BAD: Service emitting UI signals
+   class SongService:
+       def delete_song(self, song):
+           # deletion logic
+           self.song_deleted.emit(song)  # ❌ Service emitting signals
+   ```
+
+#### **✅ Correct Patterns**
+1. **✅ Models Emit Signals When Their State Changes:**
+   ```python
+   class Song:
+       def set_error(self, message):
+           self.status = SongStatus.ERROR
+           self.error_message = message
+           # Signal will be emitted by the data model when updated
+   ```
+
+2. **✅ Actions Orchestrate and Let Models Signal:**
+   ```python
+   def delete_song(self, song):
+       try:
+           if self.service.delete_song(song):
+               song.clear_error()
+           else:
+               song.set_error("Delete failed")
+               self.data.songs.updated.emit(song)  # ✅ Signal via data model
+       except Exception as e:
+           song.set_error(f"Error: {e}")
+           self.data.songs.updated.emit(song)  # ✅ Signal via data model
+   ```
 
 ### **2. Encapsulation and Layers**
 Your current architecture already has a separation of concerns with **actions**, **workers**, **services**, and **UI components**. This is a good start, but there are areas where encapsulation can be improved.
