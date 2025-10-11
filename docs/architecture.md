@@ -250,6 +250,57 @@ gap_info.status = GapInfoStatus.ERROR
 song.set_error("File not found")
 ```
 
+### **9. Worker Queue Patterns**
+
+#### **Asynchronous Task Queuing**
+
+All long-running operations should be queued through the worker queue manager rather than executed inline. This ensures:
+- UI responsiveness (non-blocking operations)
+- Consistent task tracking and status visibility
+- Proper cancellation support
+- Sequential task execution when needed
+
+**Queue via WorkerQueue, not inline execution:**
+
+```python
+# ✅ CORRECT: Queue worker for asynchronous execution
+def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
+    # Update model state
+    song.gap_info.detected_gap = result.detected_gap
+    song.gap_info.status = result.status
+    
+    # Queue follow-up tasks (like auto-normalization)
+    if self.config.auto_normalize and song.audio_file:
+        logger.info(f"Queueing auto-normalization for {song}")
+        # start_now=False lets queue manager schedule it properly
+        audio_actions._normalize_song(song, start_now=False)
+
+# ❌ WRONG: Inline execution blocks UI and bypasses queue
+def _on_detect_gap_finished_bad(self, song: Song, result: GapDetectionResult):
+    song.gap_info.status = result.status
+    
+    # Inline call bypasses queue - blocks UI, no status tracking
+    if self.config.auto_normalize:
+        audio_actions._normalize_song(song)  # Executes immediately!
+```
+
+**start_now parameter usage:**
+
+```python
+# start_now=True: Execute immediately (for single user-initiated action)
+worker_queue.add_task(worker, start_now=True)
+
+# start_now=False: Let queue schedule (for chained/follow-up tasks)
+worker_queue.add_task(worker, start_now=False)
+```
+
+**Benefits of proper queueing:**
+- **UI Responsiveness**: Long operations don't block the event loop
+- **Status Tracking**: WorkerStatus enum provides visibility (WAITING, RUNNING, FINISHED, ERROR)
+- **Cancellation**: Users can cancel queued tasks
+- **Sequential Execution**: Queue ensures proper ordering of dependent tasks
+- **Error Isolation**: Worker failures don't crash the application
+
 #### **Action Error Orchestration**
 Actions should orchestrate error handling without directly manipulating model state:
 
