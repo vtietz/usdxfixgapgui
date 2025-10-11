@@ -42,6 +42,15 @@ class GapInfoService:
             gap_info.is_normalized = data.get("is_normalized", False)
             gap_info.normalized_date = data.get("normalized_date", None)
             gap_info.normalization_level = data.get("normalization_level", None)
+            
+            # Load new detection metadata fields (backward compatible)
+            gap_info.detection_method = data.get("detection_method", "spleeter")
+            gap_info.preview_wav_path = data.get("preview_wav_path", None)
+            gap_info.waveform_json_path = data.get("waveform_json_path", None)
+            gap_info.confidence = data.get("confidence", None)
+            gap_info.detected_gap_ms = data.get("detected_gap_ms", None)
+            gap_info.first_note_ms = data.get("first_note_ms", None)
+            gap_info.tolerance_band_ms = data.get("tolerance_band_ms", None)
 
         except Exception as e:
             logger.error(f"Error loading gap info: {e}")
@@ -74,7 +83,15 @@ class GapInfoService:
                 "silence_periods": gap_info.silence_periods,
                 "is_normalized": gap_info.is_normalized,
                 "normalized_date": gap_info.normalized_date,
-                "normalization_level": gap_info.normalization_level
+                "normalization_level": gap_info.normalization_level,
+                # New detection metadata fields
+                "detection_method": gap_info.detection_method,
+                "preview_wav_path": gap_info.preview_wav_path,
+                "waveform_json_path": gap_info.waveform_json_path,
+                "confidence": gap_info.confidence,
+                "detected_gap_ms": gap_info.detected_gap_ms,
+                "first_note_ms": gap_info.first_note_ms,
+                "tolerance_band_ms": gap_info.tolerance_band_ms
             }
             
             # Save to file

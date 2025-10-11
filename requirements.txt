@@ -5,3 +5,8 @@ PySide6_Addons==6.6.3.1
 PySide6_Essentials==6.6.3.1
 shiboken6==6.6.3.1
 spleeter==2.4.0
+librosa==0.10.1
+webrtcvad==2.0.10
+numpy>=1.24.0,<2.0.0
+scipy>=1.10.0
+soundfile>=0.12.1

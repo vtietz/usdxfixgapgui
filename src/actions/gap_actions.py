@@ -73,6 +73,15 @@ class GapActions(BaseActions):
         song.gap_info.notes_overlap = result.notes_overlap
         song.gap_info.silence_periods = result.silence_periods
         song.gap_info.duration = result.duration_ms
+        
+        # Update extended detection metadata
+        song.gap_info.confidence = result.confidence
+        song.gap_info.detection_method = result.detection_method
+        song.gap_info.preview_wav_path = result.preview_wav_path
+        song.gap_info.waveform_json_path = result.waveform_json_path
+        song.gap_info.detected_gap_ms = result.detected_gap_ms
+        song.gap_info.tolerance_band_ms = self.config.gap_tolerance
+        
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
         song.gap_info.status = result.status
         

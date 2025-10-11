@@ -19,11 +19,16 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
 ## Features
 
 - Scans directories for Ultrastar files.
-- Uses `spleeter` to separate vocals from music.
-- Detects silence parts to verify the accuracy of the GAP value.
+- **Multiple detection methods**: Choose between fast VAD-based detection or traditional Spleeter separation
+  - **vad_preview** (default): Fast CPU-only detection using Voice Activity Detection and HPSS (~0.5-2s)
+  - **spleeter** (legacy): Full stem separation for high-quality vocal isolation (~30-60s)
+  - See [Detection Methods Documentation](docs/detection-methods.md) for detailed comparison
+- Detects silence parts and vocal onsets to verify the accuracy of the GAP value.
 - Provides a graphical user interface (GUI) to visualize the waveform and suggested GAP values.
 - Allows users to manually choose the correct GAP value if mismatched.
 - Normalizes audio to ensure consistent playback levels.
+- **Confidence scoring**: Each detection includes a confidence metric to assess quality
+- **Preview generation**: Automatically creates focused audio previews and waveform visualizations
 
 ## GUI Overview
 
@@ -36,10 +41,14 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
 ## How It Works
 
 1. **Load Songs:** Load Ultrastar songs from the specified directory.
-2. **Detect Gap:** The application uses `spleeter` to separate vocals from music and detect silence parts.
-3. **Check Gap:** Verifies if the given GAP value matches the song.
-4. **Display Results:** Displays the results in the GUI, showing the detected GAP, difference, and status (MATCH or MISMATCH).
+2. **Detect Gap:** The application uses one of the following methods:
+   - **VAD Preview (Default)**: Fast onset detection using Voice Activity Detection on harmonic audio
+   - **Spleeter (Legacy)**: Full vocal separation using AI-powered stem separation
+3. **Check Gap:** Verifies if the given GAP value matches the detected vocal onset.
+4. **Display Results:** Displays the results in the GUI, showing the detected GAP, difference, confidence score, and status (MATCH or MISMATCH).
 5. **Manual Adjustment:** If a mismatch is detected, the user can view the suggested GAP on the waveform and manually choose the correct value.
+
+For more details on detection methods, see the [Detection Methods Documentation](docs/detection-methods.md).
 
 ## Installation
 
@@ -182,10 +191,32 @@ The configuration is managed through a `config.ini` file located in the `src` di
 - **adjust_player_position_step_vocals**: Milliseconds to move when navigating vocals track with arrow keys
 
 #### [Processing]
-- **spleeter**: Enable/disable vocal isolation using Spleeter (true/false)
-- **silence_detect_params**: FFmpeg parameters for silence detection
+- **method**: Detection method to use (vad_preview, spleeter, hq_segment)
+  - **vad_preview** (default): Fast CPU-only detection using VAD and HPSS
+  - **spleeter**: Traditional full stem separation (slower but proven)
+  - **hq_segment**: Future high-quality short-window method (placeholder)
 - **normalization_level**: Target level in dB for audio normalization
 - **auto_normalize**: Whether to automatically normalize audio after gap detection (true/false)
+
+#### [spleeter] (for spleeter method)
+- **silence_detect_params**: FFmpeg parameters for silence detection
+
+#### [vad_preview] (for vad_preview method)
+- **preview_pre_ms**: Milliseconds before gap to include in preview (default: 3000)
+- **preview_post_ms**: Milliseconds after gap to include in preview (default: 9000)
+- **vad_frame_ms**: VAD frame duration in ms - 10, 20, or 30 (default: 30)
+- **vad_min_speech_ms**: Minimum speech segment duration (default: 120)
+- **vad_min_silence_ms**: Minimum silence to split segments (default: 200)
+- **flux_snap_window_ms**: Window for onset snap (default: 150)
+- **vad_aggressiveness**: VAD sensitivity 0-3, higher = more aggressive (default: 3)
+
+#### [hq_segment] (for future hq_segment method)
+- **hq_reanalyze_threshold**: Confidence threshold for HQ re-analysis (default: 0.6)
+- **hq_model**: Model to use (mdx_small, demucs_segment)
+- **preview_pre_ms**: Preview window before gap
+- **preview_post_ms**: Preview window after gap
+
+See [Detection Methods Documentation](docs/detection-methods.md) for detailed information about each method.
 
 You can modify these settings by editing the `config.ini` file with a text editor.
 
@@ -230,5 +261,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 - [USDB Syncer](https://github.com/bohning/usdb_syncer) for "downloading" USDX files from USDB
 - [USDB](https://usdb.animux.de/) the awesome USD community creating and maintaining karaoke songs
-- [Spleeter](https://github.com/deezer/spleeter) by Deezer for audio separation.
-- [ffmpeg](https://github.com/FFmpeg) for detecting silence parts and normalization.
+- [Spleeter](https://github.com/deezer/spleeter) by Deezer for audio separation (legacy method)
+- [Librosa](https://librosa.org/) for HPSS and audio analysis (VAD preview method)
+- [WebRTC VAD](https://github.com/wiseman/py-webrtcvad) for voice activity detection
+- [ffmpeg](https://github.com/FFmpeg) for detecting silence parts and normalization

@@ -45,6 +45,17 @@ class GapInfo:
         self.normalized_date: Optional[str] = None
         self.normalization_level: Optional[float] = None
         
+        # Detection method and metadata (new fields)
+        self.detection_method: str = "spleeter"  # Options: spleeter, vad_preview, hq_segment
+        self.preview_wav_path: Optional[str] = None
+        self.waveform_json_path: Optional[str] = None
+        self.confidence: Optional[float] = None  # Detection confidence 0.0-1.0
+        
+        # Detection markers
+        self.detected_gap_ms: Optional[float] = None
+        self.first_note_ms: Optional[float] = None
+        self.tolerance_band_ms: Optional[int] = None
+        
         # Reference to owner song
         self.owner = None
     

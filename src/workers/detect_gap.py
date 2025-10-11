@@ -1,6 +1,6 @@
 import os
 import time
-from typing import List
+from typing import List, Tuple, Optional
 from PySide6.QtCore import Signal
 from common.config import Config
 from model.gap_info import GapInfoStatus
@@ -48,14 +48,21 @@ class GapDetectionResult:
         self.song_file_path = song_file_path
         
         # Detection results
-        self.detected_gap = None
-        self.original_gap = None
-        self.silence_periods = None
-        self.gap_diff = None
-        self.notes_overlap = None
-        self.duration_ms = None
-        self.status = None
-        self.error = None
+        self.detected_gap: Optional[int] = None
+        self.original_gap: Optional[int] = None
+        self.silence_periods: Optional[List[Tuple[float, float]]] = None
+        self.gap_diff: Optional[int] = None
+        self.notes_overlap: Optional[float] = None
+        self.duration_ms: Optional[float] = None
+        self.status: Optional[GapInfoStatus] = None
+        self.error: Optional[str] = None
+        
+        # Extended detection metadata
+        self.confidence: Optional[float] = None
+        self.detection_method: str = "unknown"
+        self.preview_wav_path: Optional[str] = None
+        self.waveform_json_path: Optional[str] = None
+        self.detected_gap_ms: Optional[float] = None
 
 class WorkerSignals(IWorkerSignals):
     finished = Signal(GapDetectionResult)
@@ -77,15 +84,16 @@ class DetectGapWorker(IWorker):
             logger.debug(f"Detecting gap for '{self.options.audio_file}' in 3 seconds...")
             time.sleep(3)
             
-            # Create detect gap options
+            # Create detect gap options with config
             detect_options = DetectGapOptions(
                 audio_file=self.options.audio_file,
                 tmp_root=self.options.tmp_path,
                 original_gap=self.options.original_gap,
                 audio_length=self.options.duration_ms,
                 default_detection_time=self.options.config.default_detection_time,
-                silence_detect_params=self.options.config.silence_detect_params,
-                overwrite=self.options.overwrite
+                silence_detect_params=self.options.config.spleeter_silence_detect_params,
+                overwrite=self.options.overwrite,
+                config=self.options.config  # Pass config for provider selection
             )
             
             # Perform gap detection
@@ -95,6 +103,7 @@ class DetectGapWorker(IWorker):
             if self.options.notes and self.options.bpm:
                 detected_gap = usdx.fix_gap(detection_result.detected_gap, self.options.notes[0].StartBeat, self.options.bpm)
             else:
+                detected_gap = detection_result.detected_gap
                 logger.warning("No notes or BPM provided, so no correction of gap if first note does not start on beat 0 or song has a start time.")
             gap_diff = abs(self.options.original_gap - detected_gap)
             
@@ -105,12 +114,19 @@ class DetectGapWorker(IWorker):
             vocals_duration_ms = audio.get_audio_duration(detection_result.vocals_file, self.is_cancelled)
             notes_overlap = usdx.get_notes_overlap(self.options.notes, detection_result.silence_periods, vocals_duration_ms)
             
-            # Populate the result
+            # Populate the result with basic fields
             result.detected_gap = detected_gap
             result.silence_periods = detection_result.silence_periods
             result.gap_diff = gap_diff
             result.notes_overlap = notes_overlap
             result.status = info_status
+            
+            # Populate extended detection metadata
+            result.confidence = detection_result.confidence
+            result.detection_method = detection_result.detection_method
+            result.preview_wav_path = detection_result.preview_wav_path
+            result.waveform_json_path = detection_result.waveform_json_path
+            result.detected_gap_ms = detection_result.detected_gap_ms
             
             # Set duration if available
             if self.options.duration_ms:

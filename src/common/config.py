@@ -73,10 +73,33 @@ class Config(QObject):
         }
         
         self._config['Processing'] = {
-            'spleeter': 'true',
-            'silence_detect_params': 'silencedetect=noise=-30dB:d=0.2',
+            'method': 'vad_preview',  # Options: spleeter, vad_preview, hq_segment
             'normalization_level': '-20',  # Default normalization level is -20 dB
             'auto_normalize': 'false'      # Default is not to auto-normalize
+        }
+        
+        # Spleeter-specific settings
+        self._config['spleeter'] = {
+            'silence_detect_params': 'silencedetect=noise=-30dB:d=0.2'
+        }
+        
+        # VAD Preview settings (new default method)
+        self._config['vad_preview'] = {
+            'preview_pre_ms': '3000',
+            'preview_post_ms': '9000',
+            'vad_frame_ms': '30',
+            'vad_min_speech_ms': '120',
+            'vad_min_silence_ms': '200',
+            'flux_snap_window_ms': '150',
+            'vad_aggressiveness': '3'  # WebRTC VAD: 0-3, higher = more aggressive
+        }
+        
+        # HQ Segment settings (on-demand high-quality re-analysis)
+        self._config['hq_segment'] = {
+            'hq_reanalyze_threshold': '0.6',
+            'hq_model': 'mdx_small',  # Options: mdx_small, demucs_segment
+            'preview_pre_ms': '3000',
+            'preview_post_ms': '9000'
         }
         
         self._config['General'] = {
@@ -115,14 +138,34 @@ class Config(QObject):
         self.adjust_player_position_step_vocals = self._config.getint('Player', 'adjust_player_position_step_vocals')
         
         # Processing
-        self.spleeter = self._config.getboolean('Processing', 'spleeter')
-        self.silence_detect_params = self._config.get('Processing', 'silence_detect_params')
+        self.method = self._config.get('Processing', 'method')
         self.normalization_level = self._config.getint('Processing', 'normalization_level')
         self.auto_normalize = self._config.getboolean('Processing', 'auto_normalize')
+        
+        # Spleeter settings
+        self.spleeter_silence_detect_params = self._config.get('spleeter', 'silence_detect_params')
+        
+        # VAD Preview settings
+        self.vad_preview_pre_ms = self._config.getint('vad_preview', 'preview_pre_ms')
+        self.vad_preview_post_ms = self._config.getint('vad_preview', 'preview_post_ms')
+        self.vad_frame_ms = self._config.getint('vad_preview', 'vad_frame_ms')
+        self.vad_min_speech_ms = self._config.getint('vad_preview', 'vad_min_speech_ms')
+        self.vad_min_silence_ms = self._config.getint('vad_preview', 'vad_min_silence_ms')
+        self.flux_snap_window_ms = self._config.getint('vad_preview', 'flux_snap_window_ms')
+        self.vad_aggressiveness = self._config.getint('vad_preview', 'vad_aggressiveness')
+        
+        # HQ Segment settings
+        self.hq_reanalyze_threshold = self._config.getfloat('hq_segment', 'hq_reanalyze_threshold')
+        self.hq_model = self._config.get('hq_segment', 'hq_model')
+        self.hq_preview_pre_ms = self._config.getint('hq_segment', 'preview_pre_ms')
+        self.hq_preview_post_ms = self._config.getint('hq_segment', 'preview_post_ms')
         
         # General
         self.log_level_str = self._config.get('General', 'LogLevel')
         self.log_level = self._get_log_level(self.log_level_str)
+        
+        # Backward compatibility - set spleeter flag based on method
+        self.spleeter = (self.method == 'spleeter')
 
         logger.debug(f"Configuration loaded: {self.config_path}")
         
