@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 from common.config import Config
 from utils.providers.base import IDetectionProvider
 from utils.providers.spleeter_provider import SpleeterProvider
-from utils.providers.vad_preview_provider import VadPreviewProvider
 from utils.providers.hq_segment_provider import HqSegmentProvider
 from utils.providers.exceptions import ProviderInitializationError
 
@@ -26,7 +25,7 @@ def get_detection_provider(config: Config) -> IDetectionProvider:
     Factory function to get the appropriate detection provider based on configuration.
     
     Selects provider based on Config.method value and instantiates it with the
-    provided configuration. Falls back to VAD preview for unknown methods.
+    provided configuration. Falls back to Spleeter for unknown methods.
     
     Args:
         config: Application configuration object containing method selection
@@ -38,20 +37,20 @@ def get_detection_provider(config: Config) -> IDetectionProvider:
         ProviderInitializationError: If provider instantiation fails
     
     Supported Methods:
-        - 'spleeter': Full-track AI vocal separation (SpleeterProvider)
-        - 'vad_preview': Fast VAD + HPSS preview (VadPreviewProvider) - default
+        - 'spleeter': Full-track AI vocal separation (SpleeterProvider) - default
         - 'hq_segment': Windowed Spleeter separation (HqSegmentProvider)
+        - 'mdx': MDX-Net vocal separation with chunked scanning (planned)
     
     Example:
         >>> config = Config()
-        >>> config.method = 'vad_preview'
+        >>> config.method = 'spleeter'
         >>> provider = get_detection_provider(config)
         >>> provider.get_method_name()
-        'vad_preview'
+        'spleeter'
     
     Fallback Behavior:
-        If method is unrecognized, logs a warning and returns VadPreviewProvider
-        as a safe default for fast processing.
+        If method is unrecognized, logs a warning and returns SpleeterProvider
+        as a safe default for reliable detection.
     """
     try:
         method = config.method.lower()
@@ -60,20 +59,20 @@ def get_detection_provider(config: Config) -> IDetectionProvider:
             logger.debug("Selecting Spleeter detection provider")
             return SpleeterProvider(config)
         
-        elif method == "vad_preview":
-            logger.debug("Selecting VAD Preview detection provider")
-            return VadPreviewProvider(config)
-        
         elif method == "hq_segment":
             logger.debug("Selecting HQ Segment detection provider")
             return HqSegmentProvider(config)
         
+        # elif method == "mdx":
+        #     logger.debug("Selecting MDX detection provider")
+        #     return MdxProvider(config)
+        
         else:
             logger.warning(
                 f"Unknown detection method '{method}' in config, "
-                f"falling back to VAD Preview (default)"
+                f"falling back to Spleeter (default)"
             )
-            return VadPreviewProvider(config)
+            return SpleeterProvider(config)
     
     except Exception as e:
         raise ProviderInitializationError(

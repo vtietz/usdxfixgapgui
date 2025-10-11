@@ -73,7 +73,7 @@ class Config(QObject):
         }
         
         self._config['Processing'] = {
-            'method': 'vad_preview',  # Options: spleeter, vad_preview, hq_segment
+            'method': 'spleeter',  # Options: spleeter, hq_segment, mdx
             'normalization_level': '-20',  # Default normalization level is -20 dB
             'auto_normalize': 'false'      # Default is not to auto-normalize
         }
@@ -83,24 +83,26 @@ class Config(QObject):
             'silence_detect_params': 'silencedetect=noise=-30dB:d=0.2'
         }
         
-        # VAD Preview settings (new default method)
-        self._config['vad_preview'] = {
-            'preview_pre_ms': '3000',
-            'preview_post_ms': '9000',
-            'vad_frame_ms': '30',
-            'vad_min_speech_ms': '120',
-            'vad_min_silence_ms': '200',
-            'flux_snap_window_ms': '150',
-            'flux_snap_enabled': 'true',  # Enable spectral flux snapping for onset refinement
-            'vad_aggressiveness': '3'  # WebRTC VAD: 0-3, higher = more aggressive
+        # HQ Segment settings (windowed Spleeter separation)
+        self._config['hq_segment'] = {
+            'hq_preview_pre_ms': '3000',
+            'hq_preview_post_ms': '9000',
+            'silence_detect_params': '-30dB d=0.3'
         }
         
-        # HQ Segment settings (on-demand high-quality re-analysis)
-        self._config['hq_segment'] = {
-            'hq_reanalyze_threshold': '0.6',
-            'hq_model': 'mdx_small',  # Options: mdx_small, demucs_segment
-            'preview_pre_ms': '3000',
-            'preview_post_ms': '9000'
+        # MDX settings (future - chunked vocal separation with energy-based onset)
+        self._config['mdx'] = {
+            'chunk_duration_ms': '12000',      # 12s chunks
+            'chunk_overlap_ms': '6000',        # 50% overlap (6s)
+            'frame_duration_ms': '25',         # 25ms frames for energy analysis
+            'hop_duration_ms': '10',           # 10ms hop for RMS computation
+            'noise_floor_duration_ms': '800',  # First 800ms for noise estimation
+            'onset_snr_threshold': '2.5',      # RMS > noise + 2.5*sigma
+            'min_voiced_duration_ms': '180',   # 180ms minimum vocal duration
+            'hysteresis_ms': '80',             # 80ms hysteresis for stability
+            'confidence_threshold': '0.55',    # SNR-based confidence threshold
+            'preview_pre_ms': '3000',          # Preview window before onset
+            'preview_post_ms': '9000'          # Preview window after onset
         }
         
         self._config['General'] = {
@@ -146,21 +148,24 @@ class Config(QObject):
         # Spleeter settings
         self.spleeter_silence_detect_params = self._config.get('spleeter', 'silence_detect_params')
         
-        # VAD Preview settings
-        self.vad_preview_pre_ms = self._config.getint('vad_preview', 'preview_pre_ms')
-        self.vad_preview_post_ms = self._config.getint('vad_preview', 'preview_post_ms')
-        self.vad_frame_ms = self._config.getint('vad_preview', 'vad_frame_ms')
-        self.vad_min_speech_ms = self._config.getint('vad_preview', 'vad_min_speech_ms')
-        self.vad_min_silence_ms = self._config.getint('vad_preview', 'vad_min_silence_ms')
-        self.flux_snap_window_ms = self._config.getint('vad_preview', 'flux_snap_window_ms')
-        self.flux_snap_enabled = self._config.getboolean('vad_preview', 'flux_snap_enabled')
-        self.vad_aggressiveness = self._config.getint('vad_preview', 'vad_aggressiveness')
-        
         # HQ Segment settings
-        self.hq_reanalyze_threshold = self._config.getfloat('hq_segment', 'hq_reanalyze_threshold')
-        self.hq_model = self._config.get('hq_segment', 'hq_model')
-        self.hq_preview_pre_ms = self._config.getint('hq_segment', 'preview_pre_ms')
-        self.hq_preview_post_ms = self._config.getint('hq_segment', 'preview_post_ms')
+        self.hq_preview_pre_ms = self._config.getint('hq_segment', 'hq_preview_pre_ms')
+        self.hq_preview_post_ms = self._config.getint('hq_segment', 'hq_preview_post_ms')
+        self.hq_silence_detect_params = self._config.get('hq_segment', 'silence_detect_params')
+        
+        # MDX settings (future)
+        if self._config.has_section('mdx'):
+            self.mdx_chunk_duration_ms = self._config.getint('mdx', 'chunk_duration_ms')
+            self.mdx_chunk_overlap_ms = self._config.getint('mdx', 'chunk_overlap_ms')
+            self.mdx_frame_duration_ms = self._config.getint('mdx', 'frame_duration_ms')
+            self.mdx_hop_duration_ms = self._config.getint('mdx', 'hop_duration_ms')
+            self.mdx_noise_floor_duration_ms = self._config.getint('mdx', 'noise_floor_duration_ms')
+            self.mdx_onset_snr_threshold = self._config.getfloat('mdx', 'onset_snr_threshold')
+            self.mdx_min_voiced_duration_ms = self._config.getint('mdx', 'min_voiced_duration_ms')
+            self.mdx_hysteresis_ms = self._config.getint('mdx', 'hysteresis_ms')
+            self.mdx_confidence_threshold = self._config.getfloat('mdx', 'confidence_threshold')
+            self.mdx_preview_pre_ms = self._config.getint('mdx', 'preview_pre_ms')
+            self.mdx_preview_post_ms = self._config.getint('mdx', 'preview_post_ms')
         
         # General
         self.log_level_str = self._config.get('General', 'LogLevel')

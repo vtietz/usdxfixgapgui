@@ -8,7 +8,6 @@ Public API:
     - IDetectionProvider: Base interface for all providers
     - get_detection_provider: Factory function for provider selection
     - SpleeterProvider: Full-track AI vocal separation
-    - VadPreviewProvider: Fast VAD + HPSS preview
     - HqSegmentProvider: Windowed Spleeter separation
     - ProviderError, ProviderInitializationError, DetectionFailedError: Exceptions
 
@@ -18,7 +17,7 @@ Usage:
     >>> 
     >>> config = Config()
     >>> provider = get_detection_provider(config)
-    >>> method = provider.get_method_name()  # 'vad_preview', 'spleeter', etc.
+    >>> method = provider.get_method_name()  # 'spleeter', 'hq_segment', 'mdx'
 """
 
 # Base interface and factory
@@ -27,7 +26,6 @@ from utils.providers.factory import get_detection_provider
 
 # Provider implementations
 from utils.providers.spleeter_provider import SpleeterProvider
-from utils.providers.vad_preview_provider import VadPreviewProvider
 from utils.providers.hq_segment_provider import HqSegmentProvider
 
 # Exceptions
@@ -43,7 +41,6 @@ __all__ = [
     "get_detection_provider",
     # Providers
     "SpleeterProvider",
-    "VadPreviewProvider",
     "HqSegmentProvider",
     # Exceptions
     "ProviderError",
