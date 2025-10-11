@@ -12,6 +12,7 @@ from common.config import Config
 from utils.providers.base import IDetectionProvider
 from utils.providers.spleeter_provider import SpleeterProvider
 from utils.providers.hq_segment_provider import HqSegmentProvider
+from utils.providers.mdx_provider import MdxProvider
 from utils.providers.exceptions import ProviderInitializationError
 
 if TYPE_CHECKING:
@@ -39,7 +40,7 @@ def get_detection_provider(config: Config) -> IDetectionProvider:
     Supported Methods:
         - 'spleeter': Full-track AI vocal separation (SpleeterProvider) - default
         - 'hq_segment': Windowed Spleeter separation (HqSegmentProvider)
-        - 'mdx': MDX-Net vocal separation with chunked scanning (planned)
+        - 'mdx': MDX-Net vocal separation with chunked scanning (MdxProvider)
     
     Example:
         >>> config = Config()
@@ -63,9 +64,9 @@ def get_detection_provider(config: Config) -> IDetectionProvider:
             logger.debug("Selecting HQ Segment detection provider")
             return HqSegmentProvider(config)
         
-        # elif method == "mdx":
-        #     logger.debug("Selecting MDX detection provider")
-        #     return MdxProvider(config)
+        elif method == "mdx":
+            logger.debug("Selecting MDX detection provider")
+            return MdxProvider(config)
         
         else:
             logger.warning(

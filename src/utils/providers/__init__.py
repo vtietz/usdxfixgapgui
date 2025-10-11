@@ -9,6 +9,7 @@ Public API:
     - get_detection_provider: Factory function for provider selection
     - SpleeterProvider: Full-track AI vocal separation
     - HqSegmentProvider: Windowed Spleeter separation
+    - MdxProvider: MDX-Net with chunked scanning and energy-based onset
     - ProviderError, ProviderInitializationError, DetectionFailedError: Exceptions
 
 Usage:
@@ -27,6 +28,7 @@ from utils.providers.factory import get_detection_provider
 # Provider implementations
 from utils.providers.spleeter_provider import SpleeterProvider
 from utils.providers.hq_segment_provider import HqSegmentProvider
+from utils.providers.mdx_provider import MdxProvider
 
 # Exceptions
 from utils.providers.exceptions import (
@@ -42,6 +44,7 @@ __all__ = [
     # Providers
     "SpleeterProvider",
     "HqSegmentProvider",
+    "MdxProvider",
     # Exceptions
     "ProviderError",
     "ProviderInitializationError",
