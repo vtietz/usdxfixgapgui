@@ -3,7 +3,9 @@ from actions.base_actions import BaseActions
 from actions.audio_actions import AudioActions
 from model.song import Song, SongStatus
 from model.gap_info import GapInfoStatus
+from model.usdx_file import USDXFile
 from services.gap_info_service import GapInfoService
+from services.usdx_file_service import USDXFileService
 from workers.detect_gap import DetectGapWorker, GapDetectionResult, DetectGapWorkerOptions
 from utils.run_async import run_async
 import utils.usdx as usdx
@@ -95,7 +97,7 @@ class GapActions(BaseActions):
         
         notes_overlap = usdx.get_notes_overlap(song_to_process.notes, silence_periods, detection_time)
         song_to_process.gap_info.notes_overlap = notes_overlap
-        run_async(song_to_process.gap_info.save())
+        run_async(GapInfoService.save(song_to_process.gap_info))
         self.data.songs.updated.emit(song_to_process)
 
     def update_gap_value(self, song: Song, gap: int):
@@ -104,14 +106,28 @@ class GapActions(BaseActions):
             logger.error("No song selected for updating gap value.")
             return
         
+        logger.info(f"Updating gap value for '{song_to_process.txt_file}' to {gap}")
+        
         # Update gap value and gap_info - status mapping happens via owner hook
         song_to_process.gap = gap
         song_to_process.gap_info.updated_gap = gap
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
         song_to_process.gap_info.status = GapInfoStatus.UPDATED
-        run_async(song_to_process.usdx_file.write_gap_tag(gap))
-        run_async(song_to_process.gap_info.save())
-        song_to_process.usdx_file.calculate_note_times()
+        
+        # Use USDXFileService to update gap tag in file
+        async def update_gap_tag():
+            usdx_file = USDXFile(song_to_process.txt_file)
+            await USDXFileService.load(usdx_file)
+            await USDXFileService.write_gap_tag(usdx_file, gap)
+            logger.debug(f"Gap tag written to {song_to_process.txt_file}")
+        
+        run_async(update_gap_tag())
+        
+        # Persist gap_info through service
+        run_async(GapInfoService.save(song_to_process.gap_info))
+        
+        # Recalculate note times with new gap value
+        self._recalculate_note_times(song_to_process)
         
         audio_actions = AudioActions(self.data)
         audio_actions._create_waveforms(song_to_process, True)
@@ -122,11 +138,25 @@ class GapActions(BaseActions):
         if not song_to_process:
             logger.error("No song selected for reverting gap value.")
             return
-            
+        
+        logger.info(f"Reverting gap value for '{song_to_process.txt_file}' to original: {song_to_process.gap_info.original_gap}")
+        
         song_to_process.gap = song_to_process.gap_info.original_gap
-        run_async(song_to_process.usdx_file.write_gap_tag(song_to_process.gap))
-        run_async(song_to_process.gap_info.save())
-        song_to_process.usdx_file.calculate_note_times()
+        
+        # Use USDXFileService to update gap tag in file
+        async def revert_gap_tag():
+            usdx_file = USDXFile(song_to_process.txt_file)
+            await USDXFileService.load(usdx_file)
+            await USDXFileService.write_gap_tag(usdx_file, song_to_process.gap)
+            logger.debug(f"Gap tag reverted in {song_to_process.txt_file}")
+        
+        run_async(revert_gap_tag())
+        
+        # Persist gap_info through service
+        run_async(GapInfoService.save(song_to_process.gap_info))
+        
+        # Recalculate note times with original gap value
+        self._recalculate_note_times(song_to_process)
         
         audio_actions = AudioActions(self.data)
         audio_actions._create_waveforms(song_to_process, True)
@@ -141,5 +171,27 @@ class GapActions(BaseActions):
         # Mark as solved - status mapping happens via owner hook
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
         song_to_process.gap_info.status = GapInfoStatus.SOLVED
-        run_async(song_to_process.gap_info.save())
+        run_async(GapInfoService.save(song_to_process.gap_info))
         self.data.songs.updated.emit(song_to_process)
+    
+    def _recalculate_note_times(self, song: Song):
+        """Recalculate note times based on current gap, bpm, and is_relative settings"""
+        if not song.notes or not song.bpm:
+            logger.warning(f"Cannot recalculate note times for {song.txt_file}: missing notes or BPM")
+            return
+        
+        logger.debug(f"Recalculating note times for {song.txt_file} with gap={song.gap}, bpm={song.bpm}")
+        
+        beats_per_ms = (song.bpm / 60 / 1000) * 4
+        
+        for note in song.notes:
+            if song.is_relative:
+                note.start_ms = note.StartBeat / beats_per_ms
+                note.end_ms = (note.StartBeat + note.Length) / beats_per_ms
+            else:
+                note.start_ms = song.gap + (note.StartBeat / beats_per_ms)
+                note.end_ms = song.gap + ((note.StartBeat + note.Length) / beats_per_ms)
+            note.duration_ms = note.end_ms - note.start_ms
+        
+        logger.debug(f"Note times recalculated for {song.txt_file}")
+

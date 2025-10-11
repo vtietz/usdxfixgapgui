@@ -170,6 +170,77 @@ class SongActions:
             shutil.rmtree(song.path)  # Tight coupling to file system
 ```
 
+**Service Usage Patterns - USDX File Operations:**
+
+```python
+# ✅ CORRECT: Use USDXFileService for file operations
+from model.usdx_file import USDXFile
+from services.usdx_file_service import USDXFileService
+
+async def update_gap_in_file(song: Song, new_gap: int):
+    # Create temporary USDXFile instance
+    usdx_file = USDXFile(song.txt_file)
+    
+    # Load file content through service
+    await USDXFileService.load(usdx_file)
+    
+    # Update GAP tag through service
+    await USDXFileService.write_gap_tag(usdx_file, new_gap)
+    
+    # Note: Service automatically saves changes
+
+# ❌ WRONG: Don't access non-existent song.usdx_file property
+def update_gap_bad(song: Song, new_gap: int):
+    # This will crash - Song has no usdx_file property!
+    song.usdx_file.write_gap_tag(new_gap)  # AttributeError!
+```
+
+**Service Usage Patterns - GapInfo Persistence:**
+
+```python
+# ✅ CORRECT: Use GapInfoService.save() for persistence
+from services.gap_info_service import GapInfoService
+
+def update_gap_info(song: Song):
+    song.gap_info.detected_gap = 1200
+    song.gap_info.status = GapInfoStatus.MATCH
+    
+    # Persist through service
+    await GapInfoService.save(song.gap_info)
+
+# ❌ WRONG: Don't call save() method on model
+def update_gap_info_bad(song: Song):
+    song.gap_info.detected_gap = 1200
+    
+    # Model-bound persistence violates service layer separation
+    await song.gap_info.save()  # Don't do this - use service instead
+```
+
+**Note Time Recalculation Pattern:**
+
+```python
+# ✅ CORRECT: Recalculate notes using song's BPM/gap data
+def recalculate_note_times(song: Song):
+    """Update note timings based on current song gap/bpm settings"""
+    if not song.notes or not song.bpm:
+        return
+    
+    beats_per_ms = (song.bpm / 60 / 1000) * 4
+    
+    for note in song.notes:
+        if song.is_relative:
+            note.start_ms = note.StartBeat / beats_per_ms
+            note.end_ms = (note.StartBeat + note.Length) / beats_per_ms
+        else:
+            note.start_ms = song.gap + (note.StartBeat / beats_per_ms)
+            note.end_ms = song.gap + ((note.StartBeat + note.Length) / beats_per_ms)
+        note.duration_ms = note.end_ms - note.start_ms
+
+# ❌ WRONG: Don't assume USDXFile instance exists on Song
+def recalculate_bad(song: Song):
+    song.usdx_file.calculate_note_times()  # AttributeError - no such property!
+```
+
 ## **2. Clean Code Practices**
 
 ### **Meaningful Names**
