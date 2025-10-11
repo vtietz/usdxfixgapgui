@@ -72,7 +72,8 @@ class CoreActions(BaseActions):
         if song.status == SongStatus.NOT_PROCESSED:
             song.gap_info.original_gap = song.gap
             # Only run auto-detection for single file loads, not bulk loads
-            if self.config.spleeter and hasattr(self, '_is_bulk_load') and not self._is_bulk_load:
+            # Auto-detection works with any configured method (spleeter, vad_preview, etc.)
+            if hasattr(self, '_is_bulk_load') and not self._is_bulk_load:
                 from actions.gap_actions import GapActions
                 gap_actions = GapActions(self.data)
                 gap_actions._detect_gap(song)

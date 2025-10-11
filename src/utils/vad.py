@@ -23,6 +23,7 @@ except ImportError:
 def convert_to_pcm_wav(audio_file: str, sample_rate: int = 16000) -> str:
     """
     Convert audio file to PCM WAV format suitable for VAD.
+    Applies vocal-range band-pass filter to reduce music bias.
     
     Args:
         audio_file: Path to input audio file
@@ -36,12 +37,15 @@ def convert_to_pcm_wav(audio_file: str, sample_rate: int = 16000) -> str:
     temp_dir = os.path.dirname(audio_file)
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='_vad.wav', dir=temp_dir).name
     
-    # Convert to mono PCM WAV with specific sample rate
+    # Convert to mono PCM WAV with vocal-range band-pass filter
+    # highpass=80Hz removes low-frequency rumble and bass
+    # lowpass=8000Hz removes high-frequency noise and focuses on vocal range
     command = [
         'ffmpeg', '-y', '-i', audio_file,
         '-acodec', 'pcm_s16le',  # 16-bit PCM
         '-ac', '1',               # Mono
         '-ar', str(sample_rate),  # Sample rate
+        '-af', 'highpass=f=80,lowpass=f=8000',  # Vocal-range band-pass filter
         temp_file
     ]
     

@@ -234,16 +234,17 @@ class VadPreviewProvider(IDetectionProvider):
         vocals_file: str,
         check_cancellation: Optional[callable] = None
     ) -> List[Tuple[float, float]]:
-        """Detect speech segments using VAD on harmonic component."""
+        """Detect speech segments using VAD on harmonic component of original audio."""
         from utils.vad import detect_speech_segments_vad
         from utils.hpss import extract_harmonic_only
         
         logger.debug("Detecting speech segments using VAD on harmonic component")
         
         try:
-            # Extract harmonic component for vocal-focused VAD
+            # Extract harmonic component from ORIGINAL audio for vocal-focused VAD
+            # This ensures we analyze the actual audio content, not a placeholder
             harmonic_file = extract_harmonic_only(
-                vocals_file,
+                audio_file,  # Changed from vocals_file to audio_file
                 check_cancellation=check_cancellation
             )
             

@@ -56,10 +56,10 @@ class GapActions(BaseActions):
         self._queue_tasks_non_blocking(selected_songs, self._detect_gap_if_valid)
     
     def _detect_gap_if_valid(self, song, is_first):
-        if song.audio_file and self.config.spleeter:
+        if song.audio_file:
             self._detect_gap(song, self._overwrite_gap, is_first)
         else:
-            logger.warning(f"Skipping gap detection for '{song.title}': No audio file or Spleeter not configured.")
+            logger.warning(f"Skipping gap detection for '{song.title}': No audio file found.")
 
     def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
         # Validate that the result matches the song

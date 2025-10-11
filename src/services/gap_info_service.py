@@ -71,8 +71,10 @@ class GapInfoService:
             gap_info.processed_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             # Prepare data for serialization
+            # Handle None status gracefully (can occur when detection fails)
+            status_value = gap_info.status.value if gap_info.status else "ERROR"
             data = {
-                "status": gap_info.status.value,
+                "status": status_value,
                 "original_gap": gap_info.original_gap,
                 "detected_gap": gap_info.detected_gap,
                 "updated_gap": gap_info.updated_gap,

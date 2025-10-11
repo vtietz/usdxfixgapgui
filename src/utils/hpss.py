@@ -260,3 +260,67 @@ def compute_spectral_flux(
     except Exception as e:
         logger.warning(f"Error computing spectral flux: {e}")
         return 0.5
+
+
+def find_flux_peak(
+    audio_file: str,
+    center_ms: float,
+    window_ms: int = 150,
+    check_cancellation: Optional[callable] = None
+) -> Optional[float]:
+    """
+    Find the spectral flux peak (onset) within a window around center_ms.
+    
+    Args:
+        audio_file: Path to audio file
+        center_ms: Center time point in milliseconds
+        window_ms: Search window size in milliseconds (±window_ms/2 from center)
+        check_cancellation: Optional cancellation check callback
+        
+    Returns:
+        Time in ms of the flux peak, or None if unavailable
+    """
+    if not LIBROSA_AVAILABLE:
+        logger.warning("librosa not available, cannot perform flux snap")
+        return None
+    
+    try:
+        # Load audio
+        y, sr = librosa.load(audio_file, sr=None, mono=True)
+        
+        if check_cancellation and check_cancellation():
+            return None
+        
+        # Convert time to samples
+        center_samples = int(center_ms * sr / 1000)
+        window_samples = int(window_ms * sr / 1000)
+        
+        start_sample = max(0, center_samples - window_samples // 2)
+        end_sample = min(len(y), center_samples + window_samples // 2)
+        
+        # Extract window
+        y_window = y[start_sample:end_sample]
+        
+        # Compute onset strength envelope
+        onset_env = librosa.onset.onset_strength(y=y_window, sr=sr)
+        
+        if len(onset_env) == 0:
+            logger.warning("No onset envelope computed")
+            return None
+        
+        # Find peak position in onset envelope
+        peak_idx = int(np.argmax(onset_env))
+        
+        # Convert back to milliseconds relative to original audio
+        # onset_strength downsamples by default, need to account for hop_length
+        hop_length = 512  # librosa default
+        peak_sample_in_window = peak_idx * hop_length
+        peak_sample_absolute = start_sample + peak_sample_in_window
+        peak_ms = float(peak_sample_absolute * 1000 / sr)
+        
+        logger.debug(f"Flux peak found at {peak_ms:.1f}ms (original: {center_ms:.1f}ms, diff: {peak_ms - center_ms:+.1f}ms)")
+        return peak_ms
+        
+    except Exception as e:
+        logger.warning(f"Error finding flux peak: {e}")
+        return None

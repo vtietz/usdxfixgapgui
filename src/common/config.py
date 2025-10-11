@@ -91,6 +91,7 @@ class Config(QObject):
             'vad_min_speech_ms': '120',
             'vad_min_silence_ms': '200',
             'flux_snap_window_ms': '150',
+            'flux_snap_enabled': 'true',  # Enable spectral flux snapping for onset refinement
             'vad_aggressiveness': '3'  # WebRTC VAD: 0-3, higher = more aggressive
         }
         
@@ -152,6 +153,7 @@ class Config(QObject):
         self.vad_min_speech_ms = self._config.getint('vad_preview', 'vad_min_speech_ms')
         self.vad_min_silence_ms = self._config.getint('vad_preview', 'vad_min_silence_ms')
         self.flux_snap_window_ms = self._config.getint('vad_preview', 'flux_snap_window_ms')
+        self.flux_snap_enabled = self._config.getboolean('vad_preview', 'flux_snap_enabled')
         self.vad_aggressiveness = self._config.getint('vad_preview', 'vad_aggressiveness')
         
         # HQ Segment settings

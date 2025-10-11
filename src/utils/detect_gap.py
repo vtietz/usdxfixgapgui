@@ -73,6 +73,46 @@ def detect_nearest_gap(silence_periods: List[Tuple[float, float]], start_positio
     else:
         return None
 
+
+def detect_nearest_speech_start(speech_segments: List[Tuple[float, float]], start_position_ms: float) -> int:
+    """
+    Detect the nearest speech start boundary relative to the given start position.
+    
+    Unlike detect_nearest_gap which looks for silence boundaries, this function
+    looks specifically for the START of speech segments (vocal onset points).
+    
+    Args:
+        speech_segments: List of (start_ms, end_ms) tuples representing speech periods
+        start_position_ms: Reference position in milliseconds (typically original gap)
+        
+    Returns:
+        Position in ms of the nearest speech segment start, or None if no segments found
+    """
+    logger.debug(f"Detecting nearest speech start relative to {start_position_ms}ms")
+    logger.debug(f"Speech segments: {speech_segments}")
+    
+    if not speech_segments:
+        logger.warning("No speech segments provided")
+        return None
+    
+    closest_start_ms = None
+    closest_diff_ms = float('inf')
+    
+    # Only evaluate the START of each speech segment (vocal onset)
+    for start_ms, end_ms in speech_segments:
+        diff = abs(start_ms - start_position_ms)
+        
+        if diff < closest_diff_ms:
+            closest_diff_ms = diff
+            closest_start_ms = start_ms
+    
+    if closest_start_ms is not None:
+        logger.debug(f"Found nearest speech start at {closest_start_ms}ms (diff: {closest_diff_ms}ms)")
+        return int(closest_start_ms)
+    else:
+        logger.warning("No speech start found")
+        return None
+
 def get_vocals_file(
         audio_file, 
         temp_root, 
@@ -201,7 +241,18 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
                 check_cancellation=check_cancellation
             )
         
-        detected_gap = detect_nearest_gap(silence_periods, options.original_gap)
+        # Select gap detection method based on provider type
+        # VAD returns speech segments, so we look for speech START (vocal onset)
+        # Spleeter returns silence periods, so we look for silence boundaries
+        if detection_method == "vad_preview":
+            # For VAD: speech_segments are returned, find nearest speech START
+            detected_gap = detect_nearest_speech_start(silence_periods, options.original_gap)
+            logger.debug(f"Using speech-start detection for {detection_method}")
+        else:
+            # For Spleeter and others: use traditional silence boundary detection
+            detected_gap = detect_nearest_gap(silence_periods, options.original_gap)
+            logger.debug(f"Using silence-boundary detection for {detection_method}")
+        
         if detected_gap is None:
             raise Exception(f"Failed to detect gap in {options.audio_file}")
         
@@ -213,6 +264,29 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
  
         if options.audio_length and detection_time >= options.audio_length and detected_gap > options.audio_length:
             raise Exception(f"Error: Unable to detect gap within the length of the audio: {options.audio_file}")
+
+    # Apply spectral flux snapping if enabled (vad_preview only)
+    original_detected_gap = detected_gap
+    if (detection_method == "vad_preview" and 
+        options.config and 
+        options.config.flux_snap_enabled):
+        try:
+            from utils.hpss import find_flux_peak
+            
+            flux_peak_ms = find_flux_peak(
+                options.audio_file,
+                float(detected_gap),
+                window_ms=options.config.flux_snap_window_ms,
+                check_cancellation=check_cancellation
+            )
+            
+            if flux_peak_ms is not None:
+                detected_gap = int(flux_peak_ms)
+                logger.info(f"Flux snap: {original_detected_gap}ms → {detected_gap}ms (Δ{detected_gap - original_detected_gap:+d}ms)")
+            else:
+                logger.debug("Flux snap unavailable, using original detection")
+        except Exception as e:
+            logger.warning(f"Flux snap failed: {e}, using original detection")
 
     logger.info(f"Detected GAP: {detected_gap}ms in {options.audio_file}")
 

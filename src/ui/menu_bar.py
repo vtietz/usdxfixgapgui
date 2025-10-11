@@ -131,7 +131,8 @@ class MenuBar(QWidget):
         self.delete_button.setEnabled(has_selection)
 
         # Enable detect/normalize if at least one selected song is suitable
-        can_detect = has_selection and any(s.audio_file and self.config.spleeter for s in songs)
+        # Detection works with any method (spleeter, vad_preview, hq_segment)
+        can_detect = has_selection and any(s.audio_file for s in songs)
         self.detectButton.setEnabled(can_detect)
 
         can_normalize = has_selection and any(s.audio_file for s in songs)
