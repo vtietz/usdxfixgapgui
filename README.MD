@@ -14,16 +14,16 @@ Ultrastar Deluxe (USDX) Fix Gap Gui is a Python application designed to scan a d
 
 This semi-automatic tool helps to validate the GAP value after "downloading" songs from [USDB](https://usdb.animux.de/) using [USDB Syncer](https://github.com/bohning/usdb_syncer). Since audio files are created from YouTube videos, the GAP value sometimes does not match. Additionally, the community may not always update or set the correct GAP value for the video. This tool addresses these issues by verifying and suggesting the correct GAP values to a bunch of song files to ensure accurate synchronization.
 
-The app uses `spleeter` to separate vocals from music with help of AI, detect silence parts, and suggest a correct GAP value if a mismatch is found. The suggested GAP value is marked on a waveform, allowing the user to decide which value should be chosen.
+The app uses AI-powered vocal separation (Demucs) with intelligent chunked scanning to detect silence parts and suggest correct GAP values. The suggested GAP value is marked on a waveform, allowing the user to decide which value should be chosen.
 
 ## Features
 
 - Scans directories for Ultrastar files.
-- **Multiple detection methods**: Choose between fast VAD-based detection or traditional Spleeter separation
-  - **vad_preview** (default): Fast CPU-only detection using Voice Activity Detection and HPSS (~0.5-2s)
-  - **spleeter** (legacy): Full stem separation for high-quality vocal isolation (~30-60s)
-  - **hq_segment**: Windowed Spleeter for balanced speed/quality (~3-5s)
-  - See [Detection Providers Documentation](docs/detection-providers.md) for detailed comparison
+- **Multiple detection methods**: Choose between fast chunked scanning or traditional full-track separation
+  - **mdx** (default): Fast Demucs-based chunked scanning with early-stop (~5-15s, GPU accelerated)
+  - **spleeter**: Full stem separation for high-quality vocal isolation (~30-60s)
+  - **hq_segment**: Windowed Spleeter for balanced speed/quality (~15-25s)
+  - See [MDX Provider Documentation](docs/mdx-provider-implementation.md) for detailed comparison
 - Detects silence parts and vocal onsets to verify the accuracy of the GAP value.
 - Provides a graphical user interface (GUI) to visualize the waveform and suggested GAP values.
 - Allows users to manually choose the correct GAP value if mismatched.
@@ -44,18 +44,23 @@ The app uses `spleeter` to separate vocals from music with help of AI, detect si
 
 1. **Load Songs:** Load Ultrastar songs from the specified directory.
 2. **Detect Gap:** The application uses one of the following methods:
-   - **VAD Preview (Default)**: Fast onset detection using Voice Activity Detection on harmonic audio
-     - Applies vocal-range band-pass filter (80Hz-8kHz)
-     - Identifies speech segments and finds nearest vocal onset
-     - Optionally snaps to spectral flux peak for precise onset timing
-   - **Spleeter (Legacy)**: Full vocal separation using AI-powered stem separation
+   - **MDX (Default)**: Fast chunked scanning using Demucs vocal separation
+     - Processes audio in 12s chunks with 50% overlap
+     - Runs Demucs separation on each chunk for clean vocal stems
+     - Detects onset using adaptive energy threshold on vocals
+     - **Early-stop optimization**: Stops as soon as first onset found (3-5x faster)
+     - GPU accelerated for best performance
+   - **Spleeter**: Full vocal separation using AI-powered stem separation
      - Separates vocals from accompaniment across entire track
-     - Detects silence boundaries in isolated vocal stem
+     - Highest accuracy but slower processing
+   - **HQ Segment**: Windowed Spleeter for balanced speed/quality
+     - Separates vocals only in detection window
+     - Faster than full Spleeter, maintains quality
 3. **Check Gap:** Verifies if the given GAP value matches the detected vocal onset.
-4. **Display Results:** Displays the results in the GUI, showing the detected GAP, difference, confidence score, and status (MATCH or MISMATCH).
+4. **Display Results:** Displays the results in the GUI, showing the detected GAP, difference, confidence score (SNR-based), and status (MATCH or MISMATCH).
 5. **Manual Adjustment:** If a mismatch is detected, the user can view the suggested GAP on the waveform and manually choose the correct value.
 
-For detailed information about detection methods, provider semantics, and "extracted voices" behavior, see the [Detection Providers Documentation](docs/detection-providers.md).
+For detailed information about the MDX implementation, see the [MDX Provider Documentation](docs/mdx-provider-implementation.md).
 
 ## Installation
 
@@ -198,25 +203,28 @@ The configuration is managed through a `config.ini` file located in the `src` di
 - **adjust_player_position_step_vocals**: Milliseconds to move when navigating vocals track with arrow keys
 
 #### [Processing]
-- **method**: Detection method to use (vad_preview, spleeter, hq_segment)
-  - **vad_preview** (default): Fast CPU-only detection using VAD and HPSS
-  - **spleeter**: Traditional full stem separation (slower but proven)
+- **method**: Detection method to use (mdx, spleeter, hq_segment)
+  - **mdx** (default): Fast Demucs-based chunked scanning with early-stop (GPU accelerated)
+  - **spleeter**: Full stem separation (slower but highest accuracy)
   - **hq_segment**: Windowed Spleeter for balanced speed/quality
 - **normalization_level**: Target level in dB for audio normalization
 - **auto_normalize**: Whether to automatically normalize audio after gap detection (true/false)
 
+#### [mdx] (for mdx method - optional, uses defaults if missing)
+- **chunk_duration_ms**: Duration of each chunk in milliseconds (default: 12000)
+- **chunk_overlap_ms**: Overlap between chunks for robustness (default: 6000)
+- **frame_duration_ms**: Frame size for RMS computation (default: 25)
+- **hop_duration_ms**: Hop size for RMS analysis (default: 10)
+- **noise_floor_duration_ms**: Duration to estimate noise floor (default: 800)
+- **onset_snr_threshold**: SNR threshold for onset detection (default: 2.5)
+- **min_voiced_duration_ms**: Minimum sustained vocal duration (default: 180)
+- **hysteresis_ms**: Hysteresis for stability (default: 80)
+- **confidence_threshold**: Minimum confidence for detection (default: 0.55)
+- **preview_pre_ms**: Preview window before onset (default: 3000)
+- **preview_post_ms**: Preview window after onset (default: 9000)
+
 #### [spleeter] (for spleeter method)
 - **silence_detect_params**: FFmpeg parameters for silence detection
-
-#### [vad_preview] (for vad_preview method)
-- **preview_pre_ms**: Milliseconds before gap to include in preview (default: 3000)
-- **preview_post_ms**: Milliseconds after gap to include in preview (default: 9000)
-- **vad_frame_ms**: VAD frame duration in ms - 10, 20, or 30 (default: 30)
-- **vad_min_speech_ms**: Minimum speech segment duration (default: 120)
-- **vad_min_silence_ms**: Minimum silence to split segments (default: 200)
-- **flux_snap_window_ms**: Window for spectral flux onset snap (default: 150)
-- **flux_snap_enabled**: Enable/disable onset snap refinement (default: true)
-- **vad_aggressiveness**: VAD sensitivity 0-3, higher = more aggressive (default: 3)
 
 #### [hq_segment] (for hq_segment method)
 - **hq_preview_pre_ms**: Preview window before gap (default: 3000)
@@ -224,11 +232,11 @@ The configuration is managed through a `config.ini` file located in the `src` di
 - **silence_detect_params**: FFmpeg parameters for silence detection (same as spleeter)
 
 **Important**: The "extracted voices" you receive depends on the method:
-- **vad_preview**: Returns a vocal-forward **preview snippet** (NOT isolated vocals) for debugging
-- **spleeter**: Returns a true **isolated vocal stem** for the entire track
+- **mdx**: Returns a true **isolated vocal stem** for the entire track (Demucs separation)
+- **spleeter**: Returns a true **isolated vocal stem** for the entire track (Spleeter separation)
 - **hq_segment**: Returns a true **local vocal stem** for the preview window only (windowed Spleeter)
 
-See [Detection Providers Documentation](docs/detection-providers.md) for detailed information about each method and what "extracted voices" means for each provider.
+See [MDX Provider Documentation](docs/mdx-provider-implementation.md) for detailed information about the MDX method and its performance characteristics.
 
 You can modify these settings by editing the `config.ini` file with a text editor.
 
@@ -274,7 +282,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 - [USDB Syncer](https://github.com/bohning/usdb_syncer) for "downloading" USDX files from USDB
 - [USDB](https://usdb.animux.de/) the awesome USD community creating and maintaining karaoke songs
+- [Demucs](https://github.com/facebookresearch/demucs) by Meta Research for state-of-the-art audio separation (default method)
 - [Spleeter](https://github.com/deezer/spleeter) by Deezer for audio separation (legacy method)
-- [Librosa](https://librosa.org/) for HPSS and audio analysis (VAD preview method)
-- [WebRTC VAD](https://github.com/wiseman/py-webrtcvad) for voice activity detection
-- [ffmpeg](https://github.com/FFmpeg) for detecting silence parts and normalization
+- [PyTorch](https://pytorch.org/) for deep learning framework
+- [ffmpeg](https://github.com/FFmpeg) for audio processing and normalization

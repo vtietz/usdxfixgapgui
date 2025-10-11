@@ -161,6 +161,7 @@ class HqSegmentProvider(IDetectionProvider):
         self,
         audio_file: str,
         vocals_file: str,
+        original_gap_ms: Optional[float] = None,
         check_cancellation: Optional[Callable[[], bool]] = None
     ) -> List[Tuple[float, float]]:
         """

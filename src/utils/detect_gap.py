@@ -180,6 +180,7 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
             silence_periods = provider.detect_silence_periods(
                 options.audio_file,
                 vocals_file,
+                original_gap_ms=float(options.original_gap),
                 check_cancellation=check_cancellation
             )
         else:
