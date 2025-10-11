@@ -93,21 +93,54 @@ return result
 ```
 
 ### **Testing**
-```python
-# Use existing test patterns from tests/ directory
-python -m pytest tests/ -v  # Auto-imports from src/
+
+**IMPORTANT: Always use the conda environment via run.bat**
+
+The project uses a conda environment for consistent dependencies. Never run tests or commands directly - always use `run.bat`:
+
+```bash
+# ✅ CORRECT - Run tests using conda environment
+run.bat test              # Runs pytest with proper environment
+
+# ❌ WRONG - Don't run tests directly
+python -m pytest tests/ -v  # May fail due to missing dependencies
+pytest tests/ -v            # May use wrong Python version
+
+# Other useful run.bat commands:
+run.bat start             # Start the application
+run.bat install           # Install/update dependencies
+run.bat clean             # Clean cache and temporary files
+run.bat shell             # Interactive Python shell
+run.bat info              # Show environment info
 ```
+
+**Test patterns:**
+- Use existing test patterns from `tests/` directory
+- Tests auto-import from `src/` when run via `run.bat test`
+- Mock services with `patch('actions.module.Service')`
+- Follow pytest conventions for test naming: `test_*.py` and `test_*()` functions
 
 ## **Development Setup**
 
+**Windows:**
 ```bash
-# ✅ Dependencies
-pip install PySide6 spleeter pillow aiofiles pytest
-# Requires ffmpeg on PATH
+# ✅ Initial setup (run.bat handles environment creation automatically)
+run.bat install           # Creates conda env and installs dependencies
 
-# ✅ Build (Windows)
+# ✅ Run application
+run.bat start
+
+# ✅ Run tests
+run.bat test
+
+# ✅ Build executable
 build.bat  # PyInstaller with assets
 ```
+
+**Requirements:**
+- Anaconda or Miniconda installed and in PATH
+- ffmpeg on PATH (for audio processing)
+- Python 3.8+ (managed by conda environment)
 
 ## **Common Gotchas**
 
@@ -142,8 +175,14 @@ threading.Thread(target=...).start()  # Don't do this
 
 ### **Common Commands**
 ```bash
-python -m pytest tests/ -v        # Run tests
-build.bat                          # Build Windows executable
+# Use run.bat for all commands to ensure proper environment
+run.bat test              # Run tests with pytest
+run.bat start             # Start the application
+run.bat install           # Install/update dependencies
+run.bat clean             # Clean cache files
+run.bat shell             # Interactive Python shell
+run.bat info              # Show environment information
+build.bat                 # Build Windows executable
 ```
 
 ### **File Patterns**

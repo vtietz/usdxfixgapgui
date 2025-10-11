@@ -26,6 +26,18 @@ class Songs(QObject):
         self.songs.append(song)
         self.added.emit(song)
         self.listChanged.emit()  # Emit list changed signal
+    
+    def add_batch(self, songs: List[Song]):
+        """Add multiple songs at once - more efficient than adding one by one."""
+        if not songs:
+            return
+        
+        self.songs.extend(songs)
+        # Emit added signal for each song for compatibility
+        for song in songs:
+            self.added.emit(song)
+        # Only emit list changed once at the end
+        self.listChanged.emit()
 
     def remove(self, song: Song):
         self.songs.remove(song)

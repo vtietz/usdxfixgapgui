@@ -23,6 +23,8 @@ def mock_app_data():
     data.first_selected_song = None
     data.config = Mock()
     data.config.auto_normalize = False
+    # Add worker_queue mock required by BaseActions
+    data.worker_queue = Mock()
     return data
 
 

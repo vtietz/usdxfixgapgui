@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class WorkerSignals(IWorkerSignals):
     songLoaded = Signal(Song) 
+    songsLoadedBatch = Signal(list)  # Batch signal for better performance
     cacheCleanup = Signal(int)  # Signal to report stale cache entries cleaned up
 
 class LoadUsdxFilesWorker(IWorker):
@@ -24,6 +25,22 @@ class LoadUsdxFilesWorker(IWorker):
         self.loaded_paths = set()  # Track files we've loaded to detect stale cache entries
         self.reload_single_file = None  # Path to single file to reload (when used for reload)
         self.song_service = SongService()  # Create song service
+        
+        # Batching for performance
+        self.batch_size = 50  # Emit songs in batches of 50
+        self.current_batch = []
+    
+    def _add_to_batch(self, song: Song):
+        """Add song to batch and emit if batch is full."""
+        self.current_batch.append(song)
+        if len(self.current_batch) >= self.batch_size:
+            self._flush_batch()
+    
+    def _flush_batch(self):
+        """Emit current batch of songs."""
+        if self.current_batch:
+            self.signals.songsLoadedBatch.emit(self.current_batch.copy())
+            self.current_batch.clear()
 
     async def load(self, txt_file_path, force_reload=False) -> Song:
         """Load a song from file, optionally forcing reload."""
@@ -57,6 +74,7 @@ class LoadUsdxFilesWorker(IWorker):
         
         for file_path, song in deserialized_songs.items():
             if self.is_cancelled():
+                self._flush_batch()  # Flush any remaining songs
                 return
             
             # Ensure path exists and song is valid
@@ -66,10 +84,13 @@ class LoadUsdxFilesWorker(IWorker):
             # Update USDB ID if needed
             song.usdb_id = self.path_usdb_id_map.get(song.path, song.usdb_id)
             
-            # Emit the loaded song
-            self.signals.songLoaded.emit(song)
+            # Add to batch instead of emitting individually
+            self._add_to_batch(song)
             self.loaded_paths.add(file_path)
             self.signals.progress.emit()
+        
+        # Flush any remaining songs in batch
+        self._flush_batch()
 
     async def scan_directory(self):
         """Scan directory for new or changed songs."""
@@ -79,11 +100,13 @@ class LoadUsdxFilesWorker(IWorker):
         for root, dirs, files in os.walk(self.directory):
             self.description = f"Searching song files in {root}"
             if self.is_cancelled(): 
+                self._flush_batch()  # Flush any remaining songs
                 return
 
             for file in files:
                 # Check for cancellation on every file
                 if self.is_cancelled(): 
+                    self._flush_batch()  # Flush any remaining songs
                     return
                 
                 if file.endswith(".usdb"):
@@ -93,6 +116,7 @@ class LoadUsdxFilesWorker(IWorker):
                 if file.endswith(".txt"):
                     # Check for cancellation again before heavy operation
                     if self.is_cancelled():
+                        self._flush_batch()  # Flush any remaining songs
                         return
                         
                     song_path = os.path.join(root, file)
@@ -103,12 +127,15 @@ class LoadUsdxFilesWorker(IWorker):
                     
                     song = await self.load(song_path)
                     if song:
-                        self.signals.songLoaded.emit(song)
+                        self._add_to_batch(song)  # Add to batch instead of emitting
                         self.loaded_paths.add(song_path)
                         
                 self.signals.progress.emit()
             
             self.signals.progress.emit()
+        
+        # Flush any remaining songs in batch
+        self._flush_batch()
 
     async def cleanup_cache(self):
         """Clean up stale cache entries."""

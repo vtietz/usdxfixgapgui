@@ -16,6 +16,14 @@ class SongTableModel(QAbstractTableModel):
         self.songs_model = songs_model
         self.songs: List[Song] = list(self.songs_model.songs)
         self.pending_songs = []
+        
+        # Performance optimizations
+        self._row_cache = {}  # Cache for expensive computations
+        self._is_streaming = False  # Flag for async loading
+        self._dirty_rows = set()  # For throttled dataChanged emissions
+        self._update_timer = QTimer()
+        self._update_timer.setInterval(33)  # 33ms coalescing
+        self._update_timer.timeout.connect(self._emit_coalesced_updates)
 
         # Connect signals
         self.songs_model.added.connect(self.song_added)
@@ -23,10 +31,13 @@ class SongTableModel(QAbstractTableModel):
         self.songs_model.deleted.connect(self.song_deleted)
         self.songs_model.cleared.connect(self.songs_cleared)
 
-        # Timer for adding pending songs
+        # Timer for adding pending songs - reduced for better responsiveness
         self.timer = QTimer()
-        self.timer.setInterval(1000)
+        self.timer.setInterval(100)  # 100ms instead of 1000ms for better UX
         self.timer.timeout.connect(self.add_pending_songs)
+        
+        # Build initial cache
+        self._rebuild_cache()
 
     def song_added(self, song: Song):
         self.pending_songs.append(song)
@@ -38,15 +49,81 @@ class SongTableModel(QAbstractTableModel):
         if self.pending_songs:
             self.beginInsertRows(QModelIndex(), len(self.songs), len(self.songs) + len(self.pending_songs) - 1)
             self.songs.extend(self.pending_songs)
+            # Populate cache for newly added songs
+            for song in self.pending_songs:
+                self._add_to_cache(song)
             self.pending_songs.clear()
             self.endInsertRows()
         if not self.pending_songs:
             self.timer.stop()
+    
+    def _rebuild_cache(self):
+        """Rebuild the entire cache from current songs list."""
+        self._row_cache.clear()
+        for song in self.songs:
+            self._add_to_cache(song)
+    
+    def _add_to_cache(self, song: Song):
+        """Add a single song to the cache."""
+        self._row_cache[song.path] = {
+            'relative_path': files.get_relative_path(self.app_data.directory, song.path),
+            'artist_lower': song.artist.lower(),
+            'title_lower': song.title.lower()
+        }
+    
+    def _update_cache(self, song: Song):
+        """Update cache entry for a song."""
+        if song.path in self._row_cache:
+            self._row_cache[song.path]['artist_lower'] = song.artist.lower()
+            self._row_cache[song.path]['title_lower'] = song.title.lower()
+    
+    def _remove_from_cache(self, song: Song):
+        """Remove a song from the cache."""
+        self._row_cache.pop(song.path, None)
+    
+    def _emit_coalesced_updates(self):
+        """Emit dataChanged for accumulated dirty rows."""
+        if not self._dirty_rows:
+            return
+        
+        # Sort dirty rows and emit ranges
+        sorted_rows = sorted(self._dirty_rows)
+        if not sorted_rows:
+            return
+        
+        # Emit contiguous ranges
+        start_row = sorted_rows[0]
+        end_row = sorted_rows[0]
+        
+        for row in sorted_rows[1:]:
+            if row == end_row + 1:
+                end_row = row
+            else:
+                # Emit current range
+                self.dataChanged.emit(
+                    self.createIndex(start_row, 0),
+                    self.createIndex(end_row, self.columnCount() - 1)
+                )
+                start_row = row
+                end_row = row
+        
+        # Emit final range
+        self.dataChanged.emit(
+            self.createIndex(start_row, 0),
+            self.createIndex(end_row, self.columnCount() - 1)
+        )
+        
+        self._dirty_rows.clear()
 
     def song_updated(self, song: Song):
         for idx, s in enumerate(self.songs):
             if s.path == song.path:
-                self.dataChanged.emit(self.createIndex(idx, 0), self.createIndex(idx, self.columnCount() - 1))
+                # Update cache
+                self._update_cache(song)
+                # Add to dirty rows for coalesced update
+                self._dirty_rows.add(idx)
+                if not self._update_timer.isActive():
+                    self._update_timer.start()
                 logger.info(f"Updated song: {song}")
                 return
         logger.error(f"Song not found: {song}")
@@ -56,6 +133,7 @@ class SongTableModel(QAbstractTableModel):
             row_index = self.songs.index(song)
             self.beginRemoveRows(QModelIndex(), row_index, row_index)
             self.songs.pop(row_index)
+            self._remove_from_cache(song)
             self.endRemoveRows()
             logger.info(f"Deleted song: {song}")
         except ValueError:
@@ -64,6 +142,7 @@ class SongTableModel(QAbstractTableModel):
     def songs_cleared(self):
         self.beginResetModel()
         self.songs.clear()
+        self._row_cache.clear()
         self.endResetModel()
 
     def rowCount(self, parent=QModelIndex()):
@@ -80,20 +159,34 @@ class SongTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.UserRole:
             return song
         elif role == Qt.ItemDataRole.DisplayRole:
-            return [
-                files.get_relative_path(self.app_data.directory, song.path),
-                song.artist,
-                song.title,
-                song.duration_str,
-                str(song.bpm),
-                str(song.gap),
-                str(song.gap_info.detected_gap) if song.gap_info else "",
-                str(song.gap_info.diff) if song.gap_info else "",
-                str(song.gap_info.notes_overlap) if song.gap_info else "",
-                song.gap_info.processed_time if song.gap_info else "",
-                song.normalized_str,
-                f"ERROR: {song.error_message}" if song.status == SongStatus.ERROR else song.status.name,
-            ][column]
+            # Use cached values where available
+            cache_entry = self._row_cache.get(song.path)
+            
+            if column == 0:
+                # Use cached relative path
+                return cache_entry['relative_path'] if cache_entry else files.get_relative_path(self.app_data.directory, song.path)
+            elif column == 1:
+                return song.artist
+            elif column == 2:
+                return song.title
+            elif column == 3:
+                return song.duration_str
+            elif column == 4:
+                return str(song.bpm)
+            elif column == 5:
+                return str(song.gap)
+            elif column == 6:
+                return str(song.gap_info.detected_gap) if song.gap_info else ""
+            elif column == 7:
+                return str(song.gap_info.diff) if song.gap_info else ""
+            elif column == 8:
+                return str(song.gap_info.notes_overlap) if song.gap_info else ""
+            elif column == 9:
+                return song.gap_info.processed_time if song.gap_info else ""
+            elif column == 10:
+                return song.normalized_str
+            elif column == 11:
+                return f"ERROR: {song.error_message}" if song.status == SongStatus.ERROR else song.status.name
         elif role == Qt.ItemDataRole.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter if 3 <= column <= 8 or column == 10 else Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         elif role == Qt.ItemDataRole.BackgroundRole and song.status == SongStatus.ERROR:
@@ -105,9 +198,74 @@ class SongTableModel(QAbstractTableModel):
             return ["Path", "Artist", "Title", "Length", "BPM", "Gap", "Detected Gap", "Diff", "Notes", "Time", "Normalized", "Status"][section]
         return None
 
-    def sort(self, column, order):
+    def sort(self, column, order=Qt.SortOrder.AscendingOrder):
+        """Optimized sort using direct attribute access instead of data() calls."""
         self.layoutAboutToBeChanged.emit()
-        self.songs.sort(key=lambda song: self.data(self.createIndex(self.songs.index(song), column), Qt.ItemDataRole.DisplayRole))
+        
+        # Define sort key function based on column
+        def get_sort_key(song: Song):
+            cache_entry = self._row_cache.get(song.path)
+            
+            if column == 0:  # Path
+                return cache_entry['relative_path'] if cache_entry else files.get_relative_path(self.app_data.directory, song.path)
+            elif column == 1:  # Artist
+                return song.artist.lower()
+            elif column == 2:  # Title
+                return song.title.lower()
+            elif column == 3:  # Duration
+                return song.duration_ms if song.duration_ms else 0
+            elif column == 4:  # BPM
+                return song.bpm if song.bpm else 0
+            elif column == 5:  # Gap
+                return song.gap if song.gap else 0
+            elif column == 6:  # Detected Gap
+                return song.gap_info.detected_gap if song.gap_info and song.gap_info.detected_gap else 0
+            elif column == 7:  # Diff
+                return song.gap_info.diff if song.gap_info and song.gap_info.diff else 0
+            elif column == 8:  # Notes Overlap
+                return song.gap_info.notes_overlap if song.gap_info and song.gap_info.notes_overlap else 0
+            elif column == 9:  # Time
+                return song.gap_info.processed_time if song.gap_info and song.gap_info.processed_time else ""
+            elif column == 10:  # Normalized
+                return 1 if song.gap_info and song.gap_info.is_normalized else 0
+            elif column == 11:  # Status
+                return song.status.name
+            else:
+                return ""
+        
+        self.songs.sort(key=get_sort_key)
         if order == Qt.SortOrder.DescendingOrder:
             self.songs.reverse()
         self.layoutChanged.emit()
+    
+    # Streaming API for chunked async loading
+    def load_data_async_start(self, total_count=0):
+        """Start async data loading - clears existing data and prepares for streaming."""
+        self._is_streaming = True
+        self.beginResetModel()
+        self.songs.clear()
+        self._row_cache.clear()
+        self.endResetModel()
+        logger.info(f"Started async loading, expecting {total_count} songs")
+    
+    def load_data_async_append(self, chunk_songs: List[Song]):
+        """Append a chunk of songs during async loading."""
+        if not chunk_songs:
+            return
+        
+        start_row = len(self.songs)
+        end_row = start_row + len(chunk_songs) - 1
+        
+        self.beginInsertRows(QModelIndex(), start_row, end_row)
+        self.songs.extend(chunk_songs)
+        # Populate cache for the chunk
+        for song in chunk_songs:
+            self._add_to_cache(song)
+        self.endInsertRows()
+        
+        logger.debug(f"Appended {len(chunk_songs)} songs, total now: {len(self.songs)}")
+    
+    def load_data_async_complete(self):
+        """Complete async data loading."""
+        self._is_streaming = False
+        logger.info(f"Completed async loading, total songs: {len(self.songs)}")
