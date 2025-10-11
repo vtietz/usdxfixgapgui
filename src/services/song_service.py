@@ -28,8 +28,7 @@ class SongService:
         # Check if file exists
         if not os.path.exists(txt_file):
             logger.error(f"File not found during load: {txt_file}")
-            song.status = SongStatus.ERROR
-            song.error_message = f"File not found: {txt_file}"
+            song.set_error(f"File not found: {txt_file}")
             return song
             
         # Check if we can use cache if not forcing reload
@@ -52,12 +51,10 @@ class SongService:
             await self._initialize_song_from_usdx(song, usdx_file)
         except FileNotFoundError as e:
             logger.error(f"File not found during load: {txt_file}")
-            song.status = SongStatus.ERROR
-            song.error_message = str(e)
+            song.set_error(str(e))
         except Exception as e:
             logger.error(f"Error loading song {txt_file}: {e}", exc_info=True)
-            song.status = SongStatus.ERROR
-            song.error_message = str(e)
+            song.set_error(str(e))
 
         # Load gap_info
         song.gap_info = GapInfoService.create_for_song_path(song.path)
@@ -70,8 +67,7 @@ class SongService:
                 logger.warning(f"gap_info not available for {song.txt_file}, duration_ms set to 0")
         except Exception as e:
             logger.error(f"Failed to load gap_info for {txt_file}: {e}", exc_info=True)
-            song.status = SongStatus.ERROR
-            song.error_message = str(e)
+            song.set_error(str(e))
             return song
         
         # Check if duration needs to be determined from audio file

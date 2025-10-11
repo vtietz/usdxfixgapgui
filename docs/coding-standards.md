@@ -19,8 +19,8 @@ class Song:
         self.error_message = error_message
     
     def clear_error(self):
-        """Clear any error state"""
-        self.status = SongStatus.READY
+        """Clear any error state, resetting to neutral ready state"""
+        self.status = SongStatus.NOT_PROCESSED
         self.error_message = None
 
 # Used for any operation
@@ -274,9 +274,11 @@ class SongActions:
     def process_song(self, song: Song):
         """Process a song with consistent error handling"""
         try:
-            song.clear_error()  # Clear previous errors
             result = self.service.process_song(song)
             self._handle_process_success(song, result)
+            # Clear error only after successful completion
+            if song.status == SongStatus.ERROR:
+                song.clear_error()
         except ValidationError as e:
             song.set_error(f"Validation failed: {str(e)}")
             self._emit_song_update(song)
@@ -349,7 +351,7 @@ class Song:
     def __init__(self, name: str, path: str):
         self.name = name
         self.path = path
-        self.status = SongStatus.READY
+        self.status = SongStatus.NOT_PROCESSED
         self.error_message = None
     
     # --- Property Access ---
@@ -368,8 +370,8 @@ class Song:
         self.error_message = error_message
     
     def clear_error(self):
-        """Clear error state"""
-        self.status = SongStatus.READY
+        """Clear error state, resetting to neutral ready state"""
+        self.status = SongStatus.NOT_PROCESSED
         self.error_message = None
     
     # --- Validation ---
@@ -555,8 +557,8 @@ def set_error(self, error_message: str):
     self.error_message = error_message
 
 def clear_error(self):
-    """Clear error state - single responsibility"""
-    self.status = SongStatus.READY
+    """Clear error state - single responsibility, resets to neutral ready state"""
+    self.status = SongStatus.NOT_PROCESSED
     self.error_message = None
 ```
 

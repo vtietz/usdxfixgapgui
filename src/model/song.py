@@ -104,14 +104,23 @@ class Song:
             self.duration_ms = info.duration
     
     def set_error(self, error_message: str):
-        """Set error status and message"""
+        """Set error status and message.
+        
+        Args:
+            error_message: Description of the error that occurred
+        """
         self.status = SongStatus.ERROR
         self.error_message = error_message
     
     def clear_error(self):
-        """Clear error status and message"""
-        self.error_message = ""
-        # Don't automatically change status - let caller decide appropriate status
+        """Clear error status and message, resetting song to neutral ready state.
+        
+        Sets status to NOT_PROCESSED and clears error_message.
+        Use this after successful operations to reset error state.
+        Note: GapInfo-driven status transitions via _gap_info_updated() remain unchanged.
+        """
+        self.status = SongStatus.NOT_PROCESSED
+        self.error_message = None
     
     def __str__(self):
         return f"Song [{self.artist} - {self.title}]"

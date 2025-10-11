@@ -188,8 +188,8 @@ class Song:
         self.error_message = error_message
     
     def clear_error(self):
-        """Clear error status"""
-        self.status = SongStatus.READY
+        """Clear error status and message, resetting to neutral ready state"""
+        self.status = SongStatus.NOT_PROCESSED
         self.error_message = None
 ```
 

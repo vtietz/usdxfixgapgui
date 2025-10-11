@@ -40,8 +40,7 @@ class ReloadSongWorker(IWorker):
             song = Song()
             song.path = self.song_path
             song.txt_file = self.song_path if self.song_path.endswith('.txt') else ""
-            song.status = SongStatus.ERROR
-            song.error_message = str(e)
+            song.set_error(str(e))
 
             return song
 
