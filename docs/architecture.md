@@ -107,10 +107,17 @@
   class AppData(QObject):
       def __init__(self):
           super().__init__()
-          self.config_manager = ConfigManager(Config())
-          self.song_manager = SongManager(Songs())
-          self.worker_manager = WorkerManager()
+          self.config = Config()
+          self.songs = Songs()
+          self.worker_queue = WorkerQueueManager()
+          
+          # Service instances for injection (optional - static methods also acceptable)
+          self.gap_info_service = GapInfoService()
+          self.usdx_file_service = USDXFileService()
+          self.song_service = SongService()
   ```
+
+**Note**: Services can be used statically (e.g., `USDXFileService.load(...)`) for simplicity, but injecting service instances via `AppData` improves testability and allows for easier mocking in unit tests.
 
 ### **5. Example Workflow**
 
@@ -122,24 +129,26 @@
 5. `SongManager` updates the `SongList` and emits a `song_updated` signal.
 6. The UI listens to the `song_updated` signal and refreshes the displayed song.
 
-### **6. Folder Structure**
+### **6. Folder Structure (Current Implementation)**
+
+**Note**: This structure reflects the current codebase. Items marked with `*` are aspirational components not yet implemented.
 
 ```
 src/
   ├── app/
-  │   ├── app_data.py        # Centralized application state
-  │   ├── app_state.py       # Global state management
+  │   ├── app_data.py        # Centralized application state and DI container
+  │   ├── app_state.py*      # (Future) Global state management
   │
   ├── managers/
   │   ├── __init__.py
-  │   ├── song_manager.py    # Manages song selection and operations
-  │   ├── worker_manager.py  # Manages worker tasks
-  │   ├── config_manager.py  # Manages configuration
+  │   ├── worker_queue_manager.py  # Manages worker tasks
+  │   ├── config_manager.py*       # (Future) Configuration management
   │
-  ├── models/
+  ├── model/
   │   ├── __init__.py
   │   ├── song.py            # Represents a single song
-  │   ├── songs.py           # Manages a list of songs
+  │   ├── songs.py           # Manages a list of songs (collection with signals)
+  │   ├── gap_info.py        # Gap detection information
   │
   ├── services/
   │   ├── __init__.py
@@ -188,22 +197,30 @@ class Song:
         self.error_message = error_message
     
     def clear_error(self):
-        """Clear error status and message, resetting to neutral ready state"""
-        self.status = SongStatus.NOT_PROCESSED
+        """Clear error status and message, resetting to neutral ready state (NOT_PROCESSED)"""
+        self.status = SongStatus.NOT_PROCESSED  # Neutral ready state
         self.error_message = None
 ```
+
+**Note**: `SongStatus.NOT_PROCESSED` represents the neutral ready state - the song is loaded and ready for operations, but no gap detection or processing has occurred yet.
 
 #### **Centralized Status Mapping via GapInfo**
 **GapInfo is the single source of truth for MATCH/MISMATCH/UPDATED/SOLVED/ERROR statuses.**
 
 Actions/services/workers must update `gap_info` fields and status; `Song.status` updates automatically via the owner hook in `_gap_info_updated()`.
 
-**Allowed direct Song.status writes:**
-- `QUEUED` and `PROCESSING` - Transient workflow states set by actions
-- `set_error()` calls - For non-gap-related errors
+**Status Write Policy:**
 
-**Disallowed direct Song.status writes:**
-- `MATCH`, `MISMATCH`, `UPDATED`, `SOLVED`, `ERROR` - Must come from `gap_info.status` mapping
+| Status | Allowed Direct Write | Required Pattern |
+|--------|---------------------|------------------|
+| `QUEUED` | ✅ Yes | Set by actions before queuing workers |
+| `PROCESSING` | ✅ Yes | Set by actions when workers start |
+| `NOT_PROCESSED` | ✅ Yes | Via `clear_error()` only |
+| `MATCH` | ❌ No | Set `gap_info.status = GapInfoStatus.MATCH` |
+| `MISMATCH` | ❌ No | Set `gap_info.status = GapInfoStatus.MISMATCH` |
+| `UPDATED` | ❌ No | Set `gap_info.status = GapInfoStatus.UPDATED` |
+| `SOLVED` | ❌ No | Set `gap_info.status = GapInfoStatus.SOLVED` |
+| `ERROR` | ✅ Conditional | Via `set_error()` for non-gap errors only; gap errors use `gap_info.status = GapInfoStatus.ERROR` |
 
 **Correct pattern:**
 ```python
@@ -273,6 +290,8 @@ def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
     if self.config.auto_normalize and song.audio_file:
         logger.info(f"Queueing auto-normalization for {song}")
         # start_now=False lets queue manager schedule it properly
+        # Implementation Contract: _normalize_song MUST create a worker and call
+        # self.worker_queue.add_task(worker, start_now) - never execute inline!
         audio_actions._normalize_song(song, start_now=False)
 
 # ❌ WRONG: Inline execution blocks UI and bypasses queue
@@ -282,6 +301,18 @@ def _on_detect_gap_finished_bad(self, song: Song, result: GapDetectionResult):
     # Inline call bypasses queue - blocks UI, no status tracking
     if self.config.auto_normalize:
         audio_actions._normalize_song(song)  # Executes immediately!
+```
+
+**Required Implementation Pattern for `_normalize_song`:**
+```python
+def _normalize_song(self, song: Song, start_now=False):
+    """Queue normalization worker - NEVER execute inline!"""
+    worker = NormalizeAudioWorker(song)
+    # ... connect signals ...
+    song.status = SongStatus.QUEUED
+    self.data.songs.updated.emit(song)
+    # REQUIRED: Use worker queue, not direct execution
+    self.worker_queue.add_task(worker, start_now)
 ```
 
 **start_now parameter usage:**
@@ -315,6 +346,22 @@ class SongActions:
             song.set_error(f"Processing failed: {str(e)}")
             self.data.songs.updated.emit(song)  # Signal via data model
 ```
+
+**⚠️ Transient Status Flicker Caution:**
+
+Clearing errors sets status to `NOT_PROCESSED`. Calling `clear_error()` immediately before queuing workers may cause momentary UI flicker:
+
+```python
+# ⚠️ May cause flicker: ERROR → NOT_PROCESSED → QUEUED
+song.clear_error()  # Sets NOT_PROCESSED
+song.status = SongStatus.QUEUED  # UI updates twice
+
+# ✅ Better: Clear only after completion or let gap_info.status override errors
+if song.status == SongStatus.ERROR:
+    song.clear_error()  # Only clear after successful workflow completion
+```
+
+**Recommendation**: Clear errors only after successful operation completion. During workflows, status transitions via `gap_info.status` updates naturally override error states.
 
 #### **Service Error Communication**
 Services should return results or raise exceptions, not set model state:

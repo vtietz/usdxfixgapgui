@@ -23,7 +23,7 @@ songs.updated.emit()
 #### **Avoid Using Signals**
 - For **direct method calls** where synchronous behavior is expected (e.g., calling a service method from an action).
 - For **internal logic** within a single class or tightly coupled components. Use direct method calls instead.
-- **Actions should NOT emit signals directly** - they should update models and let models emit signals.
+- **Actions should not emit UI signals directly** - they should update models, then emit via the data model aggregator (e.g., `self.data.songs.updated.emit(song)`) to notify the UI layer of changes.
 
 #### **Signal Anti-Patterns to Avoid**
 1. **❌ Actions Emitting Signals Directly:**
@@ -53,7 +53,7 @@ songs.updated.emit()
    ```
 
 #### **✅ Correct Patterns**
-1. **✅ Models Emit Signals When Their State Changes:**
+1. **✅ Data Models Emit Signals When Models Are Updated:**
    ```python
    class Song:
        def set_error(self, message):
@@ -62,7 +62,7 @@ songs.updated.emit()
            # Signal will be emitted by the data model when updated
    ```
 
-2. **✅ Actions Orchestrate and Let Models Signal:**
+2. **✅ Actions Orchestrate and Emit Via Data Model:**
    ```python
    def delete_song(self, song):
        try:
@@ -70,10 +70,10 @@ songs.updated.emit()
                song.clear_error()
            else:
                song.set_error("Delete failed")
-               self.data.songs.updated.emit(song)  # ✅ Signal via data model
+               self.data.songs.updated.emit(song)  # ✅ Signal via data model aggregator
        except Exception as e:
            song.set_error(f"Error: {e}")
-           self.data.songs.updated.emit(song)  # ✅ Signal via data model
+           self.data.songs.updated.emit(song)  # ✅ Signal via data model aggregator
    ```
 
 ### **2. Encapsulation and Layers**

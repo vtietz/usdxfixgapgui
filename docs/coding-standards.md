@@ -19,8 +19,8 @@ class Song:
         self.error_message = error_message
     
     def clear_error(self):
-        """Clear any error state, resetting to neutral ready state"""
-        self.status = SongStatus.NOT_PROCESSED
+        """Clear any error state, resetting to neutral ready state (NOT_PROCESSED)"""
+        self.status = SongStatus.NOT_PROCESSED  # Neutral ready state
         self.error_message = None
 
 # Used for any operation
@@ -28,6 +28,8 @@ song.set_error("Delete failed")
 song.set_error("Processing failed") 
 song.set_error("Validation failed")
 ```
+
+**Note**: Calling `clear_error()` sets status to `NOT_PROCESSED`, which represents the neutral ready state (loaded, but not yet processed).
 
 **Shared Service Utilities:**
 ```python
@@ -151,17 +153,34 @@ song.set_error("Invalid format")     # Validation errors
 #### **Dependency Inversion Principle (DIP)**
 Depend on abstractions, not concretions.
 
+**Preferred Pattern - Service Injection:**
 ```python
-# ✅ Good: Actions depend on service abstraction
+# ✅ Best: Actions receive service instances via dependency injection
 class SongActions:
-    def __init__(self, song_service: SongService):
-        self.song_service = song_service  # Depends on abstraction
+    def __init__(self, data: AppData):
+        self.data = data
+        self.song_service = data.song_service  # Injected via AppData
     
     def delete_song(self, song: Song):
         success = self.song_service.delete_song(song)
         if not success:
             song.set_error("Delete failed")
+```
 
+**Acceptable Alternative - Static Service Methods:**
+```python
+# ✅ Acceptable: Static service method calls (simpler, less testable)
+from services.song_service import SongService
+
+class SongActions:
+    def delete_song(self, song: Song):
+        success = SongService.delete_song(song)
+        if not success:
+            song.set_error("Delete failed")
+```
+
+**Anti-Pattern:**
+```python
 # ❌ Bad: Actions creating concrete dependencies
 class SongActions:
     def delete_song(self, song: Song):
@@ -170,14 +189,17 @@ class SongActions:
             shutil.rmtree(song.path)  # Tight coupling to file system
 ```
 
+**Note**: Service injection improves testability (easier mocking), but static service methods are acceptable for initial adoption. Prefer injection where testing is critical.
+
 **Service Usage Patterns - USDX File Operations:**
 
 ```python
 # ✅ CORRECT: Use USDXFileService for file operations
 from model.usdx_file import USDXFile
 from services.usdx_file_service import USDXFileService
+from utils.async_utils import run_async  # For calling async from sync context
 
-async def update_gap_in_file(song: Song, new_gap: int):
+async def update_gap_in_file_async(song: Song, new_gap: int):
     # Create temporary USDXFile instance
     usdx_file = USDXFile(song.txt_file)
     
@@ -189,24 +211,47 @@ async def update_gap_in_file(song: Song, new_gap: int):
     
     # Note: Service automatically saves changes
 
+# ✅ CORRECT: Wrap async service calls when in synchronous context (e.g., Actions)
+def update_gap_in_file(song: Song, new_gap: int):
+    """Sync wrapper using run_async for event-loop integration"""
+    async def _update():
+        usdx_file = USDXFile(song.txt_file)
+        await USDXFileService.load(usdx_file)
+        await USDXFileService.write_gap_tag(usdx_file, new_gap)
+    
+    run_async(_update())  # run_async handles event loop management
+
 # ❌ WRONG: Don't access non-existent song.usdx_file property
 def update_gap_bad(song: Song, new_gap: int):
     # This will crash - Song has no usdx_file property!
     song.usdx_file.write_gap_tag(new_gap)  # AttributeError!
 ```
 
+**Note**: Use `run_async(...)` when calling async service methods from synchronous action code. This wrapper ensures proper event loop integration.
+
 **Service Usage Patterns - GapInfo Persistence:**
 
 ```python
 # ✅ CORRECT: Use GapInfoService.save() for persistence
 from services.gap_info_service import GapInfoService
+from utils.async_utils import run_async
 
-def update_gap_info(song: Song):
+async def update_gap_info_async(song: Song):
     song.gap_info.detected_gap = 1200
     song.gap_info.status = GapInfoStatus.MATCH
     
     # Persist through service
     await GapInfoService.save(song.gap_info)
+
+# ✅ CORRECT: Wrap async call when in synchronous context
+def update_gap_info(song: Song):
+    """Sync wrapper for gap info update"""
+    async def _update():
+        song.gap_info.detected_gap = 1200
+        song.gap_info.status = GapInfoStatus.MATCH
+        await GapInfoService.save(song.gap_info)
+    
+    run_async(_update())  # Use run_async for event loop integration
 
 # ❌ WRONG: Don't call save() method on model
 def update_gap_info_bad(song: Song):
@@ -215,6 +260,8 @@ def update_gap_info_bad(song: Song):
     # Model-bound persistence violates service layer separation
     await song.gap_info.save()  # Don't do this - use service instead
 ```
+
+**Note**: Service methods are async (`async def`). When calling from synchronous action code, wrap the async call in a local async function and use `run_async(...)` to execute it.
 
 **Note Time Recalculation Pattern:**
 
@@ -361,6 +408,23 @@ class SongActions:
             self._emit_song_update(song)
     
     def _emit_song_update(self, song: Song):
+```
+
+**⚠️ Transient Status Flicker Warning:**
+
+Calling `clear_error()` immediately before setting transient states (QUEUED/PROCESSING) may cause brief UI flicker as the status transitions through NOT_PROCESSED:
+
+```python
+# ⚠️ May cause flicker: ERROR → NOT_PROCESSED → QUEUED
+song.clear_error()  # Sets NOT_PROCESSED
+song.status = SongStatus.QUEUED  # Immediate transition
+
+# ✅ Better: Let workflow transitions handle clearing
+# Only clear errors after successful completion, or rely on gap_info.status updates
+# to naturally override error states
+```
+
+**Recommendation**: Only call `clear_error()` after successful operation completion or when explicitly resetting song state. During normal workflows, let status transitions happen through `gap_info.status` updates which override error states automatically.
         """Emit update signal via data model"""
         self.data.songs.updated.emit(song)
 
@@ -457,7 +521,20 @@ class Song:
 
 **GapInfo is the single source of truth for status mapping.**
 
-#### **Status Write Policy:**
+#### **Status Write Policy Quick Reference:**
+
+| Status | Direct Write | Required Pattern |
+|--------|-------------|------------------|
+| `QUEUED` | ✅ Allowed | `song.status = SongStatus.QUEUED` before queuing workers |
+| `PROCESSING` | ✅ Allowed | `song.status = SongStatus.PROCESSING` when workers start |
+| `NOT_PROCESSED` | ✅ Allowed | Via `song.clear_error()` only |
+| `MATCH` | ❌ Forbidden | Set `gap_info.status = GapInfoStatus.MATCH` |
+| `MISMATCH` | ❌ Forbidden | Set `gap_info.status = GapInfoStatus.MISMATCH` |
+| `UPDATED` | ❌ Forbidden | Set `gap_info.status = GapInfoStatus.UPDATED` |
+| `SOLVED` | ❌ Forbidden | Set `gap_info.status = GapInfoStatus.SOLVED` |
+| `ERROR` | ✅ Conditional | Via `song.set_error()` for non-gap errors; gap errors use `gap_info.status = GapInfoStatus.ERROR` |
+
+#### **Code Examples:**
 ```python
 # ✅ ALLOWED: Transient workflow states (QUEUED, PROCESSING)
 song.status = SongStatus.QUEUED      # Before worker starts
@@ -655,6 +732,59 @@ def test_song_deletion_bad():
     song.path = "/test/path"
     service.delete_song.return_value = True
 ```
+
+### **Static Analysis and Architectural Policy Enforcement**
+
+Add automated checks to detect forbidden patterns and enforce architectural policies:
+
+#### **Forbidden Direct Mapped-Status Writes:**
+```python
+# Recommended: Add static check for forbidden status patterns
+# Example: tests/test_architecture_violations.py
+
+import os
+
+def test_no_direct_mapped_status_writes():
+    """Ensure no code directly sets mapped statuses (MATCH, MISMATCH, UPDATED, SOLVED, ERROR)"""
+    forbidden_patterns = [
+        "song.status = SongStatus.MATCH",
+        "song.status = SongStatus.MISMATCH",
+        "song.status = SongStatus.UPDATED",
+        "song.status = SongStatus.SOLVED",
+        "song.status = SongStatus.ERROR",  # Use set_error() or gap_info.status instead
+    ]
+    
+    # Allowed patterns (for reference)
+    allowed_patterns = [
+        "song.status = SongStatus.QUEUED",
+        "song.status = SongStatus.PROCESSING",
+        "song.set_error(",  # Allowed error setter
+        "gap_info.status =",  # Allowed - source of truth
+    ]
+    
+    violations = []
+    for root, dirs, files in os.walk("src/actions"):
+        for file in files:
+            if file.endswith(".py"):
+                filepath = os.path.join(root, file)
+                with open(filepath) as f:
+                    for line_num, line in enumerate(f, 1):
+                        for pattern in forbidden_patterns:
+                            if pattern in line:
+                                violations.append(f"{file}:{line_num} - {pattern}")
+    
+    assert not violations, f"Found forbidden status writes:\\n" + "\\n".join(violations)
+```
+
+**Enforcement Guidelines:**
+- **Run in CI/CD**: Add this test to continuous integration pipelines
+- **Pre-commit Hook**: Consider adding as a pre-commit check
+- **Only Allow**:
+  - Transient states: `song.status = SongStatus.QUEUED/PROCESSING`
+  - Error methods: `song.set_error()` / `song.clear_error()`
+  - GapInfo mapping: `gap_info.status = GapInfoStatus.*`
+- **Forbidden**: Direct writes to MATCH, MISMATCH, UPDATED, SOLVED, ERROR
+- **Advanced**: Use AST parsing for more sophisticated detection of context-aware violations
 
 ## **5. Code Review Checklist**
 
