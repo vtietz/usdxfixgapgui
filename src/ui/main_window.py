@@ -83,15 +83,29 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     window.resize(config.window_width, config.window_height)
     window.setMinimumSize(600, 600)
     
-    # Save window geometry on close
+    # Restore maximized state
+    if config.window_maximized:
+        window.showMaximized()
+    
+    # Save window geometry and state on close
     def save_window_geometry():
-        geometry = window.geometry()
-        config.window_width = geometry.width()
-        config.window_height = geometry.height()
-        config.window_x = geometry.x()
-        config.window_y = geometry.y()
+        # Only save normal geometry if not maximized
+        # (Qt provides incorrect geometry when maximized)
+        if not window.isMaximized():
+            geometry = window.geometry()
+            config.window_width = geometry.width()
+            config.window_height = geometry.height()
+            config.window_x = geometry.x()
+            config.window_y = geometry.y()
+        
+        # Always save maximized state
+        config.window_maximized = window.isMaximized()
         config.save()
-        logger.debug(f"Window geometry saved: {geometry.width()}x{geometry.height()} at ({geometry.x()}, {geometry.y()})")
+        
+        if window.isMaximized():
+            logger.debug(f"Window state saved: maximized")
+        else:
+            logger.debug(f"Window geometry saved: {config.window_width}x{config.window_height} at ({config.window_x}, {config.window_y})")
     
     # Connect to aboutToQuit to save geometry before closing
     app.aboutToQuit.connect(save_window_geometry)

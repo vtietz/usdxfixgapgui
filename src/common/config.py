@@ -145,7 +145,8 @@ class Config(QObject):
             'width': '1024',
             'height': '768',
             'x': '-1',  # -1 means centered
-            'y': '-1'   # -1 means centered
+            'y': '-1',   # -1 means centered
+            'maximized': 'false'  # Window maximized state
         }
 
     def _initialize_properties(self):
@@ -228,6 +229,7 @@ class Config(QObject):
         self.window_height = self._config.getint('Window', 'height', fallback=768)
         self.window_x = self._config.getint('Window', 'x', fallback=-1)
         self.window_y = self._config.getint('Window', 'y', fallback=-1)
+        self.window_maximized = self._config.getboolean('Window', 'maximized', fallback=False)
         
         # Backward compatibility - set spleeter flag based on method
         self.spleeter = (self.method == 'spleeter')
@@ -264,6 +266,7 @@ class Config(QObject):
         self._config['Window']['height'] = str(self.window_height)
         self._config['Window']['x'] = str(self.window_x)
         self._config['Window']['y'] = str(self.window_y)
+        self._config['Window']['maximized'] = 'true' if self.window_maximized else 'false'
         
         # Write to file
         with open(self.config_path, 'w') as configfile:
