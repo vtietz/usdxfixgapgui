@@ -3,7 +3,7 @@ from PySide6.QtCore import Signal, Qt, QTimer
 import logging
 
 from actions import Actions
-from model.song import Song
+from model.song import Song, SongStatus
 from ui.songlist.songlist_model import SongTableModel
 
 logger = logging.getLogger(__name__)
@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 # Always use fixed widths for large datasets
 LARGE_DATASET_THRESHOLD = 100  # Very low threshold - favor performance
 RESIZE_DEBOUNCE_MS = 200  # Delay before re-enabling expensive operations after resize
+
+# Viewport-based lazy loading configuration
+VIEWPORT_LOAD_DELAY_MS = 100  # Delay before loading visible songs
+VIEWPORT_BUFFER_ROWS = 10  # Load this many extra rows above/below viewport
 
 class SongListView(QTableView):
     selected_songs_changed = Signal(list) # Emits list of selected Song objects
@@ -35,6 +39,13 @@ class SongListView(QTableView):
         self._is_resizing = False
         self._original_header_modes = {}  # Store original header resize modes
         self._auto_fit_enabled = True  # Allow auto-fit for small datasets
+
+        # Viewport-based lazy loading state
+        self._viewport_timer = QTimer()
+        self._viewport_timer.setSingleShot(True)
+        self._viewport_timer.setInterval(VIEWPORT_LOAD_DELAY_MS)
+        self._viewport_timer.timeout.connect(self._load_visible_songs)
+        self._loaded_rows = set()  # Track which rows have been loaded
 
         self.setupUi()
 
@@ -215,5 +226,86 @@ class SongListView(QTableView):
         self.setUpdatesEnabled(True)
         
         logger.debug("Resize finished: restored all operations with single batched refresh")
+
+    def scrollContentsBy(self, dx, dy):
+        """Override scroll handler to trigger lazy loading of visible songs."""
+        super().scrollContentsBy(dx, dy)
+        
+        # Trigger viewport load after scrolling stops
+        if self._viewport_timer.isActive():
+            self._viewport_timer.stop()
+        self._viewport_timer.start()
+
+    def _load_visible_songs(self):
+        """Load song data for songs currently visible in the viewport."""
+        # Get the viewport rect and find visible rows
+        viewport_rect = self.viewport().rect()
+        top_index = self.indexAt(viewport_rect.topLeft())
+        bottom_index = self.indexAt(viewport_rect.bottomLeft())
+        
+        if not top_index.isValid() or not bottom_index.isValid():
+            return
+        
+        # Get source model
+        proxy_model = self.model()
+        source_model = proxy_model.sourceModel() if hasattr(proxy_model, 'sourceModel') else proxy_model
+        
+        if not hasattr(source_model, 'songs'):
+            return
+        
+        # Calculate row range with buffer
+        first_row = max(0, top_index.row() - VIEWPORT_BUFFER_ROWS)
+        last_row = min(proxy_model.rowCount() - 1, bottom_index.row() + VIEWPORT_BUFFER_ROWS)
+        
+        # Collect songs that need loading
+        songs_to_load = []
+        for proxy_row in range(first_row, last_row + 1):
+            proxy_index = proxy_model.index(proxy_row, 0)
+            source_index = proxy_model.mapToSource(proxy_index) if hasattr(proxy_model, 'mapToSource') else proxy_index
+            
+            if not source_index.isValid() or source_index.row() in self._loaded_rows:
+                continue
+            
+            if source_index.row() < len(source_model.songs):
+                song = source_model.songs[source_index.row()]
+                
+                # Check if song needs loading (missing critical data)
+                if self._song_needs_loading(song):
+                    songs_to_load.append(song)
+                    self._loaded_rows.add(source_index.row())
+        
+        # Load songs if any need loading
+        if songs_to_load:
+            logger.debug(f"Viewport lazy-loading {len(songs_to_load)} songs (rows {first_row}-{last_row})")
+            self._reload_songs_in_background(songs_to_load)
+
+    def _song_needs_loading(self, song: Song) -> bool:
+        """Check if a song needs to be loaded (has empty/missing data)."""
+        # Song needs loading if it's NOT_PROCESSED and missing critical data
+        if song.status != SongStatus.NOT_PROCESSED:
+            return False
+        
+        # Check if essential fields are missing
+        needs_load = (
+            not song.title or 
+            not song.artist or 
+            song.bpm == 0 or 
+            not hasattr(song, 'notes') or 
+            song.notes is None
+        )
+        
+        return needs_load
+
+    def _reload_songs_in_background(self, songs):
+        """Trigger reload of songs in the background."""
+        for song in songs:
+            # Use the actions to reload the song
+            self.actions.reload_song(specific_song=song)
+
+    def reset_viewport_loading(self):
+        """Reset viewport loading state (call when data changes)."""
+        self._loaded_rows.clear()
+        # Trigger initial load
+        QTimer.singleShot(100, self._load_visible_songs)
 
 

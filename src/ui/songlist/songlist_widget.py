@@ -166,6 +166,10 @@ class SongListWidget(QWidget):
         if hasattr(self.tableView, 'apply_resize_policy'):
             self.tableView.apply_resize_policy()
         
+        # Trigger viewport-based lazy loading for visible songs
+        if hasattr(self.tableView, 'reset_viewport_loading'):
+            self.tableView.reset_viewport_loading()
+        
         # Clear streaming state
         self._streaming_songs = []
         self._streaming_index = 0
