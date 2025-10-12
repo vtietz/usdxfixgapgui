@@ -93,10 +93,14 @@ class USDXFileService:
                 tags.AUDIO = line.split(':')[1].strip()
             elif line.startswith('#BPM:'):
                 value = line.split(':')[1].strip()
-                tags.BPM = float(value) if value else None
+                # Handle both period and comma as decimal separator (locale-aware)
+                value_normalized = value.replace(',', '.') if value else None
+                tags.BPM = float(value_normalized) if value_normalized else None
             elif line.startswith('#START:'):
                 value = line.split(':')[1].strip()
-                tags.START = float(value) if value else None                    
+                # Handle both period and comma as decimal separator
+                value_normalized = value.replace(',', '.') if value else None
+                tags.START = float(value_normalized) if value_normalized else None                    
             elif line.startswith('#RELATIVE:'):
                 value = line.split(':')[1].strip()
                 tags.RELATIVE = value.lower() == "yes" if value else None

@@ -77,8 +77,7 @@ class AudioActions(BaseActions):
         # Check if audio file exists
         if not hasattr(song, 'audio_file') or not song.audio_file:
             logger.warning(f"Cannot create waveforms for song '{song.title if hasattr(song, 'title') else 'Unknown'}': Missing audio file")
-            # Trigger song reload to properly load the audio file
-            self.song_actions.reload_song(song) 
+            # Don't trigger reload - missing audio file is a data issue, not a loading issue
             return
         
         # Check if notes are loaded before creating waveforms

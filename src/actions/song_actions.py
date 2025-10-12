@@ -86,10 +86,12 @@ class SongActions(BaseActions):
                 # This avoids 'Songs' object does not support item assignment error
                 self._update_song_attributes(song, reloaded_song)
                 
-                # Recreate waveforms for the reloaded song
-                from actions.audio_actions import AudioActions
-                audio_actions = AudioActions(self.data)
-                audio_actions._create_waveforms(song, True)
+                # Only create waveforms if song loaded successfully (no error status)
+                if song.status != SongStatus.ERROR:
+                    # Recreate waveforms for the reloaded song
+                    from actions.audio_actions import AudioActions
+                    audio_actions = AudioActions(self.data)
+                    audio_actions._create_waveforms(song, True)
                 
                 # Notify update after successful reload
                 self.data.songs.updated.emit(song)

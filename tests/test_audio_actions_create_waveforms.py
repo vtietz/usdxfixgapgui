@@ -70,26 +70,18 @@ class TestCreateWaveforms:
                 app_data.worker_queue.add_task.assert_any_call(worker, True)
     
     def test_missing_audio_triggers_reload(self, app_data, song_factory):
-        """Test B: Missing audio file triggers reload_song"""
+        """Test B: Missing audio file should return early without reload (to avoid infinite loops)"""
         # Setup: Song without audio_file
         song = song_factory(title="No Audio", audio_file="", with_notes=True)
         
-        # Mock SongActions.reload_song
-        with patch('actions.audio_actions.SongActions') as mock_song_actions_class:
-            mock_song_actions = Mock()
-            mock_song_actions_class.return_value = mock_song_actions
-            
-            # Create AudioActions
-            audio_actions = AudioActions(app_data)
-            
-            # Action: Call _create_waveforms
-            audio_actions._create_waveforms(song, overwrite=False)
-            
-            # Assert: reload_song was called
-            mock_song_actions.reload_song.assert_called_once_with(song)
-            
-            # Assert: No tasks were queued
-            app_data.worker_queue.add_task.assert_not_called()
+        # Create AudioActions
+        audio_actions = AudioActions(app_data)
+        
+        # Action: Call _create_waveforms
+        audio_actions._create_waveforms(song, overwrite=False)
+        
+        # Assert: No tasks were queued (function returns early)
+        app_data.worker_queue.add_task.assert_not_called()
     
     def test_nonexistent_audio_file_triggers_reload(self, app_data, song_factory):
         """Test: Audio file path exists in song but file doesn't exist on disk"""
