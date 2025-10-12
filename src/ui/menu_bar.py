@@ -6,6 +6,8 @@ from actions import Actions
 from app.app_data import AppData
 import logging
 import os # Import os for path checks
+import sys
+import subprocess
 
 from app.app_data import Config
 from model.song import Song, SongStatus
@@ -66,6 +68,12 @@ class MenuBar(QWidget):
         self.delete_button = QPushButton("Delete") # Renamed for clarity
         self.delete_button.clicked.connect(self.onDeleteButtonClicked)
         self.layout.addWidget(self.delete_button)
+
+        # Config button - Opens config.ini in default text editor
+        self.config_button = QPushButton("Config")
+        self.config_button.setToolTip("Open config.ini in text editor")
+        self.config_button.clicked.connect(self.open_config_file)
+        self.layout.addWidget(self.config_button)
 
         self.searchBox = QLineEdit()
         self.searchBox.setPlaceholderText("Search")
@@ -151,6 +159,50 @@ class MenuBar(QWidget):
         # Example:
         # self.playButton.setEnabled(num_selected == 1)
         # self.editButton.setEnabled(num_selected == 1)
+
+    def open_config_file(self):
+        """Open config.ini in the default text editor (cross-platform)"""
+        config_path = self.config.config_path
+        
+        if not os.path.exists(config_path):
+            QMessageBox.warning(
+                self, 
+                "Config Not Found", 
+                f"Configuration file not found at:\n{config_path}"
+            )
+            return
+        
+        try:
+            if sys.platform == 'win32':
+                # Windows - use default associated program
+                os.startfile(config_path)
+            elif sys.platform == 'darwin':
+                # macOS
+                subprocess.run(['open', config_path], check=True)
+            else:
+                # Linux and other Unix-like systems
+                # Try xdg-open first (most common), fall back to common editors
+                try:
+                    subprocess.run(['xdg-open', config_path], check=True)
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    # Fallback to common text editors
+                    for editor in ['gedit', 'kate', 'nano', 'vi']:
+                        try:
+                            subprocess.Popen([editor, config_path])
+                            break
+                        except FileNotFoundError:
+                            continue
+                    else:
+                        raise FileNotFoundError("No suitable text editor found")
+            
+            logger.info(f"Opened config file: {config_path}")
+        except Exception as e:
+            logger.error(f"Failed to open config file: {e}", exc_info=True)
+            QMessageBox.warning(
+                self,
+                "Cannot Open Config",
+                f"Failed to open configuration file:\n{str(e)}\n\nPath: {config_path}"
+            )
 
     def choose_directory(self):
         # Use the last directory from config if available, otherwise use the current directory

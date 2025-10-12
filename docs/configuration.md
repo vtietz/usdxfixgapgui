@@ -4,7 +4,44 @@ USDXFixGap stores its configuration in `config.ini` located at:
 - **Windows**: `%LOCALAPPDATA%\USDXFixGap\config.ini`
 - **Linux**: `~/.local/share/USDXFixGap/config.ini`
 
-The configuration file is created automatically with default values on first run. This document explains each setting and its valid values.
+The configuration file is created automatically with default values on firs**Default**: `False`  
+**Description**: Automatically start playback when loading audio  
+**Valid values**: `True`, `False`
+
+## [Window]
+
+### width
+**Default**: `1024`  
+**Description**: Window width in pixels (automatically saved when closing the application)  
+**Valid values**: Positive integer (minimum: 600)
+
+### height
+**Default**: `768`  
+**Description**: Window height in pixels (automatically saved when closing the application)  
+**Valid values**: Positive integer (minimum: 600)
+
+### x
+**Default**: `-1`  
+**Description**: Window X position on screen (-1 = centered by OS, automatically saved when closing)  
+**Valid values**: Integer (-1 for auto-center, or screen coordinates)
+
+### y
+**Default**: `-1`  
+**Description**: Window Y position on screen (-1 = centered by OS, automatically saved when closing)  
+**Valid values**: Integer (-1 for auto-center, or screen coordinates)
+
+## Editing Configuration
+
+You can manually edit `config.ini` while the application is closed. The application will validate settings on startup and use defaults for any invalid values.
+
+**Location**: 
+```
+Windows: %LOCALAPPDATA%\USDXFixGap\config.ini
+Linux:   ~/.local/share/USDXFixGap/config.ini
+```
+
+**Tip**: Delete `config.ini` to reset all settings to defaults.
+ment explains each setting and its valid values.
 
 ## [Paths]
 

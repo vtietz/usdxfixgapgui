@@ -73,8 +73,25 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     # Create main window
     window = QWidget()
     window.setWindowTitle("USDX Gap Fix Gui")
-    window.resize(800, 600)
+    
+    # Restore window geometry from config
+    if config.window_x >= 0 and config.window_y >= 0:
+        window.move(config.window_x, config.window_y)
+    window.resize(config.window_width, config.window_height)
     window.setMinimumSize(600, 600)
+    
+    # Save window geometry on close
+    def save_window_geometry():
+        geometry = window.geometry()
+        config.window_width = geometry.width()
+        config.window_height = geometry.height()
+        config.window_x = geometry.x()
+        config.window_y = geometry.y()
+        config.save()
+        logger.debug(f"Window geometry saved: {geometry.width()}x{geometry.height()} at ({geometry.x()}, {geometry.y()})")
+    
+    # Connect to aboutToQuit to save geometry before closing
+    app.aboutToQuit.connect(save_window_geometry)
 
     # Create UI components
     menuBar = MenuBar(actions, data)

@@ -140,6 +140,13 @@ class Config(QObject):
             'DefaultVolume': '0.5',
             'AutoPlay': 'False'
         }
+        
+        self._config['Window'] = {
+            'width': '1024',
+            'height': '768',
+            'x': '-1',  # -1 means centered
+            'y': '-1'   # -1 means centered
+        }
 
     def _initialize_properties(self):
         """Initialize class properties from config values"""
@@ -216,6 +223,12 @@ class Config(QObject):
         self.gpu_last_error = self._config.get('General', 'GpuLastError', fallback='')
         self.gpu_pack_dialog_dont_show = self._config.getboolean('General', 'GpuPackDialogDontShow', fallback=False)
         
+        # Window geometry
+        self.window_width = self._config.getint('Window', 'width', fallback=1024)
+        self.window_height = self._config.getint('Window', 'height', fallback=768)
+        self.window_x = self._config.getint('Window', 'x', fallback=-1)
+        self.window_y = self._config.getint('Window', 'y', fallback=-1)
+        
         # Backward compatibility - set spleeter flag based on method
         self.spleeter = (self.method == 'spleeter')
 
@@ -245,6 +258,12 @@ class Config(QObject):
         self._config['General']['GpuLastHealth'] = self.gpu_last_health
         self._config['General']['GpuLastError'] = self.gpu_last_error
         self._config['General']['GpuPackDialogDontShow'] = 'true' if self.gpu_pack_dialog_dont_show else 'false'
+        
+        # Window geometry
+        self._config['Window']['width'] = str(self.window_width)
+        self._config['Window']['height'] = str(self.window_height)
+        self._config['Window']['x'] = str(self.window_x)
+        self._config['Window']['y'] = str(self.window_y)
         
         # Write to file
         with open(self.config_path, 'w') as configfile:
