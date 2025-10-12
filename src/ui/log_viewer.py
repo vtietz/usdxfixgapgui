@@ -45,7 +45,7 @@ class LogViewerWidget(QWidget):
         layout.setSpacing(2)
         
         # Header label
-        header = QLabel("📋 Application Logs (scroll to see history)")
+        header = QLabel("Application Logs")
         header_font = QFont()
         header_font.setBold(True)
         header.setFont(header_font)
@@ -59,13 +59,17 @@ class LogViewerWidget(QWidget):
         self.text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
-        # Use monospace font for better log readability
-        font = QFont("Consolas", 8)  # Small monospace font
+        # Disable line wrapping to enable horizontal scrolling
+        self.text_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        
+        # Use monospace font with medium weight for better readability
+        font = QFont("Consolas", 9)  # Slightly larger font (9 instead of 8)
         if not font.exactMatch():
-            font = QFont("Courier New", 8)
+            font = QFont("Courier New", 9)
+        font.setWeight(QFont.Weight.Medium)  # Medium weight - bolder than normal, not too heavy
         self.text_edit.setFont(font)
         
-        # Style the text edit
+        # Style the text edit with dark theme matching VS Code
         self.text_edit.setStyleSheet("""
             QTextEdit {
                 background-color: #1E1E1E;
@@ -123,26 +127,33 @@ class LogViewerWidget(QWidget):
         scrollbar = self.text_edit.verticalScrollBar()
         was_at_bottom = scrollbar.value() >= scrollbar.maximum() - 10
         
-        # Build display text with color coding
+        # Build display text with enhanced color coding
         display_text = []
         
         for line in self.log_lines:
-            # Simple color coding based on log level
+            # Enhanced color coding based on log level with better formatting
+            # Match VS Code-like log colors from the screenshot
             if ' ERROR ' in line or ' CRITICAL ' in line:
-                colored_line = f'<span style="color: #F48771;">{self._html_escape(line)}</span>'
+                # Red for errors
+                colored_line = f'<span style="color: #F48771; font-weight: 500;">{self._html_escape(line)}</span>'
             elif ' WARNING ' in line:
-                colored_line = f'<span style="color: #CCA700;">{self._html_escape(line)}</span>'
+                # Yellow/orange for warnings
+                colored_line = f'<span style="color: #D7BA7D;">{self._html_escape(line)}</span>'
             elif ' INFO ' in line:
-                colored_line = f'<span style="color: #4FC1FF;">{self._html_escape(line)}</span>'
+                # Bright cyan/blue for info (like in screenshot)
+                colored_line = f'<span style="color: #4EC9B0;">{self._html_escape(line)}</span>'
             elif ' DEBUG ' in line:
+                # Green for debug messages
                 colored_line = f'<span style="color: #6A9955;">{self._html_escape(line)}</span>'
             else:
-                colored_line = self._html_escape(line)
+                # Default gray color for other messages
+                colored_line = f'<span style="color: #D4D4D4;">{self._html_escape(line)}</span>'
             
             display_text.append(colored_line)
         
-        # Update text edit
-        html_content = '<br>'.join(display_text)
+        # Update text edit with proper HTML formatting
+        # Use <pre> tag to preserve spacing and enable horizontal scroll
+        html_content = '<pre style="margin: 0; padding: 0; font-family: inherit;">' + '<br>'.join(display_text) + '</pre>'
         self.text_edit.setHtml(html_content)
         
         # Auto-scroll to bottom only if we were already at bottom

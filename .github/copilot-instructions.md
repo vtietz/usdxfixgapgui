@@ -197,5 +197,5 @@ build.bat                 # Build Windows executable
 
 # Required final actions
 * Run tests to ensure all changes pass.
-* After your summary always propose clear, concise commit messages that accurately describe the changes made. Just a header, no details.
+* After your summary always propose clear, concise, one-liner commit message.
 * Use the imperative mood in the subject line (e.g., "Add feature", "Fix bug", "Update docs").
