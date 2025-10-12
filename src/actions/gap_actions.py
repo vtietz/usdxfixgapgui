@@ -57,7 +57,10 @@ class GapActions(BaseActions):
     
     def _detect_gap_if_valid(self, song, is_first):
         if song.audio_file:
-            self._detect_gap(song, self._overwrite_gap, is_first)
+            # Only start immediately if this is the first item AND no task is currently running.
+            # Otherwise, add to the queue so the Task Queue shows WAITING and processes sequentially.
+            start_now = is_first and not self.worker_queue.running_tasks
+            self._detect_gap(song, self._overwrite_gap, start_now)
         else:
             logger.warning(f"Skipping gap detection for '{song.title}': No audio file found.")
 
