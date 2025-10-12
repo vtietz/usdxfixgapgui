@@ -73,17 +73,19 @@ def handle_gpu_cli_flags(args, config):
             print(f"Driver version: {cap['driver_version']}")
             print(f"GPU(s): {', '.join(cap['gpu_names'])}")
         
-        # Check installed pack
+        # Check installed pack using utility
+        from utils.gpu_utils import is_gpu_pack_installed, get_gpu_pack_info
         app_version = get_app_version()
-        if config.gpu_pack_installed_version and config.gpu_pack_path:
-            print(f"GPU Pack installed: {config.gpu_pack_installed_version}")
-            print(f"GPU Pack path: {config.gpu_pack_path}")
-            
-            # Validate installation
-            pack_dir = Path(config.gpu_pack_path)
-            if not pack_dir.exists():
-                print("WARNING: Configured GPU Pack path does not exist!")
-            else:
+        
+        if is_gpu_pack_installed(config):
+            pack_info = get_gpu_pack_info(config)
+            if pack_info:
+                version, path = pack_info
+                print(f"GPU Pack installed: {version}")
+                print(f"GPU Pack path: {path}")
+                
+                # Validate installation details
+                pack_dir = Path(path)
                 install_json = pack_dir / "install.json"
                 if install_json.exists():
                     import json
@@ -94,6 +96,8 @@ def handle_gpu_cli_flags(args, config):
                     print(f"PyTorch version: {info.get('torch_version', 'unknown')}")
         else:
             print("GPU Pack: Not installed")
+            if config.gpu_pack_path:
+                print(f"WARNING: Config has GPU Pack path but it doesn't exist: {config.gpu_pack_path}")
         
         print(f"GPU Opt-in: {config.gpu_opt_in}")
         print(f"GPU Flavor: {config.gpu_flavor}")
@@ -299,7 +303,7 @@ def main():
     # Bootstrap GPU Pack BEFORE any provider imports
     # This modifies sys.path and DLL search paths if GPU is enabled
     from utils import gpu_bootstrap
-    gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
+    gpu_enabled = gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
 
     # --- Async Logging Setup ---
     log_file_path = os.path.join(get_app_dir(), 'usdxfixgap.log')
@@ -312,6 +316,10 @@ def main():
     
     logger = logging.getLogger(__name__)
     logger.info(f"Application started with log level: {config.log_level_str}")
+    
+    # --- GPU Status Logging ---
+    from utils.gpu_startup_logger import log_gpu_status
+    log_gpu_status(config, gpu_enabled, show_gui_dialog=True)
     # --- End Logging Setup ---
 
     # Initialize database before creating AppData
