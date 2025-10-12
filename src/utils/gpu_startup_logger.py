@@ -44,11 +44,21 @@ def _log_nvidia_gpu_detected(cap, config, gpu_enabled, show_gui_dialog):
     print(f"✓ NVIDIA GPU detected: {', '.join(cap['gpu_names'])}")
     print(f"✓ Driver version: {cap['driver_version']}")
     
-    # Check if GPU Pack is actually installed on disk
-    if is_gpu_pack_installed(config):
-        _log_gpu_pack_installed(config, gpu_enabled)
+    # Check if GPU is actually working (either GPU Pack or system CUDA)
+    if gpu_enabled:
+        # GPU is working - check if it's from GPU Pack or system CUDA
+        if is_gpu_pack_installed(config):
+            _log_gpu_pack_installed(config, gpu_enabled)
+        else:
+            # GPU is working but no GPU Pack - must be system CUDA
+            _log_system_cuda_detected()
     else:
-        _log_gpu_pack_not_installed(show_gui_dialog)
+        # GPU not working - check if GPU Pack is installed but failed
+        if is_gpu_pack_installed(config):
+            _log_gpu_pack_installed(config, gpu_enabled)
+        else:
+            # No GPU Pack and GPU not working - offer to install
+            _log_gpu_pack_not_installed(show_gui_dialog)
 
 
 def _log_gpu_pack_installed(config, gpu_enabled):
@@ -106,6 +116,27 @@ def _log_gpu_bootstrap_failed(config):
     print(f"    1. Run: {exe_name} --gpu-diagnostics")
     print("    2. Check logs for detailed error information")
     print(f"    3. Try reinstalling GPU Pack: {exe_name} --setup-gpu")
+
+
+def _log_system_cuda_detected():
+    """Log status when system-wide CUDA is detected."""
+    print("✓ System-wide CUDA detected (no GPU Pack needed)")
+    
+    # Try to show CUDA details
+    try:
+        import torch
+        if torch.cuda.is_available():
+            print(f"✓ CUDA version: {torch.version.cuda}")
+            print(f"✓ PyTorch version: {torch.__version__}")
+            print(f"✓ GPU device count: {torch.cuda.device_count()}")
+            device_name = torch.cuda.get_device_name(0)
+            print(f"✓ Primary GPU: {device_name}")
+            print("✓ GPU acceleration: ENABLED and ACTIVE")
+            print("  GPU acceleration ready for processing!")
+        else:
+            print("⚠ PyTorch loaded but CUDA not available")
+    except Exception as e:
+        print(f"⚠ Error querying CUDA details: {e}")
 
 
 def _log_gpu_disabled():
@@ -196,16 +227,20 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     
     logger = logging.getLogger(__name__)
     
-    # Only show if NVIDIA GPU detected but pack not installed
+    # Only show if NVIDIA GPU detected but GPU not working
     cap = gpu_bootstrap.capability_probe()
-    if cap['has_nvidia'] and not is_gpu_pack_installed(config):
-        logger.info("NVIDIA GPU detected but GPU Pack not installed - showing download dialog")
-        try:
-            dialog = GpuPackDownloadDialog(config)
-            result = dialog.exec()
-            if result:  # User downloaded and installed
-                logger.info("GPU Pack installation completed via dialog")
-            else:
-                logger.info("User declined GPU Pack installation")
-        except Exception as e:
-            logger.error(f"Error showing GPU download dialog: {e}", exc_info=True)
+    if cap['has_nvidia'] and not gpu_enabled:
+        # GPU detected but not working - check if GPU Pack is installed
+        if not is_gpu_pack_installed(config):
+            logger.info("NVIDIA GPU detected but no GPU acceleration available - showing download dialog")
+            try:
+                dialog = GpuPackDownloadDialog(config)
+                result = dialog.exec()
+                if result:  # User downloaded and installed
+                    logger.info("GPU Pack installation completed via dialog")
+                else:
+                    logger.info("User declined GPU Pack installation")
+            except Exception as e:
+                logger.error(f"Error showing GPU download dialog: {e}", exc_info=True)
+        else:
+            logger.debug("GPU Pack installed but GPU bootstrap failed - not showing dialog")

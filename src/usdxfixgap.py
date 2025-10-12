@@ -7,8 +7,9 @@ from app.app_data import Config
 from cli.gpu_cli_handler import handle_gpu_cli_flags
 from utils import gpu_bootstrap
 from common.utils.async_logging import setup_async_logging, shutdown_async_logging
-from utils.files import get_app_dir
+from utils.files import get_localappdata_dir
 from utils.gpu_startup_logger import log_gpu_status
+from utils.model_paths import setup_model_paths
 
 
 def parse_arguments():
@@ -37,6 +38,10 @@ def main():
     # Create config
     config = Config()
     
+    # Setup model paths BEFORE importing any AI libraries (PyTorch, TensorFlow, etc.)
+    # This ensures Demucs and Spleeter download models to our centralized location
+    setup_model_paths(config)
+    
     # Handle GPU CLI flags (may exit early)
     if any([args.setup_gpu, args.setup_gpu_zip, args.gpu_enable, args.gpu_disable, args.gpu_diagnostics]):
         should_exit = handle_gpu_cli_flags(args, config)
@@ -47,7 +52,7 @@ def main():
     gpu_enabled = gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
 
     # Setup async logging
-    log_file_path = os.path.join(get_app_dir(), 'usdxfixgap.log')
+    log_file_path = os.path.join(get_localappdata_dir(), 'usdxfixgap.log')
     setup_async_logging(
         log_level=config.log_level,
         log_file_path=log_file_path,

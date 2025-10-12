@@ -3,7 +3,7 @@ import sys
 import configparser
 import logging
 from PySide6.QtCore import QObject
-from utils.files import get_app_dir
+from utils.files import get_app_dir, get_localappdata_dir, get_models_dir
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +26,13 @@ class Config(QObject):
     
     def ensure_config_file_exists(self):
         """Create default config file if it doesn't exist."""
-        config_path = os.path.join(get_app_dir(), 'config.ini')
+        config_path = os.path.join(get_localappdata_dir(), 'config.ini')
         
         if not os.path.exists(config_path):
             logger.info(f"Config file not found. Creating default config at: {config_path}")
             
             # Create output directory if it doesn't exist
-            output_dir = os.path.join(get_app_dir(), 'output')
+            output_dir = os.path.join(get_localappdata_dir(), 'output')
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
                 logger.info(f"Created output directory: {output_dir}")
@@ -50,9 +50,10 @@ class Config(QObject):
     def _set_defaults(self):
         """Set default configuration values"""
         self._config['Paths'] = {
-            'tmp_root': os.path.join(get_app_dir(), '.tmp'),
-            'default_directory': os.path.join(get_app_dir(), 'samples'),
-            'last_directory': ''  # New parameter for last used directory
+            'tmp_root': os.path.join(get_localappdata_dir(), '.tmp'),
+            'default_directory': os.path.join(get_localappdata_dir(), 'samples'),
+            'last_directory': '',  # New parameter for last used directory
+            'models_directory': ''  # Empty = use default (LOCALAPPDATA/models), can be customized
         }
         
         self._config['Detection'] = {
@@ -123,7 +124,7 @@ class Config(QObject):
         }
         
         self._config['General'] = {
-            'DefaultOutputPath': os.path.join(get_app_dir(), 'output'),
+            'DefaultOutputPath': os.path.join(get_localappdata_dir(), 'output'),
             'LogLevel': 'INFO',
             # GPU Pack settings
             'GpuOptIn': 'false',
@@ -145,6 +146,7 @@ class Config(QObject):
         self.tmp_root = self._config.get('Paths', 'tmp_root')
         self.default_directory = self._config.get('Paths', 'default_directory')
         self.last_directory = self._config.get('Paths', 'last_directory')
+        self.models_directory = self._config.get('Paths', 'models_directory')  # NEW: Custom models path
         
         # Detection
         self.default_detection_time = self._config.getint('Detection', 'default_detection_time')

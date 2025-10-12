@@ -5,12 +5,12 @@ import logging
 import datetime
 from pathlib import Path
 
-from utils.files import get_app_dir
+from utils.files import get_localappdata_dir
 
 logger = logging.getLogger(__name__)
 
 # Define the database path
-DB_PATH = os.path.join(get_app_dir(), 'cache.db')
+DB_PATH = os.path.join(get_localappdata_dir(), 'cache.db')
 _db_initialized = False
 
 def get_connection():

@@ -39,6 +39,11 @@ def detect_nearest_gap(silence_periods: List[Tuple[float, float]], start_positio
     logger.debug(f"Detecting nearest gap relative to {start_position_ms}ms")
     logger.debug(f"Silence periods: {silence_periods}")
 
+    # If no silence periods found (vocals start immediately), return 0
+    if not silence_periods:
+        logger.debug("No silence periods found, vocals start at beginning (gap=0)")
+        return 0
+
     closest_gap_ms = None
     closest_gap_diff_ms = float('inf')  # Initialize with infinity
 

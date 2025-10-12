@@ -42,13 +42,80 @@ def find_txt_file(path):
         # it might be the directory path or txt file path without extension
         return path
 
+def get_localappdata_dir():
+    """
+    Get the LOCALAPPDATA directory for USDXFixGap.
+    
+    This is the recommended location for all user data (config, cache, models, etc.).
+    Falls back to app directory if LOCALAPPDATA is not available (portable mode).
+    
+    Returns:
+        str: Path to %LOCALAPPDATA%/USDXFixGap/ or app directory
+    
+    Examples:
+        Windows: C:/Users/<username>/AppData/Local/USDXFixGap/
+        Portable: <app_directory>/
+    """
+    # Try standard Windows LOCALAPPDATA first
+    local_app_data = os.getenv('LOCALAPPDATA')
+    if local_app_data:
+        app_data_dir = os.path.join(local_app_data, 'USDXFixGap')
+        os.makedirs(app_data_dir, exist_ok=True)
+        return app_data_dir
+    
+    # Fallback to app directory for portable mode
+    logger.warning("LOCALAPPDATA not found, using app directory (portable mode)")
+    return get_app_dir()
+
+
 def get_app_dir():
-    """Get the directory of the executable or script."""
+    """
+    Get the directory of the executable or script.
+    
+    Note: For user data storage, prefer get_localappdata_dir() instead.
+    This function is mainly for resource loading and portable mode fallback.
+    """
     if hasattr(sys, '_MEIPASS'):
         # Running in a PyInstaller bundle
         return os.path.dirname(sys.executable)
     # Running as a script
     return os.path.dirname(os.path.abspath(sys.argv[0]))
+
+def get_models_dir(config=None):
+    """
+    Get the directory for AI models (Demucs, Spleeter, etc.).
+    
+    Can be configured via Config.models_directory or defaults to LOCALAPPDATA.
+    
+    Args:
+        config: Optional Config object with custom models_directory setting
+    
+    Returns:
+        str: Path to models directory
+    
+    Examples:
+        Default: C:/Users/<username>/AppData/Local/USDXFixGap/models/
+        Custom: E:/USDXFixGap/models/ (if configured)
+        Network: //server/shared/USDXFixGap/models/ (if configured)
+    """
+    if config and hasattr(config, 'models_directory') and config.models_directory:
+        models_dir = os.path.expandvars(config.models_directory)
+    else:
+        models_dir = os.path.join(get_localappdata_dir(), 'models')
+    
+    os.makedirs(models_dir, exist_ok=True)
+    return models_dir
+
+
+def get_demucs_models_dir(config=None):
+    """Get directory for Demucs models."""
+    return os.path.join(get_models_dir(config), 'demucs')
+
+
+def get_spleeter_models_dir(config=None):
+    """Get directory for Spleeter models."""
+    return os.path.join(get_models_dir(config), 'spleeter')
+
 
 def resource_path(relative_path):
     """Get the absolute path to a resource, works for dev and PyInstaller."""

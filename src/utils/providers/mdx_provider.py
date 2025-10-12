@@ -25,6 +25,7 @@ import logging
 import logging.handlers
 import os
 import sys
+import warnings
 import numpy as np
 import torch
 import torchaudio
@@ -34,6 +35,10 @@ from pathlib import Path
 from demucs.apply import apply_model
 from utils.providers.base import IDetectionProvider
 from utils.providers.exceptions import DetectionFailedError
+
+# Suppress TorchAudio MP3 warning globally for this module
+warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
+warnings.filterwarnings("ignore", category=UserWarning, module="torchaudio")
 
 logger = logging.getLogger(__name__)
 
