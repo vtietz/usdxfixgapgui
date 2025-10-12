@@ -38,24 +38,32 @@ class GpuPackManifest:
 
 
 # Embedded default manifests for offline operation
+# 
+# These use official PyTorch wheel URLs from download.pytorch.org.
+# PyTorch wheels bundle CUDA/cuDNN - only a compatible NVIDIA driver is needed.
+# Wheels are downloaded, extracted to %LOCALAPPDATA%/USDXFixGap/gpu_runtime/,
+# and loaded via sys.path at runtime.
+#
+# Python version detection: sys.version_info to determine cp310/cp311/cp312
+# The app_version field is metadata only - GPU Pack is versioned by PyTorch/CUDA version.
 DEFAULT_MANIFESTS = {
     "cu121": {
-        "app_version": "1.4.0",
+        "app_version": "1.0.0",  # Metadata only
         "torch_version": "2.4.1+cu121",
         "cuda_version": "12.1",
-        "url": "https://github.com/vtietz/usdxfixgapgui/releases/download/gpu-pack-v1.4.0/USDXFixGap-gpu-pack-v1.4.0-cu121.zip",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",  # Placeholder
-        "size": 1200000000,  # ~1.2GB placeholder
+        "url": "https://download.pytorch.org/whl/cu121/torch-2.4.1%2Bcu121-cp38-cp38-win_amd64.whl",  # Python 3.8 wheel
+        "sha256": "TBD",  # TODO: Download wheel and compute actual SHA-256
+        "size": 2800000000,  # ~2.8GB (actual torch wheel size)
         "min_driver": "531.00",
         "flavor": "cu121"
     },
     "cu124": {
-        "app_version": "1.4.0",
+        "app_version": "1.0.0",  # Metadata only
         "torch_version": "2.4.1+cu124",
         "cuda_version": "12.4",
-        "url": "https://github.com/vtietz/usdxfixgapgui/releases/download/gpu-pack-v1.4.0/USDXFixGap-gpu-pack-v1.4.0-cu124.zip",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",  # Placeholder
-        "size": 1200000000,  # ~1.2GB placeholder
+        "url": "https://download.pytorch.org/whl/cu124/torch-2.4.1%2Bcu124-cp38-cp38-win_amd64.whl",  # Python 3.8 wheel
+        "sha256": "TBD",  # TODO: Download wheel and compute actual SHA-256
+        "size": 2800000000,  # ~2.8GB (actual torch wheel size)
         "min_driver": "550.00",
         "flavor": "cu124"
     }

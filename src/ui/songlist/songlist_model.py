@@ -41,7 +41,7 @@ class SongTableModel(QAbstractTableModel):
 
     def song_added(self, song: Song):
         self.pending_songs.append(song)
-        logger.info(f"Added to songlist model: {song}")
+        logger.info(f"Added: {song}")
         if not self.timer.isActive():
             self.timer.start()
 

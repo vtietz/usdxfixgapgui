@@ -179,3 +179,33 @@ def _show_gpu_pack_dialog(exe_name):
     except Exception as e:
         # Silently fail if GUI not available (CLI mode)
         print(f"  Note: Could not show GUI dialog: {e}")
+
+
+def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
+    """
+    Show GPU Pack installation dialog if appropriate.
+    Should be called AFTER QApplication is created.
+    
+    Args:
+        config: Application config object
+        gpu_enabled: Boolean indicating if GPU bootstrap succeeded
+    """
+    import logging
+    from utils import gpu_bootstrap
+    from ui.gpu_download_dialog import GpuPackDownloadDialog
+    
+    logger = logging.getLogger(__name__)
+    
+    # Only show if NVIDIA GPU detected but pack not installed
+    cap = gpu_bootstrap.capability_probe()
+    if cap['has_nvidia'] and not is_gpu_pack_installed(config):
+        logger.info("NVIDIA GPU detected but GPU Pack not installed - showing download dialog")
+        try:
+            dialog = GpuPackDownloadDialog(config)
+            result = dialog.exec()
+            if result:  # User downloaded and installed
+                logger.info("GPU Pack installation completed via dialog")
+            else:
+                logger.info("User declined GPU Pack installation")
+        except Exception as e:
+            logger.error(f"Error showing GPU download dialog: {e}", exc_info=True)

@@ -135,14 +135,13 @@ class WorkerQueueManager(QObject):
 
     def add_task(self, worker: IWorker, start_now=False):
         worker.id = self.get_unique_task_id()
-        logger.info(f"Adding task: {worker.description}")
+        logger.info(f"Creating task: {worker.description}")
         worker.signals.finished.connect(lambda: self.on_task_finished(worker.id))
         worker.signals.error.connect(lambda e: self.on_task_error(worker.id, e))
         worker.signals.canceled.connect(lambda: self.on_task_canceled(worker.id))
         worker.signals.progress.connect(lambda: self.on_task_updated(worker.id))
         
         if start_now or not self.running_tasks:
-            logger.info(f"Scheduling task: {worker.description}")
             run_async(self._start_worker(worker))
         else:
             logger.info(f"Queueing task: {worker.description}")

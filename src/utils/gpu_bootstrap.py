@@ -180,7 +180,7 @@ def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
     Validate that PyTorch with CUDA is properly loaded and functional.
     
     Args:
-        expected_cuda: Expected CUDA version (e.g., "12.1")
+        expected_cuda: Expected CUDA version (e.g., "12.1" for exact match, "12" for any 12.x)
         
     Returns:
         Tuple of (success, error_message)
@@ -197,12 +197,14 @@ def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
         if torch_cuda_version is None:
             return (False, "torch.version.cuda is None")
         
-        # Compare major.minor versions
-        expected_parts = expected_cuda.split('.')[:2]
-        actual_parts = torch_cuda_version.split('.')[:2]
+        # Compare versions
+        expected_parts = expected_cuda.split('.')
+        actual_parts = torch_cuda_version.split('.')
         
-        if expected_parts != actual_parts:
-            return (False, f"CUDA version mismatch: expected {expected_cuda}, got {torch_cuda_version}")
+        # If only major version specified (e.g., "12"), accept any minor version
+        compare_parts = len(expected_parts)
+        if expected_parts[:compare_parts] != actual_parts[:compare_parts]:
+            return (False, f"CUDA version mismatch: expected {expected_cuda}.x, got {torch_cuda_version}")
         
         # Smoke test: create tensor on GPU and perform operation
         try:
@@ -232,6 +234,10 @@ def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
 def bootstrap_and_maybe_enable_gpu(config) -> bool:
     """
     Orchestrate GPU Pack activation and validation.
+    Tries multiple approaches in order:
+    1. Use GPU Pack if installed and enabled
+    2. Auto-detect system-wide CUDA/PyTorch if available
+    3. Fall back to CPU
     
     Args:
         config: Application config object
@@ -240,47 +246,58 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
         True if GPU is enabled and validated, False otherwise
     """
     try:
-        # Check if user has opted in
-        gpu_opt_in = getattr(config, 'gpu_opt_in', False)
-        if not gpu_opt_in:
-            logger.debug("GPU acceleration not enabled (GpuOptIn=false)")
+        # Check if user has explicitly disabled GPU
+        gpu_opt_in = getattr(config, 'gpu_opt_in', None)
+        if gpu_opt_in is False:
+            logger.debug("GPU acceleration explicitly disabled (GpuOptIn=false)")
             return False
         
-        # Get pack configuration
+        # Try GPU Pack first if configured
         pack_path = getattr(config, 'gpu_pack_path', '')
-        if not pack_path:
-            logger.debug("GPU Pack path not configured")
-            return False
+        if pack_path:
+            pack_dir = Path(pack_path)
+            
+            # Enable GPU runtime
+            if enable_gpu_runtime(pack_dir):
+                # Validate CUDA
+                gpu_flavor = getattr(config, 'gpu_flavor', 'cu121')
+                expected_cuda = "12.1" if gpu_flavor == "cu121" else "12.4"
+                
+                success, error_msg = validate_cuda_torch(expected_cuda)
+                
+                if success:
+                    config.gpu_last_health = "healthy"
+                    config.gpu_last_error = ""
+                    config.save_config()
+                    logger.info("GPU Pack activated successfully")
+                    return True
+                else:
+                    logger.warning(f"CUDA validation failed: {error_msg}")
+                    config.gpu_last_health = "failed"
+                    config.gpu_last_error = error_msg
+                    config.save_config()
+                    # Continue to try system CUDA
+            else:
+                logger.warning(f"Failed to enable GPU runtime from {pack_dir}")
         
-        pack_dir = Path(pack_path)
+        # If GPU Pack not available or failed, try system-wide CUDA/PyTorch
+        # This allows users with existing CUDA installations to use GPU without downloading pack
+        if gpu_opt_in is not False:  # None or True means try auto-detection
+            logger.debug("Attempting to detect system-wide CUDA/PyTorch...")
+            success, error_msg = validate_cuda_torch(expected_cuda="12")  # Accept CUDA 12.x
+            
+            if success:
+                logger.info("System-wide CUDA/PyTorch detected and validated successfully")
+                config.gpu_last_health = "healthy (system)"
+                config.gpu_last_error = ""
+                config.save_config()
+                return True
+            else:
+                logger.debug(f"System CUDA not available or validation failed: {error_msg}")
         
-        # Enable GPU runtime
-        if not enable_gpu_runtime(pack_dir):
-            error_msg = f"Failed to enable GPU runtime from {pack_dir}"
-            logger.warning(error_msg)
-            config.gpu_last_health = "failed"
-            config.gpu_last_error = error_msg
-            config.save_config()
-            return False
-        
-        # Validate CUDA
-        gpu_flavor = getattr(config, 'gpu_flavor', 'cu121')
-        expected_cuda = "12.1" if gpu_flavor == "cu121" else "12.4"
-        
-        success, error_msg = validate_cuda_torch(expected_cuda)
-        
-        if success:
-            config.gpu_last_health = "healthy"
-            config.gpu_last_error = ""
-            config.save_config()
-            logger.info("GPU Pack activated successfully")
-            return True
-        else:
-            logger.warning(f"CUDA validation failed: {error_msg}")
-            config.gpu_last_health = "failed"
-            config.gpu_last_error = error_msg
-            config.save_config()
-            return False
+        # No GPU available
+        logger.debug("GPU acceleration not available")
+        return False
             
     except Exception as e:
         error_msg = f"Unexpected error during GPU bootstrap: {str(e)}"
