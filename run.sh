@@ -88,7 +88,9 @@ if [[ $# -eq 0 ]]; then
     echo "Available shortcuts:"
     echo "  start    - Start the USDXFixGap application"
     echo "  test     - Run all tests with pytest"
-    echo "  install  - Install/update requirements"
+    echo "  install  - Install/update requirements (auto-detects GPU)"
+    echo "  install --gpu   - Force GPU/CUDA PyTorch installation"
+    echo "  install --cpu   - Force CPU-only PyTorch installation"
     echo "  clean    - Clean cache and temporary files"
     echo "  shell    - Start interactive Python shell"
     echo "  info     - Show environment info"
@@ -112,7 +114,66 @@ case "$1" in
         ;;
     "install")
         print_info "Installing/updating requirements..."
+        
+        # Check for manual GPU/CPU override flags
+        INSTALL_MODE="auto"
+        if [[ "$2" == "--gpu" ]] || [[ "$2" == "--cuda" ]]; then
+            INSTALL_MODE="gpu"
+        elif [[ "$2" == "--cpu" ]]; then
+            INSTALL_MODE="cpu"
+        fi
+        
+        # Detect NVIDIA GPU for PyTorch optimization
+        echo ""
+        print_info "Detecting hardware configuration..."
+        
+        if [[ "$INSTALL_MODE" == "cpu" ]]; then
+            print_warning "Manual Override: Installing CPU-only version as requested"
+            pip install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+            echo ""
+            print_success "Installation complete!"
+            exit 0
+        fi
+        
+        if [[ "$INSTALL_MODE" == "gpu" ]]; then
+            print_warning "Manual Override: Installing GPU version as requested"
+        else
+            # Auto-detection mode
+            if command -v nvidia-smi &> /dev/null; then
+                print_success "GPU Detected: NVIDIA GPU found - installing PyTorch with CUDA support"
+            else
+                print_info "CPU Mode: No NVIDIA GPU detected - installing CPU-only PyTorch"
+                print_info "Tip: If you have an NVIDIA GPU, use './run.sh install --gpu' to force GPU installation"
+                pip install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+                echo ""
+                print_success "Installation complete!"
+                exit 0
+            fi
+        fi
+        
+        # Install GPU version
+        print_info "This will enable GPU acceleration for faster processing"
+        
+        # Install base requirements first (without PyTorch)
         pip install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+        
+        # Uninstall any existing PyTorch (CPU or CUDA)
+        echo ""
+        print_info "Removing existing PyTorch installation..."
+        pip uninstall -y torch torchvision torchaudio 2>/dev/null || true
+        
+        # Install PyTorch with CUDA 12.1 support
+        echo ""
+        print_info "Installing PyTorch with CUDA 12.1 support..."
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+        
+        # Verify CUDA availability
+        echo ""
+        print_info "Verifying GPU acceleration..."
+        python -c "import torch; print('GPU Available:', torch.cuda.is_available()); cuda_available = torch.cuda.is_available(); print('GPU:', torch.cuda.get_device_name(0) if cuda_available else 'N/A')"
+        
+        echo ""
+        print_success "Installation complete!"
         ;;
     "clean")
         print_info "Cleaning cache and temporary files..."

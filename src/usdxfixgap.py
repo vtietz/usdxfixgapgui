@@ -22,6 +22,7 @@ from ui.song_status import SongsStatusVisualizer
 from ui.mediaplayer import MediaPlayerComponent
 from ui.songlist.songlist_widget import SongListWidget
 from ui.task_queue_viewer import TaskQueueViewer
+from ui.log_viewer import LogViewerWidget
 
 def main():
     # First create config to get log level before configuring logging
@@ -69,6 +70,7 @@ def main():
     songListView = SongListWidget(data.songs, actions, data)
     mediaPlayerComponent = MediaPlayerComponent(data, actions)
     taskQueueViewer = TaskQueueViewer(actions.worker_queue)
+    logViewer = LogViewerWidget(log_file_path, max_lines=1000)  # Keep last 1000 log lines with scrolling
 
     app.installEventFilter(mediaPlayerComponent.globalEventFilter)
 
@@ -79,6 +81,7 @@ def main():
     layout.addWidget(songListView, 2)  # Adjust stretch factor as needed
     layout.addWidget(mediaPlayerComponent, 1)  # Adjust stretch factor as needed
     layout.addWidget(taskQueueViewer, 1)  # Adjust stretch factor as needed
+    layout.addWidget(logViewer)  # Add log viewer at bottom (no stretch - fixed height)
 
     window.setLayout(layout)
 
@@ -118,10 +121,8 @@ def main():
 
     # Set up proper shutdown
     app.aboutToQuit.connect(shutdown_async_logging)
-    
-    # Add this near the end of your main application setup
-    app = QApplication.instance()
     app.aboutToQuit.connect(lambda: data.worker_queue.shutdown())
+    app.aboutToQuit.connect(logViewer.cleanup)  # Stop log viewer timer
 
     # Start the event loop
     sys.exit(app.exec())

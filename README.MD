@@ -19,10 +19,10 @@ The app uses AI-powered vocal separation (Demucs) with intelligent chunked scann
 ## Features
 
 - Scans directories for Ultrastar files.
-- **Multiple detection methods**: Choose between fast chunked scanning or traditional full-track separation
-  - **mdx** (default): Fast Demucs-based chunked scanning with early-stop (~5-15s, GPU accelerated)
-  - **spleeter**: Full stem separation for high-quality vocal isolation (~30-60s)
-  - **hq_segment**: Windowed Spleeter for balanced speed/quality (~15-25s)
+- **Multiple detection methods**: Choose between fast GPU-accelerated or legacy methods
+  - **mdx** (recommended): Fast Demucs-based chunked scanning with early-stop (~10-30s with GPU, ~2-3min CPU)
+  - **spleeter** (legacy): Full stem separation, deprecated (~30-60s)
+  - **hq_segment** (legacy): Windowed Spleeter, deprecated (~15-25s)
   - See [MDX Provider Documentation](docs/mdx-provider-implementation.md) for detailed comparison
 - Detects silence parts and vocal onsets to verify the accuracy of the GAP value.
 - Provides a graphical user interface (GUI) to visualize the waveform and suggested GAP values.
@@ -44,18 +44,20 @@ The app uses AI-powered vocal separation (Demucs) with intelligent chunked scann
 
 1. **Load Songs:** Load Ultrastar songs from the specified directory.
 2. **Detect Gap:** The application uses one of the following methods:
-   - **MDX (Default)**: Fast chunked scanning using Demucs vocal separation
+   - **MDX (Recommended)**: Fast chunked scanning using Demucs vocal separation
      - Processes audio in 12s chunks with 50% overlap
      - Runs Demucs separation on each chunk for clean vocal stems
      - Detects onset using adaptive energy threshold on vocals
-     - **Early-stop optimization**: Stops as soon as first onset found (3-5x faster)
-     - GPU accelerated for best performance
-   - **Spleeter**: Full vocal separation using AI-powered stem separation
+     - **Early-stop optimization**: Stops as soon as first onset found (5-10x faster)
+     - **GPU accelerated** for best performance (10-30s per song with RTX GPU)
+     - State-of-the-art quality (Meta's Demucs model)
+   - **Spleeter (Legacy)**: Full vocal separation using AI-powered stem separation
+     - ⚠️ Deprecated: No longer maintained (last update 2020)
      - Separates vocals from accompaniment across entire track
-     - Highest accuracy but slower processing
-   - **HQ Segment**: Windowed Spleeter for balanced speed/quality
+     - Slower processing, heavier TensorFlow dependencies
+   - **HQ Segment (Legacy)**: Windowed Spleeter for balanced speed/quality
+     - ⚠️ Deprecated: Wrapper around unmaintained Spleeter
      - Separates vocals only in detection window
-     - Faster than full Spleeter, maintains quality
 3. **Check Gap:** Verifies if the given GAP value matches the detected vocal onset.
 4. **Display Results:** Displays the results in the GUI, showing the detected GAP, difference, confidence score (SNR-based), and status (MATCH or MISMATCH).
 5. **Manual Adjustment:** If a mismatch is detected, the user can view the suggested GAP on the waveform and manually choose the correct value.
@@ -142,8 +144,10 @@ For convenience, you can use the provided run scripts that automatically handle 
 # Run tests
 .\run.bat test
 
-# Install/update requirements
+# Install/update requirements (auto-detects GPU for faster processing)
 .\run.bat install
+.\run.bat install --gpu    # Force GPU/CUDA installation
+.\run.bat install --cpu    # Force CPU-only installation
 
 # Clean cache files
 .\run.bat clean
@@ -162,6 +166,7 @@ These scripts will:
 - Automatically check if the conda environment is active
 - Create and activate the environment if it doesn't exist
 - Install requirements automatically on first run
+- **Auto-detect NVIDIA GPU and install PyTorch with CUDA support for 5-10x faster processing**
 - Provide convenient shortcuts for common tasks
 
 ### Create executable Windows app
@@ -203,10 +208,10 @@ The configuration is managed through a `config.ini` file located in the `src` di
 - **adjust_player_position_step_vocals**: Milliseconds to move when navigating vocals track with arrow keys
 
 #### [Processing]
-- **method**: Detection method to use (mdx, spleeter, hq_segment)
-  - **mdx** (default): Fast Demucs-based chunked scanning with early-stop (GPU accelerated)
-  - **spleeter**: Full stem separation (slower but highest accuracy)
-  - **hq_segment**: Windowed Spleeter for balanced speed/quality
+- **method**: Detection method to use
+  - **mdx** (recommended): Fast GPU-accelerated Demucs-based chunked scanning with early-stop
+  - **spleeter** (legacy, deprecated): Full stem separation, no longer maintained
+  - **hq_segment** (legacy, deprecated): Windowed Spleeter, no longer maintained
 - **normalization_level**: Target level in dB for audio normalization
 - **auto_normalize**: Whether to automatically normalize audio after gap detection (true/false)
 
@@ -232,9 +237,11 @@ The configuration is managed through a `config.ini` file located in the `src` di
 - **silence_detect_params**: FFmpeg parameters for silence detection (same as spleeter)
 
 **Important**: The "extracted voices" you receive depends on the method:
-- **mdx**: Returns a true **isolated vocal stem** for the entire track (Demucs separation)
-- **spleeter**: Returns a true **isolated vocal stem** for the entire track (Spleeter separation)
-- **hq_segment**: Returns a true **local vocal stem** for the preview window only (windowed Spleeter)
+- **mdx**: Returns a true **isolated vocal stem** for the entire track (Demucs separation) - **Recommended**
+- **spleeter** (deprecated): Returns a true **isolated vocal stem** for the entire track (Spleeter separation)
+- **hq_segment** (deprecated): Returns a true **local vocal stem** for the preview window only (windowed Spleeter)
+
+**Note:** Spleeter and HQ Segment methods are deprecated as Spleeter is no longer maintained (archived since 2020). MDX provides better performance with GPU acceleration and active development from Meta Research.
 
 See [MDX Provider Documentation](docs/mdx-provider-implementation.md) for detailed information about the MDX method and its performance characteristics.
 

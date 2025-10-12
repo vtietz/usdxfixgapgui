@@ -90,27 +90,31 @@ class Config(QObject):
             'silence_detect_params': '-30dB d=0.3'
         }
         
-        # MDX settings (Demucs-based with bidirectional search)
+        # MDX settings (Demucs-based with expanding search and GPU optimizations)
         self._config['mdx'] = {
             # Chunked processing
             'chunk_duration_ms': '12000',      # 12s chunks for Demucs processing
             'chunk_overlap_ms': '6000',        # 50% overlap (6s) between chunks
             
-            # Energy analysis
+            # Energy analysis (tuned for speed)
             'frame_duration_ms': '25',         # 25ms frames for RMS computation
-            'hop_duration_ms': '10',           # 10ms hop for fine-grained analysis
+            'hop_duration_ms': '20',           # 20ms hop (increased from 10ms for 2x speed)
             'noise_floor_duration_ms': '800',  # First 800ms for noise floor estimation
             
             # Onset detection thresholds (improved for reliability)
-            'onset_snr_threshold': '6.0',      # RMS > noise + 6.0*sigma (increased from 2.5)
+            'onset_snr_threshold': '6.0',      # RMS > noise + 6.0*sigma
             'onset_abs_threshold': '0.02',     # Absolute RMS threshold (2% amplitude minimum)
-            'min_voiced_duration_ms': '500',   # 500ms minimum sustained vocals (increased from 180ms)
-            'hysteresis_ms': '200',            # 200ms hysteresis for onset refinement (increased from 80ms)
+            'min_voiced_duration_ms': '300',   # 300ms minimum sustained vocals (reduced from 500ms)
+            'hysteresis_ms': '200',            # 200ms hysteresis for onset refinement
             
-            # Bidirectional search parameters
-            'search_radius_initial_ms': '5000',     # Start with ±5s from expected gap
-            'search_radius_increment_ms': '5000',   # Expand by 5s each iteration
-            'max_search_iterations': '8',           # Up to ±40s total search range
+            # Expanding search parameters (NEW - balances speed and robustness)
+            'initial_radius_ms': '7500',       # Start with ±7.5s window around expected gap
+            'radius_increment_ms': '7500',     # Expand by 7.5s each iteration
+            'max_expansions': '3',             # Max 3 expansions = ±30s total coverage
+            
+            # Performance optimizations (NEW - GPU and CPU speedup)
+            'use_fp16': 'true',                # Use FP16 precision on GPU for faster inference
+            'resample_hz': '0',                # 0=disabled, 32000=downsample for CPU speed
             
             # Confidence and preview
             'confidence_threshold': '0.55',    # SNR-based confidence threshold
@@ -177,9 +181,14 @@ class Config(QObject):
             self.mdx_onset_abs_threshold = self._config.getfloat('mdx', 'onset_abs_threshold')
             self.mdx_min_voiced_duration_ms = self._config.getint('mdx', 'min_voiced_duration_ms')
             self.mdx_hysteresis_ms = self._config.getint('mdx', 'hysteresis_ms')
-            self.mdx_search_radius_initial_ms = self._config.getint('mdx', 'search_radius_initial_ms')
-            self.mdx_search_radius_increment_ms = self._config.getint('mdx', 'search_radius_increment_ms')
-            self.mdx_max_search_iterations = self._config.getint('mdx', 'max_search_iterations')
+            # Expanding search parameters
+            self.mdx_initial_radius_ms = self._config.getint('mdx', 'initial_radius_ms')
+            self.mdx_radius_increment_ms = self._config.getint('mdx', 'radius_increment_ms')
+            self.mdx_max_expansions = self._config.getint('mdx', 'max_expansions')
+            # Performance optimizations
+            self.mdx_use_fp16 = self._config.getboolean('mdx', 'use_fp16')
+            self.mdx_resample_hz = self._config.getint('mdx', 'resample_hz')
+            # Confidence and preview
             self.mdx_confidence_threshold = self._config.getfloat('mdx', 'confidence_threshold')
             self.mdx_preview_pre_ms = self._config.getint('mdx', 'preview_pre_ms')
             self.mdx_preview_post_ms = self._config.getint('mdx', 'preview_post_ms')

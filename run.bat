@@ -16,6 +16,9 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: Initialize conda for batch
+call conda.bat activate base >nul 2>nul
+
 :: Function to check if environment is active
 call :check_env_active
 if !ENV_ACTIVE! equ 1 (
@@ -34,7 +37,7 @@ if %errorlevel% neq 0 (
     )
     
     echo Installing requirements...
-    call conda activate %ENV_NAME%
+    call conda.bat activate %ENV_NAME%
     pip install -r "%SCRIPT_DIR%requirements.txt"
     if !errorlevel! neq 0 (
         echo ERROR: Failed to install requirements
@@ -42,7 +45,11 @@ if %errorlevel% neq 0 (
     )
 ) else (
     echo Activating environment %ENV_NAME%...
-    call conda activate %ENV_NAME%
+    call conda.bat activate %ENV_NAME%
+    if !errorlevel! neq 0 (
+        echo ERROR: Failed to activate environment
+        exit /b 1
+    )
 )
 
 :run_command
@@ -53,7 +60,9 @@ if "%1"=="" (
     echo Available shortcuts:
     echo   start    - Start the USDXFixGap application
     echo   test     - Run all tests with pytest
-    echo   install  - Install/update requirements
+    echo   install  - Install/update requirements ^(auto-detects GPU^)
+    echo   install --gpu   - Force GPU/CUDA PyTorch installation
+    echo   install --cpu   - Force CPU-only PyTorch installation
     echo   clean    - Clean cache and temporary files
     echo   shell    - Start interactive Python shell
     echo   info     - Show environment info
@@ -80,8 +89,45 @@ if /i "%1"=="test" (
 
 if /i "%1"=="install" (
     echo Installing/updating requirements...
-    pip install -r "%SCRIPT_DIR%requirements.txt" --upgrade
-    goto :end
+    
+    :: Check for manual GPU/CPU override flags
+    set INSTALL_MODE=auto
+    if /i "%2"=="--gpu" set INSTALL_MODE=gpu
+    if /i "%2"=="--cuda" set INSTALL_MODE=gpu
+    if /i "%2"=="--cpu" set INSTALL_MODE=cpu
+    
+    :: Detect NVIDIA GPU for PyTorch optimization
+    echo.
+    echo Detecting hardware configuration...
+    
+    if "!INSTALL_MODE!"=="cpu" (
+        echo [Manual Override] Installing CPU-only version as requested
+        pip install -r "%SCRIPT_DIR%requirements.txt" --upgrade
+        echo.
+        echo Installation complete!
+        goto :end
+    )
+    
+    if "!INSTALL_MODE!"=="gpu" (
+        echo [Manual Override] Installing GPU version as requested
+        call :install_gpu
+        goto :end
+    )
+    
+    :: Auto-detection mode
+    nvidia-smi >nul 2>nul
+    if !errorlevel! equ 0 (
+        echo [GPU Detected] NVIDIA GPU found - installing PyTorch with CUDA support
+        call :install_gpu
+        goto :end
+    ) else (
+        echo [CPU Mode] No NVIDIA GPU detected - installing CPU-only PyTorch
+        echo Tip: If you have an NVIDIA GPU, use 'run.bat install --gpu' to force GPU installation
+        pip install -r "%SCRIPT_DIR%requirements.txt" --upgrade
+        echo.
+        echo Installation complete!
+        goto :end
+    )
 )
 
 if /i "%1"=="clean" (
@@ -123,6 +169,32 @@ cd /d "%SCRIPT_DIR%"
 :end
 endlocal
 exit /b %errorlevel%
+
+:: Function to install GPU version of PyTorch
+:install_gpu
+echo This will enable GPU acceleration for faster processing
+
+:: Install base requirements first (without PyTorch)
+pip install -r "%SCRIPT_DIR%requirements.txt" --upgrade
+
+:: Uninstall any existing PyTorch (CPU or CUDA)
+echo.
+echo Removing existing PyTorch installation...
+pip uninstall -y torch torchvision torchaudio 2>nul
+
+:: Install PyTorch with CUDA 12.1 support
+echo.
+echo Installing PyTorch with CUDA 12.1 support...
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+:: Verify CUDA availability
+echo.
+echo Verifying GPU acceleration...
+python -c "import torch; print('GPU Available:', torch.cuda.is_available()); cuda_available = torch.cuda.is_available(); print('GPU:', torch.cuda.get_device_name(0) if cuda_available else 'N/A')"
+
+echo.
+echo Installation complete!
+goto :eof
 
 :: Function to check if conda environment is active
 :check_env_active
