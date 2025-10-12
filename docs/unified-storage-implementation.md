@@ -89,10 +89,11 @@ models_directory =   # Empty = default, or custom path like E:\Models
 
 ## File Structure After Changes
 
+**Windows:**
 ```
 %LOCALAPPDATA%\USDXFixGap\
 ├── config.ini              ← User configuration
-├── cache.db                ← Song metadata cache (if exists)
+├── cache.db                ← Song metadata cache
 ├── usdxfixgap.log          ← Application logs
 ├── .tmp\                   ← Temporary processing files
 │   └── [song-hash]\
@@ -110,6 +111,39 @@ models_directory =   # Empty = default, or custom path like E:\Models
     ├── torch\
     └── torchaudio\
 ```
+**Path:** `C:\Users\<username>\AppData\Local\USDXFixGap\`
+
+**Linux:**
+```
+~/.local/share/USDXFixGap/
+├── config.ini              ← User configuration
+├── cache.db                ← Song metadata cache
+├── usdxfixgap.log          ← Application logs
+├── .tmp/                   ← Temporary processing files
+├── output/                 ← Default output directory
+├── samples/                ← Default song directory (if used)
+├── models/                 ← AI models (NEW!)
+│   ├── demucs/             ← Demucs models (auto-downloaded)
+│   └── spleeter/           ← Spleeter models (auto-downloaded)
+└── gpu_runtime/            ← GPU Pack (existing, optional)
+```
+**Path:** `~/.local/share/USDXFixGap/` (respects `XDG_DATA_HOME` if set)
+
+**macOS:**
+```
+~/Library/Application Support/USDXFixGap/
+├── config.ini              ← User configuration
+├── cache.db                ← Song metadata cache
+├── usdxfixgap.log          ← Application logs
+├── .tmp/                   ← Temporary processing files
+├── output/                 ← Default output directory
+├── samples/                ← Default song directory (if used)
+├── models/                 ← AI models (NEW!)
+│   ├── demucs/             ← Demucs models (auto-downloaded)
+│   └── spleeter/           ← Spleeter models (auto-downloaded)
+└── gpu_runtime/            ← GPU Pack (existing, optional)
+```
+**Path:** `~/Library/Application Support/USDXFixGap/`
 
 ---
 
