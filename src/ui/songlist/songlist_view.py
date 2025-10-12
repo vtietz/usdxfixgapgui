@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QHeaderView, QTableView, QAbstractItemView
-from PySide6.QtCore import Signal, Qt, QTimer
+from PySide6.QtCore import Signal, Qt, QTimer, QSortFilterProxyModel
+from typing import Optional, cast
 import logging
 
 from actions import Actions
@@ -20,16 +21,25 @@ VIEWPORT_BUFFER_ROWS = 10  # Load this many extra rows above/below viewport
 class SongListView(QTableView):
     selected_songs_changed = Signal(list) # Emits list of selected Song objects
 
-    def __init__(self, model: SongTableModel, actions: Actions, parent=None):
+    def __init__(self, model, actions: Actions, parent=None):
         super().__init__(parent)
         self.setModel(model)
-        self.tableModel = model
-        self.actions = actions
+        # Track both proxy and source model for robust mapping
+        self.proxyModel = model if hasattr(model, 'mapToSource') else None
+        self.tableModel = model.sourceModel() if hasattr(model, 'sourceModel') else model
+        # Avoid name clash with QWidget.actions() method
+        self.ui_actions = actions
 
         # Connect selection changed signal
         self.selectionModel().selectionChanged.connect(self.onSelectionChanged)
         # Connect the view's signal to the action handler
         self.selected_songs_changed.connect(actions.set_selected_songs)
+
+        # Re-trigger viewport lazy-loading whenever data changes in proxy or source
+        if hasattr(model, 'dataChanged'):
+            model.dataChanged.connect(lambda *args: self.reset_viewport_loading())
+        if hasattr(self.tableModel, 'dataChanged'):
+            self.tableModel.dataChanged.connect(lambda *args: self.reset_viewport_loading())
         
         # Resize optimization state
         self._resize_timer = QTimer()
@@ -81,11 +91,8 @@ class SongListView(QTableView):
     def apply_resize_policy(self):
         """Apply column resize policy based on dataset size."""
         # Get the source model to check row count
-        source_model = None
-        if hasattr(self.model(), 'sourceModel'):
-            source_model = self.model().sourceModel()
-        else:
-            source_model = self.model()
+        proxy_model = self.model()
+        source_model = proxy_model.sourceModel() if isinstance(proxy_model, QSortFilterProxyModel) else proxy_model
         
         row_count = source_model.rowCount() if source_model else 0
         
@@ -116,10 +123,19 @@ class SongListView(QTableView):
 
     def onSelectionChanged(self, selected, deselected):
         selected_songs = []
-        source_model = self.model().sourceModel()
+        # Resolve source model robustly
+        proxy_model = self.model()
+        source_model = proxy_model.sourceModel() if isinstance(proxy_model, QSortFilterProxyModel) else proxy_model
+
+        # If the underlying model isn't SongTableModel, we cannot extract Song instances
+        if not isinstance(source_model, SongTableModel):
+            logger.debug("Selection changed but source model is not SongTableModel")
+            self.selected_songs_changed.emit(selected_songs)
+            return
+
         # Use selectedRows() to get all selected rows
         for index in self.selectionModel().selectedRows():
-            source_index = self.model().mapToSource(index)
+            source_index = proxy_model.mapToSource(index) if isinstance(proxy_model, QSortFilterProxyModel) else index
             if source_index.isValid() and source_index.row() < len(source_model.songs):
                 song: Song = source_model.songs[source_index.row()]
                 selected_songs.append(song)
@@ -174,7 +190,7 @@ class SongListView(QTableView):
         
         # Disable dynamic filtering on proxy model if available
         model = self.model()
-        if hasattr(model, 'setDynamicSortFilter'):
+        if isinstance(model, QSortFilterProxyModel):
             model.setDynamicSortFilter(False)
         
         # Freeze all columns to Fixed mode to prevent per-pixel width recalculation
@@ -197,11 +213,7 @@ class SongListView(QTableView):
         
         # 2. Check dataset size before applying auto-fit
         model = self.model()
-        source_model = None
-        if hasattr(model, 'sourceModel'):
-            source_model = model.sourceModel()
-        else:
-            source_model = model
+        source_model = model.sourceModel() if isinstance(model, QSortFilterProxyModel) else model
         
         row_count = source_model.rowCount() if source_model else 0
         
@@ -216,7 +228,7 @@ class SongListView(QTableView):
                         self.resizeColumnToContents(i)
         
         # 5. Re-enable dynamic filtering (must be before sorting)
-        if hasattr(model, 'setDynamicSortFilter'):
+        if isinstance(model, QSortFilterProxyModel):
             model.setDynamicSortFilter(True)
         
         # 6. Re-enable sorting
@@ -248,9 +260,9 @@ class SongListView(QTableView):
         
         # Get source model
         proxy_model = self.model()
-        source_model = proxy_model.sourceModel() if hasattr(proxy_model, 'sourceModel') else proxy_model
+        source_model = proxy_model.sourceModel() if isinstance(proxy_model, QSortFilterProxyModel) else proxy_model
         
-        if not hasattr(source_model, 'songs'):
+        if not isinstance(source_model, SongTableModel):
             return
         
         # Calculate row range with buffer
@@ -261,7 +273,7 @@ class SongListView(QTableView):
         songs_to_load = []
         for proxy_row in range(first_row, last_row + 1):
             proxy_index = proxy_model.index(proxy_row, 0)
-            source_index = proxy_model.mapToSource(proxy_index) if hasattr(proxy_model, 'mapToSource') else proxy_index
+            source_index = proxy_model.mapToSource(proxy_index) if isinstance(proxy_model, QSortFilterProxyModel) else proxy_index
             
             if not source_index.isValid() or source_index.row() in self._loaded_rows:
                 continue
@@ -298,9 +310,11 @@ class SongListView(QTableView):
 
     def _reload_songs_in_background(self, songs):
         """Trigger reload of songs in the background."""
+        logger.debug(f"Triggering background reload for {len(songs)} songs")
         for song in songs:
+            logger.debug(f"  - Reloading: {song.title} by {song.artist} (path: {song.path})")
             # Use the actions to reload the song
-            self.actions.reload_song(specific_song=song)
+            self.ui_actions.reload_song(specific_song=song)
 
     def reset_viewport_loading(self):
         """Reset viewport loading state (call when data changes)."""

@@ -22,6 +22,7 @@ class SongTableModel(QAbstractTableModel):
         self._is_streaming = False  # Flag for async loading
         self._dirty_rows = set()  # For throttled dataChanged emissions
         self._update_timer = QTimer()
+        self._update_timer.setSingleShot(True)  # Single-shot timer for coalescing
         self._update_timer.setInterval(33)  # 33ms coalescing
         self._update_timer.timeout.connect(self._emit_coalesced_updates)
 
@@ -91,6 +92,8 @@ class SongTableModel(QAbstractTableModel):
         if not sorted_rows:
             return
         
+        logger.debug(f"Emitting dataChanged for {len(sorted_rows)} rows: {sorted_rows[:10]}{'...' if len(sorted_rows) > 10 else ''}")
+        
         # Emit contiguous ranges
         start_row = sorted_rows[0]
         end_row = sorted_rows[0]
@@ -101,16 +104,26 @@ class SongTableModel(QAbstractTableModel):
             else:
                 # Emit current range
                 self.dataChanged.emit(
-                    self.createIndex(start_row, 0),
-                    self.createIndex(end_row, self.columnCount() - 1)
+                    self.index(start_row, 0),
+                    self.index(end_row, self.columnCount() - 1),
+                    [
+                        Qt.ItemDataRole.DisplayRole,
+                        Qt.ItemDataRole.BackgroundRole,
+                        Qt.ItemDataRole.TextAlignmentRole,
+                    ]
                 )
                 start_row = row
                 end_row = row
         
         # Emit final range
         self.dataChanged.emit(
-            self.createIndex(start_row, 0),
-            self.createIndex(end_row, self.columnCount() - 1)
+            self.index(start_row, 0),
+            self.index(end_row, self.columnCount() - 1),
+            [
+                Qt.ItemDataRole.DisplayRole,
+                Qt.ItemDataRole.BackgroundRole,
+                Qt.ItemDataRole.TextAlignmentRole,
+            ]
         )
         
         self._dirty_rows.clear()
@@ -124,9 +137,9 @@ class SongTableModel(QAbstractTableModel):
                 self._dirty_rows.add(idx)
                 if not self._update_timer.isActive():
                     self._update_timer.start()
-                logger.info(f"Updated song: {song}")
+                logger.debug(f"Marked row {idx} as dirty for song: {song.title} ({song.artist})")
                 return
-        logger.error(f"Song not found: {song}")
+        logger.warning(f"Song update received but not found in model: {song.path}")
 
     def song_deleted(self, song: Song):
         try:

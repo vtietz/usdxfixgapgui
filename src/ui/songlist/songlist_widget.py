@@ -6,7 +6,7 @@ from model.song import Song
 from model.songs import Songs
 from ui.songlist.songlist_view import SongListView
 from ui.songlist.songlist_model import SongTableModel
-from typing import List
+from typing import List, cast
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,35 +27,42 @@ class CustomSortFilterProxyModel(QSortFilterProxyModel):
             return True
         
         # Access the source model's data for the given row
-        song: Song = self.sourceModel().songs[source_row]
+        source_model = cast(SongTableModel, self.sourceModel())
+        song: Song = source_model.songs[source_row]
 
         # Implement filtering logic
         statusMatch = song.status.name in self.selectedStatuses if self.selectedStatuses else True
         
-        # Use cached lowercase strings from model if available
-        source_model = self.sourceModel()
-        if hasattr(source_model, '_row_cache') and song.path in source_model._row_cache:
-            cache_entry = source_model._row_cache[song.path]
-            textMatch = (self.textFilter in cache_entry['artist_lower'] or 
-                        self.textFilter in cache_entry['title_lower'])
+        # Prefer cached lowercase strings from model if available
+        cache_entry = source_model._row_cache.get(song.path) if hasattr(source_model, "_row_cache") else None
+        if cache_entry:
+            textMatch = (self.textFilter in cache_entry['artist_lower'] or
+                         self.textFilter in cache_entry['title_lower'])
         else:
             # Fallback to direct lowercase conversion
-            textMatch = self.textFilter in song.artist.lower() or self.textFilter in song.title.lower()
+            textMatch = (self.textFilter in song.artist.lower() or
+                         self.textFilter in song.title.lower())
 
         return statusMatch and textMatch
 
 class SongListWidget(QWidget):
     def __init__(self, songs_model: Songs, actions: Actions, data: AppData,parent=None):
         super().__init__(parent)
-        self.actions = actions
+        # actions are passed to the view; no instance attribute to avoid clashing with QWidget.actions()
 
         # Create the table model and proxy model
         self.songs_model = songs_model
         self.tableModel = SongTableModel(songs_model, data)
         self.proxyModel = CustomSortFilterProxyModel()
         self.proxyModel.setSourceModel(self.tableModel)
+        # Ensure proxy dynamically re-sorts/refilters on source changes
+        self.proxyModel.setDynamicSortFilter(True)
 
         self.tableView = SongListView(self.proxyModel, actions)
+        # Propagate data refreshes across proxy/view and re-trigger viewport lazy-loading
+        self.tableModel.dataChanged.connect(lambda *args: self.proxyModel.invalidate())
+        self.proxyModel.dataChanged.connect(lambda *args: self.tableView.reset_viewport_loading())
+        self.tableModel.dataChanged.connect(lambda *args: self.tableView.reset_viewport_loading())
         
         # Create song count label
         self.countLabel = QLabel()
@@ -96,7 +103,8 @@ class SongListWidget(QWidget):
     
     def _apply_deferred_filter(self):
         """Apply the filter invalidation in a deferred manner."""
-        self.proxyModel.invalidateFilter()
+        # Use invalidate() to refresh both filtering and sorting mappings
+        self.proxyModel.invalidate()
         # Update count after filter is applied
         QTimer.singleShot(10, self.updateCountLabel)
         

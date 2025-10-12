@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import List
+from typing import List, Set
 from actions.base_actions import BaseActions
 from model.song import Song, SongStatus
 from workers.reload_song_worker import ReloadSongWorker
@@ -8,49 +8,97 @@ from services.usdx_file_service import USDXFileService
 from services.song_service import SongService
 from model.usdx_file import USDXFile
 from utils.audio import get_audio_duration
+from utils.run_async import run_sync
 
 logger = logging.getLogger(__name__)
 
+# Global registry of in-flight reloads across all SongActions instances to prevent duplicate reload tasks
+_GLOBAL_INFLIGHT_RELOADS: Set[str] = set()
+
 class SongActions(BaseActions):
     """Song selection and management actions"""
+
+    def __init__(self, data):
+        super().__init__(data)
+        # In-flight reloads are tracked globally to prevent duplicates across different action instances
 
     def set_selected_songs(self, songs: List[Song]):
         logger.debug(f"Setting selected songs: {[s.title for s in songs]}")
         self.data.selected_songs = songs
         # Removed waveform creation here - will be handled by MediaPlayerComponent
 
+    def _mark_reload_started(self, song_path: str):
+        """Mark a song path as having an in-flight reload to prevent duplicate tasks."""
+        _GLOBAL_INFLIGHT_RELOADS.add(song_path)
+
+    def _mark_reload_finished(self, song_path: str):
+        """Clear the in-flight flag when a reload worker finishes, errors, or is canceled."""
+        _GLOBAL_INFLIGHT_RELOADS.discard(song_path)
+
+
     def reload_song(self, specific_song=None):
         """
         Reload a song or songs from disk.
         If specific_song is provided, only loads that song.
         Otherwise loads all selected songs.
+        Prevents duplicate concurrent reload tasks per song by path.
         """
-        if specific_song:
-            songs_to_load = [specific_song]
-        else:
-            songs_to_load = self.data.selected_songs
-            
+        # Resolve target songs
+        songs_to_load = [specific_song] if specific_song else self.data.selected_songs
+
         if not songs_to_load:
             logger.error("No songs selected to reload.")
             return
-        
+
         logger.info(f"Reloading {len(songs_to_load)} songs.")
-        
+
         for song in songs_to_load:
+            # Skip if already scheduled/running to avoid duplicate tasks (global guard)
+            if song.path in _GLOBAL_INFLIGHT_RELOADS:
+                logger.debug(f"Skip duplicate reload for already in-flight song: {song.path}")
+                continue
+
             logger.info(f"Reloading song {song.path}")
             try:
+                # Mark as queued so viewport lazy loader does not re-queue it
+                song.status = SongStatus.QUEUED
+                self.data.songs.updated.emit(song)
+
                 # Extract directory from song.path (which should be the full file path)
                 song_directory = os.path.dirname(song.path)
-                
+
                 # Create the new ReloadSongWorker for this specific song reload
                 worker = ReloadSongWorker(song.path, song_directory)
-                worker.signals.songReloaded.connect(self._on_song_loaded)
-                worker.signals.error.connect(lambda e, s=song: self._on_song_worker_error(s, e))
-                
-                # Add the task to the worker queue
-                self.worker_queue.add_task(worker, True)  # True to start immediately
-                
+
+                # Mark inflight before starting
+                self._mark_reload_started(song.path)
+
+                # Update song status to PROCESSING on start
+                worker.signals.started.connect(lambda s=song: (
+                    setattr(s, 'status', SongStatus.PROCESSING),
+                    self.data.songs.updated.emit(s)
+                ))
+
+                # When the worker reloads the song, clear inflight and update model
+                worker.signals.songReloaded.connect(lambda reloaded_song, p=song.path: (
+                    self._mark_reload_finished(p),
+                    self._on_song_loaded(reloaded_song)
+                ))
+
+                # Clear inflight on error/cancel/finish to avoid stuck state
+                worker.signals.error.connect(lambda e, s=song, p=song.path: (
+                    self._mark_reload_finished(p),
+                    self._on_song_worker_error(s, e)
+                ))
+                worker.signals.canceled.connect(lambda p=song.path: self._mark_reload_finished(p))
+                worker.signals.finished.connect(lambda p=song.path: self._mark_reload_finished(p))
+
+                # Add the task to the worker queue (start immediately)
+                self.worker_queue.add_task(worker, True)
+
             except Exception as e:
+                # Ensure we clear inflight in case of immediate exception
+                self._mark_reload_finished(song.path)
                 song.set_error(str(e))
                 logger.exception(f"Error setting up song reload: {e}")
                 self.data.songs.updated.emit(song)
@@ -66,7 +114,7 @@ class SongActions(BaseActions):
         try:
             # Use USDXFile and USDXFileService directly to load just the notes
             usdx_file = USDXFile(song.txt_file)
-            song.notes = USDXFileService.load_notes_only(usdx_file)
+            song.notes = run_sync(USDXFileService.load_notes_only(usdx_file))
             logger.debug(f"Notes loaded for song: {song.title}, count: {len(song.notes) if song.notes else 0}")
             
             # Notify that the song was updated
@@ -80,7 +128,7 @@ class SongActions(BaseActions):
     def _on_song_loaded(self, reloaded_song):
         """Handle a reloaded song from the worker"""
         # Find the matching song in our data model
-        for i, song in enumerate(self.data.songs):
+        for i, song in enumerate(self.data.songs.songs):
             if song.path == reloaded_song.path:
                 # Instead of replacing the song object, update its attributes
                 # This avoids 'Songs' object does not support item assignment error
