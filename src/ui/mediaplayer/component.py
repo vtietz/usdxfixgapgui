@@ -209,9 +209,21 @@ class MediaPlayerComponent(QWidget):
         self.update_ui()
         self.update_player_files()
     
-    def on_song_updated(self):
-        """Handle when the current song data is updated"""
-        logger.debug(f"Current song updated")
+    def on_song_updated(self, updated_song: Song):
+        """Handle when the current song data is updated
+        
+        Args:
+            updated_song: The song that was updated
+        """
+        # Only update UI if the updated song is the currently selected song
+        if self._song is None or updated_song is None:
+            return
+        
+        if self._song.path != updated_song.path:
+            logger.debug(f"Song updated but not currently selected: {updated_song.title}")
+            return
+        
+        logger.debug(f"Current song updated: {updated_song.title}")
         self.update_ui()
         self.update_player_files()
     

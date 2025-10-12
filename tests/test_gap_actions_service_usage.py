@@ -78,6 +78,9 @@ class TestUpdateGapValue:
         self, mock_run_async, mock_audio_actions, mock_gap_info_service, mock_usdx_service, mock_app_data, sample_song
     ):
         """Verify update_gap_value uses services instead of song.usdx_file property"""
+        # Close coroutines to avoid RuntimeWarning
+        mock_run_async.side_effect = lambda coro: coro.close()
+        
         # Setup
         gap_actions = GapActions(mock_app_data)
         new_gap = 1500
@@ -106,6 +109,9 @@ class TestUpdateGapValue:
         self, mock_run_async, mock_audio_actions, mock_gap_info_service, mock_usdx_service, mock_app_data, sample_song
     ):
         """Verify note times are recalculated with new gap value"""
+        # Close coroutines to avoid RuntimeWarning
+        mock_run_async.side_effect = lambda coro: coro.close()
+        
         gap_actions = GapActions(mock_app_data)
         new_gap = 1500
         
@@ -146,6 +152,9 @@ class TestRevertGapValue:
         self, mock_run_async, mock_audio_actions, mock_gap_info_service, mock_usdx_service, mock_app_data, sample_song
     ):
         """Verify revert_gap_value uses services instead of song.usdx_file property"""
+        # Close coroutines to avoid RuntimeWarning
+        mock_run_async.side_effect = lambda coro: coro.close()
+        
         # Setup
         gap_actions = GapActions(mock_app_data)
         sample_song.gap = 1500  # Changed from original
@@ -170,6 +179,9 @@ class TestRevertGapValue:
         self, mock_run_async, mock_audio_actions, mock_gap_info_service, mock_usdx_service, mock_app_data, sample_song
     ):
         """Verify note times are recalculated with original gap value"""
+        # Close coroutines to avoid RuntimeWarning
+        mock_run_async.side_effect = lambda coro: coro.close()
+        
         gap_actions = GapActions(mock_app_data)
         sample_song.gap = 1500  # Changed from original
         
