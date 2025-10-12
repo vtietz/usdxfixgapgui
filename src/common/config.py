@@ -73,7 +73,7 @@ class Config(QObject):
         }
         
         self._config['Processing'] = {
-            'method': 'spleeter',  # Options: spleeter, hq_segment, mdx
+            'method': 'mdx',  # Options: mdx (recommended), spleeter (legacy), hq_segment (legacy)
             'normalization_level': '-20',  # Default normalization level is -20 dB
             'auto_normalize': 'false'      # Default is not to auto-normalize
         }
@@ -113,7 +113,7 @@ class Config(QObject):
             'max_expansions': '3',             # Max 3 expansions = ±30s total coverage
             
             # Performance optimizations (NEW - GPU and CPU speedup)
-            'use_fp16': 'true',                # Use FP16 precision on GPU for faster inference
+            'use_fp16': 'false',               # FP16 disabled due to type mismatch issues
             'resample_hz': '0',                # 0=disabled, 32000=downsample for CPU speed
             
             # Confidence and preview
@@ -124,7 +124,14 @@ class Config(QObject):
         
         self._config['General'] = {
             'DefaultOutputPath': os.path.join(get_app_dir(), 'output'),
-            'LogLevel': 'INFO'
+            'LogLevel': 'INFO',
+            # GPU Pack settings
+            'GpuOptIn': 'false',
+            'GpuFlavor': 'cu121',
+            'GpuPackInstalledVersion': '',
+            'GpuPackPath': '',
+            'GpuLastHealth': '',
+            'GpuLastError': ''
         }
         
         self._config['Audio'] = {
@@ -197,6 +204,14 @@ class Config(QObject):
         self.log_level_str = self._config.get('General', 'LogLevel')
         self.log_level = self._get_log_level(self.log_level_str)
         
+        # GPU Pack settings
+        self.gpu_opt_in = self._config.getboolean('General', 'GpuOptIn', fallback=False)
+        self.gpu_flavor = self._config.get('General', 'GpuFlavor', fallback='cu121')
+        self.gpu_pack_installed_version = self._config.get('General', 'GpuPackInstalledVersion', fallback='')
+        self.gpu_pack_path = self._config.get('General', 'GpuPackPath', fallback='')
+        self.gpu_last_health = self._config.get('General', 'GpuLastHealth', fallback='')
+        self.gpu_last_error = self._config.get('General', 'GpuLastError', fallback='')
+        
         # Backward compatibility - set spleeter flag based on method
         self.spleeter = (self.method == 'spleeter')
 
@@ -218,8 +233,20 @@ class Config(QObject):
         # Update config object with current property values
         self._config['Paths']['last_directory'] = self.last_directory
         
+        # GPU Pack settings
+        self._config['General']['GpuOptIn'] = 'true' if self.gpu_opt_in else 'false'
+        self._config['General']['GpuFlavor'] = self.gpu_flavor
+        self._config['General']['GpuPackInstalledVersion'] = self.gpu_pack_installed_version
+        self._config['General']['GpuPackPath'] = self.gpu_pack_path
+        self._config['General']['GpuLastHealth'] = self.gpu_last_health
+        self._config['General']['GpuLastError'] = self.gpu_last_error
+        
         # Write to file
         with open(self.config_path, 'w') as configfile:
             self._config.write(configfile)
         
         logger.debug(f"Configuration saved to {self.config_path}")
+    
+    def save_config(self):
+        """Alias for save() to match bootstrap expectations"""
+        self.save()

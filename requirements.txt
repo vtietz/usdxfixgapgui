@@ -10,7 +10,9 @@ demucs==4.0.1
 numpy>=1.24.0,<2.0.0
 scipy>=1.10.0
 soundfile>=0.12.1
+
+# PyTorch - CPU-only by default for smaller executable builds
+# For GPU support (5-10x faster), developers can use: run.bat install --gpu
 torch>=2.0.0
 torchaudio>=2.0.0
 matplotlib>=3.5.0
-

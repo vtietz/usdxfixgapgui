@@ -9,4 +9,12 @@ build/
 *.db
 data/
 *.log*
-.ini
+
+# Config files (user-specific, auto-generated from defaults)
+config.ini
+src/config.ini
+
+# Debug/development scripts
+check_cuda.py
+debug_*.py
+*.png
