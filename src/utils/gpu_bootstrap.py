@@ -161,13 +161,23 @@ def enable_gpu_runtime(pack_dir: Path) -> bool:
         sys.path.insert(0, site_packages_str)
         logger.info(f"Added GPU Pack site-packages to sys.path: {site_packages_str}")
     
-    # Add bin directory to DLL search path (Windows)
-    if bin_dir.exists() and hasattr(os, 'add_dll_directory'):
-        try:
-            os.add_dll_directory(str(bin_dir))
-            logger.info(f"Added GPU Pack bin to DLL search path: {bin_dir}")
-        except Exception as e:
-            logger.warning(f"Failed to add DLL directory: {e}")
+    # Platform-specific library path setup
+    if sys.platform == 'win32':
+        # Windows: Add bin directory to DLL search path
+        if bin_dir.exists() and hasattr(os, 'add_dll_directory'):
+            try:
+                os.add_dll_directory(str(bin_dir))
+                logger.info(f"Added GPU Pack bin to DLL search path: {bin_dir}")
+            except Exception as e:
+                logger.warning(f"Failed to add DLL directory: {e}")
+    else:
+        # Linux: Add lib directory to LD_LIBRARY_PATH
+        lib_dir = pack_dir / 'lib'
+        if lib_dir.exists():
+            ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+            new_ld_path = f"{lib_dir}:{ld_path}" if ld_path else str(lib_dir)
+            os.environ['LD_LIBRARY_PATH'] = new_ld_path
+            logger.info(f"Added GPU Pack lib to LD_LIBRARY_PATH: {lib_dir}")
     
     # Set environment variable for child processes
     os.environ['USDXFIXGAP_GPU_PACK_DIR'] = str(pack_dir)

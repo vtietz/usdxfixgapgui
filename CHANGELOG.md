@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Follows OS conventions (LOCALAPPDATA, XDG, Apple guidelines)
   - Respects environment variables like `XDG_DATA_HOME`
   - Portable mode fallback if platform detection fails
+- **Cross-Platform GPU Pack**: GPU acceleration installer now supports Linux
+  - Automatically downloads correct PyTorch wheel for your OS (Windows/Linux)
+  - Linux support: Uses LD_LIBRARY_PATH for shared libraries
+  - Windows support: Uses add_dll_directory for DLLs
+  - Platform detection via sys.platform
 - **Unified Data Directory**: All user data now in one predictable location
   - Config file (`config.ini`)
   - Song metadata cache (`cache.db`)

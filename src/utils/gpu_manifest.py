@@ -6,6 +6,7 @@ Handles GPU Pack metadata, version management, and pack selection logic.
 
 import json
 import logging
+import sys
 from dataclasses import dataclass, asdict
 from typing import Optional, Dict, List
 from pathlib import Path
@@ -41,17 +42,22 @@ class GpuPackManifest:
 # 
 # These use official PyTorch wheel URLs from download.pytorch.org.
 # PyTorch wheels bundle CUDA/cuDNN - only a compatible NVIDIA driver is needed.
-# Wheels are downloaded, extracted to %LOCALAPPDATA%/USDXFixGap/gpu_runtime/,
-# and loaded via sys.path at runtime.
+# Wheels are downloaded, extracted to data directory (LOCALAPPDATA on Windows,
+# ~/.local/share on Linux), and loaded via sys.path at runtime.
 #
 # Python version detection: sys.version_info to determine cp310/cp311/cp312
+# Platform detection: sys.platform to determine win_amd64 vs linux_x86_64
 # The app_version field is metadata only - GPU Pack is versioned by PyTorch/CUDA version.
+
+# Detect platform for wheel selection
+_PLATFORM_SUFFIX = 'win_amd64' if sys.platform == 'win32' else 'linux_x86_64'
+
 DEFAULT_MANIFESTS = {
     "cu121": {
         "app_version": "1.0.0",  # Metadata only
         "torch_version": "2.4.1+cu121",
         "cuda_version": "12.1",
-        "url": "https://download.pytorch.org/whl/cu121/torch-2.4.1%2Bcu121-cp38-cp38-win_amd64.whl",  # Python 3.8 wheel
+        "url": f"https://download.pytorch.org/whl/cu121/torch-2.4.1%2Bcu121-cp38-cp38-{_PLATFORM_SUFFIX}.whl",
         "sha256": "TBD",  # TODO: Download wheel and compute actual SHA-256
         "size": 2800000000,  # ~2.8GB (actual torch wheel size)
         "min_driver": "531.00",
@@ -61,7 +67,7 @@ DEFAULT_MANIFESTS = {
         "app_version": "1.0.0",  # Metadata only
         "torch_version": "2.4.1+cu124",
         "cuda_version": "12.4",
-        "url": "https://download.pytorch.org/whl/cu124/torch-2.4.1%2Bcu124-cp38-cp38-win_amd64.whl",  # Python 3.8 wheel
+        "url": f"https://download.pytorch.org/whl/cu124/torch-2.4.1%2Bcu124-cp38-cp38-{_PLATFORM_SUFFIX}.whl",
         "sha256": "TBD",  # TODO: Download wheel and compute actual SHA-256
         "size": 2800000000,  # ~2.8GB (actual torch wheel size)
         "min_driver": "550.00",

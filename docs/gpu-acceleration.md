@@ -4,7 +4,9 @@ This document explains how to set up and use GPU acceleration in USDXFixGap for 
 
 ## Overview
 
-USDXFixGap supports optional CUDA GPU acceleration for AI vocal separation, providing **5-10x faster processing** on compatible NVIDIA GPUs. The GPU Pack system keeps the base application small (~300MB) while allowing users with NVIDIA GPUs to optionally download CUDA-enabled PyTorch (~1GB) for accelerated processing.
+USDXFixGap supports optional CUDA GPU acceleration for AI vocal separation, providing **5-10x faster processing** on compatible NVIDIA GPUs. The GPU Pack system keeps the base application small (~300MB) while allowing users with NVIDIA GPUs to optionally download CUDA-enabled PyTorch (~2.8GB) for accelerated processing.
+
+**Cross-platform support**: GPU Pack works on both Windows and Linux with automatic platform detection.
 
 ## System Requirements
 
@@ -14,6 +16,7 @@ The application automatically detects your GPU and driver version:
 - **NVIDIA GPU** with compatible driver installed
 - **Driver ≥531.xx** for CUDA 12.1 support
 - **Driver ≥550.xx** for CUDA 12.4 support (recommended)
+- **Operating System**: Windows 10/11 or Linux (Ubuntu 20.04+, Fedora, Arch, etc.)
 
 > **No manual CUDA installation needed!** The GPU Pack includes everything required.
 
@@ -45,6 +48,7 @@ The easiest way to enable GPU acceleration:
 
 For advanced users or automated deployment:
 
+**Windows:**
 ```bash
 # Download and install GPU Pack automatically
 usdxfixgap.exe --setup-gpu
@@ -57,6 +61,21 @@ usdxfixgap.exe --gpu-enable
 
 # Check GPU status
 usdxfixgap.exe --gpu-diagnostics
+```
+
+**Linux:**
+```bash
+# Download and install GPU Pack automatically
+./usdxfixgap --setup-gpu
+
+# Install from offline ZIP file
+./usdxfixgap --setup-gpu-zip /path/to/gpu-pack.zip
+
+# Enable GPU acceleration
+./usdxfixgap --gpu-enable
+
+# Check GPU status
+./usdxfixgap --gpu-diagnostics
 ```
 
 ---

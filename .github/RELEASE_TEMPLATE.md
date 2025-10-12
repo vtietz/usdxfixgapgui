@@ -45,6 +45,13 @@ Copy this template when creating a new release on GitHub.
   - Network shares supported: `\\server\shared\models`
   - Environment variable expansion
 
+#### GPU Pack Now Supports Linux
+- **Cross-platform GPU acceleration** - Works on both Windows and Linux
+  - Automatic platform detection (downloads correct PyTorch wheel)
+  - Windows: Uses DLL loading mechanisms
+  - Linux: Uses LD_LIBRARY_PATH for shared libraries
+  - Same commands: `--setup-gpu` works on both platforms
+
 #### Bug Fixes
 - **Fixed crash on songs without intro**: Songs with vocals starting immediately (like "101 Dalmatiner - Cruella De Vil") no longer fail detection
 - **Cleaner console output**: Suppressed harmless TorchAudio warnings
