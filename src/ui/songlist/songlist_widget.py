@@ -86,10 +86,19 @@ class SongListWidget(QWidget):
         self.updateCountLabel()
 
     def updateFilter(self):
+        """Update filter with deferred invalidation to prevent UI freeze."""
         self.proxyModel.selectedStatuses = self.songs_model.filter
         self.proxyModel.textFilter = self.songs_model.filter_text.lower()
+        
+        # Defer filter invalidation to next event loop iteration
+        # This prevents blocking the UI thread during filter evaluation
+        QTimer.singleShot(0, self._apply_deferred_filter)
+    
+    def _apply_deferred_filter(self):
+        """Apply the filter invalidation in a deferred manner."""
         self.proxyModel.invalidateFilter()
-        self.updateCountLabel()
+        # Update count after filter is applied
+        QTimer.singleShot(10, self.updateCountLabel)
         
     def updateCountLabel(self):
         total_songs = len(self.songs_model.songs)

@@ -42,17 +42,32 @@ class GpuDownloadWorker(QThread):
             
             self.progress.emit(0, "Starting download...")
             
-            # Download - will raise exception if it fails
+            # Download - returns False on failure, raises on network errors
             try:
-                gpu_downloader.download_with_resume(
+                download_success = gpu_downloader.download_with_resume(
                     url=self.chosen.url,
                     dest_zip=self.dest_zip,
                     expected_sha256=self.chosen.sha256,
                     expected_size=self.chosen.size,
                     progress_cb=progress_cb
                 )
+                
+                if not download_success:
+                    # Download failed (checksum, size, or cancelled)
+                    error_msg = (
+                        f"❌ Download verification failed\n\n"
+                        f"The downloaded file failed verification checks:\n"
+                        f"• File may be corrupted\n"
+                        f"• Checksum mismatch detected\n"
+                        f"• Download was cancelled\n\n"
+                        f"Please check the logs for details and try again."
+                    )
+                    logger.error("GPU Pack download failed verification")
+                    self.finished.emit(False, error_msg)
+                    return
+                    
             except Exception as download_error:
-                # Download failed - report it immediately
+                # Network error or other exception
                 error_str = str(download_error)
                 
                 # Check if it's a 404 error (file not available yet)
@@ -84,6 +99,18 @@ class GpuDownloadWorker(QThread):
                 return
             
             self.progress.emit(100, "Download complete. Extracting...")
+            
+            # Verify downloaded file exists before extraction
+            if not self.dest_zip.exists():
+                error_msg = (
+                    f"❌ Downloaded file not found\n\n"
+                    f"Expected file: {self.dest_zip}\n\n"
+                    f"The download may have failed or been cancelled.\n"
+                    f"Please try again."
+                )
+                logger.error(f"Downloaded file not found: {self.dest_zip}")
+                self.finished.emit(False, error_msg)
+                return
             
             # Extract
             try:
@@ -349,7 +376,9 @@ Click "Download GPU Pack" to download and install from PyTorch.org.
         pack_dir = gpu_bootstrap.resolve_pack_dir(app_version, self.chosen_manifest.flavor)
         
         # Download as .whl file (PyTorch wheels are ZIP-compatible)
-        wheel_filename = self.chosen_manifest.url.split('/')[-1]  # Extract filename from URL
+        # URL-decode the filename to handle %2B -> + encoding
+        import urllib.parse
+        wheel_filename = urllib.parse.unquote(self.chosen_manifest.url.split('/')[-1])
         dest_whl = pack_dir.parent / wheel_filename
         
         # Start worker

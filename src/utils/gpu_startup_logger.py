@@ -216,10 +216,14 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     """
     Show GPU Pack installation dialog if appropriate.
     Should be called AFTER QApplication is created.
+    Dialog is shown non-modally to allow app to continue in background.
     
     Args:
         config: Application config object
         gpu_enabled: Boolean indicating if GPU bootstrap succeeded
+        
+    Returns:
+        Dialog instance if shown, None otherwise (caller should keep reference)
     """
     import logging
     from utils import gpu_bootstrap
@@ -230,7 +234,7 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     # Check if user has chosen to not show dialog
     if config.gpu_pack_dialog_dont_show:
         logger.debug("GPU Pack dialog suppressed by user preference (GpuPackDialogDontShow=true)")
-        return
+        return None
     
     # Only show if NVIDIA GPU detected but GPU not working
     cap = gpu_bootstrap.capability_probe()
@@ -240,12 +244,14 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
             logger.info("NVIDIA GPU detected but no GPU acceleration available - showing download dialog")
             try:
                 dialog = GpuPackDownloadDialog(config)
-                result = dialog.exec()
-                if result:  # User downloaded and installed
-                    logger.info("GPU Pack installation completed via dialog")
-                else:
-                    logger.info("User declined GPU Pack installation")
+                # Show as non-modal so app can continue in background
+                dialog.show()
+                logger.info("GPU Pack download dialog shown (non-modal)")
+                return dialog  # Return dialog so caller can keep reference
             except Exception as e:
                 logger.error(f"Error showing GPU download dialog: {e}", exc_info=True)
+                return None
         else:
             logger.debug("GPU Pack installed but GPU bootstrap failed - not showing dialog")
+    
+    return None

@@ -58,8 +58,8 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     # Create QApplication
     app = QApplication(sys.argv)
 
-    # Show GPU Pack download dialog if needed (after QApplication created)
-    show_gpu_pack_dialog_if_needed(config, gpu_enabled)
+    # Show GPU Pack download dialog if needed (non-modal, so keep reference)
+    gpu_dialog = show_gpu_pack_dialog_if_needed(config, gpu_enabled)
 
     # Set application icon
     icon_path = resource_path("assets/usdxfixgap-icon.ico")
@@ -73,6 +73,9 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     # Create main window
     window = QWidget()
     window.setWindowTitle("USDX Gap Fix Gui")
+    # Store dialog reference to prevent garbage collection
+    if gpu_dialog:
+        window._gpu_dialog_ref = gpu_dialog
     
     # Restore window geometry from config
     if config.window_x >= 0 and config.window_y >= 0:

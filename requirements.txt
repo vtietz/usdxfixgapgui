@@ -16,3 +16,5 @@ soundfile>=0.12.1
 torch>=2.0.0
 torchaudio>=2.0.0
 matplotlib>=3.5.0
+lizard>=1.18.0  # code complexity analysis
+flake8>=7.0.0  # style and syntax checking

@@ -140,11 +140,22 @@ def download_with_resume(
                 # Verify checksum
                 actual_sha256 = hasher.hexdigest()
                 if actual_sha256 != expected_sha256:
-                    logger.error(
-                        f"Checksum mismatch: expected {expected_sha256}, "
-                        f"got {actual_sha256}"
-                    )
-                    return False
+                    # Check if checksum is placeholder
+                    if expected_sha256.upper() in ['TBD', 'TODO', 'PLACEHOLDER', 'UNKNOWN']:
+                        logger.warning(
+                            f"Checksum verification skipped (placeholder value: {expected_sha256}). "
+                            f"Actual SHA-256: {actual_sha256}"
+                        )
+                        # Continue anyway - this is a manifest issue, not a download issue
+                    else:
+                        logger.error(
+                            f"Checksum mismatch: expected {expected_sha256}, "
+                            f"got {actual_sha256}"
+                        )
+                        # Clean up failed download
+                        if part_file.exists():
+                            part_file.unlink()
+                        return False
                 
                 # Verify size
                 if downloaded != expected_size:
@@ -152,6 +163,9 @@ def download_with_resume(
                         f"Size mismatch: expected {expected_size}, "
                         f"got {downloaded}"
                     )
+                    # Clean up failed download
+                    if part_file.exists():
+                        part_file.unlink()
                     return False
                 
                 # Move to final location

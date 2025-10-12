@@ -190,12 +190,29 @@ build.bat                 # Build Windows executable
 - Check `src/actions/`, `src/ui/`, `tests/` for examples
 - Follow import patterns: `from model.song import Song`
 
-## Documentation
-* **Update README.md**: Document new features, changed behavior, and important configuration options.
-* **Docstrings Matter**: Write clear docstrings explaining what services do, their parameters, and return values.
-* **No Unrequested Artifacts**: Don't create summary files or documentation unless explicitly requested.
-
 # Required final actions
 * Run tests to ensure all changes pass.
 * After your summary always propose clear, concise, one-liner commit message.
 * Use the imperative mood in the subject line (e.g., "Add feature", "Fix bug", "Update docs").
+
+## Code Quality Analysis
+* **When to Run**: After bigger implementations, refactorings, or before committing significant changes
+* **How to Run**:
+  - `run.bat analyze` - Analyze only changed files (default, quick)
+  - `run.bat analyze all` - Analyze entire project (comprehensive)
+  - `run.bat analyze files <path>` - Analyze specific files
+* **What to Check**:
+  - **Complexity (Lizard)**: Functions with CCN > 15 need refactoring. Extract logic into smaller functions.
+  - **Function Length**: Functions > 100 lines (NLOC) should be split into smaller, focused functions.
+  - **Style (flake8)**: Fix any reported style issues. Project uses 120 char line length.
+  - **Types (mypy)**: Optional but helpful. Add type hints to new functions.
+* **Addressing Issues**:
+  - **High Complexity**: Extract nested logic into helper functions, use early returns to reduce nesting
+  - **Long Functions**: Split into multiple functions with clear single responsibilities
+  - **Style Issues**: Follow PEP 8 with project-specific rules (120 char line length, Black-compatible)
+  - **Import Issues**: Remove unused imports, organize imports logically
+
+  ## Documentation
+* **Update README.md**: Document new features, changed behavior, and important configuration options.
+* **Docstrings Matter**: Write clear docstrings explaining what services do, their parameters, and return values.
+* **No Unrequested Artifacts**: Don't create summary files or documentation unless explicitly requested.

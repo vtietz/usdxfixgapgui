@@ -58,8 +58,8 @@ DEFAULT_MANIFESTS = {
         "torch_version": "2.4.1+cu121",
         "cuda_version": "12.1",
         "url": f"https://download.pytorch.org/whl/cu121/torch-2.4.1%2Bcu121-cp38-cp38-{_PLATFORM_SUFFIX}.whl",
-        "sha256": "TBD",  # TODO: Download wheel and compute actual SHA-256
-        "size": 2800000000,  # ~2.8GB (actual torch wheel size)
+        "sha256": "a48b991cd861266523cbed4705f89bef09669d5d2bbfa2524486156f74a222a8",  # Windows cp38 wheel
+        "size": 2444894201,  # ~2.44GB (actual torch-2.4.1+cu121 cp38 win_amd64 wheel size)
         "min_driver": "531.00",
         "flavor": "cu121"
     },
@@ -69,7 +69,7 @@ DEFAULT_MANIFESTS = {
         "cuda_version": "12.4",
         "url": f"https://download.pytorch.org/whl/cu124/torch-2.4.1%2Bcu124-cp38-cp38-{_PLATFORM_SUFFIX}.whl",
         "sha256": "TBD",  # TODO: Download wheel and compute actual SHA-256
-        "size": 2800000000,  # ~2.8GB (actual torch wheel size)
+        "size": 2444894201,  # Approximate size, update after download
         "min_driver": "550.00",
         "flavor": "cu124"
     }

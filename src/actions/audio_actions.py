@@ -54,12 +54,21 @@ class AudioActions(BaseActions):
         worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
         worker.signals.finished.connect(lambda: self._on_song_worker_finished(song))
         
-        # Trigger reload_song after normalization finishes
-        worker.signals.finished.connect(lambda: self.song_actions.reload_song(specific_song=song))
+        # Defer reload to prevent UI freeze - reload only updates the gap_info
+        # which is already updated by the worker, so we just need to refresh the display
+        # Use QTimer to defer the reload to prevent blocking the UI thread
+        worker.signals.finished.connect(lambda: self._schedule_deferred_reload(song))
 
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
+    
+    def _schedule_deferred_reload(self, song: Song):
+        """Schedule a deferred reload to prevent UI thread blocking."""
+        from PySide6.QtCore import QTimer
+        # Defer reload by 100ms to allow UI to update first
+        # This prevents cascading reloads from blocking the UI
+        QTimer.singleShot(100, lambda: self.song_actions.reload_song(specific_song=song))
 
     def _create_waveforms(self, song: Song, overwrite: bool = False):
         if not song:

@@ -148,36 +148,67 @@ def enable_gpu_runtime(pack_dir: Path) -> bool:
         logger.warning(f"GPU Pack directory does not exist: {pack_dir}")
         return False
     
+    # Check if this is a wheel extraction (torch/, functorch/ at root)
+    # or a traditional install (site-packages/)
+    torch_dir = pack_dir / 'torch'
     site_packages = pack_dir / 'site-packages'
-    bin_dir = pack_dir / 'bin'
     
-    if not site_packages.exists():
-        logger.warning(f"GPU Pack site-packages not found: {site_packages}")
-        return False
-    
-    # Prepend site-packages to sys.path (highest priority)
-    site_packages_str = str(site_packages)
-    if site_packages_str not in sys.path:
-        sys.path.insert(0, site_packages_str)
-        logger.info(f"Added GPU Pack site-packages to sys.path: {site_packages_str}")
-    
-    # Platform-specific library path setup
-    if sys.platform == 'win32':
-        # Windows: Add bin directory to DLL search path
-        if bin_dir.exists() and hasattr(os, 'add_dll_directory'):
-            try:
-                os.add_dll_directory(str(bin_dir))
-                logger.info(f"Added GPU Pack bin to DLL search path: {bin_dir}")
-            except Exception as e:
-                logger.warning(f"Failed to add DLL directory: {e}")
+    if torch_dir.exists():
+        # Wheel extraction - add pack_dir itself to sys.path
+        pack_dir_str = str(pack_dir)
+        if pack_dir_str not in sys.path:
+            sys.path.insert(0, pack_dir_str)
+            logger.info(f"Added GPU Pack directory to sys.path: {pack_dir_str}")
+        
+        # Platform-specific library path setup
+        if sys.platform == 'win32':
+            # Windows: Add torch/lib directory to DLL search path for CUDA libraries
+            torch_lib_dir = torch_dir / 'lib'
+            if torch_lib_dir.exists() and hasattr(os, 'add_dll_directory'):
+                try:
+                    os.add_dll_directory(str(torch_lib_dir))
+                    logger.info(f"Added torch/lib to DLL search path: {torch_lib_dir}")
+                except Exception as e:
+                    logger.warning(f"Failed to add DLL directory: {e}")
+        else:
+            # Linux: Add torch/lib directory to LD_LIBRARY_PATH
+            torch_lib_dir = torch_dir / 'lib'
+            if torch_lib_dir.exists():
+                ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+                new_ld_path = f"{torch_lib_dir}:{ld_path}" if ld_path else str(torch_lib_dir)
+                os.environ['LD_LIBRARY_PATH'] = new_ld_path
+                logger.info(f"Added torch/lib to LD_LIBRARY_PATH: {torch_lib_dir}")
+                
+    elif site_packages.exists():
+        # Traditional install with site-packages
+        bin_dir = pack_dir / 'bin'
+        
+        # Prepend site-packages to sys.path (highest priority)
+        site_packages_str = str(site_packages)
+        if site_packages_str not in sys.path:
+            sys.path.insert(0, site_packages_str)
+            logger.info(f"Added GPU Pack site-packages to sys.path: {site_packages_str}")
+        
+        # Platform-specific library path setup
+        if sys.platform == 'win32':
+            # Windows: Add bin directory to DLL search path
+            if bin_dir.exists() and hasattr(os, 'add_dll_directory'):
+                try:
+                    os.add_dll_directory(str(bin_dir))
+                    logger.info(f"Added GPU Pack bin to DLL search path: {bin_dir}")
+                except Exception as e:
+                    logger.warning(f"Failed to add DLL directory: {e}")
+        else:
+            # Linux: Add lib directory to LD_LIBRARY_PATH
+            lib_dir = pack_dir / 'lib'
+            if lib_dir.exists():
+                ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+                new_ld_path = f"{lib_dir}:{ld_path}" if ld_path else str(lib_dir)
+                os.environ['LD_LIBRARY_PATH'] = new_ld_path
+                logger.info(f"Added GPU Pack lib to LD_LIBRARY_PATH: {lib_dir}")
     else:
-        # Linux: Add lib directory to LD_LIBRARY_PATH
-        lib_dir = pack_dir / 'lib'
-        if lib_dir.exists():
-            ld_path = os.environ.get('LD_LIBRARY_PATH', '')
-            new_ld_path = f"{lib_dir}:{ld_path}" if ld_path else str(lib_dir)
-            os.environ['LD_LIBRARY_PATH'] = new_ld_path
-            logger.info(f"Added GPU Pack lib to LD_LIBRARY_PATH: {lib_dir}")
+        logger.warning(f"GPU Pack has neither torch/ nor site-packages/: {pack_dir}")
+        return False
     
     # Set environment variable for child processes
     os.environ['USDXFIXGAP_GPU_PACK_DIR'] = str(pack_dir)
