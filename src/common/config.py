@@ -132,7 +132,8 @@ class Config(QObject):
             'GpuPackInstalledVersion': '',
             'GpuPackPath': '',
             'GpuLastHealth': '',
-            'GpuLastError': ''
+            'GpuLastError': '',
+            'GpuPackDialogDontShow': 'false'
         }
         
         self._config['Audio'] = {
@@ -213,6 +214,7 @@ class Config(QObject):
         self.gpu_pack_path = self._config.get('General', 'GpuPackPath', fallback='')
         self.gpu_last_health = self._config.get('General', 'GpuLastHealth', fallback='')
         self.gpu_last_error = self._config.get('General', 'GpuLastError', fallback='')
+        self.gpu_pack_dialog_dont_show = self._config.getboolean('General', 'GpuPackDialogDontShow', fallback=False)
         
         # Backward compatibility - set spleeter flag based on method
         self.spleeter = (self.method == 'spleeter')
@@ -242,6 +244,7 @@ class Config(QObject):
         self._config['General']['GpuPackPath'] = self.gpu_pack_path
         self._config['General']['GpuLastHealth'] = self.gpu_last_health
         self._config['General']['GpuLastError'] = self.gpu_last_error
+        self._config['General']['GpuPackDialogDontShow'] = 'true' if self.gpu_pack_dialog_dont_show else 'false'
         
         # Write to file
         with open(self.config_path, 'w') as configfile:

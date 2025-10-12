@@ -47,11 +47,10 @@ The app uses state-of-the-art AI vocal separation (Meta's Demucs) with smart chu
 
 Choose the detection method that fits your needs:
 
-- **MDX** (Recommended) - Fast GPU-accelerated chunked scanning
+- **MDX** (Recommended) - Fast GPU-accelerated chunked scanning with Meta's Demucs
   - ⚡ 10-30 seconds per song with GPU
   - 🎯 Smart early-stop when onset found
-  - 🆕 Latest AI technology (Meta Demucs)
-  - [→ Learn more](docs/mdx-provider-implementation.md)
+  - 🆕 Latest AI technology
 
 - **Spleeter** (Legacy) - Full stem separation
   - ⚠️ Deprecated (unmaintained since 2020)
@@ -201,65 +200,37 @@ The provided run scripts (`run.bat` / `run.sh`) make development easy:
 
 ## ⚙️ Configuration
 
-Configuration is stored in `config.ini` in your user data directory. Most settings can be adjusted through the GUI, but advanced users can edit the file directly.
+Configuration is stored in `config.ini` (location: `%LOCALAPPDATA%\USDXFixGap\config.ini` on Windows, `~/.local/share/USDXFixGap/config.ini` on Linux).
 
-### **Key Settings**
+Most settings can be adjusted through the GUI (File → Preferences). For detailed explanation of all configuration options, see the **[Configuration Reference](docs/configuration.md)**.
 
-#### **Paths**
-```ini
-[Paths]
-default_directory = C:\Users\YourName\UltraStar\songs
-tmp_root = %LOCALAPPDATA%\USDXFixGap\temp
-```
+### **Quick Configuration Tips**
 
-#### **Detection**
-```ini
-[Detection]
-# Which detection method to use
-method = mdx               # mdx, spleeter (legacy), hq_segment (legacy)
-
-# Analysis window duration
-default_detection_time = 30
-
-# Tolerance for MATCH vs MISMATCH (milliseconds)
-gap_tolerance = 150
-```
-
-#### **GPU Acceleration** (Optional)
+**Enable GPU Acceleration** (5-10x faster):
 ```ini
 [General]
-# Enable GPU acceleration (requires GPU Pack download)
-GpuOptIn = false
-
-# CUDA flavor (auto-detected, or manually set to cu121/cu124)
-GpuFlavor = cu121
+GpuOptIn = true
 ```
 
-#### **Processing**
+**Change Detection Method**:
 ```ini
 [Processing]
-# Automatic audio normalization after detection
-auto_normalize = true
-normalization_level = -20.0
-
-# Method-specific settings
-[mdx]
-chunk_duration_ms = 12000
-onset_snr_threshold = 2.5
-confidence_threshold = 0.55
-
-[spleeter]
-silence_detect_params = silencedetect=noise=-30dB:d=0.2
+method = mdx    # Recommended: mdx, spleeter (legacy), hq_segment (legacy)
 ```
 
-### **Customizing Detection**
+**Adjust Gap Tolerance** (default: 500ms):
+```ini
+[Detection]
+gap_tolerance = 500    # Milliseconds - gaps larger than this are flagged as MISMATCH
+```
 
-For fine-tuning detection behavior, see:
-- [Detection Methods Guide](docs/detection-methods.md) - Compare methods and their parameters
-- [MDX Provider Documentation](docs/mdx-provider-implementation.md) - Deep dive into MDX chunked scanning
-- [GPU Acceleration Guide](docs/gpu-acceleration.md) - Setup and troubleshooting
+**Suppress GPU Pack Dialog** (if you don't want GPU acceleration):
+```ini
+[General]
+GpuPackDialogDontShow = true
+```
 
-> 💡 **Quick Settings Access**: File → Preferences or Edit → Settings in the GUI
+See **[Configuration Reference](docs/configuration.md)** for all available settings and their valid values.
 
 ## 🛠️ For Developers
 
@@ -267,12 +238,11 @@ Want to contribute or understand how the code works?
 
 ### **Documentation**
 
-- **[Architecture Guide](docs/architecture.md)** - System design, layers, component responsibilities
-- **[Coding Standards](docs/coding-standards.md)** - DRY principles, SOLID patterns, best practices
-- **[Signal Usage Guide](docs/signals.md)** - Event communication patterns
-- **[Detection Methods](docs/detection-methods.md)** - Compare detection approaches
-- **[MDX Implementation](docs/mdx-provider-implementation.md)** - Deep dive into chunked scanning
-- **[GPU Acceleration](docs/gpu-acceleration.md)** - GPU Pack architecture and implementation
+- **[Architecture Guide](docs/architecture.md)** - System design, component responsibilities, signal patterns
+- **[Coding Standards](docs/coding-standards.md)** - DRY principles, SOLID patterns, testing guidelines
+- **[Signal Usage Guide](docs/signals.md)** - Event communication patterns and best practices
+- **[Configuration Reference](docs/configuration.md)** - Complete config.ini settings documentation
+- **[GPU Acceleration](docs/gpu-acceleration.md)** - GPU Pack setup, troubleshooting, architecture
 - **[Performance Optimization](docs/performance-optimization.md)** - Qt TableView optimization patterns
 
 ### **Development Setup**

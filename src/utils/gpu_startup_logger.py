@@ -227,6 +227,11 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     
     logger = logging.getLogger(__name__)
     
+    # Check if user has chosen to not show dialog
+    if config.gpu_pack_dialog_dont_show:
+        logger.debug("GPU Pack dialog suppressed by user preference (GpuPackDialogDontShow=true)")
+        return
+    
     # Only show if NVIDIA GPU detected but GPU not working
     cap = gpu_bootstrap.capability_probe()
     if cap['has_nvidia'] and not gpu_enabled:

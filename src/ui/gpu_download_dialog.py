@@ -8,7 +8,7 @@ with progress visualization and GPU information display.
 import logging
 from pathlib import Path
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                               QPushButton, QProgressBar, QTextEdit, QMessageBox)
+                               QPushButton, QProgressBar, QTextEdit, QMessageBox, QCheckBox)
 from PySide6.QtCore import Qt, QThread, Signal
 
 from utils import gpu_bootstrap, gpu_manifest, gpu_downloader
@@ -194,6 +194,11 @@ class GpuPackDownloadDialog(QDialog):
         self.progress_bar.setVisible(False)
         layout.addWidget(self.progress_bar)
         
+        # "Don't ask again" checkbox
+        self.dont_ask_checkbox = QCheckBox("Don't show this dialog again")
+        self.dont_ask_checkbox.setToolTip("You can still download GPU Pack from Settings → Download GPU Pack")
+        layout.addWidget(self.dont_ask_checkbox)
+        
         # Buttons
         button_layout = QHBoxLayout()
         
@@ -202,7 +207,7 @@ class GpuPackDownloadDialog(QDialog):
         button_layout.addWidget(self.download_btn)
         
         self.cancel_btn = QPushButton("Later")
-        self.cancel_btn.clicked.connect(self.reject)
+        self.cancel_btn.clicked.connect(self._on_later_clicked)
         button_layout.addWidget(self.cancel_btn)
         
         layout.addLayout(button_layout)
@@ -307,6 +312,14 @@ Click "Download GPU Pack" to download and install from PyTorch.org.
             logger.error(f"Error loading GPU info: {e}", exc_info=True)
             self.info_text.setPlainText(f"⚠️ Error loading GPU information:\n{str(e)}")
             self.download_btn.setEnabled(False)
+    
+    def _on_later_clicked(self):
+        """Handle Later button click - save preference if checkbox is checked"""
+        if self.dont_ask_checkbox.isChecked():
+            logger.info("User selected 'Don't show this dialog again'")
+            self.config.gpu_pack_dialog_dont_show = True
+            self.config.save_config()
+        self.reject()
     
     def _start_download(self):
         """Start GPU Pack download"""
