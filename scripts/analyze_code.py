@@ -21,6 +21,26 @@ import subprocess
 import argparse
 from pathlib import Path
 from typing import List, Tuple
+from collections import defaultdict
+
+# Fix Windows cmd encoding for emojis
+if sys.platform == 'win32':
+    import io
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except AttributeError:
+            pass
+
+
+def safe_print(text: str):
+    """Print text with fallback for Windows cmd encoding issues."""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        # Fallback: remove emojis and special chars
+        ascii_text = text.encode('ascii', errors='replace').decode('ascii')
+        print(ascii_text)
 
 
 # Configuration
@@ -121,14 +141,14 @@ def get_changed_files() -> List[str]:
         return []
 
 
-def analyze_complexity(files: List[str] = None) -> int:
+def analyze_complexity(files: List[str] = None) -> tuple:
     """Run Lizard complexity analysis.
 
     Args:
         files: Specific files to analyze, or None for all
 
     Returns:
-        Exit code (0 = success)
+        Tuple of (exit_code, output_text)
     """
     cmd = [
         sys.executable, "-m", "lizard",
@@ -151,29 +171,29 @@ def analyze_complexity(files: List[str] = None) -> int:
     # Lizard returns 0 if no issues, parse output for summary
     if "No thresholds exceeded" in output or exit_code == 0:
         print("✅ No complexity issues found!")
-        return 0
+        return 0, output
     else:
         print(f"⚠️  Found complexity issues (CCN > {MAX_COMPLEXITY} or NLOC > {MAX_NLOC})")
-        return 1
+        return 1, output
 
 
-def analyze_style(files: List[str] = None) -> int:
+def analyze_style(files: List[str] = None) -> tuple:
     """Run flake8 style analysis.
 
     Args:
         files: Specific files to analyze, or None for all
 
     Returns:
-        Exit code (0 = success)
+        Tuple of (exit_code, output_text)
     """
     # Check if flake8 is available
     try:
         subprocess.run([sys.executable, "-m", "flake8", "--version"],
-                      capture_output=True, check=True)
+                       capture_output=True, check=True)
     except subprocess.CalledProcessError:
         print("⚠️  flake8 not installed, skipping style analysis")
         print("   Install with: pip install flake8")
-        return 0
+        return 0, ""
 
     cmd = [
         sys.executable, "-m", "flake8",
@@ -193,28 +213,28 @@ def analyze_style(files: List[str] = None) -> int:
 
     if exit_code == 0:
         print("✅ No style issues found!")
-        return 0
+        return 0, output
     else:
-        print(f"⚠️  Found style issues")
-        return 1
+        print("⚠️  Found style issues")
+        return 1, output
 
 
-def analyze_types(files: List[str] = None) -> int:
+def analyze_types(files: List[str] = None) -> tuple:
     """Run mypy type checking (optional).
 
     Args:
         files: Specific files to analyze, or None for all
 
     Returns:
-        Exit code (0 = success)
+        Tuple of (exit_code, output_text)
     """
     # Check if mypy is available
     try:
         subprocess.run([sys.executable, "-m", "mypy", "--version"],
-                      capture_output=True, check=True)
+                       capture_output=True, check=True)
     except subprocess.CalledProcessError:
         print("ℹ️  mypy not installed, skipping type analysis (optional)")
-        return 0
+        return 0, ""
 
     cmd = [
         sys.executable, "-m", "mypy",
@@ -232,18 +252,111 @@ def analyze_types(files: List[str] = None) -> int:
 
     if exit_code == 0:
         print("✅ No type issues found!")
-        return 0
+        return 0, output
     else:
         print("ℹ️  Found type issues (informational only)")
-        return 0  # Don't fail on type issues
+        return 0, output  # Don't fail on type issues
 
 
-def print_summary(results: dict):
+def parse_style_output(output: str) -> dict:
+    """Parse flake8 output to count issues per file.
+
+    Args:
+        output: flake8 output string
+
+    Returns:
+        Dict mapping file path to issue count
+    """
+    file_issues = defaultdict(int)
+
+    for line in output.split('\n'):
+        if ':' in line and len(line.split(':')) >= 3:
+            # Format: path/to/file.py:line:col: CODE message
+            filepath = line.split(':')[0]
+            if filepath and filepath.endswith('.py'):
+                file_issues[filepath] += 1
+
+    return dict(file_issues)
+
+
+def parse_complexity_output(output: str) -> dict:
+    """Parse Lizard output to count issues per file.
+
+    Args:
+        output: Lizard output string
+
+    Returns:
+        Dict mapping file path to issue count
+    """
+    file_issues = defaultdict(int)
+
+    for line in output.split('\n'):
+        if 'warning:' in line and ':' in line:
+            # Format: path/to/file.py:line: warning: ...
+            filepath = line.split(':')[0]
+            if filepath and filepath.endswith('.py'):
+                file_issues[filepath] += 1
+
+    return dict(file_issues)
+
+
+def print_file_summary(complexity_output: str = "", style_output: str = ""):
+    """Print summary of issues grouped by file.
+
+    Args:
+        complexity_output: Lizard output
+        style_output: flake8 output
+    """
+
+    # Parse outputs
+    complexity_issues = parse_complexity_output(complexity_output) if complexity_output else {}
+    style_issues = parse_style_output(style_output) if style_output else {}
+
+    # Combine all files
+    all_files = set(complexity_issues.keys()) | set(style_issues.keys())
+
+    if not all_files:
+        return
+
+    # Calculate totals per file
+    file_totals = []
+    for filepath in all_files:
+        total = complexity_issues.get(filepath, 0) + style_issues.get(filepath, 0)
+        file_totals.append((filepath, complexity_issues.get(filepath, 0), style_issues.get(filepath, 0), total))
+
+    # Sort by total issues (descending)
+    file_totals.sort(key=lambda x: x[3], reverse=True)
+
+    # Print top offenders
+    print(f"\n{'='*80}")
+    print("📋 TOP FILES BY ISSUE COUNT")
+    print(f"{'='*80}")
+    print(f"{'File':<60} {'Complex':>8} {'Style':>8} {'Total':>8}")
+    print(f"{'-'*60} {'-'*8} {'-'*8} {'-'*8}")
+
+    # Show top 20 files
+    for filepath, complexity, style, total in file_totals[:20]:
+        # Shorten path for display
+        display_path = filepath if len(filepath) <= 60 else '...' + filepath[-57:]
+        print(f"{display_path:<60} {complexity:>8} {style:>8} {total:>8}")
+
+    total_files = len(file_totals)
+    if total_files > 20:
+        print(f"\n... and {total_files - 20} more file(s) with issues")
+
+
+def print_summary(results: dict, complexity_output: str = "", style_output: str = ""):
     """Print analysis summary.
 
     Args:
         results: Dict mapping check name to exit code
+        complexity_output: Lizard output for file summary
+        style_output: flake8 output for file summary
     """
+    # Print file summary first if we have output
+    if complexity_output or style_output:
+        print_file_summary(complexity_output, style_output)
+
     print(f"\n{'='*80}")
     print("📊 ANALYSIS SUMMARY")
     print(f"{'='*80}")
@@ -329,18 +442,25 @@ Examples:
 
     # Run analyses
     results = {}
+    complexity_output = ""
+    style_output = ""
 
     if not args.skip_complexity:
-        results['Complexity'] = analyze_complexity(files_to_analyze)
+        exit_code, output = analyze_complexity(files_to_analyze)
+        results['Complexity'] = exit_code
+        complexity_output = output
 
     if not args.skip_style:
-        results['Style'] = analyze_style(files_to_analyze)
+        exit_code, output = analyze_style(files_to_analyze)
+        results['Style'] = exit_code
+        style_output = output
 
     if not args.skip_types:
-        results['Types'] = analyze_types(files_to_analyze)
+        exit_code, output = analyze_types(files_to_analyze)
+        results['Types'] = exit_code
 
-    # Print summary
-    return print_summary(results)
+    # Print summary with file breakdown
+    return print_summary(results, complexity_output, style_output)
 
 
 if __name__ == '__main__':
