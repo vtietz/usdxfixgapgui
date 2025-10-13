@@ -20,7 +20,7 @@ class TestGetNotesOverlap:
         # Mock the utils.usdx.get_notes_overlap function to return a specific value
         with patch('actions.gap_actions.usdx.get_notes_overlap', return_value=123) as mock_overlap, \
              patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('actions.gap_actions.GapInfoService') as mock_service:
+             patch('actions.gap_actions.GapInfoService.save') as mock_service_save:
 
             # Create GapActions instance
             gap_actions = GapActions(app_data)
@@ -37,8 +37,7 @@ class TestGetNotesOverlap:
             # Assert: GapInfoService.save was scheduled via run_async
             mock_run_async.assert_called_once()
             # The first arg to run_async should be the result of GapInfoService.save(...)
-            save_call_args = mock_service.save.call_args
-            assert save_call_args[0][0] == song.gap_info
+            mock_service_save.assert_called_once_with(song.gap_info)
 
             # Assert: songs.updated.emit was called with the song
             app_data.songs.updated.emit.assert_called_once_with(song)

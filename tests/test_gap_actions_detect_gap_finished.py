@@ -37,7 +37,7 @@ class TestDetectGapFinished:
         app_data.config.auto_normalize = True
 
         with patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('actions.gap_actions.GapInfoService') as mock_gap_service, \
+             patch('actions.gap_actions.GapInfoService.save') as mock_gap_service_save, \
              patch('actions.gap_actions.AudioActions') as mock_audio_actions_class:
 
             # Mock AudioActions instance
@@ -63,7 +63,7 @@ class TestDetectGapFinished:
 
             # Assert: GapInfoService.save was scheduled
             mock_run_async.assert_called_once()
-            mock_gap_service.save.assert_called_once_with(song.gap_info)
+            mock_gap_service_save.assert_called_once_with(song.gap_info)
 
             # Assert: _create_waveforms was invoked with overwrite=True
             mock_audio_actions._create_waveforms.assert_called_once_with(song, True)
