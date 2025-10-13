@@ -1,11 +1,11 @@
 # button_bar.py
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog, QSizePolicy, QLineEdit, QMessageBox
 from PySide6.QtCore import Signal
-from typing import List # Import List
+from typing import List  # Import List
 from actions import Actions
 from app.app_data import AppData
 import logging
-import os # Import os for path checks
+import os  # Import os for path checks
 import sys
 import subprocess
 
@@ -13,6 +13,7 @@ from model.song import Song, SongStatus
 from ui.multi_select_box import MultiSelectComboBox
 
 logger = logging.getLogger(__name__)
+
 
 class MenuBar(QWidget):
 
@@ -22,9 +23,9 @@ class MenuBar(QWidget):
     # detectClicked = Signal()
     # deleteClicked = Signal()
 
-    _selected_songs: List[Song] = [] # Use List[Song]
+    _selected_songs: List[Song] = []  # Use List[Song]
 
-    def __init__(self, actions:Actions, data:AppData, parent=None):
+    def __init__(self, actions: Actions, data: AppData, parent=None):
 
         super().__init__(parent)
         self._layout = QHBoxLayout(self)
@@ -42,32 +43,33 @@ class MenuBar(QWidget):
         self._layout.addWidget(self.loadSongsButton)
 
         # Detect Button - Now triggers action for multiple songs
-        self.detectButton = QPushButton("Detect") # Renamed for clarity
-        self.detectButton.clicked.connect(lambda: self._actions.detect_gap(overwrite=True)) # Action handles iteration
+        self.detectButton = QPushButton("Detect")  # Renamed for clarity
+        # Action handles iteration
+        self.detectButton.clicked.connect(lambda: self._actions.detect_gap(overwrite=True))
         self._layout.addWidget(self.detectButton)
 
         # Open song folder - Opens folder of the first selected song
         self.openFolderButton = QPushButton("Open Folder")
-        self.openFolderButton.clicked.connect(lambda: self._actions.open_folder()) # Action handles logic
+        self.openFolderButton.clicked.connect(lambda: self._actions.open_folder())  # Action handles logic
         self._layout.addWidget(self.openFolderButton)
 
         # Open usdx webseite - Only enabled for single selection
         self.open_usdx_button = QPushButton("Open in USDB")
-        self.open_usdx_button.clicked.connect(lambda: self._actions.open_usdx()) # Action handles logic
+        self.open_usdx_button.clicked.connect(lambda: self._actions.open_usdx())  # Action handles logic
         self._layout.addWidget(self.open_usdx_button)
 
         # Reload song - Reloads all selected songs
-        self.reload_button = QPushButton("Reload") # Renamed for clarity
-        self.reload_button.clicked.connect(lambda: self._actions.reload_song()) # Action handles iteration
+        self.reload_button = QPushButton("Reload")  # Renamed for clarity
+        self.reload_button.clicked.connect(lambda: self._actions.reload_song())  # Action handles iteration
         self._layout.addWidget(self.reload_button)
 
         # Normalize song - Normalizes all selected songs
-        self.normalize_button = QPushButton("Normalize") # Renamed for clarity
-        self.normalize_button.clicked.connect(lambda: self._actions.normalize_song()) # Action handles iteration
+        self.normalize_button = QPushButton("Normalize")  # Renamed for clarity
+        self.normalize_button.clicked.connect(lambda: self._actions.normalize_song())  # Action handles iteration
         self._layout.addWidget(self.normalize_button)
 
         # Delete song - Deletes all selected songs after confirmation
-        self.delete_button = QPushButton("Delete") # Renamed for clarity
+        self.delete_button = QPushButton("Delete")  # Renamed for clarity
         self.delete_button.clicked.connect(self.onDeleteButtonClicked)
         self._layout.addWidget(self.delete_button)
 
@@ -92,11 +94,12 @@ class MenuBar(QWidget):
         self.filterDropdown.selectionChanged.connect(self.onFilterChanged)
         self._layout.addWidget(self.filterDropdown)
 
-        self.loadSongsClicked.connect(lambda: self._actions.set_directory(self.data.directory)) # Or use choose_directory
+        # Or use choose_directory
+        self.loadSongsClicked.connect(lambda: self._actions.set_directory(self.data.directory))
 
         self._actions.data.selected_songs_changed.connect(self.onSelectedSongsChanged)
 
-        self.onSelectedSongsChanged([]) # Initial state
+        self.onSelectedSongsChanged([])  # Initial state
 
     def onDeleteButtonClicked(self):
         if not self._selected_songs:
@@ -111,16 +114,15 @@ class MenuBar(QWidget):
             # msg_text += "\r\nIncluding:\r\n" + "\r\n".join([s.path for s in self._selected_songs[:3]])
             # if count > 3: msg_text += "\r\n..."
 
-
         msgBox = QMessageBox()
-        msgBox.setIcon(QMessageBox.Icon.Warning) # Use Warning for deletion
+        msgBox.setIcon(QMessageBox.Icon.Warning)  # Use Warning for deletion
         msgBox.setText(msg_text)
         msgBox.setWindowTitle("Delete Confirmation")
         msgBox.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
 
         returnValue = msgBox.exec()
         if returnValue == QMessageBox.StandardButton.Ok:
-            self._actions.delete_selected_song() # Action handles iteration
+            self._actions.delete_selected_song()  # Action handles iteration
 
     def updateLoadButtonState(self, isLoading: bool):
         self.loadSongsButton.setEnabled(not isLoading)
@@ -129,7 +131,7 @@ class MenuBar(QWidget):
         self._actions.data.songs.filter_text = text
 
     # Renamed method to reflect it handles a list
-    def onSelectedSongsChanged(self, songs: List[Song]): # Use List[Song]
+    def onSelectedSongsChanged(self, songs: List[Song]):  # Use List[Song]
         self._selected_songs = songs
         num_selected = len(songs)
         first_song = songs[0] if num_selected > 0 else None
@@ -181,26 +183,29 @@ class MenuBar(QWidget):
             if sys.platform == 'win32':
                 # Windows - use default associated program
                 os.startfile(config_path)
+                logger.info(f"Opened config file: {config_path}")
             elif sys.platform == 'darwin':
                 # macOS
                 subprocess.run(['open', config_path], check=True)
+                logger.info(f"Opened config file: {config_path}")
             else:
                 # Linux and other Unix-like systems
                 # Try xdg-open first (most common), fall back to common editors
                 try:
                     subprocess.run(['xdg-open', config_path], check=True)
+                    logger.info(f"Opened config file: {config_path}")
                 except (subprocess.CalledProcessError, FileNotFoundError):
                     # Fallback to common text editors
                     for editor in ['gedit', 'kate', 'nano', 'vi']:
                         try:
                             subprocess.Popen([editor, config_path])
+                            logger.info(f"Opened config file with {editor}: {config_path}")
                             break
                         except FileNotFoundError:
                             continue
                     else:
                         raise FileNotFoundError("No suitable text editor found")
 
-            logger.info(f"Opened config file: {config_path}")
         except Exception as e:
             logger.error(f"Failed to open config file: {e}", exc_info=True)
             QMessageBox.warning(
@@ -225,4 +230,4 @@ class MenuBar(QWidget):
         self._actions.set_directory(directory)
 
     def onFilterChanged(self, selectedStatuses):
-        self._actions.data.songs.filter=selectedStatuses
+        self._actions.data.songs.filter = selectedStatuses
