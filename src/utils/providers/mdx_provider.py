@@ -134,9 +134,9 @@ class MdxProvider(IDetectionProvider):
         self._vocals_cache = {}  # {(audio_file, start_ms, end_ms): vocals_numpy}
 
         logger.debug(f"MDX provider initialized: chunk={self.chunk_duration_ms}ms, "
-                    f"SNR_threshold={self.onset_snr_threshold}, abs_threshold={self.onset_abs_threshold}, "
-                    f"initial_radius=±{self.initial_radius_ms/1000:.1f}s, max_expansions={self.max_expansions}, "
-                    f"device={self._device}, fp16={self.use_fp16 and self._device=='cuda'}")
+                     f"SNR_threshold={self.onset_snr_threshold}, abs_threshold={self.onset_abs_threshold}, "
+                     f"initial_radius=±{self.initial_radius_ms/1000:.1f}s, max_expansions={self.max_expansions}, "
+                     f"device={self._device}, fp16={self.use_fp16 and self._device=='cuda'}")
 
     def _get_demucs_model(self):
         """
@@ -244,7 +244,7 @@ class MdxProvider(IDetectionProvider):
                     raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
 
                 # Load audio
-                logger.info(f"Loading full audio file...")
+                logger.info("Loading full audio file...")
                 import warnings
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
@@ -367,7 +367,7 @@ class MdxProvider(IDetectionProvider):
                 onset_ms = 0.0
 
             logger.info(f"Detected vocal onset at {onset_ms:.1f}ms "
-                       f"(expected: {expected_gap:.1f}ms, diff: {abs(onset_ms - expected_gap):.1f}ms)")
+                        f"(expected: {expected_gap:.1f}ms, diff: {abs(onset_ms - expected_gap):.1f}ms)")
 
             # Convert onset to silence period
             # Return one silence period from 0 to onset
@@ -566,8 +566,8 @@ class MdxProvider(IDetectionProvider):
                 search_end_ms = min(total_duration_ms, expected_gap_ms + current_radius_ms)
 
                 logger.info(f"Expanding search #{expansion_num}: "
-                           f"radius=±{current_radius_ms/1000:.1f}s, "
-                           f"window {search_start_ms/1000:.1f}s - {search_end_ms/1000:.1f}s")
+                            f"radius=±{current_radius_ms/1000:.1f}s, "
+                            f"window {search_start_ms/1000:.1f}s - {search_end_ms/1000:.1f}s")
                 _flush_logs()
 
                 # Process chunks in current window (skip already processed)
@@ -605,7 +605,7 @@ class MdxProvider(IDetectionProvider):
                         break
 
                     logger.info(f"Loading chunk at {chunk_start_s:.1f}s-{chunk_start_s + chunk_duration_s:.1f}s "
-                               f"(expansion #{expansion_num}, chunk {chunks_processed+1})")
+                                f"(expansion #{expansion_num}, chunk {chunks_processed+1})")
                     _flush_logs()
 
                     # Suppress torchaudio MP3 warning
@@ -650,13 +650,13 @@ class MdxProvider(IDetectionProvider):
                         if is_new:
                             all_onsets.append(onset_ms)
                             logger.info(f"Found vocal onset at {onset_ms:.0f}ms "
-                                       f"(distance from expected: {abs(onset_ms - expected_gap_ms):.0f}ms)")
+                                        f"(distance from expected: {abs(onset_ms - expected_gap_ms):.0f}ms)")
 
                     # Move to next chunk
                     chunk_start_s += chunk_hop_s
 
                 logger.info(f"Expansion #{expansion_num} complete: processed {chunks_processed} new chunks, "
-                           f"found {len(all_onsets)} total onset(s) so far")
+                            f"found {len(all_onsets)} total onset(s) so far")
 
                 # If we found onsets, return the closest one
                 if all_onsets:
@@ -665,7 +665,7 @@ class MdxProvider(IDetectionProvider):
                     closest = all_onsets_sorted[0]
 
                     logger.info(f"Returning closest onset: {closest:.0f}ms "
-                               f"(expected: {expected_gap_ms:.0f}ms, diff: {abs(closest - expected_gap_ms):.0f}ms)")
+                                f"(expected: {expected_gap_ms:.0f}ms, diff: {abs(closest - expected_gap_ms):.0f}ms)")
                     return closest
 
                 # No onset found, expand search if we haven't hit max expansions
@@ -782,15 +782,15 @@ class MdxProvider(IDetectionProvider):
             mean_rms = np.mean(rms_values)
 
             logger.info(f"Chunk analysis - Noise floor={noise_floor:.6f}, sigma={noise_sigma:.6f}, "
-                       f"max_rms={max_rms:.6f}, mean_rms={mean_rms:.6f}")
+                        f"max_rms={max_rms:.6f}, mean_rms={mean_rms:.6f}")
 
             # Detect onset - use BOTH SNR threshold AND absolute threshold
             snr_threshold = noise_floor + self.onset_snr_threshold * noise_sigma
             combined_threshold = max(snr_threshold, self.onset_abs_threshold)
 
             logger.info(f"Thresholds - SNR_threshold={snr_threshold:.6f}, "
-                       f"Absolute_threshold={self.onset_abs_threshold:.6f}, "
-                       f"Combined={combined_threshold:.6f}")
+                        f"Absolute_threshold={self.onset_abs_threshold:.6f}, "
+                        f"Combined={combined_threshold:.6f}")
 
             # Find sustained energy above threshold
             min_frames = int((self.min_voiced_duration_ms / 1000.0) / (self.hop_duration_ms / 1000.0))
@@ -804,7 +804,7 @@ class MdxProvider(IDetectionProvider):
 
             # Find first sustained onset (after noise floor region)
             for i in range(search_start, len(above_threshold) - min_frames):
-                if np.all(above_threshold[i:i+min_frames]):
+                if np.all(above_threshold[i:i + min_frames]):
                     # Found sustained energy - now look back for the actual onset (rising edge)
                     onset_frame = i
 
@@ -835,7 +835,7 @@ class MdxProvider(IDetectionProvider):
                                 # Only use refined onset if it's close to original and makes sense
                                 if abs(refined_onset - onset_frame) <= refine_window:
                                     logger.debug(f"Refined onset from frame {onset_frame} to {refined_onset} "
-                                               f"(energy rise: {energy_derivative[max_rise_idx]:.4f})")
+                                                 f"(energy rise: {energy_derivative[max_rise_idx]:.4f})")
                                     onset_frame = refined_onset
 
                     break
@@ -845,7 +845,7 @@ class MdxProvider(IDetectionProvider):
                 onset_offset_ms = (onset_frame * hop_samples / sample_rate) * 1000.0
                 onset_abs_ms = chunk_start_ms + onset_offset_ms
                 logger.info(f"Onset detected at {onset_abs_ms:.1f}ms "
-                           f"(RMS={rms_values[onset_frame]:.4f}, threshold={combined_threshold:.4f})")
+                            f"(RMS={rms_values[onset_frame]:.4f}, threshold={combined_threshold:.4f})")
                 return float(onset_abs_ms)
 
             return None
