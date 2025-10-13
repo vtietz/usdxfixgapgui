@@ -6,7 +6,7 @@ Creates downsampled waveform data with min/max bins.
 import logging
 import os
 import json
-from typing import Optional
+from typing import Optional, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,9 @@ try:
     LIBROSA_AVAILABLE = True
 except ImportError:
     LIBROSA_AVAILABLE = False
+    # Bind names to avoid 'possibly unbound' type checker diagnostics
+    librosa = None  # type: ignore
+    np = None       # type: ignore
     logger.warning("librosa not available. Waveform JSON generation will be limited.")
 
 
@@ -23,7 +26,7 @@ def build_waveform_json(
     audio_file: str,
     output_file: Optional[str] = None,
     bins: int = 2048,
-    check_cancellation: Optional[callable] = None
+    check_cancellation: Optional[Callable[[], bool]] = None
 ) -> str:
     """
     Generate waveform JSON with min/max bins for UI visualization.
@@ -43,8 +46,12 @@ def build_waveform_json(
     
     logger.debug(f"Generating waveform JSON for {audio_file} with {bins} bins")
     
-    # Load audio
-    y, sr = librosa.load(audio_file, sr=None, mono=True)
+    # Load audio via librosa with type-narrowing to satisfy static analysis
+    assert LIBROSA_AVAILABLE and librosa is not None and np is not None
+    from typing import cast, Any
+    lib = cast(Any, librosa)
+    np_mod = cast(Any, np)
+    y, sr = lib.load(audio_file, sr=None, mono=True)
     
     if check_cancellation and check_cancellation():
         raise Exception("Operation cancelled")
@@ -71,8 +78,8 @@ def build_waveform_json(
         bin_samples = y[start_idx:end_idx]
         
         if len(bin_samples) > 0:
-            min_val = float(np.min(bin_samples))
-            max_val = float(np.max(bin_samples))
+            min_val = float(np_mod.min(bin_samples))
+            max_val = float(np_mod.max(bin_samples))
         else:
             min_val = 0.0
             max_val = 0.0
@@ -109,7 +116,7 @@ def _build_waveform_json_ffmpeg(
     audio_file: str,
     output_file: Optional[str] = None,
     bins: int = 2048,
-    check_cancellation: Optional[callable] = None
+    check_cancellation: Optional[Callable[[], bool]] = None
 ) -> str:
     """
     Fallback waveform generation using ffmpeg (when librosa unavailable).

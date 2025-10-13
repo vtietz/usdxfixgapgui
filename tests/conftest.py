@@ -2,6 +2,7 @@ import os
 import sys
 import pytest
 from unittest.mock import Mock
+from typing import Optional
 
 # Ensure src directory is importable
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -64,13 +65,13 @@ def song_factory(tmp_path):
         A callable that creates Song objects
     """
     def _create_song(
-        txt_file: str = None,
+        txt_file: Optional[str] = None,
         title: str = "Test Song",
         artist: str = "Test Artist",
         gap: int = 1000,
         bpm: int = 120,
         is_relative: bool = False,
-        audio_file: str = None,
+        audio_file: Optional[str] = None,
         with_notes: bool = True
     ) -> Song:
         """

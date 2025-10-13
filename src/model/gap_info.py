@@ -34,7 +34,7 @@ class GapInfo:
         
         # Audio information
         self.duration = 0
-        self.notes_overlap = 0
+        self.notes_overlap: float = 0.0
         
         # Metadata
         self.processed_time = ""

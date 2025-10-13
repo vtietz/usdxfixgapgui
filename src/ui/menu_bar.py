@@ -28,71 +28,74 @@ class MenuBar(QWidget):
     def __init__(self, actions:Actions, data:AppData, parent=None):
       
         super().__init__(parent)
-        self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.actions = actions
+        self._layout = QHBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        # Explicitly set the layout to avoid shadowing QWidget.layout()
+        self.setLayout(self._layout)
+        # Avoid shadowing QWidget.actions() by renaming attribute
+        self._actions = actions
         self.data = data
         self.config = data.config
 
         # Load Songs Button
         self.loadSongsButton = QPushButton("Load Songs")
         self.loadSongsButton.clicked.connect(self.choose_directory)
-        self.layout.addWidget(self.loadSongsButton)
+        self._layout.addWidget(self.loadSongsButton)
 
         # Detect Button - Now triggers action for multiple songs
         self.detectButton = QPushButton("Detect") # Renamed for clarity
-        self.detectButton.clicked.connect(lambda: actions.detect_gap(overwrite=True)) # Action handles iteration
-        self.layout.addWidget(self.detectButton)
+        self.detectButton.clicked.connect(lambda: self._actions.detect_gap(overwrite=True)) # Action handles iteration
+        self._layout.addWidget(self.detectButton)
 
         # Open song folder - Opens folder of the first selected song
         self.openFolderButton = QPushButton("Open Folder")
-        self.openFolderButton.clicked.connect(lambda: actions.open_folder()) # Action handles logic
-        self.layout.addWidget(self.openFolderButton)
+        self.openFolderButton.clicked.connect(lambda: self._actions.open_folder()) # Action handles logic
+        self._layout.addWidget(self.openFolderButton)
 
         # Open usdx webseite - Only enabled for single selection
         self.open_usdx_button = QPushButton("Open in USDB")
-        self.open_usdx_button.clicked.connect(lambda: actions.open_usdx()) # Action handles logic
-        self.layout.addWidget(self.open_usdx_button)
+        self.open_usdx_button.clicked.connect(lambda: self._actions.open_usdx()) # Action handles logic
+        self._layout.addWidget(self.open_usdx_button)
 
         # Reload song - Reloads all selected songs
         self.reload_button = QPushButton("Reload") # Renamed for clarity
-        self.reload_button.clicked.connect(lambda: actions.reload_song()) # Action handles iteration
-        self.layout.addWidget(self.reload_button)
+        self.reload_button.clicked.connect(lambda: self._actions.reload_song()) # Action handles iteration
+        self._layout.addWidget(self.reload_button)
 
         # Normalize song - Normalizes all selected songs
         self.normalize_button = QPushButton("Normalize") # Renamed for clarity
-        self.normalize_button.clicked.connect(lambda: actions.normalize_song()) # Action handles iteration
-        self.layout.addWidget(self.normalize_button)
+        self.normalize_button.clicked.connect(lambda: self._actions.normalize_song()) # Action handles iteration
+        self._layout.addWidget(self.normalize_button)
 
         # Delete song - Deletes all selected songs after confirmation
         self.delete_button = QPushButton("Delete") # Renamed for clarity
         self.delete_button.clicked.connect(self.onDeleteButtonClicked)
-        self.layout.addWidget(self.delete_button)
+        self._layout.addWidget(self.delete_button)
 
         # Config button - Opens config.ini in default text editor
         self.config_button = QPushButton("Config")
         self.config_button.setToolTip("Open config.ini in text editor")
         self.config_button.clicked.connect(self.open_config_file)
-        self.layout.addWidget(self.config_button)
+        self._layout.addWidget(self.config_button)
 
         self.searchBox = QLineEdit()
         self.searchBox.setPlaceholderText("Search")
-        self.searchBox.setMinimumWidth(200) 
+        self.searchBox.setMinimumWidth(200)
         self.searchBox.textChanged.connect(self.onSearchChanged)
-        self.layout.addWidget(self.searchBox)
+        self._layout.addWidget(self.searchBox)
 
         # Convert SongStatus values to a list of strings
         status_values = [status.value for status in SongStatus]
         self.filterDropdown = MultiSelectComboBox(items=status_values)
         self.filterDropdown.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.filterDropdown.setMinimumWidth(200) 
-        self.filterDropdown.setSelectedItems(self.actions.data.songs.filter)
+        self.filterDropdown.setMinimumWidth(200)
+        self.filterDropdown.setSelectedItems(self._actions.data.songs.filter)
         self.filterDropdown.selectionChanged.connect(self.onFilterChanged)
-        self.layout.addWidget(self.filterDropdown)
+        self._layout.addWidget(self.filterDropdown)
 
-        self.loadSongsClicked.connect(lambda: actions.set_directory(self.data.directory)) # Or use choose_directory
+        self.loadSongsClicked.connect(lambda: self._actions.set_directory(self.data.directory)) # Or use choose_directory
 
-        self.actions.data.selected_songs_changed.connect(self.onSelectedSongsChanged)
+        self._actions.data.selected_songs_changed.connect(self.onSelectedSongsChanged)
 
         self.onSelectedSongsChanged([]) # Initial state
 
@@ -118,13 +121,13 @@ class MenuBar(QWidget):
 
         returnValue = msgBox.exec()
         if returnValue == QMessageBox.StandardButton.Ok:
-            self.actions.delete_selected_song() # Action handles iteration
+            self._actions.delete_selected_song() # Action handles iteration
 
     def updateLoadButtonState(self, isLoading: bool):
         self.loadSongsButton.setEnabled(not isLoading) 
 
     def onSearchChanged(self, text):
-        self.actions.data.songs.filter_text = text
+        self._actions.data.songs.filter_text = text
 
     # Renamed method to reflect it handles a list
     def onSelectedSongsChanged(self, songs: List[Song]): # Use List[Song]
@@ -148,10 +151,13 @@ class MenuBar(QWidget):
 
         # Enable USDB only if exactly one song is selected and has a valid usdb_id
         # Improved check to ensure usdb_id is a non-empty string
-        can_open_usdb = (num_selected == 1 and first_song and 
-                         first_song.usdb_id is not None and 
-                         first_song.usdb_id != "" and 
-                         first_song.usdb_id != "0")
+        can_open_usdb = bool(
+            (num_selected == 1)
+            and (first_song is not None)
+            and (first_song.usdb_id is not None)
+            and (first_song.usdb_id != "")
+            and (first_song.usdb_id != "0")
+        )
         self.open_usdx_button.setEnabled(can_open_usdb)
 
         # Disable player/editor related buttons if multiple songs are selected
@@ -217,7 +223,7 @@ class MenuBar(QWidget):
             self.on_directory_selected(directory)
 
     def on_directory_selected(self, directory: str):
-        self.actions.set_directory(directory)
+        self._actions.set_directory(directory)
 
     def onFilterChanged(self, selectedStatuses):
-        self.actions.data.songs.filter=selectedStatuses
+        self._actions.data.songs.filter=selectedStatuses

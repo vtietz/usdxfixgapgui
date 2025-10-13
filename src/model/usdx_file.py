@@ -8,13 +8,14 @@ class ValidationError(Exception):
 class Tags:
     """Container for USDX file tags"""
     def __init__(self):
-        self.TITLE = None
-        self.ARTIST = None
-        self.GAP = None
-        self.AUDIO = None
-        self.BPM = None
-        self.RELATIVE = None
-        self.START = None
+        # Optional annotations prevent Pylance from inferring attributes as literal None
+        self.TITLE: Optional[str] = None
+        self.ARTIST: Optional[str] = None
+        self.GAP: Optional[int] = None
+        self.AUDIO: Optional[str] = None
+        self.BPM: Optional[float] = None
+        self.RELATIVE: Optional[bool] = None
+        self.START: Optional[float] = None
 
     def __str__(self):
         return f"Tags(TITLE={self.TITLE}, ARTIST={self.ARTIST}, GAP={self.GAP}, AUDIO={self.AUDIO}, BPM={self.BPM}, RELATIVE={self.RELATIVE}, START={self.START})"
@@ -22,14 +23,14 @@ class Tags:
 class Note:
     """Container for USDX note data"""
     def __init__(self):
-        self.NoteType = None
-        self.StartBeat = None
-        self.Length = None
-        self.Pitch = None
-        self.Text = None
-        self.start_ms = None
-        self.duration_ms = None
-        self.end_ms = None
+        self.NoteType: Optional[str] = None
+        self.StartBeat: Optional[int] = None
+        self.Length: Optional[int] = None
+        self.Pitch: Optional[int] = None
+        self.Text: Optional[str] = None
+        self.start_ms: Optional[float] = None
+        self.duration_ms: Optional[float] = None
+        self.end_ms: Optional[float] = None
 
     def __str__(self):
         return f"Notes(NoteType={self.NoteType}, StartBeat={self.StartBeat}, Length={self.Length}, Pitch={self.Pitch}, Text={self.Text})"
@@ -41,15 +42,15 @@ class USDXFile:
         # File info
         self.filepath = filepath
         self.path = os.path.dirname(filepath) if filepath else ""
-        self.encoding = None
+        self.encoding: Optional[str] = None
         
         # Content
-        self.content = None
-        self.tags = Tags()
+        self.content: Optional[str] = None
+        self.tags: Tags = Tags()
         self.notes: List[Note] = []
         
         # State
-        self._loaded = False
+        self._loaded: bool = False
     
     def is_loaded(self) -> bool:
         return self._loaded

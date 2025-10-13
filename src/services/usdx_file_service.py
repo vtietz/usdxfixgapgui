@@ -135,17 +135,32 @@ class USDXFileService:
     
     @staticmethod
     def calculate_note_times(usdx_file: USDXFile) -> None:
-        """Calculate note start and end times in milliseconds"""
-        beats_per_ms = (usdx_file.tags.BPM / 60 / 1000) * 4
-        
-        for note in usdx_file.notes:
-            if usdx_file.tags.RELATIVE:
-                note.start_ms = note.StartBeat / beats_per_ms
-                note.end_ms = (note.StartBeat + note.Length) / beats_per_ms
+        """Calculate note start and end times in milliseconds with safety guards."""
+        bpm = usdx_file.tags.BPM
+        if bpm is None or bpm <= 0:
+            logger.warning(f"Cannot calculate note times for '{usdx_file.filepath}': BPM missing or invalid ({bpm})")
+            return
+
+        beats_per_ms = (bpm / 60 / 1000) * 4
+        gap = usdx_file.tags.GAP or 0
+        is_relative = bool(usdx_file.tags.RELATIVE)
+
+        for note in usdx_file.notes or []:
+            # Guard against malformed notes
+            if note.StartBeat is None or note.Length is None:
+                continue
+
+            start_beat = float(note.StartBeat)
+            length_beats = float(note.Length)
+
+            if is_relative:
+                note.start_ms = start_beat / beats_per_ms
+                note.end_ms = (start_beat + length_beats) / beats_per_ms
             else:
-                note.start_ms = usdx_file.tags.GAP + (note.StartBeat / beats_per_ms)
-                note.end_ms = usdx_file.tags.GAP + ((note.StartBeat + note.Length) / beats_per_ms)
-            note.duration_ms = note.end_ms - note.start_ms
+                note.start_ms = gap + (start_beat / beats_per_ms)
+                note.end_ms = gap + ((start_beat + length_beats) / beats_per_ms)
+
+            note.duration_ms = float(note.end_ms) - float(note.start_ms)
     
     @staticmethod
     async def save(usdx_file: USDXFile) -> None:
@@ -167,11 +182,15 @@ class USDXFileService:
         
         pattern = rf"(?mi)^#\s*{tag}:\s*.*$"
         replacement = f"#{tag}:{value}"
-        
+
+        # Ensure content is a string
+        if not isinstance(usdx_file.content, str):
+            usdx_file.content = ""
+
         if re.search(pattern, usdx_file.content):
             usdx_file.content = re.sub(pattern, replacement, usdx_file.content)
         else:
-            usdx_file.content += f"\n{replacement}\n"
+            usdx_file.content = (usdx_file.content or "") + f"\n{replacement}\n"
             
         await USDXFileService.save(usdx_file)
     

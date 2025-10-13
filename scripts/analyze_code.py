@@ -34,8 +34,9 @@ PROJECT_ROOT = Path(__file__).parent.parent
 
 # Directories to analyze
 PYTHON_DIRS = [
-    "psm",
+    "src",
     "tests",
+    "scripts",
 ]
 
 # Directories to exclude
@@ -274,7 +275,7 @@ def main():
 Examples:
   %(prog)s all              # Analyze entire project
   %(prog)s changed          # Analyze only git-modified files
-  %(prog)s files psm/gui/main_window.py  # Analyze specific files
+  %(prog)s files src/ui/main_window.py  # Analyze specific files
   %(prog)s --skip-style all # Skip style checks, only complexity
         """
     )

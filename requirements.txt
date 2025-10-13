@@ -1,3 +1,4 @@
+# Runtime dependencies (included in executable builds)
 aiofiles==24.1.0
 pillow==10.4.0
 PySide6==6.6.3.1
@@ -16,5 +17,3 @@ soundfile>=0.12.1
 torch>=2.0.0
 torchaudio>=2.0.0
 matplotlib>=3.5.0
-lizard>=1.18.0  # code complexity analysis
-flake8>=7.0.0  # style and syntax checking

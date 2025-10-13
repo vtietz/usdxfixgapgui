@@ -22,29 +22,30 @@ class Song:
     
     def __init__(self, txt_file: str = ""):
         # File paths
-        self.txt_file = txt_file
-        self.audio_file = ""
+        self.txt_file: str = txt_file
+        self.audio_file: str = ""
         
         # Song metadata
-        self.title = ""
-        self.artist = ""
-        self.audio = ""
-        self.gap = 0
-        self.bpm = 0
-        self.start = 0
-        self.is_relative = False
-        self.usdb_id = None
+        self.title: str = ""
+        self.artist: str = ""
+        self.audio: str = ""
+        self.gap: int = 0
+        # BPM can be fractional; use float to match tests and parsers
+        self.bpm: float = 0.0
+        self.start: int = 0
+        self.is_relative: bool = False
+        self.usdb_id: Optional[int] = None
         
         # Audio analysis data
-        self.duration_ms = 0
+        self.duration_ms: int = 0
         
         # Notes data
         self.notes: Optional[List[Note]] = None
         
         # Status information
-        self._gap_info = None
-        self.status = SongStatus.NOT_PROCESSED
-        self.error_message = ""
+        self._gap_info: Optional[GapInfo] = None
+        self.status: SongStatus = SongStatus.NOT_PROCESSED
+        self.error_message: Optional[str] = ""
     
     @property
     def path(self):

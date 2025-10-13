@@ -5,10 +5,12 @@ This module defines custom exceptions to distinguish provider initialization
 failures from detection failures, enabling better error handling and user feedback.
 """
 
+from typing import Optional
 
 class ProviderError(Exception):
     """Base exception for all provider-related errors."""
     pass
+
 
 
 class ProviderInitializationError(ProviderError):
@@ -34,7 +36,7 @@ class DetectionFailedError(ProviderError):
     - Cancellation requested
     """
     
-    def __init__(self, message: str, provider_name: str = None, cause: Exception = None):
+    def __init__(self, message: str, provider_name: Optional[str] = None, cause: Optional[Exception] = None):
         """
         Initialize detection failure error.
         

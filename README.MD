@@ -238,6 +238,7 @@ Want to contribute or understand how the code works?
 
 ### **Documentation**
 
+- **[Development Guide](docs/DEVELOPMENT.md)** - Setup, testing, code quality tools, building executables
 - **[Architecture Guide](docs/architecture.md)** - System design, component responsibilities, signal patterns
 - **[Coding Standards](docs/coding-standards.md)** - DRY principles, SOLID patterns, testing guidelines
 - **[Signal Usage Guide](docs/signals.md)** - Event communication patterns and best practices
@@ -256,12 +257,21 @@ cd usdxfixgapgui
 .\run.bat install     # Windows
 ./run.sh install      # Linux/macOS
 
+# Install development tools (testing, code analysis)
+.\run.bat install-dev # Windows
+./run.sh install-dev  # Linux/macOS
+
 # Run tests
 .\run.bat test        # 78 tests should pass
+
+# Run code quality analysis
+.\run.bat analyze     # Check complexity and style
 
 # Start development
 .\run.bat start
 ```
+
+**For detailed setup and workflow**, see the **[Development Guide](docs/DEVELOPMENT.md)**.
 
 ### **Project Structure**
 

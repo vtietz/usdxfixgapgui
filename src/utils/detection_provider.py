@@ -6,7 +6,7 @@ Provides pluggable strategies for different detection methods.
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Callable
 from common.config import Config
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class IDetectionProvider(ABC):
         destination_vocals_filepath: str,
         duration: int = 60,
         overwrite: bool = False,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> str:
         """
         Get or create vocals/preview file for gap detection.
@@ -64,7 +64,7 @@ class IDetectionProvider(ABC):
         self,
         audio_file: str,
         vocals_file: str,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> List[Tuple[float, float]]:
         """
         Detect silence/speech boundary periods in audio.
@@ -84,7 +84,7 @@ class IDetectionProvider(ABC):
         self,
         audio_file: str,
         detected_gap_ms: float,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> float:
         """
         Compute confidence score for the detected gap.
@@ -115,7 +115,7 @@ class SpleeterProvider(IDetectionProvider):
         destination_vocals_filepath: str,
         duration: int = 60,
         overwrite: bool = False,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> str:
         """Get vocals file using Spleeter separation."""
         import utils.files as files
@@ -158,7 +158,7 @@ class SpleeterProvider(IDetectionProvider):
         self,
         audio_file: str,
         vocals_file: str,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> List[Tuple[float, float]]:
         """Detect silence using ffmpeg silencedetect."""
         import utils.audio as audio
@@ -173,7 +173,7 @@ class SpleeterProvider(IDetectionProvider):
         self,
         audio_file: str,
         detected_gap_ms: float,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> float:
         """Spleeter doesn't provide confidence - return default."""
         return 0.8  # Assume reasonable confidence for Spleeter
@@ -192,7 +192,7 @@ class VadPreviewProvider(IDetectionProvider):
         destination_vocals_filepath: str,
         duration: int = 60,
         overwrite: bool = False,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> str:
         """Create vocals preview using HPSS and VAD (no full separation)."""
         logger.debug(f"Using VAD preview for {audio_file}")
@@ -232,7 +232,7 @@ class VadPreviewProvider(IDetectionProvider):
         self,
         audio_file: str,
         vocals_file: str,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> List[Tuple[float, float]]:
         """Detect speech segments using VAD on harmonic component of original audio."""
         from utils.vad import detect_speech_segments_vad
@@ -283,7 +283,7 @@ class VadPreviewProvider(IDetectionProvider):
         self,
         audio_file: str,
         detected_gap_ms: float,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> float:
         """Compute confidence using VAD probability and spectral flux."""
         from utils.vad import compute_vad_confidence
@@ -341,7 +341,7 @@ class HqSegmentProvider(IDetectionProvider):
         destination_vocals_filepath: str,
         duration: int = 60,
         overwrite: bool = False,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> str:
         """
         Get vocals using HQ model on short window around expected gap location.
@@ -424,7 +424,7 @@ class HqSegmentProvider(IDetectionProvider):
         self,
         audio_file: str,
         vocals_file: str,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> List[Tuple[float, float]]:
         """
         Detect silence periods in the HQ vocal stem.
@@ -449,7 +449,7 @@ class HqSegmentProvider(IDetectionProvider):
         self,
         audio_file: str,
         detected_gap_ms: float,
-        check_cancellation: Optional[callable] = None
+        check_cancellation: Optional[Callable[[], bool]] = None
     ) -> float:
         """
         Compute confidence for HQ detection.

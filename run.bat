@@ -58,14 +58,21 @@ if "%1"=="" (
     echo Usage: %0 [command] [args...]
     echo.
     echo Available shortcuts:
-    echo   start    - Start the USDXFixGap application
-    echo   test     - Run all tests with pytest
-    echo   install  - Install/update requirements ^(auto-detects GPU^)
+    echo   start       - Start the USDXFixGap application
+    echo   test        - Run all tests with pytest
+    echo   install     - Install/update requirements ^(auto-detects GPU^)
     echo   install --gpu   - Force GPU/CUDA PyTorch installation
     echo   install --cpu   - Force CPU-only PyTorch installation
-    echo   clean    - Clean cache and temporary files
-    echo   shell    - Start interactive Python shell
-    echo   info     - Show environment info
+    echo   install-dev - Install development dependencies ^(testing, analysis^)
+    echo   clean       - Clean cache and temporary files
+    echo   shell       - Start interactive Python shell
+    echo   info        - Show environment info
+    echo   analyze     - Run code quality analysis ^(complexity, style^)
+    echo   analyze all - Analyze entire project
+    echo   analyze files ^<path^>  - Analyze specific files
+    echo   cleanup     - Clean code ^(whitespace, unused imports^)
+    echo   cleanup all - Clean entire project
+    echo   cleanup --dry-run  - Preview cleanup without changes
     echo.
     echo Or run any Python command directly:
     echo   %0 python script.py
@@ -158,6 +165,77 @@ if /i "%1"=="info" (
     echo.
     echo Installed Packages:
     pip list
+    goto :end
+)
+
+if /i "%1"=="install-dev" (
+    echo Installing development dependencies...
+    pip install -r "%SCRIPT_DIR%requirements-dev.txt" --upgrade
+    echo.
+    echo Development dependencies installed!
+    echo You can now use:
+    echo   - run.bat analyze    ^(code quality analysis^)
+    echo   - run.bat cleanup    ^(code cleanup tools^)
+    goto :end
+)
+
+if /i "%1"=="analyze" (
+    echo Running code quality analysis...
+    cd /d "%SCRIPT_DIR%"
+    
+    :: Check if analyze script exists
+    if not exist "scripts\analyze_code.py" (
+        echo ERROR: scripts\analyze_code.py not found
+        echo Make sure you're in the project root directory
+        goto :end
+    )
+    
+    :: Determine mode: default to "changed" if %2 is empty or starts with --
+    set MODE=changed
+    set EXTRA_ARGS=
+    if not "%2"=="" (
+        echo %2 | findstr /B /C:"--" >nul
+        if errorlevel 1 (
+            rem %2 doesn't start with --, so it's the mode
+            set MODE=%2
+            set EXTRA_ARGS=%3 %4 %5 %6
+        ) else (
+            rem %2 starts with --, so it's an option
+            set EXTRA_ARGS=%2 %3 %4 %5
+        )
+    )
+    
+    python scripts\analyze_code.py !MODE! !EXTRA_ARGS!
+    goto :end
+)
+
+if /i "%1"=="cleanup" (
+    echo Running code cleanup...
+    cd /d "%SCRIPT_DIR%"
+    
+    :: Check if cleanup script exists
+    if not exist "scripts\cleanup_code.py" (
+        echo ERROR: scripts\cleanup_code.py not found
+        echo Make sure you're in the project root directory
+        goto :end
+    )
+    
+    :: Determine mode: default to "changed" if %2 is empty or starts with --
+    set MODE=changed
+    set EXTRA_ARGS=
+    if not "%2"=="" (
+        echo %2 | findstr /B /C:"--" >nul
+        if errorlevel 1 (
+            rem %2 doesn't start with --, so it's the mode
+            set MODE=%2
+            set EXTRA_ARGS=%3 %4 %5 %6
+        ) else (
+            rem %2 starts with --, so it's an option
+            set EXTRA_ARGS=%2 %3 %4 %5
+        )
+    )
+    
+    python scripts\cleanup_code.py !MODE! !EXTRA_ARGS!
     goto :end
 )
 

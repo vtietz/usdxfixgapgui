@@ -100,11 +100,15 @@ class DetectGapWorker(IWorker):
             detection_result = detect_gap.perform(detect_options, self.is_cancelled)
             
             # Fix gap based on the song's BPM and other factors
-            if self.options.notes and self.options.bpm:
-                detected_gap = usdx.fix_gap(detection_result.detected_gap, self.options.notes[0].StartBeat, self.options.bpm)
+            start_beat = 0
+            if self.options.notes and len(self.options.notes) > 0 and self.options.notes[0].StartBeat is not None:
+                start_beat = int(self.options.notes[0].StartBeat)
+            bpm_val = float(self.options.bpm) if self.options.bpm else 0.0
+            if start_beat != 0 and bpm_val > 0:
+                detected_gap = usdx.fix_gap(detection_result.detected_gap, start_beat, bpm_val)
             else:
                 detected_gap = detection_result.detected_gap
-                logger.warning("No notes or BPM provided, so no correction of gap if first note does not start on beat 0 or song has a start time.")
+                logger.warning("No valid first note or BPM provided, skipping correction of detected gap.")
             gap_diff = abs(self.options.original_gap - detected_gap)
             
             # Determine status
@@ -112,7 +116,7 @@ class DetectGapWorker(IWorker):
             
             # Get vocals duration for notes overlap calculation
             vocals_duration_ms = audio.get_audio_duration(detection_result.vocals_file, self.is_cancelled)
-            notes_overlap = usdx.get_notes_overlap(self.options.notes, detection_result.silence_periods, vocals_duration_ms)
+            notes_overlap = usdx.get_notes_overlap(self.options.notes or [], detection_result.silence_periods, vocals_duration_ms)
             
             # Populate the result with basic fields
             result.detected_gap = detected_gap

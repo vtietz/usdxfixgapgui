@@ -86,14 +86,21 @@ if [[ $# -eq 0 ]]; then
     echo "Usage: $0 [command] [args...]"
     echo ""
     echo "Available shortcuts:"
-    echo "  start    - Start the USDXFixGap application"
-    echo "  test     - Run all tests with pytest"
-    echo "  install  - Install/update requirements (auto-detects GPU)"
+    echo "  start       - Start the USDXFixGap application"
+    echo "  test        - Run all tests with pytest"
+    echo "  install     - Install/update requirements (auto-detects GPU)"
     echo "  install --gpu   - Force GPU/CUDA PyTorch installation"
     echo "  install --cpu   - Force CPU-only PyTorch installation"
-    echo "  clean    - Clean cache and temporary files"
-    echo "  shell    - Start interactive Python shell"
-    echo "  info     - Show environment info"
+    echo "  install-dev - Install development dependencies (testing, analysis)"
+    echo "  clean       - Clean cache and temporary files"
+    echo "  shell       - Start interactive Python shell"
+    echo "  info        - Show environment info"
+    echo "  analyze     - Run code quality analysis (complexity, style)"
+    echo "  analyze all - Analyze entire project"
+    echo "  analyze files <path>  - Analyze specific files"
+    echo "  cleanup     - Clean code (whitespace, unused imports)"
+    echo "  cleanup all - Clean entire project"
+    echo "  cleanup --dry-run  - Preview cleanup without changes"
     echo ""
     echo "Or run any Python command directly:"
     echo "  $0 python script.py"
@@ -204,6 +211,51 @@ case "$1" in
         echo ""
         echo "Installed Packages:"
         pip list
+        ;;
+    "install-dev")
+        print_info "Installing development dependencies..."
+        pip install -r "$SCRIPT_DIR/requirements-dev.txt" --upgrade
+        echo ""
+        print_success "Development dependencies installed!"
+        echo "You can now use:"
+        echo "  - ./run.sh analyze    (code quality analysis)"
+        echo "  - ./run.sh cleanup    (code cleanup tools)"
+        ;;
+    "analyze")
+        print_info "Running code quality analysis..."
+        cd "$SCRIPT_DIR"
+        
+        # Check if analyze script exists
+        if [[ ! -f "scripts/analyze_code.py" ]]; then
+            print_error "scripts/analyze_code.py not found"
+            print_error "Make sure you're in the project root directory"
+            exit 1
+        fi
+        
+        # Default to "changed" mode if no second argument
+        ANALYZE_MODE="${2:-changed}"
+        
+        # Pass all arguments to analyze script
+        shift  # Remove first argument (analyze)
+        python scripts/analyze_code.py "$ANALYZE_MODE" "${@:2}"
+        ;;
+    "cleanup")
+        print_info "Running code cleanup..."
+        cd "$SCRIPT_DIR"
+        
+        # Check if cleanup script exists
+        if [[ ! -f "scripts/cleanup_code.py" ]]; then
+            print_error "scripts/cleanup_code.py not found"
+            print_error "Make sure you're in the project root directory"
+            exit 1
+        fi
+        
+        # Default to "changed" mode if no second argument
+        CLEANUP_MODE="${2:-changed}"
+        
+        # Pass all arguments to cleanup script
+        shift  # Remove first argument (cleanup)
+        python scripts/cleanup_code.py "$CLEANUP_MODE" "${@:2}"
         ;;
     *)
         print_info "Executing: $*"

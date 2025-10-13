@@ -104,22 +104,44 @@ class SongActions(BaseActions):
                 self.data.songs.updated.emit(song)
 
     def load_notes_for_song(self, song: Song):
-        """Load just the notes for a song without fully reloading it"""
+        """Load just the notes for a song without fully reloading it.
+        Also compute per-note start/end/duration in milliseconds so waveform rendering works.
+        """
         if not song:
             logger.error("No song provided to load notes for")
             return
-            
+
         logger.info(f"Loading notes for {song}")
-        
+
         try:
             # Use USDXFile and USDXFileService directly to load just the notes
             usdx_file = USDXFile(song.txt_file)
             song.notes = run_sync(USDXFileService.load_notes_only(usdx_file))
             logger.debug(f"Notes loaded for song: {song.title}, count: {len(song.notes) if song.notes else 0}")
-            
+
+            # Compute note timing (ms) required by waveform drawing if we have BPM information
+            if song.notes and song.bpm and song.bpm > 0:
+                try:
+                    beats_per_ms = (song.bpm / 60 / 1000) * 4
+                    for note in song.notes:
+                        # Guard against missing fields
+                        if note.StartBeat is None or note.Length is None:
+                            # Skip malformed notes
+                            continue
+                        if song.is_relative:
+                            note.start_ms = note.StartBeat / beats_per_ms
+                            note.end_ms = (note.StartBeat + note.Length) / beats_per_ms
+                        else:
+                            note.start_ms = song.gap + (note.StartBeat / beats_per_ms)
+                            note.end_ms = song.gap + ((note.StartBeat + note.Length) / beats_per_ms)
+                        note.duration_ms = note.end_ms - note.start_ms
+                    logger.debug(f"Computed note timings for {song.title} using bpm={song.bpm}, gap={song.gap}, relative={song.is_relative}")
+                except Exception as timing_err:
+                    logger.warning(f"Failed computing note timings for {song.title}: {timing_err}")
+
             # Notify that the song was updated
             self.data.songs.updated.emit(song)
-            
+
         except Exception as e:
             logger.error(f"Error loading notes for song {song.title}: {e}", exc_info=True)
             song.error_message = str(e)

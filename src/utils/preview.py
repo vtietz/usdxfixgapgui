@@ -6,7 +6,7 @@ Creates focused audio previews around detected gap points.
 import logging
 import os
 import tempfile
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,10 @@ try:
     LIBROSA_AVAILABLE = True
 except ImportError:
     LIBROSA_AVAILABLE = False
+    # Bind names to avoid 'possibly unbound' diagnostics in type checker
+    librosa = None  # type: ignore
+    sf = None       # type: ignore
+    np = None       # type: ignore
     logger.warning("librosa not available. Preview generation will be limited.")
 
 
@@ -25,7 +29,7 @@ def extract_time_window(
     start_ms: float,
     end_ms: float,
     output_file: Optional[str] = None,
-    check_cancellation: Optional[callable] = None
+    check_cancellation: Optional[Callable[[], bool]] = None
 ) -> str:
     """
     Extract a time window from audio file.
@@ -74,7 +78,7 @@ def apply_vad_gate(
     vad_segments: List[Tuple[float, float]],
     attenuation_db: float = -12.0,
     output_file: Optional[str] = None,
-    check_cancellation: Optional[callable] = None
+    check_cancellation: Optional[Callable[[], bool]] = None
 ) -> str:
     """
     Apply VAD-based gating to attenuate non-vocal frames.
@@ -95,14 +99,19 @@ def apply_vad_gate(
     
     logger.debug(f"Applying VAD gate with {len(vad_segments)} speech segments")
     
-    # Load audio
-    y, sr = librosa.load(audio_file, sr=None, mono=True)
+    # Load audio (type-narrow for static checker)
+    assert LIBROSA_AVAILABLE and librosa is not None and np is not None and sf is not None
+    from typing import cast, Any
+    lib = cast(Any, librosa)
+    np_mod = cast(Any, np)
+    sf_mod = cast(Any, sf)
+    y, sr = lib.load(audio_file, sr=None, mono=True)
     
     if check_cancellation and check_cancellation():
         raise Exception("Operation cancelled")
     
     # Create mask for speech regions
-    mask = np.ones_like(y)
+    mask = np_mod.ones_like(y)
     attenuation_factor = 10 ** (attenuation_db / 20.0)  # Convert dB to linear
     
     # Set mask to attenuation factor for non-speech regions
@@ -129,7 +138,7 @@ def apply_vad_gate(
     
     # Save
     logger.debug(f"Saving gated audio to {output_file}")
-    sf.write(output_file, y_gated, sr)
+    sf_mod.write(output_file, y_gated, sr)
     
     return output_file
 
@@ -142,7 +151,7 @@ def build_vocals_preview(
     vad_segments: Optional[List[Tuple[float, float]]] = None,
     use_hpss: bool = True,
     output_file: Optional[str] = None,
-    check_cancellation: Optional[callable] = None
+    check_cancellation: Optional[Callable[[], bool]] = None
 ) -> str:
     """
     Build a vocals-focused preview window around the detected gap.

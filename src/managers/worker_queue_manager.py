@@ -142,16 +142,17 @@ class WorkerQueueManager(QObject):
         worker.signals.canceled.connect(lambda *args, wid=worker.id: self.on_task_canceled(wid))
         worker.signals.progress.connect(lambda *args, wid=worker.id: self.on_task_updated(wid))
         
-        if start_now or not self.running_tasks:
-            run_async(self._start_worker(worker))
-        else:
-            logger.info(f"Queueing task: {worker.description}")
-            worker.status = WorkerStatus.WAITING
-            self.queued_tasks.append(worker)
+        # Always enqueue as WAITING so the Task Queue shows it immediately
+        worker.status = WorkerStatus.WAITING
+        self.queued_tasks.append(worker)
         
         # Emit immediately so TaskQueueViewer updates right away, and also mark for coalesced refresh
         self.on_task_list_changed.emit()
         self._mark_ui_update_needed()
+        
+        # Start immediately if requested or if nothing is running
+        if start_now or not self.running_tasks:
+            self.start_next_task()
 
     def get_unique_task_id(self):
         WorkerQueueManager.task_id_counter += 1
@@ -163,6 +164,10 @@ class WorkerQueueManager(QObject):
             worker.status = WorkerStatus.RUNNING
             worker.signals.started.emit()
             self.running_tasks[worker.id] = worker
+            # Reflect move from queue->running immediately
+            self.on_task_list_changed.emit()
+            self._mark_ui_update_needed()
+            
             await worker.run()
             
             # Only update status if not already canceled
@@ -199,6 +204,7 @@ class WorkerQueueManager(QObject):
             run_async(self._start_worker(worker))
             # Reflect the change right away in the TaskQueueViewer
             self.on_task_list_changed.emit()
+            self._mark_ui_update_needed()
 
     def get_worker(self, task_id):
         return self.running_tasks.get(task_id, None)
