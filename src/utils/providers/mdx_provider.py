@@ -25,10 +25,13 @@ import logging
 import logging.handlers
 import os
 import sys
+import threading
 import warnings
 import numpy as np
 import torch
 import torchaudio
+from collections import OrderedDict
+from dataclasses import dataclass
 from typing import List, Tuple, Optional, Callable
 
 from demucs.apply import apply_model
@@ -41,12 +44,94 @@ warnings.filterwarnings("ignore", category=UserWarning, module="torchaudio")
 
 logger = logging.getLogger(__name__)
 
+# Constants
+DEMUCS_MODEL_NAME = 'htdemucs'
+VOCALS_INDEX = 3
+DEFAULT_RESAMPLE_HZ = 0
+DEFAULT_FP16 = False
+MAX_VOCALS_CACHE_SIZE = 6  # Maximum cached vocals chunks
+
 # Global model cache - shared across all MdxProvider instances
 # This prevents reloading the model for every detection (saves ~3-5s per song)
 _GLOBAL_MODEL_CACHE = {
     'model': None,
     'device': None
 }
+_MODEL_LOCK = threading.Lock()  # Thread safety for model cache access
+
+
+@dataclass
+class MdxConfig:
+    """Configuration parameters for MDX provider."""
+    # Chunked scanning parameters
+    chunk_duration_ms: float = 12000
+    chunk_overlap_ms: float = 6000
+
+    # Energy analysis parameters
+    frame_duration_ms: float = 25
+    hop_duration_ms: float = 20
+    noise_floor_duration_ms: float = 800
+
+    # Onset detection thresholds
+    onset_snr_threshold: float = 6.0
+    onset_abs_threshold: float = 0.02
+    min_voiced_duration_ms: float = 300
+    hysteresis_ms: float = 200
+
+    # Expanding search parameters
+    initial_radius_ms: float = 7500
+    radius_increment_ms: float = 7500
+    max_expansions: int = 3
+
+    # Performance optimizations
+    use_fp16: bool = DEFAULT_FP16
+    resample_hz: int = DEFAULT_RESAMPLE_HZ
+
+    # Confidence and preview
+    confidence_threshold: float = 0.55
+    preview_pre_ms: float = 3000
+    preview_post_ms: float = 9000
+
+    def __post_init__(self):
+        """Validate configuration parameters."""
+        if self.chunk_duration_ms <= 0:
+            raise ValueError(f"chunk_duration_ms must be positive, got {self.chunk_duration_ms}")
+        if self.chunk_overlap_ms < 0:
+            raise ValueError(f"chunk_overlap_ms must be non-negative, got {self.chunk_overlap_ms}")
+        if self.chunk_overlap_ms >= self.chunk_duration_ms:
+            raise ValueError(
+                f"chunk_overlap_ms ({self.chunk_overlap_ms}) must be less than "
+                f"chunk_duration_ms ({self.chunk_duration_ms})"
+            )
+        if self.frame_duration_ms <= 0:
+            raise ValueError(f"frame_duration_ms must be positive, got {self.frame_duration_ms}")
+        if self.hop_duration_ms <= 0:
+            raise ValueError(f"hop_duration_ms must be positive, got {self.hop_duration_ms}")
+        if self.noise_floor_duration_ms < 0:
+            raise ValueError(f"noise_floor_duration_ms must be non-negative, got {self.noise_floor_duration_ms}")
+
+    @classmethod
+    def from_config(cls, config) -> 'MdxConfig':
+        """Create MdxConfig from a config object using getattr with defaults."""
+        return cls(
+            chunk_duration_ms=getattr(config, 'mdx_chunk_duration_ms', cls.chunk_duration_ms),
+            chunk_overlap_ms=getattr(config, 'mdx_chunk_overlap_ms', cls.chunk_overlap_ms),
+            frame_duration_ms=getattr(config, 'mdx_frame_duration_ms', cls.frame_duration_ms),
+            hop_duration_ms=getattr(config, 'mdx_hop_duration_ms', cls.hop_duration_ms),
+            noise_floor_duration_ms=getattr(config, 'mdx_noise_floor_duration_ms', cls.noise_floor_duration_ms),
+            onset_snr_threshold=getattr(config, 'mdx_onset_snr_threshold', cls.onset_snr_threshold),
+            onset_abs_threshold=getattr(config, 'mdx_onset_abs_threshold', cls.onset_abs_threshold),
+            min_voiced_duration_ms=getattr(config, 'mdx_min_voiced_duration_ms', cls.min_voiced_duration_ms),
+            hysteresis_ms=getattr(config, 'mdx_hysteresis_ms', cls.hysteresis_ms),
+            initial_radius_ms=getattr(config, 'mdx_initial_radius_ms', cls.initial_radius_ms),
+            radius_increment_ms=getattr(config, 'mdx_radius_increment_ms', cls.radius_increment_ms),
+            max_expansions=getattr(config, 'mdx_max_expansions', cls.max_expansions),
+            use_fp16=getattr(config, 'mdx_use_fp16', cls.use_fp16),
+            resample_hz=getattr(config, 'mdx_resample_hz', cls.resample_hz),
+            confidence_threshold=getattr(config, 'mdx_confidence_threshold', cls.confidence_threshold),
+            preview_pre_ms=getattr(config, 'mdx_preview_pre_ms', cls.preview_pre_ms),
+            preview_post_ms=getattr(config, 'mdx_preview_post_ms', cls.preview_post_ms),
+        )
 
 
 def _flush_logs():
@@ -95,116 +180,96 @@ class MdxProvider(IDetectionProvider):
         """Initialize MDX provider with configuration."""
         super().__init__(config)
 
-        # Chunked scanning parameters
-        self.chunk_duration_ms = getattr(config, 'mdx_chunk_duration_ms', 12000)
-        self.chunk_overlap_ms = getattr(config, 'mdx_chunk_overlap_ms', 6000)
-
-        # Energy analysis parameters
-        self.frame_duration_ms = getattr(config, 'mdx_frame_duration_ms', 25)
-        self.hop_duration_ms = getattr(config, 'mdx_hop_duration_ms', 20)  # Increased from 10ms for speed
-        self.noise_floor_duration_ms = getattr(config, 'mdx_noise_floor_duration_ms', 800)
-
-        # Onset detection thresholds
-        self.onset_snr_threshold = getattr(config, 'mdx_onset_snr_threshold', 6.0)
-        self.onset_abs_threshold = getattr(config, 'mdx_onset_abs_threshold', 0.02)
-        self.min_voiced_duration_ms = getattr(config, 'mdx_min_voiced_duration_ms', 300)  # Reduced from 500ms
-        self.hysteresis_ms = getattr(config, 'mdx_hysteresis_ms', 200)
-
-        # Expanding search parameters (NEW - replaces fixed window)
-        self.initial_radius_ms = getattr(config, 'mdx_initial_radius_ms', 7500)  # Start with ±7.5s
-        self.radius_increment_ms = getattr(config, 'mdx_radius_increment_ms', 7500)  # Expand by 7.5s each time
-        self.max_expansions = getattr(config, 'mdx_max_expansions', 3)  # Max 3 expansions = ±30s total
-
-        # Performance optimizations
-        # Note: FP16 disabled due to type mismatch issues with some Demucs layers
-        # Modern GPUs (RTX series) are fast enough with FP32
-        self.use_fp16 = False  # getattr(config, 'mdx_use_fp16', True)
-        self.resample_hz = getattr(config, 'mdx_resample_hz', 0)  # 0=disabled, 32000=downsample for CPU speed
-
-        # Confidence and preview
-        self.confidence_threshold = getattr(config, 'mdx_confidence_threshold', 0.55)
-        self.preview_pre_ms = getattr(config, 'mdx_preview_pre_ms', 3000)
-        self.preview_post_ms = getattr(config, 'mdx_preview_post_ms', 9000)
+        # Parse and validate configuration
+        self.mdx_config = MdxConfig.from_config(config)
 
         # Demucs model (lazy loaded)
         self._demucs_model = None
         self._device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        # Cache for separated vocals (avoid re-separation in compute_confidence)
-        self._vocals_cache = {}  # {(audio_file, start_ms, end_ms): vocals_numpy}
+        # LRU cache for separated vocals (avoid re-separation in compute_confidence)
+        # OrderedDict maintains insertion order for LRU eviction
+        self._vocals_cache = OrderedDict()  # {(audio_file, start_ms, end_ms): vocals_numpy}
 
-        logger.debug(f"MDX provider initialized: chunk={self.chunk_duration_ms}ms, "
-                     f"SNR_threshold={self.onset_snr_threshold}, abs_threshold={self.onset_abs_threshold}, "
-                     f"initial_radius=±{self.initial_radius_ms/1000:.1f}s, max_expansions={self.max_expansions}, "
-                     f"device={self._device}, fp16={self.use_fp16 and self._device=='cuda'}")
+        logger.debug(
+            f"MDX provider initialized: chunk={self.mdx_config.chunk_duration_ms}ms, "
+            f"SNR_threshold={self.mdx_config.onset_snr_threshold}, "
+            f"abs_threshold={self.mdx_config.onset_abs_threshold}, "
+            f"initial_radius=±{self.mdx_config.initial_radius_ms/1000:.1f}s, "
+            f"max_expansions={self.mdx_config.max_expansions}, "
+            f"device={self._device}, "
+            f"fp16={self.mdx_config.use_fp16 and self._device=='cuda'}"
+        )
 
     def _get_demucs_model(self):
         """
         Lazy load Demucs model with GPU optimizations.
         Uses global cache to avoid reloading model for each detection.
+        Thread-safe model loading with lock.
         """
-        global _GLOBAL_MODEL_CACHE
+        with _MODEL_LOCK:
+            global _GLOBAL_MODEL_CACHE
 
-        # Check if we can reuse globally cached model
-        if _GLOBAL_MODEL_CACHE['model'] is not None and _GLOBAL_MODEL_CACHE['device'] == self._device:
-            logger.info(f"Reusing cached Demucs model (device={self._device})")
-            _flush_logs()
-            return _GLOBAL_MODEL_CACHE['model']
-
-        # Need to load model
-        try:
-            from demucs.pretrained import get_model
-            logger.info(f"Loading Demucs model on {self._device}...")
-            _flush_logs()
-
-            # Enable GPU optimizations
-            if self._device == 'cuda':
-                # Enable cuDNN auto-tuner for optimal convolution algorithms
-                torch.backends.cudnn.benchmark = True
-                logger.debug("Enabled cuDNN benchmark for GPU optimization")
+            # Check if we can reuse globally cached model
+            if _GLOBAL_MODEL_CACHE['model'] is not None and _GLOBAL_MODEL_CACHE['device'] == self._device:
+                logger.info(f"Reusing cached Demucs model (device={self._device})")
                 _flush_logs()
-            else:
-                # CPU optimization: use most cores but leave one free
-                import os
-                cpu_count = os.cpu_count()
-                num_threads = max(1, cpu_count - 1) if cpu_count else 1
-                torch.set_num_threads(num_threads)
-                logger.debug(f"Set torch threads to {num_threads} for CPU optimization")
-                _flush_logs()
+                return _GLOBAL_MODEL_CACHE['model']
 
-            model = get_model('htdemucs')
-            model.to(self._device)
-            model.eval()
-
-            # Cache globally
-            _GLOBAL_MODEL_CACHE['model'] = model
-            _GLOBAL_MODEL_CACHE['device'] = self._device
-
-            logger.info("Demucs model loaded successfully")
-            _flush_logs()
-
-            # Warm up model with dummy input to trigger JIT compilation
-            logger.info("Warming up model (JIT compilation, memory allocation)...")
-            _flush_logs()
+            # Need to load model
             try:
-                dummy_input = torch.zeros(1, 2, 44100, device=self._device)  # 1 second stereo
-                with torch.no_grad():
-                    if self._device == 'cuda' and self.use_fp16:
-                        dummy_input = dummy_input.half()
-                    _ = model(dummy_input)
-                logger.info("Model warm-up complete, ready for detection")
-                _flush_logs()
-            except Exception as e:
-                logger.warning(f"Model warm-up failed (non-critical): {e}")
+                from demucs.pretrained import get_model
+                logger.info(f"Loading Demucs model on {self._device}...")
                 _flush_logs()
 
-            return model
-        except Exception as e:
-            raise DetectionFailedError(
-                f"Failed to load Demucs model: {e}",
-                provider_name="mdx",
-                cause=e
-            )
+                # Enable GPU optimizations
+                if self._device == 'cuda':
+                    # Enable cuDNN auto-tuner for optimal convolution algorithms
+                    torch.backends.cudnn.benchmark = True
+                    logger.debug("Enabled cuDNN benchmark for GPU optimization")
+                    _flush_logs()
+                else:
+                    # CPU optimization: use most cores but leave one free
+                    import os
+                    cpu_count = os.cpu_count()
+                    num_threads = max(1, cpu_count - 1) if cpu_count else 1
+                    torch.set_num_threads(num_threads)
+                    logger.debug(f"Set torch threads to {num_threads} for CPU optimization")
+                    _flush_logs()
+
+                model = get_model(DEMUCS_MODEL_NAME)
+                model.to(self._device)
+                model.eval()
+
+                # Cache globally
+                _GLOBAL_MODEL_CACHE['model'] = model
+                _GLOBAL_MODEL_CACHE['device'] = self._device
+
+                logger.info("Demucs model loaded successfully")
+                _flush_logs()
+
+                # Warm up model with dummy input to trigger JIT compilation
+                logger.info("Warming up model (JIT compilation, memory allocation)...")
+                _flush_logs()
+                try:
+                    dummy_input = torch.zeros(1, 2, 44100, device=self._device)  # 1 second stereo
+                    with torch.no_grad():
+                        if self._device == 'cuda' and self.mdx_config.use_fp16:
+                            dummy_input = dummy_input.half()
+                        _ = model(dummy_input)
+                    logger.info("Model warm-up complete, ready for detection")
+                    _flush_logs()
+                except Exception as e:
+                    logger.warning(f"Model warm-up failed (non-critical): {e}")
+                    _flush_logs()
+
+                return model
+            except Exception as e:
+                raise DetectionFailedError(
+                    f"Failed to load Demucs model: {e}",
+                    provider_name="mdx",
+                    cause=e
+                )
 
     def get_vocals_file(
         self,
@@ -270,8 +335,8 @@ class MdxProvider(IDetectionProvider):
                     # Use apply_model for Demucs inference (not direct call)
                     sources = apply_model(model, waveform.unsqueeze(0), device=self._device)
 
-                    # Extract vocals (index 3 in htdemucs: drums=0, bass=1, other=2, vocals=3)
-                    vocals = sources[0, 3].cpu()  # Remove batch dimension, get vocals
+                    # Extract vocals using VOCALS_INDEX (htdemucs: drums=0, bass=1, other=2, vocals=3)
+                    vocals = sources[0, VOCALS_INDEX].cpu()  # Remove batch dimension, get vocals
 
                 elapsed = time.time() - start_time
                 logger.info(f"Full-track separation complete in {elapsed:.1f}s")
@@ -557,10 +622,10 @@ class MdxProvider(IDetectionProvider):
             all_onsets = []
 
             # Expanding search loop
-            current_radius_ms = self.initial_radius_ms
+            current_radius_ms = self.mdx_config.initial_radius_ms
             expansion_num = 0
 
-            while expansion_num <= self.max_expansions:
+            while expansion_num <= self.mdx_config.max_expansions:
                 # Calculate current search window
                 search_start_ms = max(0, expected_gap_ms - current_radius_ms)
                 search_end_ms = min(total_duration_ms, expected_gap_ms + current_radius_ms)
@@ -571,8 +636,8 @@ class MdxProvider(IDetectionProvider):
                 _flush_logs()
 
                 # Process chunks in current window (skip already processed)
-                chunk_duration_s = self.chunk_duration_ms / 1000.0
-                chunk_hop_s = (self.chunk_duration_ms - self.chunk_overlap_ms) / 1000.0
+                chunk_duration_s = self.mdx_config.chunk_duration_ms / 1000.0
+                chunk_hop_s = (self.mdx_config.chunk_duration_ms - self.mdx_config.chunk_overlap_ms) / 1000.0
                 chunk_start_s = search_start_ms / 1000.0
                 chunks_processed = 0
 
@@ -623,17 +688,22 @@ class MdxProvider(IDetectionProvider):
                         waveform = waveform.repeat(2, 1)
 
                     # Apply optional downsampling for CPU speedup
-                    if self.resample_hz > 0 and sample_rate != self.resample_hz:
-                        waveform = torchaudio.functional.resample(waveform, sample_rate, self.resample_hz)
-                        current_sample_rate = self.resample_hz
+                    if self.mdx_config.resample_hz > 0 and sample_rate != self.mdx_config.resample_hz:
+                        waveform = torchaudio.functional.resample(waveform, sample_rate, self.mdx_config.resample_hz)
+                        current_sample_rate = self.mdx_config.resample_hz
                     else:
                         current_sample_rate = sample_rate
 
                     # Separate vocals with Demucs (with GPU optimizations)
                     vocals = self._separate_vocals_chunk(waveform, current_sample_rate, check_cancellation)
 
-                    # Cache vocals for potential reuse in compute_confidence
+                    # Cache vocals for potential reuse in compute_confidence (with LRU eviction)
                     cache_key = (audio_file, chunk_start_ms, chunk_end_ms)
+                    # Evict oldest entry if cache is full
+                    if len(self._vocals_cache) >= MAX_VOCALS_CACHE_SIZE:
+                        oldest_key = next(iter(self._vocals_cache))
+                        logger.debug(f"Vocals cache full ({MAX_VOCALS_CACHE_SIZE}), evicting oldest entry")
+                        self._vocals_cache.pop(oldest_key)
                     self._vocals_cache[cache_key] = vocals
 
                     # Detect onset in this chunk
@@ -669,12 +739,12 @@ class MdxProvider(IDetectionProvider):
                     return closest
 
                 # No onset found, expand search if we haven't hit max expansions
-                if expansion_num < self.max_expansions:
+                if expansion_num < self.mdx_config.max_expansions:
                     expansion_num += 1
-                    current_radius_ms += self.radius_increment_ms
+                    current_radius_ms += self.mdx_config.radius_increment_ms
                     logger.info(f"No onset found, expanding to ±{current_radius_ms/1000:.1f}s")
                 else:
-                    logger.info(f"Reached max expansions ({self.max_expansions}), no onset found")
+                    logger.info(f"Reached max expansions ({self.mdx_config.max_expansions}), no onset found")
                     break
 
             # No onset found after all expansions
@@ -717,7 +787,7 @@ class MdxProvider(IDetectionProvider):
 
         with torch.no_grad():
             # Apply FP16 if enabled and on GPU
-            if self.use_fp16 and self._device == 'cuda':
+            if self.mdx_config.use_fp16 and self._device == 'cuda':
                 logger.debug("Using FP16 precision on GPU")
                 waveform_gpu = waveform.to(self._device).to(torch.float16)
             else:
@@ -729,8 +799,8 @@ class MdxProvider(IDetectionProvider):
             sources = apply_model(model, waveform_gpu.unsqueeze(0), device=self._device)
             elapsed = time.time() - start_time
 
-            # Extract vocals (index 3 in htdemucs: drums=0, bass=1, other=2, vocals=3)
-            vocals = sources[0, 3].cpu().numpy()
+            # Extract vocals using VOCALS_INDEX (htdemucs: drums=0, bass=1, other=2, vocals=3)
+            vocals = sources[0, VOCALS_INDEX].cpu().numpy()
 
             logger.info(f"Separation complete in {elapsed:.1f}s ({duration_s/elapsed:.1f}x realtime)")
             _flush_logs()
@@ -769,13 +839,29 @@ class MdxProvider(IDetectionProvider):
                 vocal_mono = vocal_audio
 
             # Compute RMS
-            frame_samples = int((self.frame_duration_ms / 1000.0) * sample_rate)
-            hop_samples = int((self.hop_duration_ms / 1000.0) * sample_rate)
+            frame_samples = int((self.mdx_config.frame_duration_ms / 1000.0) * sample_rate)
+            hop_samples = int((self.mdx_config.hop_duration_ms / 1000.0) * sample_rate)
 
             rms_values = self._compute_rms(vocal_mono, frame_samples, hop_samples)
 
+            # Guard against empty/short audio
+            if len(rms_values) == 0:
+                logger.warning("RMS values empty (audio too short), no onset detected")
+                return None
+
             # Estimate noise floor
-            noise_floor_frames = int((self.noise_floor_duration_ms / 1000.0) / (self.hop_duration_ms / 1000.0))
+            noise_floor_frames = int(
+                (self.mdx_config.noise_floor_duration_ms / 1000.0)
+                / (self.mdx_config.hop_duration_ms / 1000.0)
+            )
+            # Clamp noise_floor_frames if it exceeds available frames
+            if noise_floor_frames >= len(rms_values):
+                logger.warning(
+                    f"Noise floor duration ({noise_floor_frames} frames) >= RMS length ({len(rms_values)}), "
+                    f"using entire audio as noise floor"
+                )
+                noise_floor_frames = max(1, len(rms_values) - 1)
+
             noise_floor, noise_sigma = self._estimate_noise_floor(rms_values, noise_floor_frames)
 
             max_rms = np.max(rms_values)
@@ -785,16 +871,22 @@ class MdxProvider(IDetectionProvider):
                         f"max_rms={max_rms:.6f}, mean_rms={mean_rms:.6f}")
 
             # Detect onset - use BOTH SNR threshold AND absolute threshold
-            snr_threshold = noise_floor + self.onset_snr_threshold * noise_sigma
-            combined_threshold = max(snr_threshold, self.onset_abs_threshold)
+            snr_threshold = noise_floor + self.mdx_config.onset_snr_threshold * noise_sigma
+            combined_threshold = max(snr_threshold, self.mdx_config.onset_abs_threshold)
 
             logger.info(f"Thresholds - SNR_threshold={snr_threshold:.6f}, "
-                        f"Absolute_threshold={self.onset_abs_threshold:.6f}, "
+                        f"Absolute_threshold={self.mdx_config.onset_abs_threshold:.6f}, "
                         f"Combined={combined_threshold:.6f}")
 
             # Find sustained energy above threshold
-            min_frames = int((self.min_voiced_duration_ms / 1000.0) / (self.hop_duration_ms / 1000.0))
-            hysteresis_frames = int((self.hysteresis_ms / 1000.0) / (self.hop_duration_ms / 1000.0))
+            min_frames = int(
+                (self.mdx_config.min_voiced_duration_ms / 1000.0)
+                / (self.mdx_config.hop_duration_ms / 1000.0)
+            )
+            hysteresis_frames = int(
+                (self.mdx_config.hysteresis_ms / 1000.0)
+                / (self.mdx_config.hop_duration_ms / 1000.0)
+            )
 
             above_threshold = rms_values > combined_threshold
             onset_frame = None
