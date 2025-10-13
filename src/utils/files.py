@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def get_relative_path(root, path):
     return os.path.relpath(path, root)
-   
+
 
 def find_txt_file(path):
     """
@@ -20,10 +20,10 @@ def find_txt_file(path):
     If path is a directory, returns the first .txt file found in it.
     If path is a .txt file, returns the path itself.
     Otherwise, returns the path as is (it might be assumed to be a txt file path).
-    
+
     Args:
         path: A directory path or file path
-        
+
     Returns:
         Path to a .txt file or the original path
     """
@@ -45,13 +45,13 @@ def find_txt_file(path):
 def get_localappdata_dir():
     """
     Get platform-appropriate application data directory for USDXFixGap.
-    
+
     This is the recommended location for all user data (config, cache, models, etc.).
     Follows platform conventions and respects XDG Base Directory Specification on Linux.
-    
+
     Returns:
         str: Path to application data directory
-    
+
     Platform paths:
         Windows: %LOCALAPPDATA%/USDXFixGap/
         Linux:   ~/.local/share/USDXFixGap/ (respects XDG_DATA_HOME)
@@ -68,13 +68,13 @@ def get_localappdata_dir():
         # Windows portable mode fallback
         logger.warning("LOCALAPPDATA not found, using app directory (portable mode)")
         return get_app_dir()
-    
+
     # macOS: Use Application Support
     elif sys.platform == 'darwin':
         app_support = os.path.expanduser('~/Library/Application Support/USDXFixGap')
         os.makedirs(app_support, exist_ok=True)
         return app_support
-    
+
     # Linux and other Unix-like: Use XDG standard
     else:
         # Respect XDG_DATA_HOME if set, otherwise use default ~/.local/share
@@ -90,7 +90,7 @@ def get_localappdata_dir():
 def get_app_dir():
     """
     Get the directory of the executable or script.
-    
+
     Note: For user data storage, prefer get_localappdata_dir() instead.
     This function is mainly for resource loading and portable mode fallback.
     """
@@ -103,15 +103,15 @@ def get_app_dir():
 def get_models_dir(config=None):
     """
     Get the directory for AI models (Demucs, Spleeter, etc.).
-    
+
     Can be configured via Config.models_directory or defaults to LOCALAPPDATA.
-    
+
     Args:
         config: Optional Config object with custom models_directory setting
-    
+
     Returns:
         str: Path to models directory
-    
+
     Examples:
         Default: C:/Users/<username>/AppData/Local/USDXFixGap/models/
         Custom: E:/USDXFixGap/models/ (if configured)
@@ -121,7 +121,7 @@ def get_models_dir(config=None):
         models_dir = os.path.expandvars(config.models_directory)
     else:
         models_dir = os.path.join(get_localappdata_dir(), 'models')
-    
+
     os.makedirs(models_dir, exist_ok=True)
     return models_dir
 
@@ -141,13 +141,13 @@ def resource_path(relative_path):
     if hasattr(sys, '_MEIPASS'):
         # Running in a PyInstaller bundle
         return os.path.join(sys._MEIPASS, relative_path)
-    
+
     # Check in the application directory first
     app_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
     app_path = os.path.join(app_dir, relative_path)
     if os.path.exists(app_path):
         return app_path
-        
+
     # Otherwise check in the current directory
     return os.path.join(os.path.abspath("."), relative_path)
 
@@ -256,27 +256,27 @@ def rmtree(directory):
 def get_file_checksum(file_path, algorithm='sha256', buffer_size=65536):
     """
     Calculate the checksum of a file using the specified algorithm.
-    
+
     Args:
         file_path: Path to the file
         algorithm: Hash algorithm to use ('md5', 'sha1', 'sha256', etc.)
         buffer_size: Size of chunks to read at a time
-        
+
     Returns:
         String containing the hexadecimal digest of the file
     """
     if not os.path.exists(file_path) or not os.path.isfile(file_path):
         logger.error(f"File not found or not accessible: {file_path}")
         return None
-        
+
     try:
         hash_algo = getattr(hashlib, algorithm.lower())()
-        
+
         with open(file_path, 'rb') as f:
             # Read the file in chunks to handle large files efficiently
             while chunk := f.read(buffer_size):
                 hash_algo.update(chunk)
-                
+
         return hash_algo.hexdigest()
     except (IOError, OSError) as e:
         logger.error(f"Error calculating checksum for {file_path}: {e}")

@@ -3,12 +3,12 @@ from PySide6.QtCore import Signal as pyqtSignal
 from model.song import Song
 from managers.worker_queue_manager import IWorker, IWorkerSignals
 import utils.audio as audio
-from services.gap_info_service import GapInfoService 
+from services.gap_info_service import GapInfoService
 
 logger = logging.getLogger(__name__)
 
 class WorkerSignals(IWorkerSignals):
-    lengthDetected = pyqtSignal(Song)  
+    lengthDetected = pyqtSignal(Song)
 
 class DetectAudioLengthWorker(IWorker):
     def __init__(self, song: Song):
@@ -29,8 +29,8 @@ class DetectAudioLengthWorker(IWorker):
             await GapInfoService.save(self.song.gap_info)
             self.signals.lengthDetected.emit(self.song)
         except Exception as e:
-            logger.error(f"Error detecting audio length song '{self.song.audio_file}'")       
-            self.song.error_message = str(e)    
+            logger.error(f"Error detecting audio length song '{self.song.audio_file}'")
+            self.song.error_message = str(e)
             self.signals.error.emit(e)
 
         if not self.is_cancelled():

@@ -1,25 +1,24 @@
 
 import logging
 from typing import List, cast
-from model.song import Song
 from model.usdx_file import Note
 
 logger = logging.getLogger(__name__)
-                
+
 def fix_gap(gap: int, start_beat: int, bpm: float):
     """
     Corrects gap if first note does not start with beat 0 and song has a start time.
-    
+
     Ultrastar uses quarter-note interpretation:
     - BPM value represents quarter notes per minute
     - beats_per_ms = (bpm / 60 / 1000) * 4
     - ms_per_beat = 1000 / beats_per_ms = (60 * 1000) / (bpm * 4) = 15000 / bpm
-    
+
     Args:
         gap: Original gap value in milliseconds
         start_beat: Starting beat of the first note (0 if starts on beat 0)
         bpm: Song BPM (quarter notes per minute)
-        
+
     Returns:
         Corrected gap in milliseconds
     """
@@ -89,7 +88,7 @@ def get_notes_overlap(notes: List[Note], silence_periods, max_length_ms=None):
     """Return percentage of note duration NOT in silence periods."""
     if not notes:
         return 100.0  # If there are no notes, treat as fully not-in-silence
-    
+
     # Work only with notes that have computed timings
     valid_notes: List[Note] = [
         n for n in notes
@@ -97,14 +96,14 @@ def get_notes_overlap(notes: List[Note], silence_periods, max_length_ms=None):
     ]
     if not valid_notes:
         return 100.0
-    
+
     # Apply optional max_length_ms filter
     if max_length_ms is not None:
         valid_notes = [
             n for n in valid_notes
             if float(cast(float, n.start_ms)) < float(max_length_ms)
         ]
-    
+
     # Compute total note duration within the considered window
     if max_length_ms is None:
         total_note_duration = sum(
@@ -120,7 +119,7 @@ def get_notes_overlap(notes: List[Note], silence_periods, max_length_ms=None):
             )
             for n in valid_notes
         )
-    
+
     total_overlap_duration = 0.0
     for n in valid_notes:
         n_start = float(cast(float, n.start_ms))
@@ -132,9 +131,9 @@ def get_notes_overlap(notes: List[Note], silence_periods, max_length_ms=None):
             if n_end > sp_start and n_start < sp_end:
                 upper_bound = sp_end if max_length_ms is None else float(min(sp_end, float(max_length_ms)))
                 total_overlap_duration += calculate_overlap_duration(n, (sp_start, upper_bound))
-    
+
     if total_note_duration <= 0.0:
         return 100.0
-    
+
     notes_not_in_silence_percentage = ((total_note_duration - total_overlap_duration) / total_note_duration) * 100.0
     return round(notes_not_in_silence_percentage, 2)

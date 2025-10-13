@@ -3,7 +3,6 @@ from typing import List, Optional
 
 class ValidationError(Exception):
     """Exception raised when USDX file validation fails"""
-    pass
 
 class Tags:
     """Container for USDX file tags"""
@@ -19,7 +18,7 @@ class Tags:
 
     def __str__(self):
         return f"Tags(TITLE={self.TITLE}, ARTIST={self.ARTIST}, GAP={self.GAP}, AUDIO={self.AUDIO}, BPM={self.BPM}, RELATIVE={self.RELATIVE}, START={self.START})"
-    
+
 class Note:
     """Container for USDX note data"""
     def __init__(self):
@@ -37,24 +36,24 @@ class Note:
 
 class USDXFile:
     """Data class for USDX file content and metadata"""
-    
+
     def __init__(self, filepath: str = ""):
         # File info
         self.filepath = filepath
         self.path = os.path.dirname(filepath) if filepath else ""
         self.encoding: Optional[str] = None
-        
+
         # Content
         self.content: Optional[str] = None
         self.tags: Tags = Tags()
         self.notes: List[Note] = []
-        
+
         # State
         self._loaded: bool = False
-    
+
     def is_loaded(self) -> bool:
         return self._loaded
-    
+
     def __str__(self):
         if self.tags.TITLE and self.tags.ARTIST:
             return f"USDXFile({self.tags.ARTIST} - {self.tags.TITLE})"

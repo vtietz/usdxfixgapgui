@@ -1,21 +1,19 @@
 import logging
 import os
 import utils.files as files
-import shutil
 import utils.audio as audio
 from utils.separate import separate_audio
 from typing import List, Tuple, Optional
 from common.config import Config
 from utils.types import DetectGapResult
 from utils.providers import get_detection_provider
-from utils.providers.exceptions import DetectionFailedError
 
 logger = logging.getLogger(__name__)
 
 class DetectGapOptions:
     """Options for gap detection."""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  audio_file: str,
                  tmp_root: str,
                  original_gap: int,
@@ -70,22 +68,22 @@ def detect_nearest_gap(silence_periods: List[Tuple[float, float]], start_positio
 
 
 def get_vocals_file(
-        audio_file, 
-        temp_root, 
-        destination_vocals_filepath, 
+        audio_file,
+        temp_root,
+        destination_vocals_filepath,
         duration: int = 60,
-        overwrite = False, 
+        overwrite = False,
         check_cancellation = None,
         config: Optional[Config] = None
     ):
     """
     Get vocals file using configured detection provider.
-    
+
     This function now delegates to the appropriate provider based on config.
     Maintains backward compatibility with existing code.
     """
     logger.debug(f"Getting vocals file for {audio_file}...")
-    
+
     if audio_file is None or os.path.exists(audio_file) is False:
         raise Exception(f"Audio file not found: {audio_file}")
 
@@ -109,13 +107,13 @@ def get_vocals_file(
         logger.debug("No config provided, using legacy Spleeter path")
         output_path = os.path.join(temp_root, "spleeter")
         vocals_file, instrumental_file = separate_audio(
-            audio_file, 
+            audio_file,
             duration,
             output_path,
-            overwrite, 
+            overwrite,
             check_cancellation=None
         )
-        
+
         if vocals_file is None:
             raise Exception(f"Failed to extract vocals from '{audio_file}'")
 
@@ -126,7 +124,7 @@ def get_vocals_file(
             if os.path.exists(destination_vocals_filepath):
                 os.remove(destination_vocals_filepath)
             files.move_file(vocals_file, destination_vocals_filepath)
-        
+
         files.rmtree(output_path)
 
         return destination_vocals_filepath
@@ -171,8 +169,8 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
             vocals_file = destination_vocals_file
         else:
             vocals_file = get_vocals_file(
-                options.audio_file, 
-                options.tmp_root, 
+                options.audio_file,
+                options.tmp_root,
                 destination_vocals_file,
                 detection_time,
                 options.overwrite,
@@ -191,24 +189,24 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
         else:
             # Legacy fallback
             silence_periods = audio.detect_silence_periods(
-                vocals_file, 
+                vocals_file,
                 silence_detect_params=options.silence_detect_params,
                 check_cancellation=check_cancellation
             )
-        
+
         # Detect gap using silence boundary detection
         detected_gap = detect_nearest_gap(silence_periods, options.original_gap)
         logger.debug(f"Using silence-boundary detection for {detection_method}")
-        
+
         if detected_gap is None:
             raise Exception(f"Failed to detect gap in {options.audio_file}")
-        
+
         if detected_gap < detection_time * 1000 or (options.audio_length and detection_time * 1000 >= options.audio_length):
             break
 
         logger.info(f"Detected GAP seems not to be correct. Increasing detection time to {detection_time + detection_time}s.")
         detection_time += detection_time
- 
+
         if options.audio_length and detection_time >= options.audio_length and detected_gap > options.audio_length:
             raise Exception(f"Error: Unable to detect gap within the length of the audio: {options.audio_file}")
 
@@ -218,7 +216,7 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
     result = DetectGapResult(detected_gap, silence_periods, vocals_file)
     result.detection_method = detection_method
     result.detected_gap_ms = float(detected_gap)
-    
+
     # Compute confidence if provider available
     if provider:
         try:

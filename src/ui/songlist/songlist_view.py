@@ -1,6 +1,5 @@
-from PySide6.QtWidgets import QHeaderView, QTableView, QAbstractItemView
+from PySide6.QtWidgets import QHeaderView, QTableView
 from PySide6.QtCore import Signal, Qt, QTimer, QSortFilterProxyModel
-from typing import Optional, cast
 import logging
 
 from actions import Actions
@@ -40,7 +39,7 @@ class SongListView(QTableView):
             model.dataChanged.connect(lambda *args: self.reset_viewport_loading())
         if hasattr(self.tableModel, 'dataChanged'):
             self.tableModel.dataChanged.connect(lambda *args: self.reset_viewport_loading())
-        
+
         # Resize optimization state
         self._resize_timer = QTimer()
         self._resize_timer.setSingleShot(True)
@@ -71,7 +70,7 @@ class SongListView(QTableView):
         # Scroll per pixel for smoother experience
         self.setVerticalScrollMode(QTableView.ScrollMode.ScrollPerPixel)
         self.setHorizontalScrollMode(QTableView.ScrollMode.ScrollPerPixel)
-        
+
         # Fixed vertical header to prevent row height recalculation
         # This effectively gives us uniform row heights (24px for all rows)
         self.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
@@ -84,18 +83,18 @@ class SongListView(QTableView):
 
         # Sorting by the first column initially
         self.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-        
+
         # Capture original header modes after setup for restore during resize
         self._capture_header_modes()
-    
+
     def apply_resize_policy(self):
         """Apply column resize policy based on dataset size."""
         # Get the source model to check row count
         proxy_model = self.model()
         source_model = proxy_model.sourceModel() if isinstance(proxy_model, QSortFilterProxyModel) else proxy_model
-        
+
         row_count = source_model.rowCount() if source_model else 0
-        
+
         # For large datasets, use fixed width or stretch to avoid expensive resizing
         if row_count > LARGE_DATASET_THRESHOLD:
             logger.info(f"Large dataset ({row_count} rows), using conservative resize policy")
@@ -158,7 +157,7 @@ class SongListView(QTableView):
         # For now, let's assume the main handling is via set_selected_songs in Actions.
         # if selected_songs:
         #     self.actions.select_song(selected_songs[0].path) # Or adapt select_song if needed
-    
+
     def _capture_header_modes(self):
         """Capture current header resize modes for restoration after resize."""
         header = self.horizontalHeader()
@@ -167,56 +166,56 @@ class SongListView(QTableView):
         for i in range(column_count):
             self._original_header_modes[i] = header.sectionResizeMode(i)
         logger.debug(f"Captured {len(self._original_header_modes)} header modes")
-    
+
     def resizeEvent(self, event):
         """Handle resize events with hard freeze to prevent performance issues."""
         super().resizeEvent(event)
-        
+
         # On first resize, disable expensive operations and freeze painting
         if not self._is_resizing:
             self._is_resizing = True
             self._disable_expensive_operations()
-        
+
         # Restart the debounce timer
         self._resize_timer.start()
-    
+
     def _disable_expensive_operations(self):
         """Temporarily disable expensive operations during resize with hard freeze."""
         # HARD FREEZE: Stop all repaints during active resize
         self.setUpdatesEnabled(False)
-        
+
         # Disable sorting during resize
         self.setSortingEnabled(False)
-        
+
         # Disable dynamic filtering on proxy model if available
         model = self.model()
         if isinstance(model, QSortFilterProxyModel):
             model.setDynamicSortFilter(False)
-        
+
         # Freeze all columns to Fixed mode to prevent per-pixel width recalculation
         header = self.horizontalHeader()
         column_count = header.count()
         for i in range(column_count):
             header.setSectionResizeMode(i, QHeaderView.ResizeMode.Fixed)
-        
+
         logger.debug("Hard freeze: disabled updates, sorting, filtering, and header resize")
-    
+
     def _on_resize_finished(self):
         """Re-enable expensive operations after resize has settled with batched refresh."""
         self._is_resizing = False
-        
+
         # Restore in optimal order to avoid thrash
         # 1. Restore original header modes first
         header = self.horizontalHeader()
         for col_idx, mode in self._original_header_modes.items():
             header.setSectionResizeMode(col_idx, mode)
-        
+
         # 2. Check dataset size before applying auto-fit
         model = self.model()
         source_model = model.sourceModel() if isinstance(model, QSortFilterProxyModel) else model
-        
+
         row_count = source_model.rowCount() if source_model else 0
-        
+
         # 4. Conditionally apply auto-fit only for small datasets
         if self._auto_fit_enabled and row_count <= LARGE_DATASET_THRESHOLD and row_count > 0:
             logger.debug(f"Applying single auto-fit pass for small dataset ({row_count} rows)")
@@ -226,23 +225,23 @@ class SongListView(QTableView):
                     mode = self._original_header_modes[i]
                     if mode == QHeaderView.ResizeMode.ResizeToContents:
                         self.resizeColumnToContents(i)
-        
+
         # 5. Re-enable dynamic filtering (must be before sorting)
         if isinstance(model, QSortFilterProxyModel):
             model.setDynamicSortFilter(True)
-        
+
         # 6. Re-enable sorting
         self.setSortingEnabled(True)
-        
+
         # 7. FINAL: Re-enable updates to batch all changes into single repaint
         self.setUpdatesEnabled(True)
-        
+
         logger.debug("Resize finished: restored all operations with single batched refresh")
 
     def scrollContentsBy(self, dx, dy):
         """Override scroll handler to trigger lazy loading of visible songs."""
         super().scrollContentsBy(dx, dy)
-        
+
         # Trigger viewport load after scrolling stops
         if self._viewport_timer.isActive():
             self._viewport_timer.stop()
@@ -254,38 +253,38 @@ class SongListView(QTableView):
         viewport_rect = self.viewport().rect()
         top_index = self.indexAt(viewport_rect.topLeft())
         bottom_index = self.indexAt(viewport_rect.bottomLeft())
-        
+
         if not top_index.isValid() or not bottom_index.isValid():
             return
-        
+
         # Get source model
         proxy_model = self.model()
         source_model = proxy_model.sourceModel() if isinstance(proxy_model, QSortFilterProxyModel) else proxy_model
-        
+
         if not isinstance(source_model, SongTableModel):
             return
-        
+
         # Calculate row range with buffer
         first_row = max(0, top_index.row() - VIEWPORT_BUFFER_ROWS)
         last_row = min(proxy_model.rowCount() - 1, bottom_index.row() + VIEWPORT_BUFFER_ROWS)
-        
+
         # Collect songs that need loading
         songs_to_load = []
         for proxy_row in range(first_row, last_row + 1):
             proxy_index = proxy_model.index(proxy_row, 0)
             source_index = proxy_model.mapToSource(proxy_index) if isinstance(proxy_model, QSortFilterProxyModel) else proxy_index
-            
+
             if not source_index.isValid() or source_index.row() in self._loaded_rows:
                 continue
-            
+
             if source_index.row() < len(source_model.songs):
                 song = source_model.songs[source_index.row()]
-                
+
                 # Check if song needs loading (missing critical data)
                 if self._song_needs_loading(song):
                     songs_to_load.append(song)
                     self._loaded_rows.add(source_index.row())
-        
+
         # Load songs if any need loading
         if songs_to_load:
             logger.debug(f"Viewport lazy-loading {len(songs_to_load)} songs (rows {first_row}-{last_row})")
@@ -296,16 +295,16 @@ class SongListView(QTableView):
         # Song needs loading if it's NOT_PROCESSED and missing critical data
         if song.status != SongStatus.NOT_PROCESSED:
             return False
-        
+
         # Check if essential fields are missing
         needs_load = (
-            not song.title or 
-            not song.artist or 
-            song.bpm == 0 or 
-            not hasattr(song, 'notes') or 
+            not song.title or
+            not song.artist or
+            song.bpm == 0 or
+            not hasattr(song, 'notes') or
             song.notes is None
         )
-        
+
         return needs_load
 
     def _reload_songs_in_background(self, songs):

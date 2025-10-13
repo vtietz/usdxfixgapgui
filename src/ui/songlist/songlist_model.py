@@ -16,7 +16,7 @@ class SongTableModel(QAbstractTableModel):
         self.songs_model = songs_model
         self.songs: List[Song] = list(self.songs_model.songs)
         self.pending_songs = []
-        
+
         # Performance optimizations
         self._row_cache = {}  # Cache for expensive computations
         self._is_streaming = False  # Flag for async loading
@@ -36,7 +36,7 @@ class SongTableModel(QAbstractTableModel):
         self.timer = QTimer()
         self.timer.setInterval(100)  # 100ms instead of 1000ms for better UX
         self.timer.timeout.connect(self.add_pending_songs)
-        
+
         # Build initial cache
         self._rebuild_cache()
 
@@ -57,13 +57,13 @@ class SongTableModel(QAbstractTableModel):
             self.endInsertRows()
         if not self.pending_songs:
             self.timer.stop()
-    
+
     def _rebuild_cache(self):
         """Rebuild the entire cache from current songs list."""
         self._row_cache.clear()
         for song in self.songs:
             self._add_to_cache(song)
-    
+
     def _add_to_cache(self, song: Song):
         """Add a single song to the cache."""
         self._row_cache[song.path] = {
@@ -71,33 +71,33 @@ class SongTableModel(QAbstractTableModel):
             'artist_lower': song.artist.lower(),
             'title_lower': song.title.lower()
         }
-    
+
     def _update_cache(self, song: Song):
         """Update cache entry for a song."""
         if song.path in self._row_cache:
             self._row_cache[song.path]['artist_lower'] = song.artist.lower()
             self._row_cache[song.path]['title_lower'] = song.title.lower()
-    
+
     def _remove_from_cache(self, song: Song):
         """Remove a song from the cache."""
         self._row_cache.pop(song.path, None)
-    
+
     def _emit_coalesced_updates(self):
         """Emit dataChanged for accumulated dirty rows."""
         if not self._dirty_rows:
             return
-        
+
         # Sort dirty rows and emit ranges
         sorted_rows = sorted(self._dirty_rows)
         if not sorted_rows:
             return
-        
+
         logger.debug(f"Emitting dataChanged for {len(sorted_rows)} rows: {sorted_rows[:10]}{'...' if len(sorted_rows) > 10 else ''}")
-        
+
         # Emit contiguous ranges
         start_row = sorted_rows[0]
         end_row = sorted_rows[0]
-        
+
         for row in sorted_rows[1:]:
             if row == end_row + 1:
                 end_row = row
@@ -114,7 +114,7 @@ class SongTableModel(QAbstractTableModel):
                 )
                 start_row = row
                 end_row = row
-        
+
         # Emit final range
         self.dataChanged.emit(
             self.index(start_row, 0),
@@ -125,7 +125,7 @@ class SongTableModel(QAbstractTableModel):
                 Qt.ItemDataRole.TextAlignmentRole,
             ]
         )
-        
+
         self._dirty_rows.clear()
 
     def song_updated(self, song: Song):
@@ -174,7 +174,7 @@ class SongTableModel(QAbstractTableModel):
         elif role == Qt.ItemDataRole.DisplayRole:
             # Use cached values where available
             cache_entry = self._row_cache.get(song.path)
-            
+
             if column == 0:
                 # Use cached relative path
                 return cache_entry['relative_path'] if cache_entry else files.get_relative_path(self.app_data.directory, song.path)
@@ -214,11 +214,11 @@ class SongTableModel(QAbstractTableModel):
     def sort(self, column, order=Qt.SortOrder.AscendingOrder):
         """Optimized sort using direct attribute access instead of data() calls."""
         self.layoutAboutToBeChanged.emit()
-        
+
         # Define sort key function based on column
         def get_sort_key(song: Song):
             cache_entry = self._row_cache.get(song.path)
-            
+
             if column == 0:  # Path
                 return cache_entry['relative_path'] if cache_entry else files.get_relative_path(self.app_data.directory, song.path)
             elif column == 1:  # Artist
@@ -245,12 +245,12 @@ class SongTableModel(QAbstractTableModel):
                 return song.status.name
             else:
                 return ""
-        
+
         self.songs.sort(key=get_sort_key)
         if order == Qt.SortOrder.DescendingOrder:
             self.songs.reverse()
         self.layoutChanged.emit()
-    
+
     # Streaming API for chunked async loading
     def load_data_async_start(self, total_count=0):
         """Start async data loading - clears existing data and prepares for streaming."""
@@ -260,24 +260,24 @@ class SongTableModel(QAbstractTableModel):
         self._row_cache.clear()
         self.endResetModel()
         logger.info(f"Started async loading, expecting {total_count} songs")
-    
+
     def load_data_async_append(self, chunk_songs: List[Song]):
         """Append a chunk of songs during async loading."""
         if not chunk_songs:
             return
-        
+
         start_row = len(self.songs)
         end_row = start_row + len(chunk_songs) - 1
-        
+
         self.beginInsertRows(QModelIndex(), start_row, end_row)
         self.songs.extend(chunk_songs)
         # Populate cache for the chunk
         for song in chunk_songs:
             self._add_to_cache(song)
         self.endInsertRows()
-        
+
         logger.debug(f"Appended {len(chunk_songs)} songs, total now: {len(self.songs)}")
-    
+
     def load_data_async_complete(self):
         """Complete async data loading."""
         self._is_streaming = False

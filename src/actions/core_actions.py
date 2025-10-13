@@ -30,15 +30,15 @@ class CoreActions(BaseActions):
         if not directory or not os.path.isdir(directory):
             logger.error(f"Cannot set invalid directory: {directory}")
             return
-            
+
         logger.info(f"Setting directory to: {directory}")
         self.data.directory = directory
-        
+
         # Save this directory as the last used directory in config
         self.config.last_directory = directory
         self.config.save()
         logger.debug(f"Saved last directory to config: {directory}")
-        
+
         self._clear_songs()
         self._load_songs()
 
@@ -54,7 +54,7 @@ class CoreActions(BaseActions):
         worker.signals.error.connect(lambda e: logger.error(f"Error loading songs: {e}"))
         worker.signals.finished.connect(self._on_loading_songs_finished)
         self.worker_queue.add_task(worker, True)
-    
+
     def _on_songs_batch_loaded(self, songs: list):
         """Handle batch of songs loaded - much faster than one-by-one."""
         logger.info(f"Batch loading {len(songs)} songs")
@@ -62,7 +62,7 @@ class CoreActions(BaseActions):
         for song in songs:
             if song.status == SongStatus.NOT_PROCESSED and song.gap_info:
                 song.gap_info.original_gap = song.gap
-        
+
         # Use bulk add for better performance
         self.data.songs.add_batch(songs)
 
@@ -77,6 +77,6 @@ class CoreActions(BaseActions):
                 from actions.gap_actions import GapActions
                 gap_actions = GapActions(self.data)
                 gap_actions._detect_gap(song)
-    
+
     def _on_loading_songs_finished(self):
         self.data.is_loading_songs = False

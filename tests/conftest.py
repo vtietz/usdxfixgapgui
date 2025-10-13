@@ -24,7 +24,7 @@ from test_utils.note_factory import create_basic_notes
 def app_data(tmp_path):
     """
     Create a mock AppData object with standard test configuration.
-    
+
     Provides:
         - songs.updated.emit mock
         - worker_queue.add_task mock
@@ -32,24 +32,24 @@ def app_data(tmp_path):
         - tmp_path attribute for filesystem operations
     """
     data = Mock()
-    
+
     # Songs collection with signal mocks
     data.songs = Mock()
     data.songs.updated = Mock()
     data.songs.updated.emit = Mock()
-    
+
     # Worker queue mock
     data.worker_queue = Mock()
     data.worker_queue.add_task = Mock()
-    
+
     # Configuration
     data.config = Mock()
     data.config.spleeter = True
     data.config.auto_normalize = False
-    
+
     # Filesystem access
     data.tmp_path = tmp_path
-    
+
     return data
 
 
@@ -57,10 +57,10 @@ def app_data(tmp_path):
 def song_factory(tmp_path):
     """
     Factory fixture for creating Song objects with sensible defaults.
-    
+
     Usage:
         song = song_factory(title="Test Song", gap=1000)
-    
+
     Returns:
         A callable that creates Song objects
     """
@@ -76,7 +76,7 @@ def song_factory(tmp_path):
     ) -> Song:
         """
         Create a Song object with specified parameters.
-        
+
         Args:
             txt_file: Path to .txt file (default: temp file in tmp_path)
             title: Song title
@@ -86,13 +86,13 @@ def song_factory(tmp_path):
             is_relative: Whether timing is relative
             audio_file: Path to audio file (default: None)
             with_notes: Whether to populate notes (default: True)
-        
+
         Returns:
             A Song object with gap_info and owner hook configured
         """
         if txt_file is None:
             txt_file = str(tmp_path / f"{title}.txt")
-        
+
         song = Song(txt_file=txt_file)
         song.title = title
         song.artist = artist
@@ -100,15 +100,15 @@ def song_factory(tmp_path):
         song.bpm = bpm
         song.is_relative = is_relative
         song.audio_file = audio_file or ""
-        
+
         # Attach gap_info with owner hook
         gap_info = GapInfo()
         song.gap_info = gap_info  # This triggers the owner hook setter
-        
+
         # Add notes if requested
         if with_notes:
             song.notes = create_basic_notes()
-        
+
         return song
-    
+
     return _create_song

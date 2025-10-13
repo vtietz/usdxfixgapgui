@@ -155,23 +155,23 @@ class SongActions(BaseActions):
                 # Instead of replacing the song object, update its attributes
                 # This avoids 'Songs' object does not support item assignment error
                 self._update_song_attributes(song, reloaded_song)
-                
+
                 # Only create waveforms if song loaded successfully (no error status)
                 if song.status != SongStatus.ERROR:
                     # Recreate waveforms for the reloaded song
                     from actions.audio_actions import AudioActions
                     audio_actions = AudioActions(self.data)
                     audio_actions._create_waveforms(song, True)
-                
+
                 # Notify update after successful reload
                 self.data.songs.updated.emit(song)
-                
+
                 # If this was a selected song, update the selection
                 if song in self.data.selected_songs:
                     # No need to replace in the selection array since we modified the object in-place
                     # Just refresh the selection to trigger UI updates
                     self.set_selected_songs(self.data.selected_songs)
-                
+
                 logger.info(f"Successfully reloaded {song}")
                 break
 
@@ -182,7 +182,7 @@ class SongActions(BaseActions):
             'title', 'artist', 'audio', 'gap', 'bpm', 'start', 'is_relative',
             'txt_file', 'audio_file', 'relative_path', 'usdb_id', 'notes'
         ]
-              
+
         for attr in attributes_to_copy:
             if hasattr(source_song, attr):
                 try:
@@ -191,13 +191,13 @@ class SongActions(BaseActions):
                 except AttributeError:
                     # If we can't set it directly, log this issue
                     logger.warning(f"Could not set attribute {attr} on song {target_song.title}")
-        
+
         # Copy status and error_message after other attributes to ensure they're properly set
         if hasattr(source_song, 'status'):
             target_song.status = source_song.status
         if hasattr(source_song, 'error_message'):
             target_song.error_message = source_song.error_message
-            
+
         # Handle special objects like gap_info
         if hasattr(source_song, 'gap_info') and source_song.gap_info:
             try:
@@ -210,11 +210,11 @@ class SongActions(BaseActions):
                     for gap_attr in dir(source_song.gap_info):
                         if not gap_attr.startswith('_') and gap_attr != 'owner':  # Skip private attributes and owner
                             try:
-                                setattr(target_song.gap_info, gap_attr, 
+                                setattr(target_song.gap_info, gap_attr,
                                         getattr(source_song.gap_info, gap_attr))
                             except AttributeError:
                                 pass
-                    
+
                     # Explicitly update duration from gap_info if available
                     if source_song.gap_info.duration:
                         target_song.duration_ms = source_song.gap_info.duration
@@ -239,15 +239,15 @@ class SongActions(BaseActions):
         if not selected_songs:
             logger.error("No songs selected to delete.")
             return
-            
+
         logger.info(f"Attempting to delete {len(selected_songs)} songs.")
         # Confirmation should happen in the UI layer (MenuBar) before calling this
         songs_to_remove = list(selected_songs) # Copy list as we modify the source
         successfully_deleted = []
-        
+
         # Use service for deletion logic
         song_service = SongService()
-        
+
         for song in songs_to_remove:
             logger.info(f"Deleting song {song.path}")
             try:
@@ -264,7 +264,7 @@ class SongActions(BaseActions):
                 song.set_error(f"Delete error: {str(e)}")
                 self.data.songs.updated.emit(song)  # Signal via data model
                 logger.error(f"Exception deleting song {song.path}: {e}")
-        
+
         # Only remove successfully deleted songs from the list
         for song in successfully_deleted:
             try:

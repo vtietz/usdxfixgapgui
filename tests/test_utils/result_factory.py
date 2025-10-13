@@ -15,7 +15,7 @@ def create_gap_detection_result(
 ) -> Mock:
     """
     Create a mock GapDetectionResult object.
-    
+
     Args:
         song_file_path: Path to the song file
         detected_gap: Detected gap value in milliseconds
@@ -24,13 +24,13 @@ def create_gap_detection_result(
         silence_periods: List of silence period tuples (start, end)
         duration_ms: Total duration in milliseconds
         status: GapInfoStatus enum value
-    
+
     Returns:
         A Mock object with GapDetectionResult attributes
     """
     if silence_periods is None:
         silence_periods = [(0, 500), (1000, 1500)]
-    
+
     result = Mock()
     result.song_file_path = song_file_path
     result.detected_gap = detected_gap
@@ -39,18 +39,18 @@ def create_gap_detection_result(
     result.silence_periods = silence_periods
     result.duration_ms = duration_ms
     result.status = status
-    
+
     return result
 
 
 def create_match_result(song_file_path: str, detected_gap: int = 1000) -> Mock:
     """
     Create a GapDetectionResult mock for a MATCH scenario.
-    
+
     Args:
         song_file_path: Path to the song file
         detected_gap: Detected gap value (default: 1000ms)
-    
+
     Returns:
         A Mock with MATCH status and zero gap_diff
     """
@@ -65,12 +65,12 @@ def create_match_result(song_file_path: str, detected_gap: int = 1000) -> Mock:
 def create_mismatch_result(song_file_path: str, detected_gap: int = 1200, gap_diff: int = 200) -> Mock:
     """
     Create a GapDetectionResult mock for a MISMATCH scenario.
-    
+
     Args:
         song_file_path: Path to the song file
         detected_gap: Detected gap value
         gap_diff: Difference from current gap
-    
+
     Returns:
         A Mock with MISMATCH status
     """

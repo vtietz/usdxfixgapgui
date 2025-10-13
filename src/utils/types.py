@@ -13,11 +13,11 @@ from typing import List, Tuple, Optional
 class DetectionProviderResult:
     """
     Result from detection provider operations.
-    
+
     This encapsulates all outputs from a provider's detection process,
     including the detected gap position, silence/speech segments, file paths,
     and quality metrics.
-    
+
     Attributes:
         detected_gap: Detected gap position in milliseconds (integer)
         silence_periods: List of (start_ms, end_ms) tuples for silence regions
@@ -44,10 +44,10 @@ class DetectionProviderResult:
 class DetectGapResult:
     """
     Results of complete gap detection workflow.
-    
+
     This is returned by the top-level detect_gap.perform() function and includes
     all provider results plus additional orchestration metadata like waveform paths.
-    
+
     Attributes:
         detected_gap: Detected gap position in milliseconds (integer)
         silence_periods: List of (start_ms, end_ms) tuples for silence/speech regions

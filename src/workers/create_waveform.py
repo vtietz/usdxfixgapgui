@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class CreateWaveform(IWorker):
     def __init__(
-            self, 
+            self,
             song: Song,
             config: Config,
             audio_file,
@@ -41,7 +41,7 @@ class CreateWaveform(IWorker):
         return self._isCancelled
 
     def _create_waveform(self):
-        
+
         song: Song = self.song
         audio_file = self.audio_file
 

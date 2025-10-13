@@ -1,4 +1,3 @@
-import os
 import pytest
 
 from utils.cancellable_process import run_cancellable_process

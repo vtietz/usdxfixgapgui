@@ -9,14 +9,13 @@ import os # Import os for path checks
 import sys
 import subprocess
 
-from app.app_data import Config
 from model.song import Song, SongStatus
 from ui.multi_select_box import MultiSelectComboBox
 
 logger = logging.getLogger(__name__)
 
 class MenuBar(QWidget):
-    
+
     loadSongsClicked = Signal()
     # Remove specific action signals if actions are called directly
     # extractVocalsClicked = Signal()
@@ -26,7 +25,7 @@ class MenuBar(QWidget):
     _selected_songs: List[Song] = [] # Use List[Song]
 
     def __init__(self, actions:Actions, data:AppData, parent=None):
-      
+
         super().__init__(parent)
         self._layout = QHBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
@@ -124,7 +123,7 @@ class MenuBar(QWidget):
             self._actions.delete_selected_song() # Action handles iteration
 
     def updateLoadButtonState(self, isLoading: bool):
-        self.loadSongsButton.setEnabled(not isLoading) 
+        self.loadSongsButton.setEnabled(not isLoading)
 
     def onSearchChanged(self, text):
         self._actions.data.songs.filter_text = text
@@ -169,15 +168,15 @@ class MenuBar(QWidget):
     def open_config_file(self):
         """Open config.ini in the default text editor (cross-platform)"""
         config_path = self.config.config_path
-        
+
         if not os.path.exists(config_path):
             QMessageBox.warning(
-                self, 
-                "Config Not Found", 
+                self,
+                "Config Not Found",
                 f"Configuration file not found at:\n{config_path}"
             )
             return
-        
+
         try:
             if sys.platform == 'win32':
                 # Windows - use default associated program
@@ -200,7 +199,7 @@ class MenuBar(QWidget):
                             continue
                     else:
                         raise FileNotFoundError("No suitable text editor found")
-            
+
             logger.info(f"Opened config file: {config_path}")
         except Exception as e:
             logger.error(f"Failed to open config file: {e}", exc_info=True)
@@ -213,11 +212,11 @@ class MenuBar(QWidget):
     def choose_directory(self):
         # Use the last directory from config if available, otherwise use the current directory
         start_dir = self.data.directory if self.data.directory else self.config.last_directory
-        
+
         directory = QFileDialog.getExistingDirectory(
-            self, 
-            "Select Directory", 
-            start_dir  
+            self,
+            "Select Directory",
+            start_dir
         )
         if directory:  # Check if a directory was selected
             self.on_directory_selected(directory)

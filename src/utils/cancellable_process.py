@@ -25,7 +25,7 @@ def run_cancellable_process(command, check_cancellation=None):
         raise FileNotFoundError(
             f"Executable not found: '{exe}'. Is the dependency installed and on PATH?"
         )
-    
+
     # Set up the process creation parameters
     popen_kwargs = {
         'stdout': subprocess.PIPE,
@@ -34,11 +34,11 @@ def run_cancellable_process(command, check_cancellation=None):
         'encoding': 'utf-8',  # Specify UTF-8 encoding
         'errors': 'ignore'    # Ignore decoding errors
     }
-    
+
     # Only add creationflags on Windows
     if platform.system() == 'Windows':
         popen_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW  # Suppress cmd window
-    
+
     # Create the process with the appropriate arguments
     process = subprocess.Popen(command, **popen_kwargs)
 
@@ -71,7 +71,7 @@ def run_cancellable_process(command, check_cancellation=None):
                 process.stderr.close()
             # Wait for process termination
             try:
-                process.wait(timeout=1.0) 
+                process.wait(timeout=1.0)
             except subprocess.TimeoutExpired:
                 logger.warning("Process did not terminate gracefully after kill.")
             raise Exception("Process cancelled.")

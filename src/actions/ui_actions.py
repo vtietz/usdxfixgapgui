@@ -18,16 +18,16 @@ class UiActions(BaseActions):
         if not song:
             logger.error("No song selected")
             return
-        
+
         # More robust check for usdb_id validity
         if not song.usdb_id or song.usdb_id == "0" or song.usdb_id == "":
             logger.error(f"Song '{song.title}' has no valid USDB ID.")
             return
-            
+
         logger.info(f"Opening USDB in web browser for {song.txt_file} with ID {song.usdb_id}")
         url = QUrl(f"https://usdb.animux.de/index.php?link=detail&id={song.usdb_id}")
         success = QDesktopServices.openUrl(url)
-        
+
         if not success:
             logger.error(f"Failed to open URL: {url.toString()}")
 

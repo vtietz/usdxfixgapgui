@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class SongManager(BaseManager):
     """Manages song loading, selection, and manipulation"""
-    
+
     def auto_load_last_directory(self):
         """Check and auto-load songs from the last directory if available"""
         if self.config.last_directory and os.path.isdir(self.config.last_directory):
@@ -32,15 +32,15 @@ class SongManager(BaseManager):
         if not directory or not os.path.isdir(directory):
             logger.error(f"Cannot set invalid directory: {directory}")
             return
-            
+
         logger.info(f"Setting directory to: {directory}")
         self.data.directory = directory
-        
+
         # Save this directory as the last used directory in config
         self.config.last_directory = directory
         self.config.save()
         logger.debug(f"Saved last directory to config: {directory}")
-        
+
         self._clear_songs()
         self._load_songs()
 
@@ -60,14 +60,14 @@ class SongManager(BaseManager):
         if song.status == SongStatus.NOT_PROCESSED:
             song.gap_info.original_gap = song.gap
             # We'll let the GapProcessor handle detection logic
-    
+
     def _on_loading_songs_finished(self):
         self.data.is_loading_songs = False
 
     def set_selected_songs(self, songs: List[Song]):
         logger.debug(f"Setting selected songs: {[s.title for s in songs]}")
         self.data.selected_songs = songs
-        
+
         # Notify other components of selection change
         if hasattr(self.data, 'selection_changed'):
             self.data.selection_changed.emit()
@@ -83,14 +83,14 @@ class SongManager(BaseManager):
             try:
                 # Force reload to bypass cache and ensure all data is refreshed
                 run_sync(song.load(force_reload=True))
-                
+
                 # Notify update after successful reload
                 self.data.songs.updated.emit(song)
-                
+
                 # Ensure UI gets refreshed
                 if hasattr(self.data.songs, 'list_changed'):
                     self.data.songs.list_changed()
-                
+
             except Exception as e:
                 song.error_message = str(e)
                 logger.exception(e)

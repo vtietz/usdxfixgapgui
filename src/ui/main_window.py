@@ -7,7 +7,6 @@ Separated from main entry point for better code organization.
 
 import sys
 import logging
-import time
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
@@ -36,16 +35,16 @@ logger = logging.getLogger(__name__)
 def create_and_run_gui(config, gpu_enabled, log_file_path):
     """
     Create and run the main GUI application.
-    
+
     Args:
         config: Application config object
         gpu_enabled: Boolean indicating if GPU bootstrap succeeded
         log_file_path: Path to log file for log viewer
-        
+
     Returns:
         Exit code for the application
     """
-    
+
     # Initialize database before creating AppData
     db_path = initialize_song_cache()
     logger.info(f"Song cache database initialized at: {db_path}")
@@ -76,17 +75,17 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     # Store dialog reference to prevent garbage collection
     if gpu_dialog:
         window._gpu_dialog_ref = gpu_dialog
-    
+
     # Restore window geometry from config
     if config.window_x >= 0 and config.window_y >= 0:
         window.move(config.window_x, config.window_y)
     window.resize(config.window_width, config.window_height)
     window.setMinimumSize(600, 600)
-    
+
     # Restore maximized state
     if config.window_maximized:
         window.showMaximized()
-    
+
     # Save window geometry and state on close
     def save_window_geometry():
         # Only save normal geometry if not maximized
@@ -97,16 +96,16 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
             config.window_height = geometry.height()
             config.window_x = geometry.x()
             config.window_y = geometry.y()
-        
+
         # Always save maximized state
         config.window_maximized = window.isMaximized()
         config.save()
-        
+
         if window.isMaximized():
             logger.debug(f"Window state saved: maximized")
         else:
             logger.debug(f"Window geometry saved: {config.window_width}x{config.window_height} at ({config.window_x}, {config.window_y})")
-    
+
     # Connect to aboutToQuit to save geometry before closing
     app.aboutToQuit.connect(save_window_geometry)
 
@@ -180,11 +179,11 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     # Log completion and give async logger a moment to flush
     # This ensures initial logs appear in the log viewer
     logger.info("=== GUI Initialized Successfully ===")
-    
+
     # Use QTimer to allow event loop to process initial logs
     def delayed_start():
         logger.info("Application ready for user interaction")
-    
+
     QTimer.singleShot(200, delayed_start)  # 200ms delay
 
     # Start event loop

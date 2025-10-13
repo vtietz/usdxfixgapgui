@@ -27,17 +27,17 @@ class MediaPlayerComponent(QWidget):
         self._data = data
         self._config = data.config
         self._actions = actions
-        
+
         # Initialize state variables
         self._song = None
-        
+
         # Initialize controllers
         self.player = PlayerController(self._config)
         self.ui_manager = UIManager(self._config)
-        
+
         # Initialize UI
         self.initUI()
-        
+
         # Create event filter
         self.globalEventFilter = MediaPlayerEventFilter(
             self,
@@ -45,18 +45,18 @@ class MediaPlayerComponent(QWidget):
             lambda: self.player.adjust_position_right(),
             lambda: self.player.play()
         )
-        
+
         # Connect signals from player to local handlers
         self.player.position_changed.connect(self.position_changed)
         self.player.is_playing_changed.connect(self.is_playing_changed)
         self.player.audio_file_status_changed.connect(self.audio_file_status_changed)
         self.player.media_player.positionChanged.connect(self.update_position)
         self.player.media_status_changed.connect(self.update_ui)
-        
+
         # Connect signals from self to player
         self.is_playing_changed.connect(self.on_play_state_changed)
         self.audio_file_status_changed.connect(self.on_audio_file_status_changed)
-        
+
         # Connect to the data signals
         self._data.selected_song_changed.connect(self.on_song_changed)
         self._data.selected_songs_changed.connect(self.on_selected_songs_changed)
@@ -76,7 +76,7 @@ class MediaPlayerComponent(QWidget):
 
         # Setup waveform
         self.waveform_widget = WaveformWidget(self)
-        
+
         # Setup action buttons
         self.position_label = QLabel('')
         self.position_label.setStyleSheet(f"color: {self._config.playback_position_color};")
@@ -93,11 +93,11 @@ class MediaPlayerComponent(QWidget):
         play_and_waveform_layout.addWidget(self.play_btn)
         play_and_waveform_layout.addWidget(self.audio_btn)
         play_and_waveform_layout.addWidget(self.vocals_btn)
-        
+
         waveform_layout = QVBoxLayout()
         waveform_layout.setContentsMargins(0, 0, 0, 0)
         waveform_layout.addWidget(self.waveform_widget)
-        
+
         labels = QHBoxLayout()
         labels.addWidget(self.position_label)
         labels.addWidget(self.syllable_label)
@@ -123,20 +123,20 @@ class MediaPlayerComponent(QWidget):
             'keep_original': self.keep_original_gap_btn,
             'revert': self.revert_btn
         }
-        
+
         label_dict = {
             'position': self.position_label,
             'syllable': self.syllable_label
         }
-        
+
         self.ui_manager.setup(button_dict, label_dict, self.waveform_widget)
 
         # Connect events
         self.setup_event_connections()
-        
+
         # Initial UI state
         self.update_ui()
-        
+
         # Set focus policy
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -145,24 +145,24 @@ class MediaPlayerComponent(QWidget):
         self.play_btn.clicked.connect(lambda: self.player.play())
         self.audio_btn.clicked.connect(lambda: self.player.audio_mode())
         self.vocals_btn.clicked.connect(lambda: self.player.vocals_mode())
-        
+
         # Action button events
         self.save_current_play_position_btn.clicked.connect(self.on_save_current_play_position_clicked)
         self.revert_btn.clicked.connect(self.on_revert_btn_clicked)
         self.keep_original_gap_btn.clicked.connect(self.on_keep_original_gap_btn_clicked)
         self.save_detected_gap_btn.clicked.connect(self.on_save_detected_gap_btn_clicked)
-        
+
         # Waveform events
         self.waveform_widget.position_clicked.connect(lambda pos: self.player.set_position(pos))
 
     def update_position(self, position):
         """Update UI elements when position changes"""
         self.ui_manager.update_position_label(
-            position, 
-            self.player.is_media_loaded(), 
+            position,
+            self.player.is_media_loaded(),
             self.player.is_playing()
         )
-        
+
         self.ui_manager.update_syllable_label(position, self._song)
         self.waveform_widget.update_position(position, self.player.get_duration())
         self.update_ui()
@@ -170,8 +170,8 @@ class MediaPlayerComponent(QWidget):
     def update_ui(self):
         """Update all UI elements based on current state"""
         self.ui_manager.update_button_states(
-            self._song, 
-            self.player.get_audio_status(), 
+            self._song,
+            self.player.get_audio_status(),
             self.player.is_media_loaded(),
             self.player.is_playing()
         )
@@ -185,61 +185,61 @@ class MediaPlayerComponent(QWidget):
         self.player.stop()
         self.update_player_files()
         self.update_ui()
-    
+
     def on_song_changed(self, song: Song):
         """Handle when a different song is selected"""
         logger.debug(f"Song changed in media player: {song}")
-        
+
         # Only process if player is enabled (not multiple selection)
         if not self.isEnabled():
             return
-            
+
         self._song = song
-        
+
         # Guard against None song
         if song is None:
             logger.debug("Song is None, clearing player")
             self.update_ui()
             self.update_player_files()
             return
-            
+
         if not song.notes or not WaveformPathService.waveforms_exists(song, self._data.tmp_path):
             self._actions.reload_song(song)
-            
+
         self.update_ui()
         self.update_player_files()
-    
+
     def on_song_updated(self, updated_song: Song):
         """Handle when the current song data is updated
-        
+
         Args:
             updated_song: The song that was updated
         """
         # Only update UI if the updated song is the currently selected song
         if self._song is None or updated_song is None:
             return
-        
+
         if self._song.path != updated_song.path:
             logger.debug(f"Song updated but not currently selected: {updated_song.title}")
             return
-        
+
         logger.debug(f"Current song updated: {updated_song.title}")
         self.update_ui()
         self.update_player_files()
-    
+
     def update_player_files(self):
         """Load the appropriate media files based on current state"""
         song: Song = self._song
-        if not song or song.status == SongStatus.PROCESSING: 
+        if not song or song.status == SongStatus.PROCESSING:
             logger.debug("No song or song is processing - not loading media")
             self.player.load_media(None)
             self.waveform_widget.load_waveform(None)
             return
-        
+
         # Check if song has notes attribute but don't prevent playback
         if not hasattr(song, 'notes') or song.notes is None:
             logger.warning(f"Song '{song.title}' does not have notes data, but will play audio anyway")
-        
+
         # Get paths using WaveformPathService
         paths = WaveformPathService.get_paths(song, self._data.tmp_path)
         if not paths:
@@ -247,7 +247,7 @@ class MediaPlayerComponent(QWidget):
             self.player.load_media(None)
             self.waveform_widget.load_waveform(None)
             return
-            
+
         logger.debug(f"Updating player files. Audio status: {self.player.get_audio_status()}")
         if self.player.get_audio_status() == AudioFileStatus.AUDIO:
             logger.debug(f"Loading audio file: {paths['audio_file']}")
@@ -261,18 +261,18 @@ class MediaPlayerComponent(QWidget):
     def on_selected_songs_changed(self, songs: list):
         """Disable player when multiple songs are selected"""
         multiple_songs_selected = len(songs) > 1
-        
+
         self.setEnabled(not multiple_songs_selected)
         self.ui_manager.handle_multiple_selection(multiple_songs_selected)
-        
+
         if multiple_songs_selected:
             self.player.stop()
             self.waveform_widget.load_waveform(None)
-    
+
     # Gap modification handlers
     def on_save_current_play_position_clicked(self):
         self._actions.update_gap_value(self._song, self.player.get_position())
-    
+
     def on_revert_btn_clicked(self):
         self._actions.revert_gap_value(self._song)
 

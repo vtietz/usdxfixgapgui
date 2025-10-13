@@ -8,7 +8,7 @@ import json
 import logging
 import sys
 from dataclasses import dataclass, asdict
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 from pathlib import Path
 import urllib.request
 import urllib.error
@@ -27,11 +27,11 @@ class GpuPackManifest:
     size: int
     min_driver: str
     flavor: str  # cu121 or cu124
-    
+
     def to_dict(self) -> Dict:
         """Convert to dictionary."""
         return asdict(self)
-    
+
     @classmethod
     def from_dict(cls, data: Dict) -> 'GpuPackManifest':
         """Create from dictionary."""
@@ -39,7 +39,7 @@ class GpuPackManifest:
 
 
 # Embedded default manifests for offline operation
-# 
+#
 # These use official PyTorch wheel URLs from download.pytorch.org.
 # PyTorch wheels bundle CUDA/cuDNN - only a compatible NVIDIA driver is needed.
 # Wheels are downloaded, extracted to data directory (LOCALAPPDATA on Windows,
@@ -79,20 +79,20 @@ DEFAULT_MANIFESTS = {
 def load_local_manifest(app_version: str) -> Dict[str, GpuPackManifest]:
     """
     Load bundled GPU Pack manifest.
-    
+
     Args:
         app_version: Application version
-        
+
     Returns:
         Dictionary of flavor -> GpuPackManifest
     """
     manifests = {}
-    
+
     # Try to load from bundled JSON file if it exists
     try:
         from utils.files import resource_path
         manifest_path = resource_path('gpu_pack_manifest.json')
-        
+
         if Path(manifest_path).exists():
             with open(manifest_path, 'r') as f:
                 data = json.load(f)
@@ -102,13 +102,13 @@ def load_local_manifest(app_version: str) -> Dict[str, GpuPackManifest]:
                 return manifests
     except Exception as e:
         logger.debug(f"Could not load bundled manifest: {e}")
-    
+
     # Fallback to embedded defaults
     for flavor, manifest_data in DEFAULT_MANIFESTS.items():
         manifest_data_copy = manifest_data.copy()
         manifest_data_copy['app_version'] = app_version  # Use current app version
         manifests[flavor] = GpuPackManifest.from_dict(manifest_data_copy)
-    
+
     logger.debug("Using embedded default manifest")
     return manifests
 
@@ -116,11 +116,11 @@ def load_local_manifest(app_version: str) -> Dict[str, GpuPackManifest]:
 def fetch_remote_manifest(url: str, timeout: int = 10) -> Optional[Dict[str, GpuPackManifest]]:
     """
     Fetch GPU Pack manifest from remote URL.
-    
+
     Args:
         url: URL to manifest JSON
         timeout: Request timeout in seconds
-        
+
     Returns:
         Dictionary of flavor -> GpuPackManifest or None on failure
     """
@@ -129,17 +129,17 @@ def fetch_remote_manifest(url: str, timeout: int = 10) -> Optional[Dict[str, Gpu
             url,
             headers={'User-Agent': 'USDXFixGap/1.0'}
         )
-        
+
         with urllib.request.urlopen(req, timeout=timeout) as response:
             data = json.loads(response.read().decode('utf-8'))
-            
+
             manifests = {}
             for flavor, manifest_data in data.items():
                 manifests[flavor] = GpuPackManifest.from_dict(manifest_data)
-            
+
             logger.info(f"Fetched remote manifest from {url}")
             return manifests
-            
+
     except urllib.error.URLError as e:
         logger.warning(f"Failed to fetch remote manifest: {e}")
         return None
@@ -154,25 +154,25 @@ def fetch_remote_manifest(url: str, timeout: int = 10) -> Optional[Dict[str, Gpu
 def compare_driver_version(driver_version: str, min_required: str) -> bool:
     """
     Compare driver versions.
-    
+
     Args:
         driver_version: Installed driver version (e.g., "531.68")
         min_required: Minimum required version (e.g., "531.00")
-        
+
     Returns:
         True if driver_version >= min_required
     """
     try:
         driver_parts = [int(x) for x in driver_version.split('.')]
         required_parts = [int(x) for x in min_required.split('.')]
-        
+
         # Pad to same length
         max_len = max(len(driver_parts), len(required_parts))
         driver_parts += [0] * (max_len - len(driver_parts))
         required_parts += [0] * (max_len - len(required_parts))
-        
+
         return driver_parts >= required_parts
-        
+
     except Exception as e:
         logger.warning(f"Failed to compare driver versions: {e}")
         return False
@@ -185,12 +185,12 @@ def choose_pack(
 ) -> Optional[GpuPackManifest]:
     """
     Choose appropriate GPU Pack based on driver version and preferences.
-    
+
     Args:
         manifests: Available manifests
         driver_version: Installed NVIDIA driver version
         flavor_override: User-specified flavor override (cu121 or cu124)
-        
+
     Returns:
         Selected GpuPackManifest or None
     """
@@ -198,32 +198,32 @@ def choose_pack(
     if flavor_override:
         if flavor_override in manifests:
             manifest = manifests[flavor_override]
-            
+
             # Warn if driver doesn't meet minimum requirement
             if driver_version and not compare_driver_version(driver_version, manifest.min_driver):
                 logger.warning(
                     f"Driver version {driver_version} may not support {flavor_override} "
                     f"(minimum: {manifest.min_driver})"
                 )
-            
+
             return manifest
         else:
             logger.warning(f"Requested flavor {flavor_override} not available in manifest")
             return None
-    
+
     # Auto-select based on driver version
     if not driver_version:
         # No driver info, default to cu121 (widest compatibility)
         logger.debug("No driver version available, defaulting to cu121")
         return manifests.get('cu121')
-    
+
     # Check if driver supports cu124
     if 'cu124' in manifests:
         cu124_manifest = manifests['cu124']
         if compare_driver_version(driver_version, cu124_manifest.min_driver):
             logger.debug(f"Driver {driver_version} supports cu124, selecting cu124")
             return cu124_manifest
-    
+
     # Fallback to cu121
     if 'cu121' in manifests:
         cu121_manifest = manifests['cu121']
@@ -236,6 +236,6 @@ def choose_pack(
                 f"for cu121 ({cu121_manifest.min_driver})"
             )
             return None
-    
+
     logger.warning("No suitable GPU Pack found in manifest")
     return None

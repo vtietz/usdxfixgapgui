@@ -14,7 +14,7 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
     """Create a waveform image for the given audio file."""
 
     logger.debug(f"Creating waveform '{image_path}'...")
-    
+
     if not os.path.exists(audio_file):
         raise FileNotFoundError(f"Audio file not found: {audio_file}")
 
@@ -26,7 +26,7 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
         '-filter_complex', f"showwavespic=s={width}x{height}:colors={color}:scale=lin:split_channels=1",
         '-frames:v', '1', image_path
     ]
-    
+
     # Hide command window on Windows
     if platform.system() == 'Windows':
         result = subprocess.run(command, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -74,7 +74,7 @@ def draw_silence_periods(image_path, silence_periods, duration_ms, color=(105, 1
     # Save the modified image
     out.save(image_path)
 
-    
+
 def draw_title(image_path, songname, color="white"):
     """Annotates the waveform image with the song name."""
 

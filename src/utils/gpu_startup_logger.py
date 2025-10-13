@@ -7,7 +7,6 @@ including helpful guidance for enabling GPU acceleration.
 
 import sys
 import os
-from pathlib import Path
 from utils.gpu_utils import is_gpu_pack_installed, get_gpu_pack_info
 
 
@@ -16,26 +15,26 @@ def log_gpu_status(config, gpu_enabled, show_gui_dialog=True):
     Print comprehensive GPU status information on startup to console.
     Provides helpful guidance for enabling GPU acceleration.
     Optionally shows GUI dialog if NVIDIA GPU detected but pack not installed.
-    
+
     Args:
         config: Application config object
         gpu_enabled: Boolean indicating if GPU bootstrap succeeded
         show_gui_dialog: Whether to show GUI dialog for GPU Pack installation prompt
     """
     from utils import gpu_bootstrap
-    
+
     print("=" * 70)
     print("GPU ACCELERATION STATUS")
     print("=" * 70)
-    
+
     # Probe for NVIDIA GPU
     cap = gpu_bootstrap.capability_probe()
-    
+
     if cap['has_nvidia']:
         _log_nvidia_gpu_detected(cap, config, gpu_enabled, show_gui_dialog)
     else:
         _log_no_nvidia_gpu()
-    
+
     print("=" * 70)
 
 
@@ -43,7 +42,7 @@ def _log_nvidia_gpu_detected(cap, config, gpu_enabled, show_gui_dialog):
     """Log status when NVIDIA GPU is detected."""
     print(f"✓ NVIDIA GPU detected: {', '.join(cap['gpu_names'])}")
     print(f"✓ Driver version: {cap['driver_version']}")
-    
+
     # Check if GPU is actually working (either GPU Pack or system CUDA)
     if gpu_enabled:
         # GPU is working - check if it's from GPU Pack or system CUDA
@@ -71,7 +70,7 @@ def _log_gpu_pack_installed(config, gpu_enabled):
     else:
         # Shouldn't happen, but handle gracefully
         print("✓ GPU Pack installed")
-    
+
     # Check if GPU is enabled
     if config.gpu_opt_in:
         if gpu_enabled:
@@ -85,7 +84,7 @@ def _log_gpu_pack_installed(config, gpu_enabled):
 def _log_gpu_active():
     """Log status when GPU is active and ready."""
     print("✓ GPU acceleration: ENABLED and ACTIVE")
-    
+
     # Try to verify CUDA availability
     try:
         import torch
@@ -121,7 +120,7 @@ def _log_gpu_bootstrap_failed(config):
 def _log_system_cuda_detected():
     """Log status when system-wide CUDA is detected."""
     print("✓ System-wide CUDA detected (no GPU Pack needed)")
-    
+
     # Try to show CUDA details
     try:
         import torch
@@ -162,7 +161,7 @@ def _log_gpu_pack_not_installed(show_gui_dialog):
     print("    • GUI: Settings → Download GPU Pack")
     print(f"    • CLI: {exe_name} --setup-gpu")
     print("  See docs/gpu-acceleration.md for details")
-    
+
     # Show GUI dialog if requested
     if show_gui_dialog:
         _show_gpu_pack_dialog(exe_name)
@@ -191,7 +190,7 @@ def _show_gpu_pack_dialog(exe_name):
     """Show GUI dialog informing user about GPU Pack availability."""
     try:
         from PySide6.QtWidgets import QMessageBox
-        
+
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Information)
         msg.setWindowTitle("GPU Acceleration Available")
@@ -217,25 +216,25 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     Show GPU Pack installation dialog if appropriate.
     Should be called AFTER QApplication is created.
     Dialog is shown non-modally to allow app to continue in background.
-    
+
     Args:
         config: Application config object
         gpu_enabled: Boolean indicating if GPU bootstrap succeeded
-        
+
     Returns:
         Dialog instance if shown, None otherwise (caller should keep reference)
     """
     import logging
     from utils import gpu_bootstrap
     from ui.gpu_download_dialog import GpuPackDownloadDialog
-    
+
     logger = logging.getLogger(__name__)
-    
+
     # Check if user has chosen to not show dialog
     if config.gpu_pack_dialog_dont_show:
         logger.debug("GPU Pack dialog suppressed by user preference (GpuPackDialogDontShow=true)")
         return None
-    
+
     # Only show if NVIDIA GPU detected but GPU not working
     cap = gpu_bootstrap.capability_probe()
     if cap['has_nvidia'] and not gpu_enabled:
@@ -253,5 +252,5 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
                 return None
         else:
             logger.debug("GPU Pack installed but GPU bootstrap failed - not showing dialog")
-    
+
     return None

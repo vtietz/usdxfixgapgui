@@ -15,7 +15,7 @@ Public API:
 Usage:
     >>> from utils.providers import get_detection_provider
     >>> from common.config import Config
-    >>> 
+    >>>
     >>> config = Config()
     >>> provider = get_detection_provider(config)
     >>> method = provider.get_method_name()  # 'spleeter', 'hq_segment', 'mdx'

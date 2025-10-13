@@ -6,13 +6,13 @@ from model.usdx_file import Note
 def create_note(start_beat: int, length: int, pitch: int, text: str = "test") -> Note:
     """
     Create a Note object with specified parameters.
-    
+
     Args:
         start_beat: The starting beat of the note
         length: The length of the note in beats
         pitch: The pitch of the note
         text: The text/lyric for the note (default: "test")
-    
+
     Returns:
         A Note object with the specified attributes
     """
@@ -30,7 +30,7 @@ def create_note(start_beat: int, length: int, pitch: int, text: str = "test") ->
 def create_basic_notes() -> list:
     """
     Create a basic set of two notes for testing.
-    
+
     Returns:
         List of two Note objects suitable for basic tests
     """

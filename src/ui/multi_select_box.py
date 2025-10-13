@@ -29,29 +29,29 @@ class MultiSelectComboBox(QWidget):
 
     def __init__(self, items=[], parent=None):
         super().__init__(parent=parent)
-        
+
         layout = QVBoxLayout()
         self.setLayout(layout)
 
         self.filterDropdown = QComboBox()
         # Use the custom CheckableComboBoxListView
         self.filterDropdown.setView(CheckableComboBoxListView())
-        
+
         # Set the custom ClickableLineEdit
         self.clickableLineEdit = ClickableLineEdit(self.filterDropdown)
         self.clickableLineEdit.setText("Select item")
         self.clickableLineEdit.setReadOnly(True)
         self.filterDropdown.setLineEdit(self.clickableLineEdit)
-        
+
         self.filterDropdown.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        
+
         self.model = QStandardItemModel()
         for item in items:
             self.addItem(item)
-        
+
         self.filterDropdown.setModel(self.model)
         self.model.itemChanged.connect(self.onItemChanged)
-        
+
         layout.addWidget(self.filterDropdown)
 
     def addItem(self, text):
@@ -71,7 +71,7 @@ class MultiSelectComboBox(QWidget):
                 item.setCheckState(Qt.CheckState.Checked)
             else:
                 item.setCheckState(Qt.CheckState.Unchecked)
-        
+
         # Update the QLineEdit to show the selected items
         self.updateLineEdit()
 
@@ -95,9 +95,9 @@ if __name__ == '__main__':
     items = ["Item 1", "Item 2", "Item 3", "Item 4"]
     multiSelectCombo = MultiSelectComboBox(items)
     multiSelectCombo.setSelectedItems(["Item 1", "Item 3"])
-    
+
     # Connect the custom signal to a lambda function to print the selected items
     multiSelectCombo.selectionChanged.connect(lambda selected: print("Selected items:", selected))
-    
+
     multiSelectCombo.show()
     sys.exit(app.exec())
