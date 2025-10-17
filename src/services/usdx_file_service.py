@@ -207,9 +207,13 @@ class USDXFileService:
             if not os.path.exists(usdx_file.filepath):
                 raise FileNotFoundError(f"File not found: {usdx_file.filepath}")
 
-            # Open the file and read content
-            with open(usdx_file.filepath, 'r', encoding=usdx_file.encoding or 'utf-8') as f:
-                lines = f.readlines()
+            # Determine encoding if not already set
+            if usdx_file.encoding is None:
+                await USDXFileService.determine_encoding(usdx_file)
+
+            # Open the file and read content asynchronously
+            async with aiofiles.open(usdx_file.filepath, 'r', encoding=usdx_file.encoding) as f:
+                lines = await f.readlines()
 
             # Find and parse notes
             notes = []

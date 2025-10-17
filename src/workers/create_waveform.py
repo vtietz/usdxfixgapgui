@@ -13,9 +13,10 @@ class CreateWaveform(IWorker):
             song: Song,
             config: Config,
             audio_file,
-            waveform_file
+            waveform_file,
+            is_instant: bool = True  # Default to instant - waveform creation is user-triggered
         ):
-        super().__init__()
+        super().__init__(is_instant=is_instant)
         self.signals = IWorkerSignals()
         self.song = song
         self.config = config

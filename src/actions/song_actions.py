@@ -8,7 +8,7 @@ from services.usdx_file_service import USDXFileService
 from services.song_service import SongService
 from model.usdx_file import USDXFile
 from utils.audio import get_audio_duration
-from utils.run_async import run_sync
+from utils.run_async import run_sync, run_async
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +109,8 @@ class SongActions(BaseActions):
         Does NOT change song.status, does NOT queue workers, does NOT create waveforms.
         Used for viewport lazy-loading to avoid triggering heavy processing.
         
+        Now fully asynchronous - does NOT block GUI thread.
+        
         If specific_song is provided, only loads that song.
         Otherwise loads all selected songs.
         """
@@ -128,42 +130,55 @@ class SongActions(BaseActions):
                 continue
 
             logger.debug(f"Light-reloading metadata for {song.txt_file}")
-            try:
-                # Use metadata-only service (async in sync context via run_sync)
-                song_service = SongService()
-                reloaded_song = run_sync(song_service.load_song_metadata_only(song.txt_file))
+            
+            # Use run_async with callback to avoid blocking GUI thread
+            song_service = SongService()
+            run_async(
+                song_service.load_song_metadata_only(song.txt_file),
+                callback=lambda reloaded_song, s=song: self._apply_light_reload(s, reloaded_song)
+            )
 
-                if reloaded_song and reloaded_song.status != SongStatus.ERROR:
-                    # Update the existing song object with metadata
-                    song.title = reloaded_song.title
-                    song.artist = reloaded_song.artist
-                    song.audio = reloaded_song.audio
-                    song.gap = reloaded_song.gap
-                    song.bpm = reloaded_song.bpm
-                    song.start = reloaded_song.start
-                    song.is_relative = reloaded_song.is_relative
-                    song.notes = reloaded_song.notes
-                    song.audio_file = reloaded_song.audio_file
-                    song.duration_ms = reloaded_song.duration_ms
-                    
-                    # DO NOT set gap_info - keeps status unchanged
-                    # DO NOT change status - remains NOT_PROCESSED
-                    
-                    logger.debug(f"Light-reload complete for {song.title}, status unchanged: {song.status}")
-                    self.data.songs.updated.emit(song)
-                else:
-                    if reloaded_song and reloaded_song.status == SongStatus.ERROR:
-                        song.set_error(reloaded_song.error_message)
-                        self.data.songs.updated.emit(song)
-
-            except Exception as e:
-                song.set_error(str(e))
-                logger.exception(f"Error during light reload: {e}")
+    def _apply_light_reload(self, song: Song, reloaded_song: Song):
+        """
+        Apply metadata from light reload to the song object.
+        Called asynchronously after metadata-only load completes.
+        Does NOT change Song.status for success path.
+        """
+        try:
+            if reloaded_song and reloaded_song.status != SongStatus.ERROR:
+                # Update the existing song object with metadata
+                song.title = reloaded_song.title
+                song.artist = reloaded_song.artist
+                song.audio = reloaded_song.audio
+                song.gap = reloaded_song.gap
+                song.bpm = reloaded_song.bpm
+                song.start = reloaded_song.start
+                song.is_relative = reloaded_song.is_relative
+                song.notes = reloaded_song.notes
+                song.audio_file = reloaded_song.audio_file
+                song.duration_ms = reloaded_song.duration_ms
+                
+                # DO NOT set gap_info - keeps status unchanged
+                # DO NOT change status - remains NOT_PROCESSED
+                
+                logger.debug(f"Light-reload complete for {song.title}, status unchanged: {song.status}")
                 self.data.songs.updated.emit(song)
+            else:
+                if reloaded_song and reloaded_song.status == SongStatus.ERROR:
+                    song.set_error(reloaded_song.error_message)
+                    self.data.songs.updated.emit(song)
 
-    def load_notes_for_song(self, song: Song):
+        except Exception as e:
+            song.set_error(str(e))
+            logger.exception(f"Error applying light reload: {e}")
+            self.data.songs.updated.emit(song)
+
+    async def load_notes_for_song_async(self, song: Song):
         """Load just the notes for a song without fully reloading it.
         Also compute per-note start/end/duration in milliseconds so waveform rendering works.
+        
+        NOTE: This is async and should be called via run_async, not run_sync.
+        Prefer using reload_song_light() for viewport operations.
         """
         if not song:
             logger.error("No song provided to load notes for")
@@ -174,7 +189,7 @@ class SongActions(BaseActions):
         try:
             # Use USDXFile and USDXFileService directly to load just the notes
             usdx_file = USDXFile(song.txt_file)
-            song.notes = run_sync(USDXFileService.load_notes_only(usdx_file))
+            song.notes = await USDXFileService.load_notes_only(usdx_file)
             logger.debug(f"Notes loaded for song: {song.title}, count: {len(song.notes) if song.notes else 0}")
 
             # Compute note timing (ms) required by waveform drawing if we have BPM information
@@ -214,12 +229,14 @@ class SongActions(BaseActions):
                 # This avoids 'Songs' object does not support item assignment error
                 self._update_song_attributes(song, reloaded_song)
 
-                # Only create waveforms if song loaded successfully (no error status)
-                if song.status != SongStatus.ERROR:
-                    # Recreate waveforms for the reloaded song
-                    from actions.audio_actions import AudioActions
-                    audio_actions = AudioActions(self.data)
-                    audio_actions._create_waveforms(song, True)
+                # DO NOT create waveforms automatically for viewport lazy-loading
+                # Waveforms are only created when:
+                # 1. User selects a song (MediaPlayerComponent.on_song_changed)
+                # 2. User explicitly reloads a song with full reload
+                # 3. Gap detection completes (via GapActions)
+                #
+                # This prevents mass waveform generation when scrolling through songs
+                # and keeps Song.status unchanged during viewport loads
 
                 # Notify update after successful reload
                 self.data.songs.updated.emit(song)

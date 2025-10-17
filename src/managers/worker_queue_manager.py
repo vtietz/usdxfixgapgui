@@ -29,14 +29,19 @@ class IWorker(QObject):
     """
     Base class to provide a common interface and functionality for worker tasks.
     This class is designed to be subclassed with specific implementations of the asynchronous run method.
+    
+    Workers can be classified as:
+    - Standard (is_instant=False): Long-running tasks that run sequentially (gap detection, normalization, scan all)
+    - Instant (is_instant=True): User-triggered tasks that can run immediately in parallel with standard tasks (waveform, light reload)
     """
-    def __init__(self):
+    def __init__(self, is_instant: bool = False):
         super().__init__()
         self.signals = IWorkerSignals()
         self._status = WorkerStatus.WAITING
         self._task_id = None
         self._description = "Undefined"
         self._is_canceled = False
+        self.is_instant = is_instant  # Instant tasks can run in parallel with standard tasks
 
     @property
     def id(self):
@@ -100,8 +105,14 @@ class WorkerQueueManager(QObject):
 
     def __init__(self, ui_update_interval=1.0):
         super().__init__()
+        # Standard task lane (sequential, long-running)
         self.queued_tasks = []
         self.running_tasks = {}
+        
+        # Instant task lane (parallel to standard, max 1 concurrent)
+        self.queued_instant_tasks = []
+        self.running_instant_task = None
+        
         self._heartbeat_active = True
         self._ui_update_interval = ui_update_interval  # Update interval in seconds
         self._ui_update_pending = False  # Flag to track if UI updates are needed
@@ -135,24 +146,38 @@ class WorkerQueueManager(QObject):
 
     def add_task(self, worker: IWorker, start_now=False):
         worker.id = self.get_unique_task_id()
-        logger.info(f"Creating task: {worker.description}")
+        logger.info(f"Creating task: {worker.description} (instant={worker.is_instant})")
         # Be tolerant to different signal signatures (e.g. DetectGapWorker.finished emits a result)
         worker.signals.finished.connect(lambda *args, wid=worker.id: self.on_task_finished(wid))
         worker.signals.error.connect(lambda e=None, wid=worker.id: self.on_task_error(wid, e))
         worker.signals.canceled.connect(lambda *args, wid=worker.id: self.on_task_canceled(wid))
         worker.signals.progress.connect(lambda *args, wid=worker.id: self.on_task_updated(wid))
 
-        # Always enqueue as WAITING so the Task Queue shows it immediately
-        worker.status = WorkerStatus.WAITING
-        self.queued_tasks.append(worker)
+        # Route to appropriate lane
+        if worker.is_instant:
+            # Instant lane: user-triggered, runs in parallel with standard tasks
+            worker.status = WorkerStatus.WAITING
+            self.queued_instant_tasks.append(worker)
+            
+            # Emit immediately so TaskQueueViewer updates right away
+            self.on_task_list_changed.emit()
+            self._mark_ui_update_needed()
+            
+            # Start immediately if requested and no instant task is running
+            if start_now and self.running_instant_task is None:
+                self.start_next_instant_task()
+        else:
+            # Standard lane: long-running sequential tasks
+            worker.status = WorkerStatus.WAITING
+            self.queued_tasks.append(worker)
 
-        # Emit immediately so TaskQueueViewer updates right away, and also mark for coalesced refresh
-        self.on_task_list_changed.emit()
-        self._mark_ui_update_needed()
+            # Emit immediately so TaskQueueViewer updates right away, and also mark for coalesced refresh
+            self.on_task_list_changed.emit()
+            self._mark_ui_update_needed()
 
-        # Start immediately if requested or if nothing is running
-        if start_now or not self.running_tasks:
-            self.start_next_task()
+            # Start immediately if requested or if nothing is running
+            if start_now or not self.running_tasks:
+                self.start_next_task()
 
     def get_unique_task_id(self):
         WorkerQueueManager.task_id_counter += 1
@@ -189,10 +214,19 @@ class WorkerQueueManager(QObject):
         self._finalize_task(task_id)
 
     def _finalize_task(self, task_id):
-        self.running_tasks.pop(task_id, None)
-        if self.queued_tasks and not self.running_tasks:
-            # Start next task directly, no need for QTimer
-            self.start_next_task()
+        # Check if this is an instant task
+        if self.running_instant_task and self.running_instant_task.id == task_id:
+            self.running_instant_task = None
+            # Start next instant task if any queued
+            if self.queued_instant_tasks:
+                self.start_next_instant_task()
+        else:
+            # Standard task lane
+            self.running_tasks.pop(task_id, None)
+            if self.queued_tasks and not self.running_tasks:
+                # Start next task directly, no need for QTimer
+                self.start_next_task()
+        
         # Emit immediately so the UI reflects removals promptly, and mark for coalesced updates
         self.on_task_list_changed.emit()
         self._mark_ui_update_needed()
@@ -206,8 +240,48 @@ class WorkerQueueManager(QObject):
             self.on_task_list_changed.emit()
             self._mark_ui_update_needed()
 
+    def start_next_instant_task(self):
+        """Start the next instant task if the instant slot is available"""
+        if self.queued_instant_tasks and self.running_instant_task is None:
+            worker = self.queued_instant_tasks.pop(0)
+            logger.info(f"Starting instant task: {worker.description}")
+            self.running_instant_task = worker
+            run_async(self._start_instant_worker(worker))
+            # Reflect the change right away in the TaskQueueViewer
+            self.on_task_list_changed.emit()
+            self._mark_ui_update_needed()
+
+    async def _start_instant_worker(self, worker: IWorker):
+        """Start an instant worker in the instant lane"""
+        try:
+            logger.info(f"Starting instant worker: {worker.description}")
+            worker.status = WorkerStatus.RUNNING
+            worker.signals.started.emit()
+            # Reflect move from queue->running immediately
+            self.on_task_list_changed.emit()
+            self._mark_ui_update_needed()
+
+            await worker.run()
+
+            # Only update status if not already canceled
+            if worker.status != WorkerStatus.CANCELLING:
+                worker.status = WorkerStatus.FINISHED
+
+        except Exception as e:
+            logger.error(f"Exception in _start_instant_worker for {worker.description}")
+            logger.exception(e)
+            worker.status = WorkerStatus.ERROR
+            worker.signals.error.emit(e)
+
     def get_worker(self, task_id):
-        return self.running_tasks.get(task_id, None)
+        # Check standard lane first
+        worker = self.running_tasks.get(task_id, None)
+        if worker:
+            return worker
+        # Check instant lane
+        if self.running_instant_task and self.running_instant_task.id == task_id:
+            return self.running_instant_task
+        return None
 
     def cancel_task(self, task_id):
         worker = self.get_worker(task_id)
@@ -216,21 +290,38 @@ class WorkerQueueManager(QObject):
             # Force an immediate UI update when cancelling
             self.on_task_list_changed.emit()
         else:
-            # Check if it's in the queue
+            # Check if it's in the standard queue
             for i, worker in enumerate(self.queued_tasks):
                 if worker.id == task_id:
                     worker.cancel()
                     self.queued_tasks.pop(i)
                     # Force an immediate UI update
                     self.on_task_list_changed.emit()
-                    break
+                    return
+            # Check if it's in the instant queue
+            for i, worker in enumerate(self.queued_instant_tasks):
+                if worker.id == task_id:
+                    worker.cancel()
+                    self.queued_instant_tasks.pop(i)
+                    # Force an immediate UI update
+                    self.on_task_list_changed.emit()
+                    return
 
     def cancel_queue(self):
+        # Cancel standard queue
         while self.queued_tasks:
             worker = self.queued_tasks.pop()
             worker.cancel()
         for task_id in list(self.running_tasks.keys()):
             self.cancel_task(task_id)
+        
+        # Cancel instant queue
+        while self.queued_instant_tasks:
+            worker = self.queued_instant_tasks.pop()
+            worker.cancel()
+        if self.running_instant_task:
+            self.cancel_task(self.running_instant_task.id)
+            
         self._mark_ui_update_needed()
 
     def on_task_error(self, task_id, e):

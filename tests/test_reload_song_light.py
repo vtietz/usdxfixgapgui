@@ -102,10 +102,15 @@ def test_reload_song_light_does_not_change_status(song_actions, mock_app_data):
 def test_reload_song_light_with_error_handling(song_actions):
     """
     Test that reload_song_light() handles service errors gracefully.
+    Now async - uses QTimer to wait for callback completion.
     """
+    import time
+    from PySide6.QtCore import QCoreApplication
+    
     test_song = Song("Z:/Songs/NonExistent/Title.txt")
     
-    with patch('actions.song_actions.SongService') as mock_service_class:
+    with patch('actions.song_actions.SongService') as mock_service_class, \
+         patch('actions.song_actions.run_async') as mock_run_async:
         mock_service = mock_service_class.return_value
         
         # Mock service to return a song with error
@@ -113,8 +118,21 @@ def test_reload_song_light_with_error_handling(song_actions):
         error_song.set_error("File not found: Z:/Songs/NonExistent/Title.txt")
         mock_service.load_song_metadata_only = AsyncMock(return_value=error_song)
         
+        # Mock run_async to execute callback immediately (simulating async completion)
+        def fake_run_async(coro, callback=None):
+            if callback:
+                # Simulate async execution completing and calling callback
+                import asyncio
+                result = asyncio.run(coro)
+                callback(result)
+        
+        mock_run_async.side_effect = fake_run_async
+        
         # Should not raise exception
         song_actions.reload_song_light(specific_song=test_song)
+        
+        # Process events to allow callback to execute
+        QCoreApplication.processEvents()
         
         # Verify error was propagated
         assert test_song.status_text == "File not found: Z:/Songs/NonExistent/Title.txt"

@@ -203,11 +203,26 @@ class MediaPlayerComponent(QWidget):
             self.update_player_files()
             return
 
-        if not song.notes or not WaveformPathService.waveforms_exists(song, self._data.tmp_path):
-            self._actions.reload_song(song)
-
+        # Update UI immediately for instant feedback
         self.update_ui()
         self.update_player_files()
+
+        # Defer async operations slightly to let UI render selection first
+        # This eliminates any perceived lag from event loop contention
+        from PySide6.QtCore import QTimer
+        
+        # Check if we need to load data (async, non-blocking)
+        if not song.notes:
+            # Song needs metadata reload - use light reload to avoid status changes
+            # Defer by 0ms to let UI render first
+            QTimer.singleShot(0, lambda: self._actions.reload_song_light(song))
+        
+        # Create waveforms for selected song if missing (instant task, runs immediately in parallel)
+        if not WaveformPathService.waveforms_exists(song, self._data.tmp_path):
+            from actions.audio_actions import AudioActions
+            audio_actions = AudioActions(self._data)
+            # Defer slightly to let UI render first, then start instant task
+            QTimer.singleShot(0, lambda: audio_actions._create_waveforms(song, overwrite=False, use_queue=True))
 
     def on_song_updated(self, updated_song: Song):
         """Handle when the current song data is updated

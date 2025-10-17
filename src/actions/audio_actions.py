@@ -89,10 +89,9 @@ class AudioActions(BaseActions):
             # Don't trigger reload - missing audio file is a data issue, not a loading issue
             return
 
-        # Check if notes are loaded before creating waveforms
-        if not hasattr(song, 'notes') or not song.notes:
-            logger.warning(f"Loading notes for {song}...")
-            self.song_actions.load_notes_for_song(song)
+        # Notes will be loaded asynchronously by reload_song_light if needed.
+        # Don't block waveform creation waiting for notes - waveforms can be drawn without note overlays.
+        # If notes are missing, they'll be added later after async reload completes.
 
         # Use the WaveformPathService to get all paths
         paths = WaveformPathService.get_paths(song, self.data.tmp_path)
@@ -130,10 +129,11 @@ class AudioActions(BaseActions):
                 self.config,
                 audio_file,
                 waveform_file,
+                is_instant=True  # Mark as instant task - runs in parallel with standard tasks
             )
             worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
             worker.signals.finished.connect(lambda song=song: self.data.songs.updated.emit(song))
-            self.worker_queue.add_task(worker, True)
+            self.worker_queue.add_task(worker, True)  # start_now=True for instant tasks
         else:
             # New behavior: run in background thread without queueing (for selected song only)
             logger.debug(f"Creating waveform directly (non-queued) for {song}")
