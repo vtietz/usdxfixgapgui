@@ -73,21 +73,9 @@ class Config(QObject):
         }
 
         self._config['Processing'] = {
-            'method': 'mdx',  # Options: mdx (recommended), spleeter (legacy), hq_segment (legacy)
+            'method': 'mdx',  # Only MDX is supported
             'normalization_level': '-20',  # Default normalization level is -20 dB
             'auto_normalize': 'false'      # Default is not to auto-normalize
-        }
-
-        # Spleeter-specific settings
-        self._config['spleeter'] = {
-            'silence_detect_params': 'silencedetect=noise=-30dB:d=0.2'
-        }
-
-        # HQ Segment settings (windowed Spleeter separation)
-        self._config['hq_segment'] = {
-            'hq_preview_pre_ms': '3000',
-            'hq_preview_post_ms': '9000',
-            'silence_detect_params': '-30dB d=0.3'
         }
 
         # MDX settings (Demucs-based with expanding search and GPU optimizations)
@@ -179,14 +167,6 @@ class Config(QObject):
         self.normalization_level = self._config.getint('Processing', 'normalization_level')
         self.auto_normalize = self._config.getboolean('Processing', 'auto_normalize')
 
-        # Spleeter settings
-        self.spleeter_silence_detect_params = self._config.get('spleeter', 'silence_detect_params')
-
-        # HQ Segment settings
-        self.hq_preview_pre_ms = self._config.getint('hq_segment', 'hq_preview_pre_ms')
-        self.hq_preview_post_ms = self._config.getint('hq_segment', 'hq_preview_post_ms')
-        self.hq_silence_detect_params = self._config.get('hq_segment', 'silence_detect_params')
-
         # MDX settings
         if self._config.has_section('mdx'):
             self.mdx_chunk_duration_ms = self._config.getint('mdx', 'chunk_duration_ms')
@@ -229,9 +209,6 @@ class Config(QObject):
         self.window_x = self._config.getint('Window', 'x', fallback=-1)
         self.window_y = self._config.getint('Window', 'y', fallback=-1)
         self.window_maximized = self._config.getboolean('Window', 'maximized', fallback=False)
-
-        # Backward compatibility - set spleeter flag based on method
-        self.spleeter = (self.method == 'spleeter')
 
         logger.debug(f"Configuration loaded: {self.config_path}")
 

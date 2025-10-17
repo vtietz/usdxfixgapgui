@@ -156,22 +156,35 @@ The run script automatically handles environment setup and dependencies!
 <details>
 <summary>Click to expand manual installation steps</summary>
 
-1. **Create conda environment:**
+1. **Create virtual environment:**
    ```bash
-   conda create -n usdxfixgapgui python=3.8
-   conda activate usdxfixgapgui
+   # Windows (prefer py launcher)
+   py -3.10 -m venv .venv
+   # Or fallback to:
+   python -m venv .venv
+   
+   # Linux/macOS
+   python3 -m venv .venv
    ```
 
 2. **Install dependencies:**
    ```bash
-   python -m pip install pip setuptools --upgrade
-   pip install -r requirements.txt
+   # Windows
+   .venv\Scripts\pip.exe install -r requirements.txt
+   
+   # Linux/macOS
+   .venv/bin/pip install -r requirements.txt
    ```
 
 3. **Run the application:**
    ```bash
+   # Windows
    cd src
-   python usdxfixgap.py
+   .venv\Scripts\python.exe usdxfixgap.py
+   
+   # Linux/macOS
+   cd src
+   .venv/bin/python usdxfixgap.py
    ```
 
 4. **(Optional) GPU Setup:**

@@ -2,13 +2,17 @@
 samples
 __pycache__
 pretrained_models
-spleeter-env
 dist/
 build/
 *.spec
 *.db
 data/
 *.log*
+
+# Virtual environments
+.venv/
+venv/
+env/
 
 # Config files (user-specific, auto-generated from defaults)
 config.ini

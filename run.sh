@@ -1,11 +1,13 @@
 #!/bin/bash
 
 # Configuration
-ENV_NAME="usdxfixgapgui"
-PYTHON_VERSION="3.8"
+VENV_DIR=".venv"
+PYTHON_VERSION="3.10"
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_PYTHON="$SCRIPT_DIR/$VENV_DIR/bin/python"
+VENV_PIP="$SCRIPT_DIR/$VENV_DIR/bin/pip"
 
 # Colors for output
 RED='\033[0;31m'
@@ -31,54 +33,48 @@ print_error() {
     echo -e "${RED}ERROR:${NC} $1"
 }
 
-# Check if conda is available
-if ! command -v conda &> /dev/null; then
-    print_error "conda is not available in PATH"
-    print_error "Please install Anaconda/Miniconda or add it to your PATH"
-    exit 1
-fi
-
-# Initialize conda for bash (required for conda activate to work in scripts)
-eval "$(conda shell.bash hook)"
-
-# Function to check if environment is active
-check_env_active() {
-    if [[ "$CONDA_DEFAULT_ENV" == "$ENV_NAME" ]]; then
-        return 0  # Environment is active
+# Bootstrap venv if missing
+if [[ ! -f "$VENV_PYTHON" ]]; then
+    print_info "Virtual environment not found. Creating at $VENV_DIR..."
+    
+    # Detect system Python
+    if command -v python3.10 &> /dev/null; then
+        SYS_PYTHON="python3.10"
+        print_info "Using Python 3.10"
+    elif command -v python3.8 &> /dev/null; then
+        SYS_PYTHON="python3.8"
+        print_info "Using Python 3.8"
+    elif command -v python3 &> /dev/null; then
+        SYS_PYTHON="python3"
+        print_info "Using system python3"
     else
-        return 1  # Environment is not active
+        print_error "No Python 3 installation found"
+        print_error "Please install Python 3.8+ from your package manager"
+        exit 1
     fi
-}
-
-# Check if environment is active
-if check_env_active; then
-    print_info "Environment $ENV_NAME is already active"
-else
-    # Check if environment exists
-    if conda info --envs | grep -q "^$ENV_NAME "; then
-        print_info "Activating environment $ENV_NAME..."
-        conda activate "$ENV_NAME"
-        if [[ $? -ne 0 ]]; then
-            print_error "Failed to activate conda environment"
-            exit 1
-        fi
-    else
-        print_info "Environment $ENV_NAME does not exist. Creating it..."
-        conda create -n "$ENV_NAME" python="$PYTHON_VERSION" -y
-        if [[ $? -ne 0 ]]; then
-            print_error "Failed to create conda environment"
-            exit 1
-        fi
-        
-        print_info "Installing requirements..."
-        conda activate "$ENV_NAME"
-        pip install -r "$SCRIPT_DIR/requirements.txt"
-        if [[ $? -ne 0 ]]; then
-            print_error "Failed to install requirements"
-            exit 1
-        fi
-        print_success "Environment created and requirements installed"
+    
+    # Create venv
+    $SYS_PYTHON -m venv "$SCRIPT_DIR/$VENV_DIR"
+    if [[ $? -ne 0 ]]; then
+        print_error "Failed to create virtual environment"
+        print_error "Make sure python3-venv is installed: sudo apt-get install python3-venv"
+        exit 1
     fi
+    
+    print_info "Upgrading pip..."
+    "$VENV_PYTHON" -m pip install --upgrade pip setuptools wheel
+    if [[ $? -ne 0 ]]; then
+        print_error "Failed to upgrade pip"
+        exit 1
+    fi
+    
+    print_info "Installing requirements..."
+    "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt"
+    if [[ $? -ne 0 ]]; then
+        print_error "Failed to install requirements"
+        exit 1
+    fi
+    print_success "Virtual environment created successfully"
 fi
 
 # Handle different command shortcuts
@@ -112,12 +108,12 @@ case "$1" in
     "start")
         print_info "Starting USDXFixGap application..."
         cd "$SCRIPT_DIR/src"
-        python usdxfixgap.py
+        "$VENV_PYTHON" usdxfixgap.py
         ;;
     "test")
         print_info "Running tests..."
         cd "$SCRIPT_DIR"
-        python -m pytest tests/ -v
+        "$VENV_PYTHON" -m pytest tests/ -v
         ;;
     "install")
         print_info "Installing/updating requirements..."
@@ -136,7 +132,7 @@ case "$1" in
         
         if [[ "$INSTALL_MODE" == "cpu" ]]; then
             print_warning "Manual Override: Installing CPU-only version as requested"
-            pip install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+            "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt" --upgrade
             echo ""
             print_success "Installation complete!"
             exit 0
@@ -151,7 +147,7 @@ case "$1" in
             else
                 print_info "CPU Mode: No NVIDIA GPU detected - installing CPU-only PyTorch"
                 print_info "Tip: If you have an NVIDIA GPU, use './run.sh install --gpu' to force GPU installation"
-                pip install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+                "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt" --upgrade
                 echo ""
                 print_success "Installation complete!"
                 exit 0
@@ -162,22 +158,22 @@ case "$1" in
         print_info "This will enable GPU acceleration for faster processing"
         
         # Install base requirements first (without PyTorch)
-        pip install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+        "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt" --upgrade
         
         # Uninstall any existing PyTorch (CPU or CUDA)
         echo ""
         print_info "Removing existing PyTorch installation..."
-        pip uninstall -y torch torchvision torchaudio 2>/dev/null || true
+        "$VENV_PIP" uninstall -y torch torchvision torchaudio 2>/dev/null || true
         
         # Install PyTorch with CUDA 12.1 support
         echo ""
         print_info "Installing PyTorch with CUDA 12.1 support..."
-        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+        "$VENV_PIP" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
         
         # Verify CUDA availability
         echo ""
         print_info "Verifying GPU acceleration..."
-        python -c "import torch; print('GPU Available:', torch.cuda.is_available()); cuda_available = torch.cuda.is_available(); print('GPU:', torch.cuda.get_device_name(0) if cuda_available else 'N/A')"
+        "$VENV_PYTHON" -c "import torch; print('GPU Available:', torch.cuda.is_available()); cuda_available = torch.cuda.is_available(); print('GPU:', torch.cuda.get_device_name(0) if cuda_available else 'N/A')"
         
         echo ""
         print_success "Installation complete!"
@@ -199,22 +195,26 @@ case "$1" in
         ;;
     "shell")
         print_info "Starting Python interactive shell..."
-        python
+        print_info "Virtual environment: $VENV_DIR"
+        "$VENV_PYTHON"
         ;;
     "info")
         echo "Environment Information:"
         echo "========================"
-        conda info
+        echo "Virtual Environment: $VENV_DIR"
         echo ""
         echo "Python Version:"
-        python --version
+        "$VENV_PYTHON" --version
+        echo ""
+        echo "Python Location:"
+        which "$VENV_PYTHON"
         echo ""
         echo "Installed Packages:"
-        pip list
+        "$VENV_PIP" list
         ;;
     "install-dev")
         print_info "Installing development dependencies..."
-        pip install -r "$SCRIPT_DIR/requirements-dev.txt" --upgrade
+        "$VENV_PIP" install -r "$SCRIPT_DIR/requirements-dev.txt" --upgrade
         echo ""
         print_success "Development dependencies installed!"
         echo "You can now use:"
@@ -237,7 +237,7 @@ case "$1" in
         
         # Pass all arguments to analyze script
         shift  # Remove first argument (analyze)
-        python scripts/analyze_code.py "$ANALYZE_MODE" "${@:2}"
+        "$VENV_PYTHON" scripts/analyze_code.py "$ANALYZE_MODE" "${@:2}"
         ;;
     "cleanup")
         print_info "Running code cleanup..."
@@ -255,7 +255,7 @@ case "$1" in
         
         # Pass all arguments to cleanup script
         shift  # Remove first argument (cleanup)
-        python scripts/cleanup_code.py "$CLEANUP_MODE" "${@:2}"
+        "$VENV_PYTHON" scripts/cleanup_code.py "$CLEANUP_MODE" "${@:2}"
         ;;
     *)
         print_info "Executing: $*"

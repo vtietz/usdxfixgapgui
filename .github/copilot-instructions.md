@@ -38,7 +38,7 @@ class MyActions(BaseActions):- **Maintain a concise changelog document after eac
 
 
 
-# Signal flow - ALWAYS use Songs collectionUSDXFixGap is a Python GUI application built with PySide6 for audio processing and gap detection in karaoke songs. It uses AI-powered vocal separation (Spleeter) to detect timing gaps in UltraStar Deluxe song files.
+# Signal flow - ALWAYS use Songs collectionUSDXFixGap is a Python GUI application built with PySide6 for audio processing and gap detection in karaoke songs. It uses AI-powered vocal separation (Demucs MDX) to detect timing gaps in UltraStar Deluxe song files.
 
 self.data.songs.updated.emit(song)      # ✅ Model state changed
 
@@ -46,7 +46,7 @@ self.data.songs.listChanged.emit()     # ✅ List structure changed### **Technol
 
 self.song_updated.emit(song)           # ❌ NO - direct signals- **Python 3.8+** with **PySide6** (Qt for Python)
 
-- **Spleeter** for AI vocal separation, **ffmpeg** for audio processing
+- **Demucs** for AI vocal separation, **ffmpeg** for audio processing
 
 # Background tasks- **pytest** for testing, **PyInstaller** for builds
 
@@ -178,29 +178,36 @@ return result
 
 ### **Testing**
 
-**IMPORTANT: Always use the conda environment via run.bat**
+**IMPORTANT: Always use the project wrapper scripts**
 
-The project uses a conda environment for consistent dependencies. Never run tests or commands directly - always use `run.bat`:
+The project uses a local virtual environment (.venv) for consistent dependencies. Never run tests or commands directly - always use `run.bat` (Windows) or `run.sh` (Linux/macOS).
+
+**⚠️ Windows PowerShell Note:** Use `.\run.bat` syntax in PowerShell (the `.\` prefix is required)
 
 ```bash
-# ✅ CORRECT - Run tests using conda environment
-run.bat test              # Runs pytest with proper environment
+# ✅ CORRECT - Run tests using wrapper
+.\run.bat test            # Windows PowerShell (note the .\ prefix)
+run.bat test              # Windows cmd
+./run.sh test             # Linux/macOS
 
 # ❌ WRONG - Don't run tests directly
 python -m pytest tests/ -v  # May fail due to missing dependencies
 pytest tests/ -v            # May use wrong Python version
 
-# Other useful run.bat commands:
-run.bat start             # Start the application
-run.bat install           # Install/update dependencies
-run.bat clean             # Clean cache and temporary files
-run.bat shell             # Interactive Python shell
-run.bat info              # Show environment info
+# Other useful wrapper commands (Windows PowerShell examples):
+.\run.bat start           # Start the application
+.\run.bat install         # Install/update dependencies
+.\run.bat install --gpu   # Install with GPU/CUDA support
+.\run.bat clean           # Clean cache and temporary files
+.\run.bat shell           # Interactive Python shell
+.\run.bat info            # Show environment info
+.\run.bat analyze         # Code quality analysis
+.\run.bat cleanup         # Code cleanup tools
 ```
 
 **Test patterns:**
 - Use existing test patterns from `tests/` directory
-- Tests auto-import from `src/` when run via `run.bat test`
+- Tests auto-import from `src/` when run via wrappers
 - Mock services with `patch('actions.module.Service')`
 - Follow pytest conventions for test naming: `test_*.py` and `test_*()` functions
 
@@ -223,7 +230,7 @@ run.bat info              # Show environment info
 **Windows:**
 ```bash
 # ✅ Initial setup (run.bat handles environment creation automatically)
-run.bat install           # Creates conda env and installs dependencies
+run.bat install           # Creates .venv and installs dependencies
 
 # ✅ Run application
 run.bat start
@@ -235,10 +242,22 @@ run.bat test
 build.bat  # PyInstaller with assets
 ```
 
+**Linux/macOS:**
+```bash
+# ✅ Initial setup (run.sh handles environment creation automatically)
+./run.sh install          # Creates .venv and installs dependencies
+
+# ✅ Run application
+./run.sh start
+
+# ✅ Run tests
+./run.sh test
+```
+
 **Requirements:**
-- Anaconda or Miniconda installed and in PATH
+- Python 3.8+ installed (python3 on Linux/macOS, python or py launcher on Windows)
 - ffmpeg on PATH (for audio processing)
-- Python 3.8+ (managed by conda environment)
+- Virtual environment automatically created by wrapper scripts in `.venv`
 
 ## **Common Gotchas**
 

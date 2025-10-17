@@ -2,54 +2,64 @@
 setlocal EnableDelayedExpansion
 
 :: Configuration
-set ENV_NAME=usdxfixgapgui
-set PYTHON_VERSION=3.8
+set VENV_DIR=.venv
+set PYTHON_VERSION=3.10
 
 :: Get the directory where this batch file is located
 set "SCRIPT_DIR=%~dp0"
+set "VENV_PYTHON=%SCRIPT_DIR%%VENV_DIR%\Scripts\python.exe"
+set "VENV_PIP=%SCRIPT_DIR%%VENV_DIR%\Scripts\pip.exe"
 
-:: Check if conda is available
-where conda >nul 2>nul
-if %errorlevel% neq 0 (
-    echo ERROR: conda is not available in PATH
-    echo Please install Anaconda/Miniconda or add it to your PATH
-    exit /b 1
-)
-
-:: Initialize conda for batch
-call conda.bat activate base >nul 2>nul
-
-:: Function to check if environment is active
-call :check_env_active
-if !ENV_ACTIVE! equ 1 (
-    echo Environment %ENV_NAME% is already active
-    goto :run_command
-)
-
-:: Check if environment exists
-conda info --envs | findstr /C:"%ENV_NAME%" >nul
-if %errorlevel% neq 0 (
-    echo Environment %ENV_NAME% does not exist. Creating it...
-    conda create -n %ENV_NAME% python=%PYTHON_VERSION% -y
+:: Bootstrap venv if missing
+if not exist "%VENV_PYTHON%" (
+    echo Virtual environment not found. Creating at %VENV_DIR%...
+    
+    :: Detect system Python (prefer py launcher with version selection)
+    set "SYS_PYTHON="
+    py -3.10 --version >nul 2>nul
+    if !errorlevel! equ 0 (
+        set "SYS_PYTHON=py -3.10"
+        echo Using Python 3.10 via py launcher
+    ) else (
+        py -3.8 --version >nul 2>nul
+        if !errorlevel! equ 0 (
+            set "SYS_PYTHON=py -3.8"
+            echo Using Python 3.8 via py launcher
+        ) else (
+            where python >nul 2>nul
+            if !errorlevel! equ 0 (
+                set "SYS_PYTHON=python"
+                echo Using system python
+            ) else (
+                echo ERROR: No Python installation found
+                echo Please install Python 3.8+ from https://www.python.org/
+                exit /b 1
+            )
+        )
+    )
+    
+    :: Create venv
+    !SYS_PYTHON! -m venv "%SCRIPT_DIR%%VENV_DIR%"
     if !errorlevel! neq 0 (
-        echo ERROR: Failed to create conda environment
+        echo ERROR: Failed to create virtual environment
+        echo Make sure Python venv module is available
+        exit /b 1
+    )
+    
+    echo Upgrading pip...
+    "%VENV_PYTHON%" -m pip install --upgrade pip setuptools wheel
+    if !errorlevel! neq 0 (
+        echo ERROR: Failed to upgrade pip
         exit /b 1
     )
     
     echo Installing requirements...
-    call conda.bat activate %ENV_NAME%
-    pip install -r "%SCRIPT_DIR%requirements.txt"
+    "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt"
     if !errorlevel! neq 0 (
         echo ERROR: Failed to install requirements
         exit /b 1
     )
-) else (
-    echo Activating environment %ENV_NAME%...
-    call conda.bat activate %ENV_NAME%
-    if !errorlevel! neq 0 (
-        echo ERROR: Failed to activate environment
-        exit /b 1
-    )
+    echo Virtual environment created successfully
 )
 
 :run_command
@@ -83,14 +93,14 @@ if "%1"=="" (
 if /i "%1"=="start" (
     echo Starting USDXFixGap application...
     cd /d "%SCRIPT_DIR%src"
-    python usdxfixgap.py
+    "%VENV_PYTHON%" usdxfixgap.py
     goto :end
 )
 
 if /i "%1"=="test" (
     echo Running tests...
     cd /d "%SCRIPT_DIR%"
-    python -m pytest tests/ -v
+    "%VENV_PYTHON%" -m pytest tests/ -v
     goto :end
 )
 
@@ -109,7 +119,7 @@ if /i "%1"=="install" (
     
     if "!INSTALL_MODE!"=="cpu" (
         echo [Manual Override] Installing CPU-only version as requested
-        pip install -r "%SCRIPT_DIR%requirements.txt" --upgrade
+        "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt" --upgrade
         echo.
         echo Installation complete!
         goto :end
@@ -130,7 +140,7 @@ if /i "%1"=="install" (
     ) else (
         echo [CPU Mode] No NVIDIA GPU detected - installing CPU-only PyTorch
         echo Tip: If you have an NVIDIA GPU, use 'run.bat install --gpu' to force GPU installation
-        pip install -r "%SCRIPT_DIR%requirements.txt" --upgrade
+        "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt" --upgrade
         echo.
         echo Installation complete!
         goto :end
@@ -151,26 +161,29 @@ if /i "%1"=="clean" (
 
 if /i "%1"=="shell" (
     echo Starting Python interactive shell...
-    python
+    "%VENV_PYTHON%"
     goto :end
 )
 
 if /i "%1"=="info" (
     echo Environment Information:
     echo ========================
-    conda info
+    echo Virtual Environment: %VENV_DIR%
     echo.
     echo Python Version:
-    python --version
+    "%VENV_PYTHON%" --version
+    echo.
+    echo Python Location:
+    where "%VENV_PYTHON%"
     echo.
     echo Installed Packages:
-    pip list
+    "%VENV_PIP%" list
     goto :end
 )
 
 if /i "%1"=="install-dev" (
     echo Installing development dependencies...
-    pip install -r "%SCRIPT_DIR%requirements-dev.txt" --upgrade
+    "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements-dev.txt" --upgrade
     echo.
     echo Development dependencies installed!
     echo You can now use:
@@ -205,7 +218,7 @@ if /i "%1"=="analyze" (
         )
     )
     
-    python scripts\analyze_code.py !MODE! !EXTRA_ARGS!
+    "%VENV_PYTHON%" scripts\analyze_code.py !MODE! !EXTRA_ARGS!
     goto :end
 )
 
@@ -235,7 +248,7 @@ if /i "%1"=="cleanup" (
         )
     )
     
-    python scripts\cleanup_code.py !MODE! !EXTRA_ARGS!
+    "%VENV_PYTHON%" scripts\cleanup_code.py !MODE! !EXTRA_ARGS!
     goto :end
 )
 
@@ -253,33 +266,23 @@ exit /b %errorlevel%
 echo This will enable GPU acceleration for faster processing
 
 :: Install base requirements first (without PyTorch)
-pip install -r "%SCRIPT_DIR%requirements.txt" --upgrade
+"%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt" --upgrade
 
 :: Uninstall any existing PyTorch (CPU or CUDA)
 echo.
 echo Removing existing PyTorch installation...
-pip uninstall -y torch torchvision torchaudio 2>nul
+"%VENV_PIP%" uninstall -y torch torchvision torchaudio 2>nul
 
 :: Install PyTorch with CUDA 12.1 support
 echo.
 echo Installing PyTorch with CUDA 12.1 support...
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+"%VENV_PIP%" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 :: Verify CUDA availability
 echo.
 echo Verifying GPU acceleration...
-python -c "import torch; print('GPU Available:', torch.cuda.is_available()); cuda_available = torch.cuda.is_available(); print('GPU:', torch.cuda.get_device_name(0) if cuda_available else 'N/A')"
+"%VENV_PYTHON%" -c "import torch; print('GPU Available:', torch.cuda.is_available()); cuda_available = torch.cuda.is_available(); print('GPU:', torch.cuda.get_device_name(0) if cuda_available else 'N/A')"
 
 echo.
 echo Installation complete!
-goto :eof
-
-:: Function to check if conda environment is active
-:check_env_active
-set ENV_ACTIVE=0
-if not "%CONDA_DEFAULT_ENV%"=="" (
-    if "%CONDA_DEFAULT_ENV%"=="%ENV_NAME%" (
-        set ENV_ACTIVE=1
-    )
-)
 goto :eof

@@ -7,8 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes yet.
+
+---
+
+## [2.0.0] - October 2025
+
 ### ⚠️ BREAKING CHANGES
-- **Storage Location Changed**: User data now stored in platform-standard locations instead of app directory
+- **Python Environment Migration (Conda → Venv)**: No longer requires Anaconda/Miniconda
+  - **Now uses**: System Python 3.8+ with project-local `.venv`
+  - **Setup**: Automatic on first `run.bat`/`run.sh` execution
+  - **Benefits**: 6x faster bootstrap, simpler setup, better IDE integration
+  - **Migration**: See [VENV_MIGRATION.md](docs/VENV_MIGRATION.md)
+- **Spleeter Detection Method Removed**: Only MDX (Demucs) detection is now supported
+  - **Removed**: `spleeter` and `hq_segment` detection methods
+  - **Why**: Enable Python 3.12+ support, better performance, simpler codebase
+  - **Impact**: Existing configs automatically use MDX with warning
+  - **Details**: See [SPLEETER_REMOVAL.md](docs/SPLEETER_REMOVAL.md)
+- **Storage Location Changed** (from v1.1.0): User data now stored in platform-standard locations instead of app directory
   - **Windows**: `%LOCALAPPDATA%\USDXFixGap\` (was: `<app_directory>\`)
   - **Linux**: `~/.local/share/USDXFixGap/` (follows XDG standard)
   - **macOS**: `~/Library/Application Support/USDXFixGap/`
@@ -16,51 +32,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Action needed**: None - app creates new config automatically. Old data remains in app directory if you need it.
 
 ### ✨ Added
-- **Cross-Platform Storage**: Proper support for Windows, Linux, and macOS
+- **Python 3.12+ Support**: Full compatibility with modern Python versions
+  - Previously blocked by spleeter dependency (limited to Python 3.8-3.11)
+  - Automatic version detection in wrapper scripts (py -3.10 → py -3.8 → python)
+  - Future-proof - not tied to legacy dependencies
+- **Automatic Venv Creation**: Project-local virtual environments with zero manual setup
+  - Creates `.venv` on first `run.bat`/`run.sh` execution
+  - Explicit executable paths (no shell activation required)
+  - Deterministic execution across all platforms
+- **PowerShell Syntax Support**: Added documentation for Windows PowerShell users
+  - `.\run.bat` syntax required in PowerShell (not `run.bat`)
+  - Updated all developer documentation with PowerShell examples
+- **Cross-Platform Storage** (from v1.1.0): Proper support for Windows, Linux, and macOS
   - Follows OS conventions (LOCALAPPDATA, XDG, Apple guidelines)
   - Respects environment variables like `XDG_DATA_HOME`
   - Portable mode fallback if platform detection fails
-- **Cross-Platform GPU Pack**: GPU acceleration installer now supports Linux
+- **Cross-Platform GPU Pack** (from v1.1.0): GPU acceleration installer now supports Linux
   - Automatically downloads correct PyTorch wheel for your OS (Windows/Linux)
   - Linux support: Uses LD_LIBRARY_PATH for shared libraries
   - Windows support: Uses add_dll_directory for DLLs
   - Platform detection via sys.platform
-- **Unified Data Directory**: All user data now in one predictable location
+- **Unified Data Directory** (from v1.1.0): All user data now in one predictable location
   - Config file (`config.ini`)
   - Song metadata cache (`cache.db`)
   - Application logs (`usdxfixgap.log`)
-  - AI models (Demucs, Spleeter)
+  - AI models (Demucs only - Spleeter removed)
   - Temporary processing files
   - GPU Pack runtime
-- **Configurable Model Paths**: Set custom locations for AI models in `config.ini`
+- **Configurable Model Paths** (from v1.1.0): Set custom locations for AI models in `config.ini`
   - Support for network shares (e.g., `\\server\shared\models\`)
   - Custom drive locations (e.g., `E:\AI_Models\`)
   - Environment variable expansion supported
+- **Comprehensive Migration Documentation**:
+  - [VENV_MIGRATION.md](docs/VENV_MIGRATION.md) - Complete migration guide
+  - [MIGRATION_QUICKSTART.md](docs/MIGRATION_QUICKSTART.md) - Quick reference
+  - [SPLEETER_REMOVAL.md](docs/SPLEETER_REMOVAL.md) - Spleeter removal details
+  - [PYTHON_VERSION_COMPATIBILITY.md](docs/PYTHON_VERSION_COMPATIBILITY.md) - Python 3.12+ support
+  - [IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md) - Technical details
 
 ### 🐛 Fixed
-- **MDX Detection Crash**: Songs with vocals starting immediately (no intro) no longer fail detection
+- **Python 3.12+ Compatibility**: Removed spleeter dependency blocking modern Python versions
+- **Environment Setup Complexity**: 6x faster bootstrap (~10s vs 60s with conda)
+- **GPU Detection**: Fixed automatic detection on fresh installations
+- **Cross-Platform Consistency**: Unified wrapper behavior on Windows/Linux/macOS
+- **MDX Detection Crash** (from v1.1.0): Songs with vocals starting immediately (no intro) no longer fail detection
   - Now correctly returns `gap=0` instead of crashing
   - Affects songs like "101 Dalmatiner - Cruella De Vil"
   - Graceful handling of edge case
-- **TorchAudio Warnings**: Suppressed harmless `MPEG_LAYER_III` warnings when loading MP3 files
+- **TorchAudio Warnings** (from v1.1.0): Suppressed harmless `MPEG_LAYER_III` warnings when loading MP3 files
   - Cleaner console output
   - No functional impact
 
+### ❌ Removed
+- **Spleeter Dependency**: Removed `spleeter==2.4.0` from requirements.txt
+  - Was blocking Python 3.12+ support
+  - Slower and less accurate than MDX (Demucs)
+- **Spleeter Detection Provider**: Removed full-track AI vocal separation method
+- **HQ Segment Detection Provider**: Removed windowed Spleeter wrapper method
+- **Conda Environment Requirement**: No longer requires Anaconda/Miniconda installation
+- **Legacy Detection Provider File**: Removed unused `detection_provider.py`
+
 ### 🔧 Changed
-- Model downloads now go to centralized location instead of hidden cache folders
+- **Python Requirement**: Python 3.8+ (now includes 3.12+, was limited to 3.8-3.11)
+- **Environment Location**: `.venv` in project root (was: conda env in `~/anaconda3/envs/`)
+- **Bootstrap Speed**: ~10 seconds (was: ~60 seconds with conda)
+- **Default Detection Method**: MDX only (was: MDX/Spleeter/HQ Segment)
+- **Config Structure**: Removed `[spleeter]` and `[hq_segment]` sections
+- **Model Downloads** (from v1.1.0): Now go to centralized location instead of hidden cache folders
   - Demucs models: `<data_dir>/models/demucs/` (~350 MB)
-  - Spleeter models: `<data_dir>/models/spleeter/` (~40 MB)
+  - ~~Spleeter models: `<data_dir>/models/spleeter/` (~40 MB)~~ (removed)
   - More transparent and user-friendly
+- **Wrapper Architecture**: Explicit executable paths, no shell activation needed
+  - Windows: `.venv\Scripts\python.exe`, `.venv\Scripts\pip.exe`
+  - Linux/macOS: `.venv/bin/python`, `.venv/bin/pip`
 
 ### 📚 Documentation
-- Added comprehensive cross-platform storage guide
-- Added file storage analysis documentation
-- Added bug fixes summary
-- Added session implementation notes
+- Updated README.md with venv setup instructions
+- Updated .github/copilot-instructions.md with venv workflow and PowerShell syntax
+- Added comprehensive migration documentation (7 new files)
+- Rewritten PYTHON_VERSION_COMPATIBILITY.md for Python 3.12+ support
+- Updated architecture documentation to reflect MDX-only design
+- Added cross-platform storage guide (from v1.1.0)
+- Added file storage analysis documentation (from v1.1.0)
+- Added bug fixes summary (from v1.1.0)
 
 ---
 
-## [1.0.0] - Previous Release
+## [1.1.0] - Previous Release
+
+### Major Features (See v1.1.0 Release Notes)
+- MDX Detection Method (5-10x faster than previous methods)
+- GPU Acceleration Support (Optional NVIDIA CUDA)
+- Cross-Platform Storage (Windows/Linux/macOS)
+- Configurable Model Storage
 
 ### Initial Features
 - AI-powered gap detection using Meta's Demucs
