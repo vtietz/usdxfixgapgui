@@ -1,6 +1,6 @@
 """Integration-light tests for GapActions._on_detect_gap_finished completion handler."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from actions.gap_actions import GapActions
 from model.gap_info import GapInfoStatus
@@ -37,7 +37,7 @@ class TestDetectGapFinished:
         app_data.config.auto_normalize = True
 
         with patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('actions.gap_actions.GapInfoService.save') as mock_gap_service_save, \
+             patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_gap_service_save, \
              patch('actions.gap_actions.AudioActions') as mock_audio_actions_class:
 
             # Mock AudioActions instance

@@ -308,12 +308,13 @@ class SongListView(QTableView):
         return needs_load
 
     def _reload_songs_in_background(self, songs):
-        """Trigger reload of songs in the background."""
-        logger.debug(f"Triggering background reload for {len(songs)} songs")
+        """Trigger light reload of songs for viewport lazy-loading.
+        Uses metadata-only reload that does NOT change status or queue workers."""
+        logger.debug(f"Triggering light reload for {len(songs)} songs in viewport")
         for song in songs:
-            logger.debug(f"  - Reloading: {song.title} by {song.artist} (path: {song.path})")
-            # Use the actions to reload the song
-            self.ui_actions.reload_song(specific_song=song)
+            logger.debug(f"  - Light-reloading: {song.title or song.path}")
+            # Use light reload instead of full reload to avoid waveform generation
+            self.ui_actions.reload_song_light(specific_song=song)
 
     def reset_viewport_loading(self):
         """Reset viewport loading state (call when data changes)."""

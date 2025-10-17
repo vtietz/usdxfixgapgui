@@ -1,6 +1,6 @@
 """Unit tests for GapActions.get_notes_overlap orchestration."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from actions.gap_actions import GapActions
 
@@ -20,7 +20,7 @@ class TestGetNotesOverlap:
         # Mock the utils.usdx.get_notes_overlap function to return a specific value
         with patch('actions.gap_actions.usdx.get_notes_overlap', return_value=123) as mock_overlap, \
              patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('actions.gap_actions.GapInfoService.save') as mock_service_save:
+             patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_service_save:
 
             # Create GapActions instance
             gap_actions = GapActions(app_data)

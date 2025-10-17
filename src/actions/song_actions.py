@@ -103,6 +103,64 @@ class SongActions(BaseActions):
                 logger.exception(f"Error setting up song reload: {e}")
                 self.data.songs.updated.emit(song)
 
+    def reload_song_light(self, specific_song=None):
+        """
+        Light reload: loads only metadata (USDX tags and notes) without gap_info.
+        Does NOT change song.status, does NOT queue workers, does NOT create waveforms.
+        Used for viewport lazy-loading to avoid triggering heavy processing.
+        
+        If specific_song is provided, only loads that song.
+        Otherwise loads all selected songs.
+        """
+        # Resolve target songs
+        songs_to_load = [specific_song] if specific_song else self.data.selected_songs
+
+        if not songs_to_load:
+            logger.debug("No songs to light-reload.")
+            return
+
+        logger.debug(f"Light-reloading {len(songs_to_load)} songs (metadata only).")
+
+        for song in songs_to_load:
+            # Skip if already has data loaded (title, artist, notes)
+            if song.title and song.artist and song.notes:
+                logger.debug(f"Skip light-reload for already loaded song: {song.title}")
+                continue
+
+            logger.debug(f"Light-reloading metadata for {song.txt_file}")
+            try:
+                # Use metadata-only service (async in sync context via run_sync)
+                song_service = SongService()
+                reloaded_song = run_sync(song_service.load_song_metadata_only(song.txt_file))
+
+                if reloaded_song and reloaded_song.status != SongStatus.ERROR:
+                    # Update the existing song object with metadata
+                    song.title = reloaded_song.title
+                    song.artist = reloaded_song.artist
+                    song.audio = reloaded_song.audio
+                    song.gap = reloaded_song.gap
+                    song.bpm = reloaded_song.bpm
+                    song.start = reloaded_song.start
+                    song.is_relative = reloaded_song.is_relative
+                    song.notes = reloaded_song.notes
+                    song.audio_file = reloaded_song.audio_file
+                    song.duration_ms = reloaded_song.duration_ms
+                    
+                    # DO NOT set gap_info - keeps status unchanged
+                    # DO NOT change status - remains NOT_PROCESSED
+                    
+                    logger.debug(f"Light-reload complete for {song.title}, status unchanged: {song.status}")
+                    self.data.songs.updated.emit(song)
+                else:
+                    if reloaded_song and reloaded_song.status == SongStatus.ERROR:
+                        song.set_error(reloaded_song.error_message)
+                        self.data.songs.updated.emit(song)
+
+            except Exception as e:
+                song.set_error(str(e))
+                logger.exception(f"Error during light reload: {e}")
+                self.data.songs.updated.emit(song)
+
     def load_notes_for_song(self, song: Song):
         """Load just the notes for a song without fully reloading it.
         Also compute per-note start/end/duration in milliseconds so waveform rendering works.
