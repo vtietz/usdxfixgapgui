@@ -1,4 +1,5 @@
 import logging
+import os
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Signal, Qt
 
@@ -219,6 +220,9 @@ class MediaPlayerComponent(QWidget):
         
         # Create waveforms for selected song if missing (instant task, runs immediately in parallel)
         if not WaveformPathService.waveforms_exists(song, self._data.tmp_path):
+            # Set placeholder immediately to show user feedback
+            self.waveform_widget.set_placeholder("Loading waveform…")
+            
             from actions.audio_actions import AudioActions
             audio_actions = AudioActions(self._data)
             # Defer slightly to let UI render first, then start instant task
@@ -249,6 +253,7 @@ class MediaPlayerComponent(QWidget):
             logger.debug("No song or song is processing - not loading media")
             self.player.load_media(None)
             self.waveform_widget.load_waveform(None)
+            self.waveform_widget.clear_placeholder()
             return
 
         # Check if song has notes attribute but don't prevent playback
@@ -261,17 +266,53 @@ class MediaPlayerComponent(QWidget):
             logger.error(f"Could not get waveform paths for song: {song.title}")
             self.player.load_media(None)
             self.waveform_widget.load_waveform(None)
+            self.waveform_widget.clear_placeholder()
             return
 
         logger.debug(f"Updating player files. Audio status: {self.player.get_audio_status()}")
-        if self.player.get_audio_status() == AudioFileStatus.AUDIO:
+        
+        # Determine which files to load based on audio mode
+        audio_status = self.player.get_audio_status()
+        
+        if audio_status == AudioFileStatus.AUDIO:
             logger.debug(f"Loading audio file: {paths['audio_file']}")
             self.player.load_media(paths['audio_file'])
-            self.waveform_widget.load_waveform(paths['audio_waveform_file'])
-        else:
-            logger.debug(f"Loading vocals file: {paths['vocals_file']}")
-            self.player.load_media(paths['vocals_file'])
-            self.waveform_widget.load_waveform(paths['vocals_waveform_file'])
+            
+            # Check if audio waveform exists
+            if os.path.exists(paths['audio_waveform_file']):
+                self.waveform_widget.load_waveform(paths['audio_waveform_file'])
+            else:
+                self.waveform_widget.load_waveform(None)
+                self.waveform_widget.set_placeholder("Loading waveform…")
+            
+            # Clear vocals button tooltip in audio mode
+            self.vocals_btn.setToolTip("")
+            
+        else:  # VOCALS mode
+            # Check if vocals file exists
+            vocals_file_exists = os.path.exists(paths['vocals_file'])
+            
+            if not vocals_file_exists:
+                # Vocals not extracted yet
+                logger.debug("Vocals file does not exist")
+                self.player.load_media(None)
+                self.waveform_widget.load_waveform(None)
+                self.waveform_widget.set_placeholder("Run gap detection to generate the vocals waveform.")
+                self.vocals_btn.setToolTip("Run gap detection to extract vocals and generate a waveform.")
+            else:
+                # Vocals file exists, load it
+                logger.debug(f"Loading vocals file: {paths['vocals_file']}")
+                self.player.load_media(paths['vocals_file'])
+                
+                # Check if vocals waveform exists
+                if os.path.exists(paths['vocals_waveform_file']):
+                    self.waveform_widget.load_waveform(paths['vocals_waveform_file'])
+                else:
+                    self.waveform_widget.load_waveform(None)
+                    self.waveform_widget.set_placeholder("Loading waveform…")
+                
+                # Clear tooltip when vocals exist
+                self.vocals_btn.setToolTip("")
 
     def on_selected_songs_changed(self, songs: list):
         """Disable player when multiple songs are selected"""
