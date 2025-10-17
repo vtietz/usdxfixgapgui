@@ -3,12 +3,29 @@ import time
 import subprocess
 import threading
 import platform  # Import platform module to detect the OS
+import shutil   # For checking command availability
 
 logger = logging.getLogger(__name__)
 
 def run_cancellable_process(command, check_cancellation=None):
+    """Run an external process that can be cancelled.
+
+    Provides a clearer error message when the underlying executable is not
+    found (e.g. 'spleeter'), which otherwise results in a confusing
+    FileNotFoundError that might be mistaken for a missing audio file.
+    """
     logger.debug("Running command: %s", ' '.join(command))
-    
+
+    if not command or not isinstance(command, (list, tuple)):
+        raise ValueError("command must be a non-empty list/tuple")
+
+    exe = command[0]
+    # On Windows, PATHEXT allows running without extension, shutil.which handles that.
+    if shutil.which(exe) is None:
+        raise FileNotFoundError(
+            f"Executable not found: '{exe}'. Is the dependency installed and on PATH?"
+        )
+
     # Set up the process creation parameters
     popen_kwargs = {
         'stdout': subprocess.PIPE,
@@ -17,11 +34,11 @@ def run_cancellable_process(command, check_cancellation=None):
         'encoding': 'utf-8',  # Specify UTF-8 encoding
         'errors': 'ignore'    # Ignore decoding errors
     }
-    
+
     # Only add creationflags on Windows
     if platform.system() == 'Windows':
         popen_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW  # Suppress cmd window
-    
+
     # Create the process with the appropriate arguments
     process = subprocess.Popen(command, **popen_kwargs)
 
@@ -54,7 +71,7 @@ def run_cancellable_process(command, check_cancellation=None):
                 process.stderr.close()
             # Wait for process termination
             try:
-                process.wait(timeout=1.0) 
+                process.wait(timeout=1.0)
             except subprocess.TimeoutExpired:
                 logger.warning("Process did not terminate gracefully after kill.")
             raise Exception("Process cancelled.")

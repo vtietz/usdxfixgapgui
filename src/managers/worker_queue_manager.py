@@ -1,5 +1,5 @@
 import logging
-from PySide6.QtCore import QObject, Signal as pyqtSignal, QTimer
+from PySide6.QtCore import QObject, Signal as pyqtSignal
 from PySide6.QtWidgets import QApplication
 from enum import Enum
 import threading
@@ -61,7 +61,7 @@ class IWorker(QObject):
     def status(self):
         """The current status of the worker task."""
         return self._status
-    
+
     @status.setter
     def status(self, value):
         self._status = value
@@ -87,13 +87,13 @@ class IWorker(QObject):
     def is_cancelled(self):
         """Check if the worker's task has been cancelled."""
         return self._is_canceled
-    
+
     # New method to let workers handle completion logic
     def complete(self):
         """Mark the worker as complete - this should be called by the worker itself"""
         self.status = WorkerStatus.FINISHED
         # Base implementation doesn't emit any signals - each worker handles this
-    
+
 class WorkerQueueManager(QObject):
     task_id_counter = 0
     on_task_list_changed = pyqtSignal()
@@ -114,7 +114,7 @@ class WorkerQueueManager(QObject):
         """Background thread that periodically signals UI updates"""
         while self._heartbeat_active:
             time.sleep(0.1)  # Check more frequently, but update UI less frequently
-            
+
             # Only update the UI if needed and if enough time has passed since the last update
             current_time = time.time()
             if self._ui_update_pending and (current_time - self._last_ui_update >= self._ui_update_interval):
@@ -127,7 +127,7 @@ class WorkerQueueManager(QObject):
     def _mark_ui_update_needed(self):
         """Mark that the UI needs to be updated on the next heartbeat"""
         self._ui_update_pending = True
-        
+
     def check_task_status(self):
         """Manually trigger UI updates when needed"""
         if self.running_tasks or self.queued_tasks:
@@ -135,21 +135,24 @@ class WorkerQueueManager(QObject):
 
     def add_task(self, worker: IWorker, start_now=False):
         worker.id = self.get_unique_task_id()
-        logger.info(f"Adding task: {worker.description}")
-        worker.signals.finished.connect(lambda: self.on_task_finished(worker.id))
-        worker.signals.error.connect(lambda e: self.on_task_error(worker.id, e))
-        worker.signals.canceled.connect(lambda: self.on_task_canceled(worker.id))
-        worker.signals.progress.connect(lambda: self.on_task_updated(worker.id))
-        
-        if start_now or not self.running_tasks:
-            logger.info(f"Scheduling task: {worker.description}")
-            run_async(self._start_worker(worker))
-        else:
-            logger.info(f"Queueing task: {worker.description}")
-            worker.status = WorkerStatus.WAITING
-            self.queued_tasks.append(worker)
-        
+        logger.info(f"Creating task: {worker.description}")
+        # Be tolerant to different signal signatures (e.g. DetectGapWorker.finished emits a result)
+        worker.signals.finished.connect(lambda *args, wid=worker.id: self.on_task_finished(wid))
+        worker.signals.error.connect(lambda e=None, wid=worker.id: self.on_task_error(wid, e))
+        worker.signals.canceled.connect(lambda *args, wid=worker.id: self.on_task_canceled(wid))
+        worker.signals.progress.connect(lambda *args, wid=worker.id: self.on_task_updated(wid))
+
+        # Always enqueue as WAITING so the Task Queue shows it immediately
+        worker.status = WorkerStatus.WAITING
+        self.queued_tasks.append(worker)
+
+        # Emit immediately so TaskQueueViewer updates right away, and also mark for coalesced refresh
+        self.on_task_list_changed.emit()
         self._mark_ui_update_needed()
+
+        # Start immediately if requested or if nothing is running
+        if start_now or not self.running_tasks:
+            self.start_next_task()
 
     def get_unique_task_id(self):
         WorkerQueueManager.task_id_counter += 1
@@ -161,13 +164,17 @@ class WorkerQueueManager(QObject):
             worker.status = WorkerStatus.RUNNING
             worker.signals.started.emit()
             self.running_tasks[worker.id] = worker
+            # Reflect move from queue->running immediately
+            self.on_task_list_changed.emit()
+            self._mark_ui_update_needed()
+
             await worker.run()
-            
+
             # Only update status if not already canceled
             if worker.status != WorkerStatus.CANCELLING:
                 worker.status = WorkerStatus.FINISHED
                 # We don't emit signals here anymore - each worker handles its own signals
-            
+
         except Exception as e:
             logger.error(f"Exception in _start_worker for {worker.description}")
             logger.exception(e)
@@ -186,7 +193,8 @@ class WorkerQueueManager(QObject):
         if self.queued_tasks and not self.running_tasks:
             # Start next task directly, no need for QTimer
             self.start_next_task()
-        # Mark for UI update instead of immediate update
+        # Emit immediately so the UI reflects removals promptly, and mark for coalesced updates
+        self.on_task_list_changed.emit()
         self._mark_ui_update_needed()
 
     def start_next_task(self):
@@ -194,6 +202,9 @@ class WorkerQueueManager(QObject):
             worker = self.queued_tasks.pop(0)
             logger.info(f"Starting task: {worker.description}")
             run_async(self._start_worker(worker))
+            # Reflect the change right away in the TaskQueueViewer
+            self.on_task_list_changed.emit()
+            self._mark_ui_update_needed()
 
     def get_worker(self, task_id):
         return self.running_tasks.get(task_id, None)
@@ -234,13 +245,15 @@ class WorkerQueueManager(QObject):
         self.on_task_finished(task_id)
 
     def on_task_updated(self, task_id):
-        # Mark for UI update instead of immediate update
+        # Emit immediate update so status changes are visible promptly,
+        # and also mark for coalesced refresh via heartbeat
+        self.on_task_list_changed.emit()
         self._mark_ui_update_needed()
-        
+
     def set_update_interval(self, seconds):
         """Change the UI update interval"""
         self._ui_update_interval = max(0.1, seconds)  # Minimum 0.1 seconds
-        
+
     # Add method to clean up when app closes
     def cleanup(self):
         self._heartbeat_active = False
@@ -251,10 +264,10 @@ class WorkerQueueManager(QObject):
     def shutdown(self):
         """Properly shut down all workers when the application is closing"""
         logger.info("Shutting down worker queue")
-        
+
         # Cancel all pending tasks
         self.cancel_queue()  # Use existing method instead of cancel_all_tasks
-        
+
         # Wait for running tasks to finish (with a timeout)
         if self.running_tasks:  # Check if there are running tasks instead of current_worker
             MAX_WAIT_MS = 2000  # 2 seconds max wait
@@ -262,6 +275,6 @@ class WorkerQueueManager(QObject):
             while self.running_tasks and time.time() - start_time < (MAX_WAIT_MS / 1000):
                 QApplication.processEvents()
                 time.sleep(0.1)
-        
+
         # Clean up resources
         self.cleanup()

@@ -39,10 +39,10 @@ class AppData(QObject):
         # Use provided config or the class attribute
         if config is not None:
             self.config = config
-            
+
         # Initialize the worker queue
         self.worker_queue = WorkerQueueManager()
-        
+
     @Property(list, notify=selected_songs_changed)  # Property still uses list
     def selected_songs(self):
         return self._selected_songs
@@ -65,7 +65,7 @@ class AppData(QObject):
     @Property(bool, notify=is_loading_songs_changed)  # Updated
     def is_loading_songs(self):
         return self._is_loading_songs
-    
+
     @is_loading_songs.setter
     def is_loading_songs(self, value: bool):
         if self._is_loading_songs != value:
@@ -75,7 +75,7 @@ class AppData(QObject):
     @property
     def directory(self):
         return self._directory
-    
+
     @directory.setter
     def directory(self, value: str):
         self._directory = value

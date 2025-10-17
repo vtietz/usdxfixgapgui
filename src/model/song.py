@@ -19,45 +19,46 @@ class SongStatus(Enum):
     ERROR = 'ERROR'
 
 class Song:
-    
+
     def __init__(self, txt_file: str = ""):
         # File paths
-        self.txt_file = txt_file
-        self.audio_file = ""
-        
+        self.txt_file: str = txt_file
+        self.audio_file: str = ""
+
         # Song metadata
-        self.title = ""
-        self.artist = ""
-        self.audio = ""
-        self.gap = 0
-        self.bpm = 0
-        self.start = 0
-        self.is_relative = False
-        self.usdb_id = None
-        
+        self.title: str = ""
+        self.artist: str = ""
+        self.audio: str = ""
+        self.gap: int = 0
+        # BPM can be fractional; use float to match tests and parsers
+        self.bpm: float = 0.0
+        self.start: int = 0
+        self.is_relative: bool = False
+        self.usdb_id: Optional[int] = None
+
         # Audio analysis data
-        self.duration_ms = 0
-        
+        self.duration_ms: int = 0
+
         # Notes data
         self.notes: Optional[List[Note]] = None
-        
+
         # Status information
-        self._gap_info = None
-        self.status = SongStatus.NOT_PROCESSED
-        self.error_message = ""
-    
+        self._gap_info: Optional[GapInfo] = None
+        self.status: SongStatus = SongStatus.NOT_PROCESSED
+        self.error_message: Optional[str] = ""
+
     @property
     def path(self):
         """Get the directory path of the song"""
         return os.path.dirname(self.txt_file) if self.txt_file else ""
-    
+
     @property
     def duration_str(self):
         """Human-readable duration string"""
         if self.duration_ms:
             return audio.milliseconds_to_str(self.duration_ms)
         return "N/A"
-    
+
     @property
     def normalized_str(self):
         """Return a string representation of the normalization status with level"""
@@ -66,11 +67,11 @@ class Song:
                 return f"{self.gap_info.normalization_level:.1f} dB"
             return "YES"
         return "NO"
-    
+
     @property
     def gap_info(self):
         return self._gap_info
-        
+
     @gap_info.setter
     def gap_info(self, value):
         self._gap_info = value
@@ -79,13 +80,13 @@ class Song:
             self._gap_info_updated()
         else:
             self.status = SongStatus.NOT_PROCESSED
-    
+
     def _gap_info_updated(self):
         """Private method to update song status based on current state"""
         if not self._gap_info:
             self.status = SongStatus.NOT_PROCESSED
             return
-            
+
         info: GapInfo = self._gap_info
         if info.status == GapInfoStatus.MATCH:
             self.status = SongStatus.MATCH
@@ -96,13 +97,32 @@ class Song:
         elif info.status == GapInfoStatus.UPDATED:
             self.status = SongStatus.UPDATED
         elif info.status == GapInfoStatus.SOLVED:
-            self.status = SongStatus.SOLVED            
+            self.status = SongStatus.SOLVED
         else:
             self.status = SongStatus.NOT_PROCESSED
 
         if info.duration and info.duration > 0:
             self.duration_ms = info.duration
-    
+
+    def set_error(self, error_message: str):
+        """Set error status and message.
+
+        Args:
+            error_message: Description of the error that occurred
+        """
+        self.status = SongStatus.ERROR
+        self.error_message = error_message
+
+    def clear_error(self):
+        """Clear error status and message, resetting song to neutral ready state.
+
+        Sets status to NOT_PROCESSED and clears error_message.
+        Use this after successful operations to reset error state.
+        Note: GapInfo-driven status transitions via _gap_info_updated() remain unchanged.
+        """
+        self.status = SongStatus.NOT_PROCESSED
+        self.error_message = None
+
     def __str__(self):
         return f"Song [{self.artist} - {self.title}]"
 

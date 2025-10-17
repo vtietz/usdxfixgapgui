@@ -14,7 +14,7 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
     """Create a waveform image for the given audio file."""
 
     logger.debug(f"Creating waveform '{image_path}'...")
-    
+
     if not os.path.exists(audio_file):
         raise FileNotFoundError(f"Audio file not found: {audio_file}")
 
@@ -26,7 +26,7 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
         '-filter_complex', f"showwavespic=s={width}x{height}:colors={color}:scale=lin:split_channels=1",
         '-frames:v', '1', image_path
     ]
-    
+
     # Hide command window on Windows
     if platform.system() == 'Windows':
         result = subprocess.run(command, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -43,6 +43,10 @@ def draw_silence_periods(image_path, silence_periods, duration_ms, color=(105, 1
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Waveform image not found: {image_path}")
 
+    if not silence_periods or not duration_ms or duration_ms <= 0:
+        # Nothing to draw or invalid duration
+        return
+
     logger.debug(f"Annotating waveform image with silence periods: {silence_periods}")
 
     # Open the base image
@@ -55,9 +59,14 @@ def draw_silence_periods(image_path, silence_periods, duration_ms, color=(105, 1
 
     # Draw semi-transparent rectangles for silence periods
     for start_ms, end_ms in silence_periods:
-        start_position = (start_ms / duration_ms) * image_width
-        end_position = (end_ms / duration_ms) * image_width
-        draw.rectangle([start_position, 0, end_position, image_height], fill=color)
+        try:
+            if start_ms is None or end_ms is None:
+                continue
+            start_position = (start_ms / duration_ms) * image_width
+            end_position = (end_ms / duration_ms) * image_width
+            draw.rectangle([start_position, 0, end_position, image_height], fill=color)
+        except Exception as e:
+            logger.warning(f"Failed to draw silence period ({start_ms}, {end_ms}): {e}")
 
     # Composite the transparent layer onto the base image
     out = Image.alpha_composite(base, txt)
@@ -65,7 +74,7 @@ def draw_silence_periods(image_path, silence_periods, duration_ms, color=(105, 1
     # Save the modified image
     out.save(image_path)
 
-    
+
 def draw_title(image_path, songname, color="white"):
     """Annotates the waveform image with the song name."""
 
@@ -89,7 +98,11 @@ def draw_gap(image_path, detected_gap_ms, duration_ms, line_color="red"):
     """Annotates the waveform image with the detected gap."""
 
     if(not os.path.exists(image_path)):
-        raise FileNotFoundError(f"Waveform image not found: {image_path}")   
+        raise FileNotFoundError(f"Waveform image not found: {image_path}")
+
+    if detected_gap_ms is None or not duration_ms or duration_ms <= 0:
+        # Nothing to draw
+        return
 
     logger.debug(f"Annotating waveform image with gap: {detected_gap_ms} ms, color: {line_color}")
 
@@ -116,30 +129,52 @@ def map_pitch_to_vertical_position(pitch, min_pitch, max_pitch, image_height):
     return (1 - normalized_pitch) * image_height / 2 + image_height / 4
 
 def draw_notes(
-        image_path: str, 
-        notes: List[Note], 
-        duration_ms: int, 
+        image_path: str,
+        notes: List[Note],
+        duration_ms: int,
         color: str
     ):
 
     if(not os.path.exists(image_path)):
         raise FileNotFoundError(f"Waveform image not found: {image_path}")
 
+    if not notes or not duration_ms or duration_ms <= 0:
+        return
+
+    # Filter out notes without computed timing or missing pitch
+    valid_notes = [
+        n for n in notes
+        if getattr(n, "start_ms", None) is not None
+        and getattr(n, "end_ms", None) is not None
+        and getattr(n, "Pitch", None) is not None
+    ]
+    if not valid_notes:
+        logger.warning("No valid notes with timing to render on waveform image")
+        return
+
     image = Image.open(image_path)
     draw = ImageDraw.Draw(image)
     image_width, image_height = image.size
 
-    min_pitch = min(note.Pitch for note in notes)
-    max_pitch = max(note.Pitch for note in notes)
+    try:
+        min_pitch = min(n.Pitch for n in valid_notes)
+        max_pitch = max(n.Pitch for n in valid_notes)
+    except ValueError:
+        # If list is empty after filtering
+        logger.warning("Pitch range computation failed due to empty note set")
+        return
 
-    for note in notes:
-        start_position_x = note_position(note.start_ms, duration_ms, image_width)
-        end_position_x = note_position(note.end_ms, duration_ms, image_width)
+    for n in valid_notes:
+        try:
+            start_position_x = note_position(n.start_ms, duration_ms, image_width)
+            end_position_x = note_position(n.end_ms, duration_ms, image_width)
 
-        vertical_position = map_pitch_to_vertical_position(note.Pitch, min_pitch, max_pitch, image_height / 2) + (image_height / 4)
-        draw.text((start_position_x, vertical_position + 12), note.Text, fill=color)
+            vertical_position = map_pitch_to_vertical_position(n.Pitch, min_pitch, max_pitch, image_height / 2) + (image_height / 4)
+            draw.text((start_position_x, vertical_position + 12), n.Text, fill=color)
 
-        line_height = 5
-        draw.rectangle([start_position_x, vertical_position - line_height / 2, end_position_x, vertical_position + line_height / 2], fill=color)
+            line_height = 5
+            draw.rectangle([start_position_x, vertical_position - line_height / 2, end_position_x, vertical_position + line_height / 2], fill=color)
+        except Exception as e:
+            logger.debug(f"Skipping malformed note during drawing: {e}")
 
     image.save(image_path)

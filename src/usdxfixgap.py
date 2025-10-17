@@ -1,130 +1,77 @@
 import sys
 import os
 import logging
+import argparse
 
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
-from PySide6.QtCore import __version__
-from PySide6.QtMultimedia import QMediaDevices
-from PySide6.QtGui import QIcon
+from app.app_data import Config
+from cli.gpu_cli_handler import handle_gpu_cli_flags
+from utils import gpu_bootstrap
+from common.utils.async_logging import setup_async_logging
+from utils.files import get_localappdata_dir
+from utils.gpu_startup_logger import log_gpu_status
+from utils.model_paths import setup_model_paths
 
 
-from actions import Actions
-from app.app_data import AppData, Config
-from common.database import initialize_song_cache
-from common.utils.async_logging import setup_async_logging, shutdown_async_logging
+def parse_arguments():
+    """Parse command-line arguments"""
+    parser = argparse.ArgumentParser(description='USDXFixGap - UltraStar Deluxe Gap Detection')
+    parser.add_argument('--setup-gpu', action='store_true',
+                       help='Download and install GPU Pack for CUDA acceleration')
+    parser.add_argument('--setup-gpu-zip', type=str, metavar='PATH',
+                       help='Install GPU Pack from offline ZIP file')
+    parser.add_argument('--gpu-enable', action='store_true',
+                       help='Enable GPU acceleration (set GpuOptIn=true)')
+    parser.add_argument('--gpu-disable', action='store_true',
+                       help='Disable GPU acceleration (set GpuOptIn=false)')
+    parser.add_argument('--gpu-diagnostics', action='store_true',
+                       help='Show GPU status and write diagnostics to file')
 
-from utils.enable_darkmode import enable_dark_mode
-from utils.check_dependencies import check_dependencies
-from utils.files import get_app_dir, resource_path
+    return parser.parse_args()
 
-from ui.menu_bar import MenuBar
-from ui.song_status import SongsStatusVisualizer
-from ui.mediaplayer import MediaPlayerComponent
-from ui.songlist.songlist_widget import SongListWidget
-from ui.task_queue_viewer import TaskQueueViewer
 
 def main():
-    # First create config to get log level before configuring logging
+    """Main entry point for USDXFixGap application"""
+
+    # Parse CLI arguments
+    args = parse_arguments()
+
+    # Create config
     config = Config()
 
-    # --- Async Logging Setup ---
-    log_file_path = os.path.join(get_app_dir(), 'usdxfixgap.log')
+    # Setup model paths BEFORE importing any AI libraries (PyTorch, TensorFlow, etc.)
+    # This ensures Demucs and Spleeter download models to our centralized location
+    setup_model_paths(config)
+
+    # Handle GPU CLI flags (may exit early)
+    if any([args.setup_gpu, args.setup_gpu_zip, args.gpu_enable, args.gpu_disable, args.gpu_diagnostics]):
+        should_exit = handle_gpu_cli_flags(args, config)
+        if should_exit:
+            sys.exit(0)
+
+    # Bootstrap GPU Pack BEFORE any provider imports
+    gpu_enabled = gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
+
+    # Setup async logging
+    log_file_path = os.path.join(get_localappdata_dir(), 'usdxfixgap.log')
     setup_async_logging(
         log_level=config.log_level,
         log_file_path=log_file_path,
         max_bytes=10*1024*1024,  # 10MB
         backup_count=3
     )
-    
+
     logger = logging.getLogger(__name__)
     logger.info(f"Application started with log level: {config.log_level_str}")
-    # --- End Logging Setup ---
 
-    # Initialize database before creating AppData
-    db_path = initialize_song_cache()
-    logger.info(f"Song cache database initialized at: {db_path}")
+    # GPU Status Logging (Console Only - dialog shown later)
+    log_gpu_status(config, gpu_enabled, show_gui_dialog=False)
 
-    data = AppData()
-    data.config = config  # Make sure AppData uses our already created config
-    actions = Actions(data)
+    # Import and start GUI
+    from ui.main_window import create_and_run_gui
+    exit_code = create_and_run_gui(config, gpu_enabled, log_file_path)
 
-    app = QApplication(sys.argv)
+    sys.exit(exit_code)
 
-    # Example usage - This should now work correctly with the bundled asset
-    icon_path = resource_path("assets/usdxfixgap-icon.ico")
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QIcon(icon_path))
-        logger.info(f"Loaded icon from: {icon_path}")
-    else:
-        logger.error(f"Icon file not found at expected path: {icon_path}")
-
-    # Create the main window and set its properties
-    window = QWidget()
-    window.setWindowTitle("USDX Gap Fix Gui")
-    window.resize(800, 600)
-    window.setMinimumSize(600, 600)
-
-    menuBar = MenuBar(actions, data)
-    songStatus = SongsStatusVisualizer(data.songs)
-    songListView = SongListWidget(data.songs, actions, data)
-    mediaPlayerComponent = MediaPlayerComponent(data, actions)
-    taskQueueViewer = TaskQueueViewer(actions.worker_queue)
-
-    app.installEventFilter(mediaPlayerComponent.globalEventFilter)
-
-    # Set up the layout and add your components
-    layout = QVBoxLayout()
-    layout.addWidget(menuBar)
-    layout.addWidget(songStatus)
-    layout.addWidget(songListView, 2)  # Adjust stretch factor as needed
-    layout.addWidget(mediaPlayerComponent, 1)  # Adjust stretch factor as needed
-    layout.addWidget(taskQueueViewer, 1)  # Adjust stretch factor as needed
-
-    window.setLayout(layout)
-
-    logger.debug("Runtime PySide6 version: %s", __version__)  # Updated logging
-    logger.debug(f"Python Executable: {sys.executable}")
-    logger.debug(f"PYTHONPATH: {sys.path}")
-
-    # Example usage
-    dependencies = [
-        ('spleeter', '--version'),
-        ('ffmpeg', '-version'),  # Note that ffmpeg uses '-version' instead of '--version'
-    ]
-    if(not check_dependencies(dependencies)):
-        logger.error("Some dependencies are not installed.")
-        #sys.exit(1)
-
-    # Check available audio output devices
-    available_audio_outputs = QMediaDevices.audioOutputs()
-    if not available_audio_outputs:
-        logger.error("No audio output devices available.")
-    else:
-        logger.debug(f"Available audio outputs: {available_audio_outputs}")
-
-    # Check available multimedia backends
-    try:
-        supported_mime_types = QMediaDevices.supportedMimeTypes()
-        logger.debug(f"Available multimedia backends: {supported_mime_types}")
-    except AttributeError:
-        logger.warning("Unable to retrieve supported multimedia backends. This feature may not be available in your PySide6 version.")
-
-    # Show the window
-    window.show()
-
-    actions.auto_load_last_directory()
-
-    enable_dark_mode(app)
-
-    # Set up proper shutdown
-    app.aboutToQuit.connect(shutdown_async_logging)
-    
-    # Add this near the end of your main application setup
-    app = QApplication.instance()
-    app.aboutToQuit.connect(lambda: data.worker_queue.shutdown())
-
-    # Start the event loop
-    sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()

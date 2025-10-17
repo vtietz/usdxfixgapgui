@@ -1,4 +1,10 @@
 
+# Signal Usage Guidelines
+
+> **📋 Related Documentation:**
+> - [Architecture](architecture.md) - Overall system design and layer responsibilities  
+> - [Coding Standards](coding-standards.md) - Clean code practices and DRY principles
+
 ### **1. When to Use Signals**
 Signals are best used for **asynchronous communication** between components, especially when:
 - **UI updates** are required based on background tasks (e.g., workers).
@@ -17,6 +23,58 @@ songs.updated.emit()
 #### **Avoid Using Signals**
 - For **direct method calls** where synchronous behavior is expected (e.g., calling a service method from an action).
 - For **internal logic** within a single class or tightly coupled components. Use direct method calls instead.
+- **Actions should not emit UI signals directly** - they should update models, then emit via the data model aggregator (e.g., `self.data.songs.updated.emit(song)`) to notify the UI layer of changes.
+
+#### **Signal Anti-Patterns to Avoid**
+1. **❌ Actions Emitting Signals Directly:**
+   ```python
+   # BAD: Action emitting signals directly
+   def delete_song(self, song):
+       result = service.delete(song)
+       self.song_deleted.emit(song)  # ❌ Action emitting directly
+   ```
+
+2. **❌ Models Calling Services:**
+   ```python
+   # BAD: Model depending on services
+   class Song:
+       def delete(self):
+           from services.song_service import SongService  # ❌ Model importing service
+           return SongService().delete_song(self)
+   ```
+
+3. **❌ Services Emitting Signals:**
+   ```python
+   # BAD: Service emitting UI signals
+   class SongService:
+       def delete_song(self, song):
+           # deletion logic
+           self.song_deleted.emit(song)  # ❌ Service emitting signals
+   ```
+
+#### **✅ Correct Patterns**
+1. **✅ Data Models Emit Signals When Models Are Updated:**
+   ```python
+   class Song:
+       def set_error(self, message):
+           self.status = SongStatus.ERROR
+           self.error_message = message
+           # Signal will be emitted by the data model when updated
+   ```
+
+2. **✅ Actions Orchestrate and Emit Via Data Model:**
+   ```python
+   def delete_song(self, song):
+       try:
+           if self.service.delete_song(song):
+               song.clear_error()
+           else:
+               song.set_error("Delete failed")
+               self.data.songs.updated.emit(song)  # ✅ Signal via data model aggregator
+       except Exception as e:
+           song.set_error(f"Error: {e}")
+           self.data.songs.updated.emit(song)  # ✅ Signal via data model aggregator
+   ```
 
 ### **2. Encapsulation and Layers**
 Your current architecture already has a separation of concerns with **actions**, **workers**, **services**, and **UI components**. This is a good start, but there are areas where encapsulation can be improved.
@@ -59,22 +117,60 @@ error
 - Actions should act as the **bridge** between workers, services, and the UI.
 - Workers should emit signals, but the actions should handle them and decide how to update the UI or trigger further logic.
 
-**Example:**
+**Example - Correct Pattern (Centralized Status Mapping):**
 ```python
 # In GapActions
 def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
-    # Update song data
+    # ✅ Update gap_info - Song.status updates automatically via owner hook
     song.gap_info.detected_gap = result.detected_gap
-    song.gap_info.status = result.status
-    self.data.songs.updated.emit(song)  # Notify UI indirectly via data model
+    song.gap_info.diff = result.gap_diff
+    song.gap_info.status = result.status  # Triggers _gap_info_updated()
+    
+    # ✅ Notify UI via data model signal
+    self.data.songs.updated.emit(song)
 ```
 
-#### **b. Use Signals for UI Updates**
-- Use signals to notify the UI about changes in the data model (
+**Anti-pattern - Duplicate Status Writes:**
+```python
+# ❌ WRONG - Duplicate status writes
+def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
+    song.gap_info.status = result.status  # Sets Song.status via mapping
+    song.status = SongStatus.MATCH  # DUPLICATE - violates single source of truth!
+```
 
-songs.updated.emit()
+**Status Mapping Policy:**
+- **MATCH/MISMATCH/UPDATED/SOLVED/ERROR** - Must come from `gap_info.status` via `_gap_info_updated()` mapping
+- **QUEUED/PROCESSING** - Transient workflow states, set directly by actions
+- **Errors** - Use `set_error()` for non-gap errors, `gap_info.status = ERROR` for gap errors
 
-).
+#### **b. Always Wire Worker Error Signals with Exception Payload**
+Worker error signals carry exception context that must be forwarded to error handlers.
+
+**Correct Pattern - Accept and Forward Exception:**
+```python
+# ✅ CORRECT - Accept exception parameter and forward it
+def _detect_gap(self, song: Song):
+    worker = DetectGapWorker(options)
+    worker.signals.started.connect(lambda: self._on_song_worker_started(song))
+    worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))  # ✅
+    worker.signals.finished.connect(lambda result: self._on_detect_gap_finished(song, result))
+    self.worker_queue.add_task(worker)
+```
+
+**Anti-pattern - Discard Exception Payload:**
+```python
+# ❌ WRONG - Discards exception details
+worker.signals.error.connect(lambda: self._on_song_worker_error(song))  # ❌ No 'e' parameter
+```
+
+**Why This Matters:**
+- `IWorkerSignals.error` is defined as `error = pyqtSignal(Exception)`
+- The exception contains crucial debugging information (stack trace, error message, error type)
+- `_on_song_worker_error(song, error)` uses the exception to call `song.set_error(str(error))`
+- Discarding the payload means error messages will show "Unknown error occurred" instead of actual error details
+
+#### **c. Use Signals for UI Updates**
+- Use signals to notify the UI about changes in the data model (`songs.updated.emit()`).
 - Avoid directly modifying the UI from workers or services.
 
 **Example:**
@@ -85,7 +181,7 @@ def updateTaskList(self):
     self.workerQueueManager.on_task_list_changed.connect(self.updateTaskList)
 ```
 
-#### **c. Avoid Overusing Signals**
+#### **d. Avoid Overusing Signals**
 - Do not emit signals for trivial operations or internal logic. Use direct method calls instead.
 - For example, instead of emitting a signal every time a song attribute changes, emit a signal when the entire song list is updated.
 

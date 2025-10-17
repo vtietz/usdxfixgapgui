@@ -2,7 +2,7 @@ import logging
 import os
 from utils.cancellable_process import run_cancellable_process
 import tempfile
-from typing import List, Tuple 
+from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -70,8 +70,8 @@ def convert_to_mp3(audio_file, check_cancellation=None):
     return mp3_file
 
 def detect_silence_periods(
-        audio_file, 
-        silence_detect_params="silencedetect=noise=-10dB:d=0.2", 
+        audio_file,
+        silence_detect_params="silencedetect=noise=-10dB:d=0.2",
         check_cancellation=None
     ) -> List[Tuple[float, float]]:
     """Detect silence periods in the audio file."""
@@ -96,13 +96,13 @@ def detect_silence_periods(
 
 def make_clearer_voice(audio_file, check_cancellation=None):
     filters = [
-        "highpass=f=80", 
+        "highpass=f=80",
         "lowpass=f=8000",
         "loudnorm=I=-6:LRA=7:TP=-2",
         "acompressor=threshold=-20dB:ratio=3:attack=5:release=50"
     ]
     command = [
-        "-af", 
+        "-af",
         ",".join(filters),]
     return run_ffmpeg(audio_file, command, check_cancellation)
 

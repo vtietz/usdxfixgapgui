@@ -1,0 +1,313 @@
+{
+    "version": "1.138.0",
+    "results": [
+        {
+            "check_id": "python.lang.security.deserialization.pickle.avoid-pickle",
+            "path": "src/common/database.py",
+            "start": {
+                "line": 87,
+                "col": 19,
+                "offset": 2433
+            },
+            "end": {
+                "line": 87,
+                "col": 42,
+                "offset": 2456
+            },
+            "extra": {
+                "message": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+                "metadata": {
+                    "owasp": [
+                        "A08:2017 - Insecure Deserialization",
+                        "A08:2021 - Software and Data Integrity Failures"
+                    ],
+                    "cwe": [
+                        "CWE-502: Deserialization of Untrusted Data"
+                    ],
+                    "references": [
+                        "https://docs.python.org/3/library/pickle.html"
+                    ],
+                    "category": "security",
+                    "technology": [
+                        "python"
+                    ],
+                    "cwe2022-top25": true,
+                    "cwe2021-top25": true,
+                    "subcategory": [
+                        "audit"
+                    ],
+                    "likelihood": "LOW",
+                    "impact": "MEDIUM",
+                    "confidence": "LOW",
+                    "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+                    "vulnerability_class": [
+                        "Insecure Deserialization "
+                    ],
+                    "source": "https://semgrep.dev/r/python.lang.security.deserialization.pickle.avoid-pickle",
+                    "shortlink": "https://sg.run/OPwB"
+                },
+                "severity": "WARNING",
+                "fingerprint": "requires login",
+                "lines": "requires login",
+                "validation_state": "NO_VALIDATOR",
+                "engine_kind": "OSS"
+            }
+        },
+        {
+            "check_id": "python.lang.security.deserialization.pickle.avoid-pickle",
+            "path": "src/common/database.py",
+            "start": {
+                "line": 113,
+                "col": 21,
+                "offset": 3295
+            },
+            "end": {
+                "line": 113,
+                "col": 38,
+                "offset": 3312
+            },
+            "extra": {
+                "message": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+                "metadata": {
+                    "owasp": [
+                        "A08:2017 - Insecure Deserialization",
+                        "A08:2021 - Software and Data Integrity Failures"
+                    ],
+                    "cwe": [
+                        "CWE-502: Deserialization of Untrusted Data"
+                    ],
+                    "references": [
+                        "https://docs.python.org/3/library/pickle.html"
+                    ],
+                    "category": "security",
+                    "technology": [
+                        "python"
+                    ],
+                    "cwe2022-top25": true,
+                    "cwe2021-top25": true,
+                    "subcategory": [
+                        "audit"
+                    ],
+                    "likelihood": "LOW",
+                    "impact": "MEDIUM",
+                    "confidence": "LOW",
+                    "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+                    "vulnerability_class": [
+                        "Insecure Deserialization "
+                    ],
+                    "source": "https://semgrep.dev/r/python.lang.security.deserialization.pickle.avoid-pickle",
+                    "shortlink": "https://sg.run/OPwB"
+                },
+                "severity": "WARNING",
+                "fingerprint": "requires login",
+                "lines": "requires login",
+                "validation_state": "NO_VALIDATOR",
+                "engine_kind": "OSS"
+            }
+        },
+        {
+            "check_id": "python.lang.security.deserialization.pickle.avoid-pickle",
+            "path": "src/common/database.py",
+            "start": {
+                "line": 185,
+                "col": 28,
+                "offset": 5747
+            },
+            "end": {
+                "line": 185,
+                "col": 51,
+                "offset": 5770
+            },
+            "extra": {
+                "message": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+                "metadata": {
+                    "owasp": [
+                        "A08:2017 - Insecure Deserialization",
+                        "A08:2021 - Software and Data Integrity Failures"
+                    ],
+                    "cwe": [
+                        "CWE-502: Deserialization of Untrusted Data"
+                    ],
+                    "references": [
+                        "https://docs.python.org/3/library/pickle.html"
+                    ],
+                    "category": "security",
+                    "technology": [
+                        "python"
+                    ],
+                    "cwe2022-top25": true,
+                    "cwe2021-top25": true,
+                    "subcategory": [
+                        "audit"
+                    ],
+                    "likelihood": "LOW",
+                    "impact": "MEDIUM",
+                    "confidence": "LOW",
+                    "license": "Semgrep Rules License v1.0. For more details, visit semgrep.dev/legal/rules-license",
+                    "vulnerability_class": [
+                        "Insecure Deserialization "
+                    ],
+                    "source": "https://semgrep.dev/r/python.lang.security.deserialization.pickle.avoid-pickle",
+                    "shortlink": "https://sg.run/OPwB"
+                },
+                "severity": "WARNING",
+                "fingerprint": "requires login",
+                "lines": "requires login",
+                "validation_state": "NO_VALIDATOR",
+                "engine_kind": "OSS"
+            }
+        }
+    ],
+    "errors": [],
+    "paths": {
+        "scanned": [
+            ".github/copilot-instructions.md",
+            ".github/workflows/build-exe.yml",
+            ".gitignore",
+            "LICENSE",
+            "README.MD",
+            "VERSION",
+            "build.bat",
+            "build_linux.sh",
+            "build_macos.sh",
+            "config.ini",
+            "docs/architecture.md",
+            "docs/coding-standards.md",
+            "docs/signals.md",
+            "requirements.txt",
+            "run.bat",
+            "run.sh",
+            "screenshot.png",
+            "src/actions/__init__.py",
+            "src/actions/audio_actions.py",
+            "src/actions/base_actions.py",
+            "src/actions/core_actions.py",
+            "src/actions/gap_actions.py",
+            "src/actions/main_actions.py",
+            "src/actions/song_actions.py",
+            "src/actions/ui_actions.py",
+            "src/app/app_data.py",
+            "src/assets/usdxfixgap-icon.ico",
+            "src/assets/usdxfixgap-icon.png",
+            "src/common/config.py",
+            "src/common/database.py",
+            "src/common/utils/async_logging.py",
+            "src/config.ini",
+            "src/managers/base_manager.py",
+            "src/managers/song_manager.py",
+            "src/managers/worker_queue_manager.py",
+            "src/model/gap_info.py",
+            "src/model/song.py",
+            "src/model/songs.py",
+            "src/model/usdx_file.py",
+            "src/services/gap_info_service.py",
+            "src/services/song_service.py",
+            "src/services/usdx_file_service.py",
+            "src/services/waveform_path_service.py",
+            "src/ui/mediaplayer/__init__.py",
+            "src/ui/mediaplayer/component.py",
+            "src/ui/mediaplayer/constants.py",
+            "src/ui/mediaplayer/event_filter.py",
+            "src/ui/mediaplayer/loader.py",
+            "src/ui/mediaplayer/player_controller.py",
+            "src/ui/mediaplayer/ui_manager.py",
+            "src/ui/mediaplayer/waveform_widget.py",
+            "src/ui/menu_bar.py",
+            "src/ui/multi_select_box.py",
+            "src/ui/song_status.py",
+            "src/ui/songlist/songlist_model.py",
+            "src/ui/songlist/songlist_view.py",
+            "src/ui/songlist/songlist_widget.py",
+            "src/ui/task_queue_viewer.py",
+            "src/usdxfixgap.py",
+            "src/utils/audio.py",
+            "src/utils/cancellable_process.py",
+            "src/utils/check_dependencies.py",
+            "src/utils/detect_gap.py",
+            "src/utils/enable_darkmode.py",
+            "src/utils/files.py",
+            "src/utils/run_async.py",
+            "src/utils/separate.py",
+            "src/utils/usdx.py",
+            "src/utils/waveform.py",
+            "src/workers/create_waveform.py",
+            "src/workers/detect_audio_length.py",
+            "src/workers/detect_gap.py",
+            "src/workers/load_usdx_files.py",
+            "src/workers/normalize_audio.py",
+            "src/workers/reload_song_worker.py"
+        ]
+    },
+    "time": {
+        "rules": [],
+        "rules_parse_time": 1.5282530784606934,
+        "profiling_times": {
+            "config_time": 2.5097997188568115,
+            "core_time": 6.062912464141846,
+            "ignores_time": 0.0018532276153564453,
+            "total_time": 8.575766801834106
+        },
+        "parsing_time": {
+            "total_time": 0.0,
+            "per_file_time": {
+                "mean": 0.0,
+                "std_dev": 0.0
+            },
+            "very_slow_stats": {
+                "time_ratio": 0.0,
+                "count_ratio": 0.0
+            },
+            "very_slow_files": []
+        },
+        "scanning_time": {
+            "total_time": 6.204999208450317,
+            "per_file_time": {
+                "mean": 0.029688991427991935,
+                "std_dev": 0.0018189939815970988
+            },
+            "very_slow_stats": {
+                "time_ratio": 0.0,
+                "count_ratio": 0.0
+            },
+            "very_slow_files": []
+        },
+        "matching_time": {
+            "total_time": 0.0,
+            "per_file_and_rule_time": {
+                "mean": 0.0,
+                "std_dev": 0.0
+            },
+            "very_slow_stats": {
+                "time_ratio": 0.0,
+                "count_ratio": 0.0
+            },
+            "very_slow_rules_on_files": []
+        },
+        "tainting_time": {
+            "total_time": 0.0,
+            "per_def_and_rule_time": {
+                "mean": 0.0,
+                "std_dev": 0.0
+            },
+            "very_slow_stats": {
+                "time_ratio": 0.0,
+                "count_ratio": 0.0
+            },
+            "very_slow_rules_on_defs": []
+        },
+        "fixpoint_timeouts": [],
+        "prefiltering": {
+            "project_level_time": 0.0,
+            "file_level_time": 0.0,
+            "rules_with_project_prefilters_ratio": 0.0,
+            "rules_with_file_prefilters_ratio": 0.9882408278457196,
+            "rules_selected_ratio": 0.03657102539981185,
+            "rules_matched_ratio": 0.03657102539981185
+        },
+        "targets": [],
+        "total_bytes": 0,
+        "max_memory_bytes": 1090108480
+    },
+    "engine_requested": "OSS",
+    "skipped_rules": []
+}

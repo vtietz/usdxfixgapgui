@@ -1,12 +1,13 @@
 import os
 import logging
+import sys  # Use current interpreter to invoke spleeter
 
 from utils.cancellable_process import run_cancellable_process
 
 logger = logging.getLogger(__name__)
 
 def separate_audio(
-        audio_file, 
+        audio_file,
         duration,
         output_path,
         overvrite=False,
@@ -15,10 +16,10 @@ def separate_audio(
 
     if audio_file is None or os.path.exists(audio_file) is False:
         raise Exception(f"Audio file not found: {audio_file}")
-    
+
     # spleeter puts the audio files in a subdirectory according to the audio file name
     path_segment = os.path.splitext(os.path.basename(audio_file))[0]
-    vocals_filepath = os.path.join(output_path, path_segment, "vocals.wav")    
+    vocals_filepath = os.path.join(output_path, path_segment, "vocals.wav")
     accompaniment_filepath = os.path.join(output_path, path_segment, "accompaniment.wav")
 
     logger.debug(f"Extracting vocals and instrumentals from {audio_file} to {output_path}...")
@@ -31,13 +32,15 @@ def separate_audio(
         os.makedirs(os.path.dirname(output_path))
 
     command = [
-        "spleeter", 
-        "separate", 
-        "-o", output_path, 
-        "-p", "spleeter:2stems", 
-        "-d", str(duration), 
-        audio_file
-      ]
+        sys.executable,
+        "-m", "spleeter",
+        "separate",
+        "-o", output_path,
+        "-p", "spleeter:2stems",
+        "-d", str(duration),
+        audio_file,
+    ]
+    logger.debug("Spleeter command: %s", ' '.join(command))
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
 
     if not os.path.exists(vocals_filepath) or not os.path.exists(accompaniment_filepath):

@@ -1,6 +1,10 @@
 
 ## **1. Target Architecture Overview** -- not yet achieved!
 
+> **📋 Related Documentation:**
+> - [Coding Standards](coding-standards.md) - DRY principle, clean code practices, and implementation guidelines
+> - [Signals](signals.md) - Signal flow patterns and usage guidelines
+
 ### **Layers**
 1. **Models (Data Layer)**:
    - Represents the core data structures of the application (e.g., `Song`, `Songs`).
@@ -103,10 +107,17 @@
   class AppData(QObject):
       def __init__(self):
           super().__init__()
-          self.config_manager = ConfigManager(Config())
-          self.song_manager = SongManager(Songs())
-          self.worker_manager = WorkerManager()
+          self.config = Config()
+          self.songs = Songs()
+          self.worker_queue = WorkerQueueManager()
+          
+          # Service instances for injection (optional - static methods also acceptable)
+          self.gap_info_service = GapInfoService()
+          self.usdx_file_service = USDXFileService()
+          self.song_service = SongService()
   ```
+
+**Note**: Services can be used statically (e.g., `USDXFileService.load(...)`) for simplicity, but injecting service instances via `AppData` improves testability and allows for easier mocking in unit tests.
 
 ### **5. Example Workflow**
 
@@ -118,24 +129,26 @@
 5. `SongManager` updates the `SongList` and emits a `song_updated` signal.
 6. The UI listens to the `song_updated` signal and refreshes the displayed song.
 
-### **6. Folder Structure**
+### **6. Folder Structure (Current Implementation)**
+
+**Note**: This structure reflects the current codebase. Items marked with `*` are aspirational components not yet implemented.
 
 ```
 src/
   ├── app/
-  │   ├── app_data.py        # Centralized application state
-  │   ├── app_state.py       # Global state management
+  │   ├── app_data.py        # Centralized application state and DI container
+  │   ├── app_state.py*      # (Future) Global state management
   │
   ├── managers/
   │   ├── __init__.py
-  │   ├── song_manager.py    # Manages song selection and operations
-  │   ├── worker_manager.py  # Manages worker tasks
-  │   ├── config_manager.py  # Manages configuration
+  │   ├── worker_queue_manager.py  # Manages worker tasks
+  │   ├── config_manager.py*       # (Future) Configuration management
   │
-  ├── models/
+  ├── model/
   │   ├── __init__.py
   │   ├── song.py            # Represents a single song
-  │   ├── songs.py           # Manages a list of songs
+  │   ├── songs.py           # Manages a list of songs (collection with signals)
+  │   ├── gap_info.py        # Gap detection information
   │
   ├── services/
   │   ├── __init__.py
@@ -170,3 +183,260 @@ src/
 
 5. **Flexibility**:
    - Dependency injection allows for easy replacement or extension of components (e.g., swapping out `WorkerManager` for a different implementation).
+
+### **8. Error Handling Patterns**
+
+#### **Model Error State Management**
+Models should manage their own error states via dedicated methods:
+
+```python
+class Song:
+    def set_error(self, error_message: str):
+        """Set error status and message"""
+        self.status = SongStatus.ERROR
+        self.error_message = error_message
+    
+    def clear_error(self):
+        """Clear error status and message, resetting to neutral ready state (NOT_PROCESSED)"""
+        self.status = SongStatus.NOT_PROCESSED  # Neutral ready state
+        self.error_message = None
+```
+
+**Note**: `SongStatus.NOT_PROCESSED` represents the neutral ready state - the song is loaded and ready for operations, but no gap detection or processing has occurred yet.
+
+#### **Centralized Status Mapping via GapInfo**
+**GapInfo is the single source of truth for MATCH/MISMATCH/UPDATED/SOLVED/ERROR statuses.**
+
+Actions/services/workers must update `gap_info` fields and status; `Song.status` updates automatically via the owner hook in `_gap_info_updated()`.
+
+**Status Write Policy:**
+
+| Status | Allowed Direct Write | Required Pattern |
+|--------|---------------------|------------------|
+| `QUEUED` | ✅ Yes | Set by actions before queuing workers |
+| `PROCESSING` | ✅ Yes | Set by actions when workers start |
+| `NOT_PROCESSED` | ✅ Yes | Via `clear_error()` only |
+| `MATCH` | ❌ No | Set `gap_info.status = GapInfoStatus.MATCH` |
+| `MISMATCH` | ❌ No | Set `gap_info.status = GapInfoStatus.MISMATCH` |
+| `UPDATED` | ❌ No | Set `gap_info.status = GapInfoStatus.UPDATED` |
+| `SOLVED` | ❌ No | Set `gap_info.status = GapInfoStatus.SOLVED` |
+| `ERROR` | ✅ Conditional | Via `set_error()` for non-gap errors only; gap errors use `gap_info.status = GapInfoStatus.ERROR` |
+
+**Correct pattern:**
+```python
+class GapActions:
+    def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
+        # ✅ Update gap_info - status mapping happens via owner hook
+        song.gap_info.detected_gap = result.detected_gap
+        song.gap_info.diff = result.gap_diff
+        song.gap_info.status = result.status  # Triggers _gap_info_updated()
+        
+        # ❌ DO NOT set song.status directly
+        # song.status = SongStatus.MATCH  # WRONG!
+        
+        self.data.songs.updated.emit(song)
+    
+    def update_gap_value(self, song: Song, gap: int):
+        # ✅ Update gap_info.status - Song.status updates automatically
+        song.gap_info.updated_gap = gap
+        song.gap_info.status = GapInfoStatus.UPDATED
+        
+        # ❌ DO NOT set song.status directly
+        # song.status = SongStatus.UPDATED  # WRONG!
+```
+
+**Workflow sequence diagram:**
+```
+UI → Actions: Detect gap
+Actions: set song.status = QUEUED  (✅ allowed transient state)
+Actions → Worker: enqueue
+Worker → Actions: started
+Actions: set song.status = PROCESSING  (✅ allowed transient state)
+Worker → Actions: finished(result)
+Actions: set gap_info.status = result.status  (✅ correct pattern)
+GapInfo → Song: owner hook triggers _gap_info_updated()  (automatic)
+Song → UI: status updated via data model signal
+```
+
+**Error handling:**
+```python
+# Gap-related errors: set gap_info.status
+gap_info.status = GapInfoStatus.ERROR
+
+# Non-gap errors (I/O, loading, etc.): use set_error()
+song.set_error("File not found")
+```
+
+### **9. Worker Queue Patterns**
+
+#### **Asynchronous Task Queuing**
+
+All long-running operations should be queued through the worker queue manager rather than executed inline. This ensures:
+- UI responsiveness (non-blocking operations)
+- Consistent task tracking and status visibility
+- Proper cancellation support
+- Sequential task execution when needed
+
+**Queue via WorkerQueue, not inline execution:**
+
+```python
+# ✅ CORRECT: Queue worker for asynchronous execution
+def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
+    # Update model state
+    song.gap_info.detected_gap = result.detected_gap
+    song.gap_info.status = result.status
+    
+    # Queue follow-up tasks (like auto-normalization)
+    if self.config.auto_normalize and song.audio_file:
+        logger.info(f"Queueing auto-normalization for {song}")
+        # start_now=False lets queue manager schedule it properly
+        # Implementation Contract: _normalize_song MUST create a worker and call
+        # self.worker_queue.add_task(worker, start_now) - never execute inline!
+        audio_actions._normalize_song(song, start_now=False)
+
+# ❌ WRONG: Inline execution blocks UI and bypasses queue
+def _on_detect_gap_finished_bad(self, song: Song, result: GapDetectionResult):
+    song.gap_info.status = result.status
+    
+    # Inline call bypasses queue - blocks UI, no status tracking
+    if self.config.auto_normalize:
+        audio_actions._normalize_song(song)  # Executes immediately!
+```
+
+**Required Implementation Pattern for `_normalize_song`:**
+```python
+def _normalize_song(self, song: Song, start_now=False):
+    """Queue normalization worker - NEVER execute inline!"""
+    worker = NormalizeAudioWorker(song)
+    # ... connect signals ...
+    song.status = SongStatus.QUEUED
+    self.data.songs.updated.emit(song)
+    # REQUIRED: Use worker queue, not direct execution
+    self.worker_queue.add_task(worker, start_now)
+```
+
+**start_now parameter usage:**
+
+```python
+# start_now=True: Execute immediately (for single user-initiated action)
+worker_queue.add_task(worker, start_now=True)
+
+# start_now=False: Let queue schedule (for chained/follow-up tasks)
+worker_queue.add_task(worker, start_now=False)
+```
+
+**Benefits of proper queueing:**
+- **UI Responsiveness**: Long operations don't block the event loop
+- **Status Tracking**: WorkerStatus enum provides visibility (WAITING, RUNNING, FINISHED, ERROR)
+- **Cancellation**: Users can cancel queued tasks
+- **Sequential Execution**: Queue ensures proper ordering of dependent tasks
+- **Error Isolation**: Worker failures don't crash the application
+
+#### **Action Error Orchestration**
+Actions should orchestrate error handling without directly manipulating model state:
+
+```python
+class SongActions:
+    def process_song(self, song):
+        try:
+            result = self.service.process(song)
+            if song.status == SongStatus.ERROR:
+                song.clear_error()  # Clear errors after success
+        except Exception as e:
+            song.set_error(f"Processing failed: {str(e)}")
+            self.data.songs.updated.emit(song)  # Signal via data model
+```
+
+**⚠️ Transient Status Flicker Caution:**
+
+Clearing errors sets status to `NOT_PROCESSED`. Calling `clear_error()` immediately before queuing workers may cause momentary UI flicker:
+
+```python
+# ⚠️ May cause flicker: ERROR → NOT_PROCESSED → QUEUED
+song.clear_error()  # Sets NOT_PROCESSED
+song.status = SongStatus.QUEUED  # UI updates twice
+
+# ✅ Better: Clear only after completion or let gap_info.status override errors
+if song.status == SongStatus.ERROR:
+    song.clear_error()  # Only clear after successful workflow completion
+```
+
+**Recommendation**: Clear errors only after successful operation completion. During workflows, status transitions via `gap_info.status` updates naturally override error states.
+
+#### **Service Error Communication**
+Services should return results or raise exceptions, not set model state:
+
+```python
+class SongService:
+    def delete_song(self, song: Song) -> bool:
+        """Returns True if successful, False if failed, raises exception for errors"""
+        try:
+            # Deletion logic here
+            return True
+        except PermissionError:
+            return False  # Soft failure
+        except Exception:
+            raise  # Hard failure - let action handle it
+```
+
+### **9. Testing Strategy by Layer**
+
+#### **Model Testing**
+- Test data validation and derived properties
+- Test state management methods (e.g., `set_error`)
+- Mock external dependencies if any
+- Focus on pure data logic
+
+```python
+def test_song_set_error():
+    song = Song()
+    song.set_error("Test error")
+    assert song.status == SongStatus.ERROR
+    assert song.error_message == "Test error"
+```
+
+#### **Service Testing**
+- Test business logic in isolation
+- Mock external dependencies (file system, network)
+- Test error conditions and edge cases
+- Services should be stateless and easily testable
+
+```python
+def test_song_service_delete_success():
+    service = SongService()
+    with patch('utils.files.delete_folder') as mock_delete:
+        mock_delete.return_value = None
+        result = service.delete_song(mock_song)
+        assert result is True
+```
+
+### **10. Code Quality and Standards**
+
+This architecture relies on consistent application of clean code principles:
+
+- **DRY Principle**: Common functionality is extracted into reusable components (e.g., generic `set_error` method, shared service utilities)
+- **SOLID Principles**: Each layer has single responsibilities, and components depend on abstractions
+- **Clean Code**: Meaningful names, small functions, consistent error handling patterns
+- **Layer Compliance**: Models handle data, services handle business logic, actions orchestrate
+
+For detailed coding standards, clean code practices, and implementation guidelines, see [Coding Standards](coding-standards.md).
+
+### **11. Documentation References**
+
+- **[Coding Standards](coding-standards.md)**: DRY principle, SOLID principles, clean code practices, testing standards
+- **[Signals](signals.md)**: Signal flow patterns, best practices, and anti-patterns
+- **[GitHub Copilot Instructions](../.github/copilot-instructions.md)**: AI assistance guidelines for consistent code generation
+
+#### **Action Testing**
+- Test orchestration logic
+- Mock services and verify they're called correctly
+- Test error handling paths
+- Verify correct model state updates and signal emissions
+
+```python
+def test_delete_song_action_with_service_failure():
+    with patch('actions.song_actions.SongService') as mock_service:
+        mock_service.return_value.delete_song.return_value = False
+        actions.delete_selected_song()
+        song.set_error.assert_called_with("Failed to delete song files")
+```
