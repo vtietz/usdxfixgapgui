@@ -84,9 +84,9 @@ def run_command(cmd: List[str], description: str) -> Tuple[int, str]:
     Returns:
         Tuple of (exit_code, output)
     """
-    print(f"\n{'='*80}")
+    print(f"\n{' = '*80}")
     print(f"🔍 {description}")
-    print(f"{'='*80}")
+    print(f"{' = '*80}")
 
     try:
         result = subprocess.run(
@@ -350,11 +350,11 @@ def analyze_file_length(files: List[str] = None) -> tuple:
         print(f"✅ All files under {FILE_LENGTH_WARN} lines (AI-friendly)")
         return 0, ""
     else:
-        print(f"\nSummary:")
+        print("\nSummary:")
         print(f"  Critical (>{FILE_LENGTH_FAIL}): {len(fail_files)}")
         print(f"  Error (>{FILE_LENGTH_ERROR}): {len(error_files)}")
         print(f"  Warning (>{FILE_LENGTH_WARN}): {len(warn_files)}")
-        print(f"\n💡 Tip: Split large files into smaller modules for better AI assistance")
+        print("\n💡 Tip: Split large files into smaller modules for better AI assistance")
 
         output = "\n".join(output_lines)
 
@@ -464,9 +464,9 @@ def print_file_summary(complexity_output: str = "", style_output: str = "", leng
     file_totals.sort(key=lambda x: x[4], reverse=True)
 
     # Print top offenders
-    print(f"\n{'='*80}")
+    print(f"\n{' = '*80}")
     print("📋 TOP FILES BY ISSUE COUNT")
-    print(f"{'='*80}")
+    print(f"{' = '*80}")
     print(f"{'File':<55} {'Complex':>7} {'Style':>7} {'Length':>7} {'Total':>7}")
     print(f"{'-'*55} {'-'*7} {'-'*7} {'-'*7} {'-'*7}")
 

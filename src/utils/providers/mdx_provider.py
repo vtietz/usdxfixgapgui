@@ -351,6 +351,31 @@ class MdxProvider(IDetectionProvider):
         Returns:
             Absolute timestamp in milliseconds of first vocal onset, or None
         """
+        # Check feature flag for refactored implementation
+        from common.feature_flags import FeatureFlags
+        flags = FeatureFlags.from_config(self.config)
+        
+        if flags.USE_MODULAR_MDX_SCANNING:
+            from utils.providers.mdx.scanner import scan_for_onset_refactored
+            
+            # Get audio duration
+            info = torchaudio.info(audio_file)
+            total_duration_ms = (info.num_frames / info.sample_rate) * 1000.0
+            
+            logger.debug("Using refactored MDX scanner (modular architecture)")
+            return scan_for_onset_refactored(
+                audio_file=audio_file,
+                expected_gap_ms=expected_gap_ms,
+                model=self._get_demucs_model(),
+                device=self._device,
+                config=self.mdx_config,
+                vocals_cache=self._vocals_cache,
+                total_duration_ms=total_duration_ms,
+                check_cancellation=check_cancellation
+            )
+        
+        # Legacy implementation
+        logger.debug("Using legacy MDX scanner")
         try:
             # Get audio info
             logger.info("Loading audio file info...")

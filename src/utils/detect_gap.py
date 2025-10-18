@@ -109,8 +109,31 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
     Perform gap detection with the given options.
     Returns a DetectGapResult with the detected gap, silence periods, and vocals file path.
     Now with extended metadata including confidence, preview, and waveform.
+    
+    This function supports feature-flagged refactored implementation.
+    Set experimental.refactored_gap_detection=true in config to use new pipeline.
     """
-    logger.info(f"Detecting gap for {options.audio_file}")
+    # Check feature flag for refactored implementation
+    if options.config:
+        from common.feature_flags import FeatureFlags
+        flags = FeatureFlags.from_config(options.config)
+        
+        if flags.USE_REFACTORED_GAP_DETECTION:
+            from utils.gap_detection import perform_refactored
+            logger.info("Using refactored gap detection pipeline")
+            return perform_refactored(
+                audio_file=options.audio_file,
+                tmp_root=options.tmp_root,
+                original_gap=options.original_gap,
+                audio_length=options.audio_length,
+                default_detection_time=options.default_detection_time,
+                config=options.config,
+                overwrite=options.overwrite,
+                check_cancellation=check_cancellation
+            )
+    
+    # Legacy implementation
+    logger.info(f"Detecting gap for {options.audio_file} (legacy)")
     if not options.audio_file or not os.path.exists(options.audio_file):
         raise FileNotFoundError(f"Audio file not found: {options.audio_file}")
 

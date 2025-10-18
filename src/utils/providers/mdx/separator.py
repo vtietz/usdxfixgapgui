@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from demucs.apply import apply_model
 
-from common.exceptions import DetectionFailedError
+from utils.providers.exceptions import DetectionFailedError
 from utils.logging_utils import flush_logs
 
 logger = logging.getLogger(__name__)

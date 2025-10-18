@@ -10,6 +10,7 @@ from utils.run_async import run_async
 
 logger = logging.getLogger(__name__)
 
+
 class IWorkerSignals(QObject):
     """Signals to be used by the IWorker class for inter-task communication."""
     started = pyqtSignal()
@@ -18,6 +19,7 @@ class IWorkerSignals(QObject):
     canceled = pyqtSignal()
     error = pyqtSignal(Exception)
 
+
 class WorkerStatus(Enum):
     """Enum to represent the status of a worker task."""
     RUNNING = 1
@@ -25,6 +27,7 @@ class WorkerStatus(Enum):
     CANCELLING = 3
     FINISHED = 4
     ERROR = 5
+
 
 class IWorker(QObject):
     """
@@ -99,6 +102,7 @@ class IWorker(QObject):
         """Mark the worker as complete - this should be called by the worker itself"""
         self.status = WorkerStatus.FINISHED
         # Base implementation doesn't emit any signals - each worker handles this
+
 
 class WorkerQueueManager(QObject):
     task_id_counter = 0

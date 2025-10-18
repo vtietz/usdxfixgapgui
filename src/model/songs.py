@@ -2,6 +2,7 @@ from typing import List
 from PySide6.QtCore import QObject, Signal  # Updated import
 from model.song import Song, SongStatus
 
+
 class Songs(QObject):
 
     cleared = Signal()  # Updated
