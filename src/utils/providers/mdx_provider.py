@@ -351,175 +351,23 @@ class MdxProvider(IDetectionProvider):
         Returns:
             Absolute timestamp in milliseconds of first vocal onset, or None
         """
-        # Check feature flag for refactored implementation
-        from common.feature_flags import FeatureFlags
-        flags = FeatureFlags.from_config(self.config)
+        from utils.providers.mdx.scanner import scan_for_onset_refactored
         
-        if flags.USE_MODULAR_MDX_SCANNING:
-            from utils.providers.mdx.scanner import scan_for_onset_refactored
-            
-            # Get audio duration
-            info = torchaudio.info(audio_file)
-            total_duration_ms = (info.num_frames / info.sample_rate) * 1000.0
-            
-            logger.debug("Using refactored MDX scanner (modular architecture)")
-            return scan_for_onset_refactored(
-                audio_file=audio_file,
-                expected_gap_ms=expected_gap_ms,
-                model=self._get_demucs_model(),
-                device=self._device,
-                config=self.mdx_config,
-                vocals_cache=self._vocals_cache,
-                total_duration_ms=total_duration_ms,
-                check_cancellation=check_cancellation
-            )
+        # Get audio duration
+        info = torchaudio.info(audio_file)
+        total_duration_ms = (info.num_frames / info.sample_rate) * 1000.0
         
-        # Legacy implementation
-        logger.debug("Using legacy MDX scanner")
-        try:
-            # Get audio info
-            logger.info("Loading audio file info...")
-            _flush_logs()
-            info = torchaudio.info(audio_file)
-            sample_rate = info.sample_rate
-            total_duration_ms = (info.num_frames / sample_rate) * 1000.0
-
-            logger.info(f"Audio file: {total_duration_ms/1000:.1f}s duration, {sample_rate}Hz sample rate")
-            _flush_logs()
-
-            # Track all processed chunks to avoid redundant work
-            processed_chunks = set()  # Set of (chunk_start_ms, chunk_end_ms)
-            all_onsets = []
-
-            # Expanding search loop
-            current_radius_ms = self.mdx_config.initial_radius_ms
-            expansion_num = 0
-
-            while expansion_num <= self.mdx_config.max_expansions:
-                # Calculate current search window
-                search_start_ms = max(0, expected_gap_ms - current_radius_ms)
-                search_end_ms = min(total_duration_ms, expected_gap_ms + current_radius_ms)
-
-                logger.info(f"Expanding search #{expansion_num}: "
-                            f"radius=±{current_radius_ms/1000:.1f}s, "
-                            f"window {search_start_ms/1000:.1f}s - {search_end_ms/1000:.1f}s")
-                _flush_logs()
-
-                # Process chunks in current window (skip already processed)
-                chunk_duration_s = self.mdx_config.chunk_duration_ms / 1000.0
-                chunk_hop_s = (self.mdx_config.chunk_duration_ms - self.mdx_config.chunk_overlap_ms) / 1000.0
-                chunk_start_s = search_start_ms / 1000.0
-                chunks_processed = 0
-
-                while chunk_start_s < search_end_ms / 1000.0:
-                    # Check cancellation
-                    if check_cancellation and check_cancellation():
-                        raise DetectionFailedError("Search cancelled by user", provider_name="mdx")
-
-                    # Calculate chunk boundaries
-                    chunk_start_ms = chunk_start_s * 1000.0
-                    chunk_end_ms = min((chunk_start_s + chunk_duration_s) * 1000.0, total_duration_ms)
-                    chunk_key = (int(chunk_start_ms), int(chunk_end_ms))
-
-                    # Skip if already processed
-                    if chunk_key in processed_chunks:
-                        chunk_start_s += chunk_hop_s
-                        continue
-
-                    processed_chunks.add(chunk_key)
-                    chunks_processed += 1
-
-                    # Load chunk
-                    frame_offset = int(chunk_start_s * sample_rate)
-                    num_frames = min(
-                        int(chunk_duration_s * sample_rate),
-                        info.num_frames - frame_offset
-                    )
-
-                    if num_frames <= 0:
-                        break
-
-                    logger.info(f"Loading chunk at {chunk_start_s:.1f}s-{chunk_start_s + chunk_duration_s:.1f}s "
-                                f"(expansion #{expansion_num}, chunk {chunks_processed+1})")
-                    _flush_logs()
-
-                    # Suppress torchaudio MP3 warning
-                    import warnings
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
-                        waveform, _ = torchaudio.load(
-                            audio_file,
-                            frame_offset=frame_offset,
-                            num_frames=num_frames
-                        )
-
-                    # Convert to stereo if needed
-                    if waveform.shape[0] == 1:
-                        waveform = waveform.repeat(2, 1)
-
-                    # Apply optional downsampling for CPU speedup
-                    if self.mdx_config.resample_hz > 0 and sample_rate != self.mdx_config.resample_hz:
-                        waveform = torchaudio.functional.resample(waveform, sample_rate, self.mdx_config.resample_hz)
-                        current_sample_rate = self.mdx_config.resample_hz
-                    else:
-                        current_sample_rate = sample_rate
-
-                    # Separate vocals with Demucs (with GPU optimizations)
-                    vocals = self._separate_vocals_chunk(waveform, current_sample_rate, check_cancellation)
-
-                    # Cache vocals for potential reuse in compute_confidence
-                    self._vocals_cache.put(audio_file, chunk_start_ms, chunk_end_ms, vocals)
-
-                    # Detect onset in this chunk
-                    onset_ms = self._detect_onset_in_vocal_chunk(vocals, current_sample_rate, chunk_start_ms)
-
-                    if onset_ms is not None:
-                        # Check if this is a new detection (not duplicate from overlap)
-                        is_new = True
-                        for existing_onset in all_onsets:
-                            if abs(onset_ms - existing_onset) < 1000:  # Within 1 second
-                                is_new = False
-                                break
-
-                        if is_new:
-                            all_onsets.append(onset_ms)
-                            logger.info(f"Found vocal onset at {onset_ms:.0f}ms "
-                                        f"(distance from expected: {abs(onset_ms - expected_gap_ms):.0f}ms)")
-
-                    # Move to next chunk
-                    chunk_start_s += chunk_hop_s
-
-                logger.info(f"Expansion #{expansion_num} complete: processed {chunks_processed} new chunks, "
-                            f"found {len(all_onsets)} total onset(s) so far")
-
-                # If we found onsets, return the closest one
-                if all_onsets:
-                    logger.info("Onset(s) detected! Finding closest to expected position...")
-                    all_onsets_sorted = sorted(all_onsets, key=lambda x: abs(x - expected_gap_ms))
-                    closest = all_onsets_sorted[0]
-
-                    logger.info(f"Returning closest onset: {closest:.0f}ms "
-                                f"(expected: {expected_gap_ms:.0f}ms, diff: {abs(closest - expected_gap_ms):.0f}ms)")
-                    return closest
-
-                # No onset found, expand search if we haven't hit max expansions
-                if expansion_num < self.mdx_config.max_expansions:
-                    expansion_num += 1
-                    current_radius_ms += self.mdx_config.radius_increment_ms
-                    logger.info(f"No onset found, expanding to ±{current_radius_ms/1000:.1f}s")
-                else:
-                    logger.info(f"Reached max expansions ({self.mdx_config.max_expansions}), no onset found")
-                    break
-
-            # No onset found after all expansions
-            logger.warning(f"No onset detected after {expansion_num+1} expansions")
-            return None
-
-        except Exception as e:
-            if "cancelled" in str(e).lower():
-                raise
-            logger.error(f"MDX expanding search failed: {e}")
-            raise
+        logger.debug("Using MDX scanner")
+        return scan_for_onset_refactored(
+            audio_file=audio_file,
+            expected_gap_ms=expected_gap_ms,
+            model=self._get_demucs_model(),
+            device=self._device,
+            config=self.mdx_config,
+            vocals_cache=self._vocals_cache,
+            total_duration_ms=total_duration_ms,
+            check_cancellation=check_cancellation
+        )
 
     def _separate_vocals_chunk(
         self,

@@ -174,116 +174,20 @@ def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
 
     Args:
         pack_dir: Path to GPU Pack installation
-        config: Optional config object for feature flag access
+        config: Optional config object (unused, kept for compatibility)
 
     Returns:
         True if successful, False otherwise
     """
     global ADDED_DLL_DIRS
 
-    # Feature flag routing
-    if config is not None:
-        from common.feature_flags import FeatureFlags
-        flags = FeatureFlags.from_config(config)
-        if flags.USE_STAGED_GPU_BOOTSTRAP:
-            from utils.gpu_bootstrap import enable_gpu_runtime_refactored
-            logger.debug("Using staged GPU bootstrap")
-            success, added_dirs = enable_gpu_runtime_refactored(pack_dir)
-            if success:
-                ADDED_DLL_DIRS = added_dirs
-            return success
-        logger.debug("Using legacy GPU bootstrap")
-
-    ADDED_DLL_DIRS = []  # Reset tracking list
-
-    if not pack_dir.exists():
-        logger.debug(f"GPU Pack directory does not exist: {pack_dir}")
-        return False
-
-    # Check if this is a wheel extraction (torch/, functorch/ at root)
-    # or a traditional install (site-packages/)
-    torch_dir = pack_dir / 'torch'
-    site_packages = pack_dir / 'site-packages'
-
-    if torch_dir.exists():
-        # Wheel extraction - add pack_dir itself to sys.path
-        pack_dir_str = str(pack_dir)
-        if pack_dir_str not in sys.path:
-            sys.path.insert(0, pack_dir_str)
-            logger.info(f"Added GPU Pack directory to sys.path: {pack_dir_str}")
-
-        # Platform-specific library path setup
-        if sys.platform == 'win32':
-            # Windows: Add multiple DLL directories for CUDA/cuDNN/NVRTC dependencies
-            dll_dirs = [
-                torch_dir / 'lib',           # Main torch DLLs (torch_python.dll, etc.)
-                pack_dir / 'bin',            # CUDA/cuDNN/NVRTC DLLs (cublas64_12.dll, etc.)
-                pack_dir / 'torchaudio' / 'lib'  # Torchaudio backend DLLs if present
-            ]
-
-            for dll_dir in dll_dirs:
-                if dll_dir.exists() and hasattr(os, 'add_dll_directory'):
-                    try:
-                        os.add_dll_directory(str(dll_dir))
-                        ADDED_DLL_DIRS.append(str(dll_dir))
-                        logger.info(f"Added DLL directory: {dll_dir}")
-                    except Exception as e:
-                        logger.warning(f"Failed to add DLL directory {dll_dir}: {e}")
-        else:
-            # Linux: Add torch/lib directory to LD_LIBRARY_PATH
-            torch_lib_dir = torch_dir / 'lib'
-            if torch_lib_dir.exists():
-                ld_path = os.environ.get('LD_LIBRARY_PATH', '')
-                new_ld_path = f"{torch_lib_dir}:{ld_path}" if ld_path else str(torch_lib_dir)
-                os.environ['LD_LIBRARY_PATH'] = new_ld_path
-                logger.info(f"Added torch/lib to LD_LIBRARY_PATH: {torch_lib_dir}")
-
-    elif site_packages.exists():
-        # Traditional install with site-packages
-        bin_dir = pack_dir / 'bin'
-
-        # Prepend site-packages to sys.path (highest priority)
-        site_packages_str = str(site_packages)
-        if site_packages_str not in sys.path:
-            sys.path.insert(0, site_packages_str)
-            logger.info(f"Added GPU Pack site-packages to sys.path: {site_packages_str}")
-
-        # Platform-specific library path setup
-        if sys.platform == 'win32':
-            # Windows: Add bin directory and torchaudio/lib to DLL search path
-            dll_dirs = [
-                bin_dir,
-                site_packages / 'torchaudio' / 'lib'
-            ]
-
-            for dll_dir in dll_dirs:
-                if dll_dir.exists() and hasattr(os, 'add_dll_directory'):
-                    try:
-                        os.add_dll_directory(str(dll_dir))
-                        ADDED_DLL_DIRS.append(str(dll_dir))
-                        logger.info(f"Added DLL directory: {dll_dir}")
-                    except Exception as e:
-                        logger.warning(f"Failed to add DLL directory {dll_dir}: {e}")
-        else:
-            # Linux: Add lib directory to LD_LIBRARY_PATH
-            lib_dir = pack_dir / 'lib'
-            if lib_dir.exists():
-                ld_path = os.environ.get('LD_LIBRARY_PATH', '')
-                new_ld_path = f"{lib_dir}:{ld_path}" if ld_path else str(lib_dir)
-                os.environ['LD_LIBRARY_PATH'] = new_ld_path
-                logger.info(f"Added GPU Pack lib to LD_LIBRARY_PATH: {lib_dir}")
-    else:
-        logger.warning(f"GPU Pack has neither torch/ nor site-packages/: {pack_dir}")
-        return False
-
-    # Check for VC++ runtime DLLs on Windows
-    if sys.platform == 'win32':
-        _check_vcruntime()
-
-    # Set environment variable for child processes
-    os.environ['USDXFIXGAP_GPU_PACK_DIR'] = str(pack_dir)
-
-    return True
+    # Use staged GPU bootstrap
+    from utils.gpu_bootstrap import enable_gpu_runtime_refactored
+    logger.debug("Using staged GPU bootstrap")
+    success, added_dirs = enable_gpu_runtime_refactored(pack_dir)
+    if success:
+        ADDED_DLL_DIRS = added_dirs
+    return success
 
 
 def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:

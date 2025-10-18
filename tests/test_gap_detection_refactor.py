@@ -319,34 +319,3 @@ class TestPerformRefactored:
                 config=Mock(),
                 overwrite=False
             )
-
-
-class TestFeatureFlagIntegration:
-    """Test feature flag integration in main perform() function."""
-    
-    @patch('utils.gap_detection.perform_refactored')
-    @patch('common.feature_flags.FeatureFlags')
-    def test_uses_refactored_when_flag_enabled(self, mock_flags_class, mock_perform_refactored):
-        """Main perform() uses refactored pipeline when flag is on."""
-        from utils.detect_gap import perform, DetectGapOptions
-        
-        # Setup flag
-        mock_flags = Mock()
-        mock_flags.USE_REFACTORED_GAP_DETECTION = True
-        mock_flags_class.from_config.return_value = mock_flags
-        
-        # Setup refactored return
-        mock_perform_refactored.return_value = DetectGapResult(5000, [], "/tmp/vocals.wav")
-        
-        # Execute
-        options = DetectGapOptions(
-            audio_file=__file__,
-            tmp_root="/tmp",
-            original_gap=5000,
-            config=Mock()
-        )
-        result = perform(options)
-        
-        # Verify refactored was called
-        mock_perform_refactored.assert_called_once()
-        assert result.detected_gap == 5000

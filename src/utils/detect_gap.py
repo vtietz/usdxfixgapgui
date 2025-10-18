@@ -109,124 +109,21 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
     Perform gap detection with the given options.
     Returns a DetectGapResult with the detected gap, silence periods, and vocals file path.
     Now with extended metadata including confidence, preview, and waveform.
-    
-    This function supports feature-flagged refactored implementation.
-    Set experimental.refactored_gap_detection=true in config to use new pipeline.
     """
-    # Check feature flag for refactored implementation
-    if options.config:
-        from common.feature_flags import FeatureFlags
-        flags = FeatureFlags.from_config(options.config)
-        
-        if flags.USE_REFACTORED_GAP_DETECTION:
-            from utils.gap_detection import perform_refactored
-            logger.info("Using refactored gap detection pipeline")
-            return perform_refactored(
-                audio_file=options.audio_file,
-                tmp_root=options.tmp_root,
-                original_gap=options.original_gap,
-                audio_length=options.audio_length,
-                default_detection_time=options.default_detection_time,
-                config=options.config,
-                overwrite=options.overwrite,
-                check_cancellation=check_cancellation
-            )
+    from utils.gap_detection import perform_refactored
     
-    # Legacy implementation
-    logger.info(f"Detecting gap for {options.audio_file} (legacy)")
-    if not options.audio_file or not os.path.exists(options.audio_file):
-        raise FileNotFoundError(f"Audio file not found: {options.audio_file}")
-
-    tmp_path = files.get_tmp_path(options.tmp_root, options.audio_file)
-
-    if(not options.audio_length):
-        duration = audio.get_audio_duration(options.audio_file, check_cancellation)
-        options.audio_length = int(duration) if duration else None
-
-    # Calculate the maximum detection time (s), increasing it if necessary
-    detection_time = options.default_detection_time
-    while detection_time <= options.original_gap / 1000:
-        detection_time += options.default_detection_time
-
-    detection_time = detection_time + int(detection_time / 2)
-
-    destination_vocals_file = files.get_vocals_path(tmp_path)
-    logger.debug(f"Destination vocals file: {destination_vocals_file}")
-
-    # Get detection provider
-    provider = None
-    if options.config:
-        provider = get_detection_provider(options.config)
-        detection_method = provider.get_method_name()
-    else:
-        detection_method = "mdx"  # Default to MDX (only supported method)
-
-    # detect gap, increasing the detection time if necessary
-    while True:
-        if os.path.exists(destination_vocals_file) and not options.overwrite:
-            vocals_file = destination_vocals_file
-        else:
-            vocals_file = get_vocals_file(
-                options.audio_file,
-                options.tmp_root,
-                destination_vocals_file,
-                detection_time,
-                options.overwrite,
-                check_cancellation,
-                config=options.config
-            )
-
-        # Detect silence periods using provider
-        if provider:
-            silence_periods = provider.detect_silence_periods(
-                options.audio_file,
-                vocals_file,
-                original_gap_ms=float(options.original_gap),
-                check_cancellation=check_cancellation
-            )
-        else:
-            # Legacy fallback
-            silence_periods = audio.detect_silence_periods(
-                vocals_file,
-                silence_detect_params=options.silence_detect_params,
-                check_cancellation=check_cancellation
-            )
-
-        # Detect gap using silence boundary detection
-        detected_gap = detect_nearest_gap(silence_periods, options.original_gap)
-        logger.debug(f"Using silence-boundary detection for {detection_method}")
-
-        if detected_gap is None:
-            raise Exception(f"Failed to detect gap in {options.audio_file}")
-
-        if detected_gap < detection_time * 1000 or (options.audio_length and detection_time * 1000 >= options.audio_length):
-            break
-
-        logger.info(f"Detected GAP seems not to be correct. Increasing detection time to {detection_time + detection_time}s.")
-        detection_time += detection_time
-
-        if options.audio_length and detection_time >= options.audio_length and detected_gap > options.audio_length:
-            raise Exception(f"Error: Unable to detect gap within the length of the audio: {options.audio_file}")
-
-    logger.info(f"Detected GAP: {detected_gap}ms in {options.audio_file}")
-
-    # Create result with basic fields
-    result = DetectGapResult(detected_gap, silence_periods, vocals_file)
-    result.detection_method = detection_method
-    result.detected_gap_ms = float(detected_gap)
-
-    # Compute confidence if provider available
-    if provider:
-        try:
-            result.confidence = provider.compute_confidence(
-                options.audio_file,
-                float(detected_gap),
-                check_cancellation=check_cancellation
-            )
-            logger.debug(f"Detection confidence: {result.confidence:.3f}")
-        except Exception as e:
-            logger.warning(f"Failed to compute confidence: {e}")
-            result.confidence = None
-
-    return result
+    if not options.config:
+        raise ValueError("Config is required for gap detection")
+    
+    logger.info("Using gap detection pipeline")
+    return perform_refactored(
+        audio_file=options.audio_file,
+        tmp_root=options.tmp_root,
+        original_gap=options.original_gap,
+        audio_length=options.audio_length,
+        default_detection_time=options.default_detection_time,
+        config=options.config,
+        overwrite=options.overwrite,
+        check_cancellation=check_cancellation
+    )
 
