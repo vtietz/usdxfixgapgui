@@ -41,7 +41,7 @@ class SongService:
             else:
                 logger.debug(f"Cache miss for {txt_file}, loading from disk")
 
-        logger.debug(f"Loading song {txt_file} from disk and updating cache")
+        logger.info(f"Loading new/changed song from disk: {txt_file}")
 
         # Load USDX file
         try:

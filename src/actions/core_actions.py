@@ -57,7 +57,7 @@ class CoreActions(BaseActions):
 
     def _on_songs_batch_loaded(self, songs: list):
         """Handle batch of songs loaded - much faster than one-by-one."""
-        logger.info(f"Batch loading {len(songs)} songs")
+        logger.debug(f"Batch loading {len(songs)} songs")
         # Set original gap for all songs
         for song in songs:
             if song.status == SongStatus.NOT_PROCESSED and song.gap_info:

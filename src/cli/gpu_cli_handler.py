@@ -5,6 +5,8 @@ Handles all GPU Pack CLI operations: setup, enable/disable, diagnostics
 """
 
 import json
+import os
+import sys
 from pathlib import Path
 from datetime import datetime
 from typing import Dict
@@ -84,6 +86,80 @@ def handle_gpu_diagnostics(config):
     if config.gpu_last_error:
         print(f"Last error: {config.gpu_last_error}")
 
+    # Enhanced diagnostics for DLL directories
+    print("\n=== DLL Path Diagnostics ===")
+    from utils.gpu_bootstrap import ADDED_DLL_DIRS
+    if ADDED_DLL_DIRS:
+        print(f"DLL directories added to search path: {len(ADDED_DLL_DIRS)}")
+        for dll_dir in ADDED_DLL_DIRS:
+            exists = os.path.exists(dll_dir)
+            print(f"  - {dll_dir} {'[EXISTS]' if exists else '[MISSING]'}")
+    else:
+        print("No DLL directories added (GPU Pack not activated)")
+
+    # Check sys.path for torch locations
+    print("\n=== Python Path (torch-related) ===")
+    torch_paths = [p for p in sys.path if 'torch' in p.lower() or 'cuda' in p.lower()]
+    if torch_paths:
+        for p in torch_paths:
+            print(f"  - {p}")
+    else:
+        print("  No torch-related paths in sys.path")
+
+    # Environment variables
+    print("\n=== Environment Variables ===")
+    env_vars = ['USDXFIXGAP_GPU_PACK_DIR', 'CUDA_PATH', 'PATH']
+    for var in env_vars:
+        value = os.environ.get(var, 'Not set')
+        if var == 'PATH':
+            # Show only CUDA/torch-related PATH entries
+            path_entries = value.split(os.pathsep)
+            cuda_paths = [p for p in path_entries if 'cuda' in p.lower() or 'torch' in p.lower()]
+            if cuda_paths:
+                print(f"{var} (CUDA/torch entries):")
+                for p in cuda_paths[:5]:  # Limit to first 5
+                    print(f"  - {p}")
+            else:
+                print(f"{var}: No CUDA/torch entries found")
+        else:
+            print(f"{var}: {value}")
+
+    # Torch smoke test
+    print("\n=== Torch Smoke Test ===")
+    try:
+        import torch
+        print(f"PyTorch version: {torch.__version__}")
+        print(f"CUDA available: {torch.cuda.is_available()}")
+        if torch.cuda.is_available():
+            print(f"CUDA version: {torch.version.cuda}")
+            print(f"cuDNN version: {torch.backends.cudnn.version()}")
+            print(f"Device count: {torch.cuda.device_count()}")
+            for i in range(torch.cuda.device_count()):
+                print(f"  Device {i}: {torch.cuda.get_device_name(i)}")
+        
+        # Test CPU matmul
+        try:
+            a = torch.randn(10, 10)
+            b = torch.randn(10, 10)
+            c = torch.matmul(a, b)
+            print("CPU matmul: OK")
+        except Exception as e:
+            print(f"CPU matmul: FAILED - {e}")
+        
+        # Test GPU matmul if available
+        if torch.cuda.is_available():
+            try:
+                a_gpu = torch.randn(10, 10).cuda()
+                b_gpu = torch.randn(10, 10).cuda()
+                c_gpu = torch.matmul(a_gpu, b_gpu)
+                print("GPU matmul: OK")
+            except Exception as e:
+                print(f"GPU matmul: FAILED - {e}")
+    except ImportError as e:
+        print(f"Failed to import torch: {e}")
+    except Exception as e:
+        print(f"Unexpected error during smoke test: {e}")
+
     # Write to file
     diag_file = Path(get_app_dir()) / "gpu_diagnostics.txt"
     with open(diag_file, 'w') as f:
@@ -99,6 +175,22 @@ def handle_gpu_diagnostics(config):
         f.write(f"Last health check: {config.gpu_last_health or 'Never'}\n")
         if config.gpu_last_error:
             f.write(f"Last error: {config.gpu_last_error}\n")
+        
+        # Write enhanced diagnostics
+        f.write("\n=== DLL Path Diagnostics ===\n")
+        if ADDED_DLL_DIRS:
+            for dll_dir in ADDED_DLL_DIRS:
+                exists = os.path.exists(dll_dir)
+                f.write(f"{dll_dir} {'[EXISTS]' if exists else '[MISSING]'}\n")
+        else:
+            f.write("No DLL directories added\n")
+        
+        f.write("\n=== Python Path (torch-related) ===\n")
+        if torch_paths:
+            for p in torch_paths:
+                f.write(f"{p}\n")
+        else:
+            f.write("No torch-related paths\n")
 
     print(f"\nDiagnostics written to: {diag_file}")
 
