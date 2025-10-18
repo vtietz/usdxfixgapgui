@@ -256,7 +256,8 @@ class MdxProvider(IDetectionProvider):
                     with torch.no_grad():
                         if self._device == 'cuda' and self.mdx_config.use_fp16:
                             dummy_input = dummy_input.half()
-                        _ = model(dummy_input)
+                        # Use apply_model for Demucs inference (not direct call)
+                        _ = apply_model(model, dummy_input.unsqueeze(0), device=self._device)
                     logger.info("Model warm-up complete, ready for detection")
                     _flush_logs()
                 except Exception as e:
