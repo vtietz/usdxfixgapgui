@@ -25,13 +25,13 @@ from test_utils.note_factory import create_basic_notes
 def cleanup_asyncio_thread():
     """
     Session-scoped fixture to properly cleanup asyncio thread after all tests.
-    
+
     This prevents the "QThread: Destroyed while thread is still running" warning
     that occurs when the test process exits with the asyncio event loop thread
     still active.
     """
     yield  # Run all tests
-    
+
     # After all tests complete, shutdown the asyncio thread
     try:
         from utils.run_async import shutdown_asyncio
@@ -139,16 +139,16 @@ def song_factory(tmp_path):
 def fake_run_async():
     """
     Fixture providing synchronous executor for run_async in tests.
-    
+
     This fixture ensures coroutines scheduled via run_async are immediately
     awaited and resolved during test execution, preventing RuntimeWarnings
     about unawaited coroutines.
-    
+
     Usage:
         with patch('actions.gap_actions.run_async') as mock_run_async:
             mock_run_async.side_effect = fake_run_async
             # Test code that calls run_async(coro, callback)
-    
+
     Returns:
         Callable that executes coroutine synchronously and invokes callback
     """
@@ -158,5 +158,5 @@ def fake_run_async():
         if callback:
             callback(result)
         return result
-    
+
     return _executor

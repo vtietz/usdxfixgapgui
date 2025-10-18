@@ -1,4 +1,3 @@
-import time
 from typing import List, Tuple, Optional
 from PySide6.QtCore import Signal
 from common.config import Config

@@ -1,6 +1,5 @@
 """Unit tests for GapActions.get_notes_overlap orchestration."""
 
-import asyncio
 from unittest.mock import AsyncMock, patch
 
 from actions.gap_actions import GapActions

@@ -53,6 +53,6 @@ class ReloadSongWorker(IWorker):
             logger.debug(f"Finished reloading song: {self.song_path}")
         else:
             logger.debug(f"Cancelled reloading song: {self.song_path}")
-        
+
         # Always emit finished signal, even if cancelled
         self.signals.finished.emit()

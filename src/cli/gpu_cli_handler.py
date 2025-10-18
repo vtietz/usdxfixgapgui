@@ -136,22 +136,22 @@ def handle_gpu_diagnostics(config):
             print(f"Device count: {torch.cuda.device_count()}")
             for i in range(torch.cuda.device_count()):
                 print(f"  Device {i}: {torch.cuda.get_device_name(i)}")
-        
+
         # Test CPU matmul
         try:
             a = torch.randn(10, 10)
             b = torch.randn(10, 10)
-            c = torch.matmul(a, b)
+            torch.matmul(a, b)
             print("CPU matmul: OK")
         except Exception as e:
             print(f"CPU matmul: FAILED - {e}")
-        
+
         # Test GPU matmul if available
         if torch.cuda.is_available():
             try:
                 a_gpu = torch.randn(10, 10).cuda()
                 b_gpu = torch.randn(10, 10).cuda()
-                c_gpu = torch.matmul(a_gpu, b_gpu)
+                torch.matmul(a_gpu, b_gpu)
                 print("GPU matmul: OK")
             except Exception as e:
                 print(f"GPU matmul: FAILED - {e}")
@@ -175,7 +175,7 @@ def handle_gpu_diagnostics(config):
         f.write(f"Last health check: {config.gpu_last_health or 'Never'}\n")
         if config.gpu_last_error:
             f.write(f"Last error: {config.gpu_last_error}\n")
-        
+
         # Write enhanced diagnostics
         f.write("\n=== DLL Path Diagnostics ===\n")
         if ADDED_DLL_DIRS:
@@ -184,7 +184,7 @@ def handle_gpu_diagnostics(config):
                 f.write(f"{dll_dir} {'[EXISTS]' if exists else '[MISSING]'}\n")
         else:
             f.write("No DLL directories added\n")
-        
+
         f.write("\n=== Python Path (torch-related) ===\n")
         if torch_paths:
             for p in torch_paths:

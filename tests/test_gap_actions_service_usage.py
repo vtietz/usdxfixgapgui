@@ -4,7 +4,6 @@ Verifies that gap actions use USDXFileService and GapInfoService correctly
 without accessing non-existent song.usdx_file property.
 """
 
-import asyncio
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from model.song import Song
@@ -135,7 +134,7 @@ class TestUpdateGapValue:
     @patch('actions.gap_actions.run_async')
     def test_update_gap_value_no_song(self, mock_run_async, mock_app_data):
         """Verify graceful handling when no song selected
-        
+
         Note: No AsyncMock patches needed since code path returns early
         and never calls services (update_gap_tag or GapInfoService.save).
         """

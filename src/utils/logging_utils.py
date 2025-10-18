@@ -14,19 +14,19 @@ import time
 def flush_logs():
     """
     Force immediate flush of all log handlers for real-time visibility.
-    
+
     Necessary for async logging (QueueHandler) to ensure log messages appear
     immediately during long-running operations like:
     - Model loading (Demucs, PyTorch)
     - Audio processing (ffmpeg, ffprobe)
     - Vocal separation (Spleeter, MDX)
     - Normalization (loudnorm filter)
-    
+
     Flushes:
         - All active logger handlers (module and root)
         - QueueHandler with small delay for queue processing
         - stdout/stderr streams
-    
+
     Example:
         >>> logger.info("Starting long operation...")
         >>> flush_logs()  # Ensure message appears immediately

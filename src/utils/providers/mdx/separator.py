@@ -31,11 +31,11 @@ def separate_vocals_chunk(
 ) -> np.ndarray:
     """
     Separate vocals from audio chunk using Demucs with GPU optimizations.
-    
+
     Applies device-specific optimizations:
     - FP16 mixed precision on CUDA (if enabled)
     - Batch inference with apply_model
-    
+
     Args:
         model: Loaded Demucs model
         waveform: Audio waveform tensor (channels, samples)
@@ -43,10 +43,10 @@ def separate_vocals_chunk(
         device: Target device ('cuda' or 'cpu')
         use_fp16: Enable FP16 mixed precision (CUDA only)
         check_cancellation: Cancellation callback
-    
+
     Returns:
         Vocals-only numpy array (channels, samples)
-    
+
     Raises:
         DetectionFailedError: If cancelled or separation fails
     """

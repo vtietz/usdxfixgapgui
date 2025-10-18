@@ -44,27 +44,27 @@ class TaskQueueViewer(QWidget):
 
         # Build ordered list of (task_id, description, status, lane) tuples
         ordered_tasks = []
-        
+
         # 1. Running instant task (single slot)
         if self.workerQueueManager.running_instant_task:
             worker = self.workerQueueManager.running_instant_task
             ordered_tasks.append((worker.id, worker.description, worker.status.name, "instant"))
-        
+
         # 2. Running standard tasks (dict - use values in insertion order)
         for task_id, worker in self.workerQueueManager.running_tasks.items():
             ordered_tasks.append((task_id, worker.description, worker.status.name, "standard"))
-        
+
         # 3. Queued instant tasks (deque - oldest first)
         for worker in self.workerQueueManager.queued_instant_tasks:
             ordered_tasks.append((worker.id, worker.description, worker.status.name, "instant"))
-        
+
         # 4. Queued standard tasks (deque - oldest first)
         for worker in self.workerQueueManager.queued_tasks:
             ordered_tasks.append((worker.id, worker.description, worker.status.name, "standard"))
 
         # Clear and rebuild table to ensure correct ordering
         self.tableWidget.setRowCount(0)
-        
+
         for task_id, description, status, lane in ordered_tasks:
             row = self.tableWidget.rowCount()
             self.tableWidget.insertRow(row)

@@ -211,18 +211,18 @@ class MediaPlayerComponent(QWidget):
         # Defer async operations slightly to let UI render selection first
         # This eliminates any perceived lag from event loop contention
         from PySide6.QtCore import QTimer
-        
+
         # Check if we need to load data (async, non-blocking)
         if not song.notes:
             # Song needs metadata reload - use light reload to avoid status changes
             # Defer by 0ms to let UI render first
             QTimer.singleShot(0, lambda: self._actions.reload_song_light(song))
-        
+
         # Create waveforms for selected song if missing (instant task, runs immediately in parallel)
         if not WaveformPathService.waveforms_exists(song, self._data.tmp_path):
             # Set placeholder immediately to show user feedback
             self.waveform_widget.set_placeholder("Loading waveform…")
-            
+
             from actions.audio_actions import AudioActions
             audio_actions = AudioActions(self._data)
             # Defer slightly to let UI render first, then start instant task
@@ -270,15 +270,15 @@ class MediaPlayerComponent(QWidget):
             return
 
         logger.debug(f"Updating player files. Audio status: {self.player.get_audio_status()}")
-        
+
         # Determine which files to load based on audio mode
         audio_status = self.player.get_audio_status()
-        
+
         if audio_status == AudioFileStatus.AUDIO:
             logger.debug(f"Loading audio file: {paths['audio_file']}")
             # Keep audio playback available even during gap detection (PROCESSING status)
             self.player.load_media(paths['audio_file'])
-            
+
             # Check if audio waveform exists
             if os.path.exists(paths['audio_waveform_file']):
                 self.waveform_widget.load_waveform(paths['audio_waveform_file'])
@@ -289,14 +289,14 @@ class MediaPlayerComponent(QWidget):
                     self.waveform_widget.set_placeholder("Gap detection in progress…")
                 else:
                     self.waveform_widget.set_placeholder("Loading waveform…")
-            
+
             # Clear vocals button tooltip in audio mode
             self.vocals_btn.setToolTip("")
-            
+
         else:  # VOCALS mode
             # Check if vocals file exists
             vocals_file_exists = os.path.exists(paths['vocals_file'])
-            
+
             if not vocals_file_exists:
                 # Vocals not extracted yet
                 logger.debug("Vocals file does not exist")
@@ -308,14 +308,14 @@ class MediaPlayerComponent(QWidget):
                 # Vocals file exists, load it
                 logger.debug(f"Loading vocals file: {paths['vocals_file']}")
                 self.player.load_media(paths['vocals_file'])
-                
+
                 # Check if vocals waveform exists
                 if os.path.exists(paths['vocals_waveform_file']):
                     self.waveform_widget.load_waveform(paths['vocals_waveform_file'])
                 else:
                     self.waveform_widget.load_waveform(None)
                     self.waveform_widget.set_placeholder("Loading waveform…")
-                
+
                 # Clear tooltip when vocals exist
                 self.vocals_btn.setToolTip("")
 

@@ -279,7 +279,13 @@ def analyze_file_length(files: List[str] = None) -> tuple:
     # Collect all Python files to analyze
     files_to_check = []
     if files:
-        files_to_check = [Path(f) for f in files if f.endswith('.py')]
+        # Convert to absolute paths if relative
+        for f in files:
+            if f.endswith('.py'):
+                file_path = Path(f)
+                if not file_path.is_absolute():
+                    file_path = PROJECT_ROOT / file_path
+                files_to_check.append(file_path)
     else:
         for dir_name in PYTHON_DIRS:
             dir_path = PROJECT_ROOT / dir_name

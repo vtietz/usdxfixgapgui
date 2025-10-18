@@ -27,7 +27,6 @@ import warnings
 import numpy as np
 import torch
 import torchaudio
-from collections import OrderedDict
 from typing import List, Tuple, Optional, Callable
 
 from demucs.apply import apply_model
@@ -38,15 +37,14 @@ from utils.providers.mdx.model_loader import ModelLoader
 from utils.providers.mdx.logging import flush_logs as _flush_logs
 from utils.providers.mdx.separator import separate_vocals_chunk
 from utils.providers.mdx.detection import detect_onset_in_vocal_chunk
+from utils.providers.mdx.confidence import compute_confidence_score
+from utils.providers.mdx.vocals_cache import VocalsCache
 
 # Suppress TorchAudio MP3 warning globally for this module
 warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
 warnings.filterwarnings("ignore", category=UserWarning, module="torchaudio")
 
 logger = logging.getLogger(__name__)
-
-# Constants
-MAX_VOCALS_CACHE_SIZE = 6  # Maximum cached vocals chunks
 
 
 class MdxProvider(IDetectionProvider):
@@ -82,8 +80,7 @@ class MdxProvider(IDetectionProvider):
         self._device = self._model_loader.get_device()
 
         # LRU cache for separated vocals (avoid re-separation in compute_confidence)
-        # OrderedDict maintains insertion order for LRU eviction
-        self._vocals_cache = OrderedDict()  # {(audio_file, start_ms, end_ms): vocals_numpy}
+        self._vocals_cache = VocalsCache()
 
         logger.debug(
             f"MDX provider initialized: chunk={self.mdx_config.chunk_duration_ms}ms, "
@@ -98,7 +95,7 @@ class MdxProvider(IDetectionProvider):
     def _get_demucs_model(self):
         """
         Get Demucs model (lazy loading via ModelLoader).
-        
+
         Returns cached model or loads new one with optimizations.
         Thread-safe via ModelLoader's internal lock.
         """
@@ -295,18 +292,7 @@ class MdxProvider(IDetectionProvider):
         """
         Compute confidence based on SNR (Signal-to-Noise Ratio) at onset.
 
-        Uses cached vocals separation from detection phase to avoid redundant
-        Demucs calls. If no cached vocals available, performs separation.
-
-        Analyzes the first 300ms after detected onset to compute SNR:
-            - Use cached vocals or separate with Demucs
-            - Measure RMS in 300ms window after onset (signal)
-            - Measure RMS in first 800ms (noise floor)
-            - Confidence = smooth_map(SNR_dB)
-
-        Formula:
-            SNR_dB = 20 * log10(RMS_signal / RMS_noise)
-            Confidence = 1 / (1 + exp(-0.1 * (SNR_dB - 10)))
+        Delegates to confidence module which uses cached vocals when available.
 
         Args:
             audio_file: Original audio file
@@ -316,87 +302,13 @@ class MdxProvider(IDetectionProvider):
         Returns:
             Confidence score in range [0.0, 1.0]
         """
-        try:
-            logger.debug(f"Computing confidence at gap={detected_gap_ms}ms")
-
-            # Get audio info
-            info = torchaudio.info(audio_file)
-            sample_rate = info.sample_rate
-
-            # Try to find cached vocals that cover the onset position
-            vocals = None
-            chunk_start_ms = 0.0
-            onset_in_chunk_ms = detected_gap_ms
-
-            for (cached_file, start_ms, end_ms), cached_vocals in self._vocals_cache.items():
-                if cached_file == audio_file and start_ms <= detected_gap_ms <= end_ms:
-                    logger.debug(f"Reusing cached vocals from {start_ms:.0f}ms-{end_ms:.0f}ms")
-                    vocals = cached_vocals
-                    # Adjust onset position to chunk-relative
-                    chunk_start_ms = start_ms
-                    onset_in_chunk_ms = detected_gap_ms - chunk_start_ms
-                    break
-
-            # If no cache hit, separate vocals for confidence region
-            if vocals is None:
-                logger.debug("No cached vocals, performing separation for confidence")
-                # Load audio segment (first 5 seconds to get noise floor and signal)
-                segment_duration = min(5.0, (detected_gap_ms / 1000.0) + 1.0)
-                num_frames = int(segment_duration * sample_rate)
-
-                logger.debug(f"Loading {segment_duration:.1f}s audio segment for confidence computation")
-                import warnings
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
-                    waveform, sample_rate = torchaudio.load(
-                        audio_file,
-                        frame_offset=0,
-                        num_frames=num_frames
-                    )
-
-                # Convert to stereo if needed
-                if waveform.shape[0] == 1:
-                    waveform = waveform.repeat(2, 1)
-
-                # Separate vocals
-                vocals = self._separate_vocals_chunk(waveform, sample_rate, check_cancellation)
-                chunk_start_ms = 0.0
-                onset_in_chunk_ms = detected_gap_ms
-
-            # Convert to mono for RMS calculation
-            vocals_mono = np.mean(vocals, axis=0)
-
-            # Compute RMS in noise floor region (first 800ms of chunk)
-            noise_samples = int(0.8 * sample_rate)
-            noise_rms = np.sqrt(np.mean(vocals_mono[:min(noise_samples, len(vocals_mono))]**2))
-
-            # Compute RMS in signal region (300ms after onset)
-            onset_sample = int((onset_in_chunk_ms / 1000.0) * sample_rate)
-            signal_duration_samples = int(0.3 * sample_rate)
-            signal_end = min(onset_sample + signal_duration_samples, len(vocals_mono))
-
-            if onset_sample < len(vocals_mono):
-                signal_rms = np.sqrt(np.mean(vocals_mono[onset_sample:signal_end]**2))
-            else:
-                signal_rms = noise_rms
-
-            # Compute SNR
-            if noise_rms > 1e-8:
-                snr_db = 20 * np.log10((signal_rms + 1e-8) / (noise_rms + 1e-8))
-            else:
-                snr_db = 20.0  # Assume good SNR if noise floor is very low
-
-            # Map SNR to confidence using sigmoid
-            # Center at 10dB, steepness 0.1
-            confidence = 1.0 / (1.0 + np.exp(-0.1 * (snr_db - 10.0)))
-            confidence = float(np.clip(confidence, 0.0, 1.0))
-
-            logger.info(f"SNR={snr_db:.1f}dB, Confidence={confidence:.3f}")
-            return confidence
-
-        except Exception as e:
-            logger.warning(f"MDX confidence computation failed: {e}")
-            return 0.7  # Default moderate-high confidence
+        return compute_confidence_score(
+            audio_file=audio_file,
+            detected_gap_ms=detected_gap_ms,
+            vocals_cache=self._vocals_cache.cache_dict,
+            separate_vocals_fn=self._separate_vocals_chunk,
+            check_cancellation=check_cancellation
+        )
 
     def get_method_name(self) -> str:
         """Return provider identifier."""
@@ -530,14 +442,8 @@ class MdxProvider(IDetectionProvider):
                     # Separate vocals with Demucs (with GPU optimizations)
                     vocals = self._separate_vocals_chunk(waveform, current_sample_rate, check_cancellation)
 
-                    # Cache vocals for potential reuse in compute_confidence (with LRU eviction)
-                    cache_key = (audio_file, chunk_start_ms, chunk_end_ms)
-                    # Evict oldest entry if cache is full
-                    if len(self._vocals_cache) >= MAX_VOCALS_CACHE_SIZE:
-                        oldest_key = next(iter(self._vocals_cache))
-                        logger.debug(f"Vocals cache full ({MAX_VOCALS_CACHE_SIZE}), evicting oldest entry")
-                        self._vocals_cache.pop(oldest_key)
-                    self._vocals_cache[cache_key] = vocals
+                    # Cache vocals for potential reuse in compute_confidence
+                    self._vocals_cache.put(audio_file, chunk_start_ms, chunk_end_ms, vocals)
 
                     # Detect onset in this chunk
                     onset_ms = self._detect_onset_in_vocal_chunk(vocals, current_sample_rate, chunk_start_ms)
@@ -598,12 +504,12 @@ class MdxProvider(IDetectionProvider):
     ) -> np.ndarray:
         """
         Separate vocals from audio chunk using Demucs (delegates to separator module).
-        
+
         Args:
             waveform: Audio waveform tensor (channels, samples)
             sample_rate: Sample rate of audio
             check_cancellation: Cancellation callback
-        
+
         Returns:
             Vocals-only numpy array (channels, samples)
         """
@@ -625,12 +531,12 @@ class MdxProvider(IDetectionProvider):
     ) -> Optional[float]:
         """
         Detect vocal onset in a vocal stem chunk (delegates to detection module).
-        
+
         Args:
             vocal_audio: Numpy array of vocal stem audio (channels, samples)
             sample_rate: Audio sample rate
             chunk_start_ms: Chunk start position in original audio (ms)
-        
+
         Returns:
             Absolute timestamp in milliseconds of onset, or None if not found
         """

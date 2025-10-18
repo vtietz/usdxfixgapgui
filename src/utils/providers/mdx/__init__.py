@@ -10,13 +10,17 @@ from .model_loader import ModelLoader
 from .logging import flush_logs
 from .separator import separate_vocals_chunk
 from .detection import detect_onset_in_vocal_chunk, compute_rms, estimate_noise_floor
+from .confidence import compute_confidence_score
+from .vocals_cache import VocalsCache
 
 __all__ = [
     'MdxConfig',
-    'ModelLoader', 
+    'ModelLoader',
     'flush_logs',
     'separate_vocals_chunk',
     'detect_onset_in_vocal_chunk',
     'compute_rms',
-    'estimate_noise_floor'
+    'estimate_noise_floor',
+    'compute_confidence_score',
+    'VocalsCache'
 ]

@@ -1,6 +1,5 @@
 """Integration-light tests for GapActions._on_detect_gap_finished completion handler."""
 
-import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 from actions.gap_actions import GapActions

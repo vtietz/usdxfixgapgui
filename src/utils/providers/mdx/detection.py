@@ -25,12 +25,12 @@ def compute_rms(
 ) -> np.ndarray:
     """
     Compute short-time RMS energy.
-    
+
     Args:
         audio: Audio signal (mono)
         frame_samples: Frame size in samples
         hop_samples: Hop size in samples
-    
+
     Returns:
         Array of RMS values for each frame
     """
@@ -58,13 +58,13 @@ def estimate_noise_floor(
 ) -> Tuple[float, float]:
     """
     Estimate noise floor and standard deviation from initial frames.
-    
+
     Uses median for robustness against outliers.
-    
+
     Args:
         rms_values: Array of RMS values
         noise_floor_frames: Number of frames to use for estimation
-    
+
     Returns:
         Tuple of (noise_floor, sigma)
     """
@@ -92,7 +92,7 @@ def detect_onset_in_vocal_chunk(
 ) -> Optional[float]:
     """
     Detect vocal onset in a vocal stem chunk using energy threshold.
-    
+
     Implementation strategy:
         1. Convert to mono
         2. Estimate noise floor from first 800ms
@@ -100,13 +100,13 @@ def detect_onset_in_vocal_chunk(
         4. Find onset where RMS > noise_floor + k*sigma for ≥180ms
         5. Refine using energy derivative (steepest rise)
         6. Return absolute timestamp (chunk_start + offset)
-    
+
     Args:
         vocal_audio: Numpy array of vocal stem audio (channels, samples)
         sample_rate: Audio sample rate
         chunk_start_ms: Chunk start position in original audio (ms)
         config: MDX configuration with detection parameters
-    
+
     Returns:
         Absolute timestamp in milliseconds of onset, or None if not found
     """

@@ -8,7 +8,6 @@ global mutable state. Handles device selection (CUDA/CPU) and optimizations
 
 import logging
 import threading
-from typing import Optional
 
 from utils.logging_utils import flush_logs
 
@@ -21,41 +20,41 @@ DEMUCS_MODEL_NAME = 'htdemucs'
 class ModelLoader:
     """
     Thread-safe model loader with instance-level cache.
-    
+
     Replaces global _GLOBAL_MODEL_CACHE to eliminate shared mutable state.
     Each instance maintains its own cache and lock.
     """
-    
+
     def __init__(self):
         """Initialize empty cache and lock."""
         self._cache: dict = {'model': None, 'device': None}
         self._lock = threading.Lock()
-    
+
     def get_device(self) -> str:
         """
         Determine optimal device for model execution.
-        
+
         Returns:
             'cuda' if NVIDIA GPU available, otherwise 'cpu'
         """
         # Lazy import to avoid loading torch until needed
         import torch
         return 'cuda' if torch.cuda.is_available() else 'cpu'
-    
+
     def get_model(self, device: str, use_fp16: bool):
         """
         Load Demucs model with GPU optimizations (thread-safe).
-        
+
         Uses instance cache to avoid reloading model for each detection.
         Applies device-specific optimizations (cuDNN for GPU, threading for CPU).
-        
+
         Args:
             device: Target device ('cuda' or 'cpu')
             use_fp16: Enable FP16 mixed precision (CUDA only)
-        
+
         Returns:
             Loaded Demucs model in eval mode
-        
+
         Raises:
             DetectionFailedError: If model loading fails
         """
@@ -73,7 +72,7 @@ class ModelLoader:
                 from demucs.pretrained import get_model
                 from demucs.apply import apply_model
                 from common.exceptions import DetectionFailedError
-                
+
                 logger.info(f"Loading Demucs model on {device}...")
                 flush_logs()
 

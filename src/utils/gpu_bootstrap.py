@@ -25,20 +25,20 @@ def _check_vcruntime() -> None:
     """
     if sys.platform != 'win32':
         return
-    
+
     try:
         import ctypes
-        
+
         # Try to load critical VC++ runtime DLLs
         required_dlls = ['vcruntime140_1.dll', 'msvcp140.dll']
         missing_dlls = []
-        
+
         for dll_name in required_dlls:
             try:
                 ctypes.WinDLL(dll_name)
             except (OSError, FileNotFoundError):
                 missing_dlls.append(dll_name)
-        
+
         if missing_dlls:
             logger.warning(
                 f"Microsoft Visual C++ Redistributable DLLs missing: {', '.join(missing_dlls)}. "
@@ -180,7 +180,7 @@ def enable_gpu_runtime(pack_dir: Path) -> bool:
     """
     global ADDED_DLL_DIRS
     ADDED_DLL_DIRS = []  # Reset tracking list
-    
+
     if not pack_dir.exists():
         logger.debug(f"GPU Pack directory does not exist: {pack_dir}")
         return False
@@ -205,7 +205,7 @@ def enable_gpu_runtime(pack_dir: Path) -> bool:
                 pack_dir / 'bin',            # CUDA/cuDNN/NVRTC DLLs (cublas64_12.dll, etc.)
                 pack_dir / 'torchaudio' / 'lib'  # Torchaudio backend DLLs if present
             ]
-            
+
             for dll_dir in dll_dirs:
                 if dll_dir.exists() and hasattr(os, 'add_dll_directory'):
                     try:
@@ -240,7 +240,7 @@ def enable_gpu_runtime(pack_dir: Path) -> bool:
                 bin_dir,
                 site_packages / 'torchaudio' / 'lib'
             ]
-            
+
             for dll_dir in dll_dirs:
                 if dll_dir.exists() and hasattr(os, 'add_dll_directory'):
                     try:
@@ -337,21 +337,21 @@ def validate_torch_cpu() -> Tuple[bool, str]:
     """
     try:
         import torch
-        
+
         # Basic smoke test on CPU
         try:
             x = torch.randn(10, 10)
             y = torch.randn(10, 10)
             z = torch.matmul(x, y)
-            
+
             if z.shape != (10, 10):
                 return (False, "CPU smoke test failed: unexpected result shape")
         except Exception as e:
             return (False, f"CPU smoke test failed: {str(e)}")
-        
+
         logger.info(f"CPU-only torch validation successful: PyTorch {torch.__version__}")
         return (True, "")
-    
+
     except ImportError as e:
         return (False, f"Failed to import torch: {str(e)}")
     except Exception as e:
@@ -374,7 +374,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
         True if GPU is enabled and validated, False otherwise
     """
     global ADDED_DLL_DIRS
-    
+
     try:
         # Check if user has explicitly disabled GPU
         gpu_opt_in = getattr(config, 'gpu_opt_in', None)
@@ -387,7 +387,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
         pack_dir = None
         gpu_flavor = getattr(config, 'gpu_flavor', 'cu121')
         expected_cuda = "12.1" if gpu_flavor == "cu121" else "12.4"
-        
+
         if pack_path:
             pack_dir = Path(pack_path)
 
@@ -456,22 +456,22 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
 def _build_diagnostic_message(pack_dir: Optional[Path], flavor: str, expected_cuda: str, error_msg: str) -> str:
     """Build detailed diagnostic message for GPU bootstrap failure."""
     lines = [f"GPU Pack validation failed: {error_msg}"]
-    
+
     if pack_dir:
         lines.append(f"Pack path: {pack_dir}")
     lines.append(f"Pack flavor: {flavor}")
     lines.append(f"Expected CUDA: {expected_cuda}")
-    
+
     if ADDED_DLL_DIRS:
         lines.append(f"DLL directories added: {', '.join(ADDED_DLL_DIRS)}")
     else:
         lines.append("No DLL directories were added")
-    
+
     env_pack_dir = os.environ.get('USDXFIXGAP_GPU_PACK_DIR', 'Not set')
     lines.append(f"USDXFIXGAP_GPU_PACK_DIR: {env_pack_dir}")
-    
+
     lines.append("Run --gpu-diagnostics for detailed information")
-    
+
     return " | ".join(lines)
 
 

@@ -73,7 +73,7 @@ class AudioActions(BaseActions):
 
     def _create_waveforms(self, song: Song, overwrite: bool = False, use_queue: bool = True):
         """Create waveforms for both audio and vocals tracks.
-        
+
         Args:
             song: The song object
             overwrite: Whether to overwrite existing waveforms
@@ -104,7 +104,7 @@ class AudioActions(BaseActions):
 
     def _create_waveform(self, song: Song, audio_file: str, waveform_file: str, overwrite: bool = False, use_queue: bool = True):
         """Create a waveform image for the given audio file.
-        
+
         Args:
             song: The song object
             audio_file: Path to the audio file
@@ -137,39 +137,39 @@ class AudioActions(BaseActions):
         else:
             # New behavior: run in background thread without queueing (for selected song only)
             logger.debug(f"Creating waveform directly (non-queued) for {song}")
-            
+
             def create_waveform_direct():
                 """Background thread function to create waveform without WorkerQueueManager."""
                 try:
                     # Generate the waveform image directly
                     waveform_color = self.config.waveform_color if hasattr(self.config, 'waveform_color') else "gray"
                     create_waveform_image(audio_file, waveform_file, waveform_color)
-                    
+
                     # Apply overlays if gap_info is available
                     if hasattr(song, 'gap_info') and song.gap_info:
                         # Draw silence periods
                         if hasattr(song.gap_info, 'silence_periods') and song.gap_info.silence_periods:
                             silence_color = self.config.silence_periods_color if hasattr(self.config, 'silence_periods_color') else (105, 105, 105, 128)
                             draw_silence_periods(waveform_file, song.gap_info.silence_periods, song.duration_ms, silence_color)
-                        
+
                         # Draw detected gap
                         if hasattr(song.gap_info, 'detected_gap') and song.gap_info.detected_gap is not None:
                             gap_color = self.config.detected_gap_color if hasattr(self.config, 'detected_gap_color') else "blue"
                             draw_gap(waveform_file, song.gap_info.detected_gap, song.duration_ms, gap_color)
-                    
+
                     # Draw notes overlay
                     if hasattr(song, 'notes') and song.notes:
                         note_color = "white"  # Standard note color
                         draw_notes(waveform_file, song.notes, song.duration_ms, note_color)
-                    
+
                     logger.debug(f"Waveform created successfully (non-queued): {waveform_file}")
-                    
+
                     # Emit update signal (thread-safe)
                     self.data.songs.updated.emit(song)
-                    
+
                 except Exception as e:
                     logger.error(f"Error creating waveform (non-queued) for {song}: {e}", exc_info=True)
-            
+
             # Start background thread
             thread = threading.Thread(target=create_waveform_direct, daemon=True)
             thread.start()

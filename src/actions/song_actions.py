@@ -8,7 +8,7 @@ from services.usdx_file_service import USDXFileService
 from services.song_service import SongService
 from model.usdx_file import USDXFile
 from utils.audio import get_audio_duration
-from utils.run_async import run_sync, run_async
+from utils.run_async import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class SongActions(BaseActions):
                 if song.status in (SongStatus.ERROR, SongStatus.PROCESSING):
                     logger.info(f"Resetting status from {song.status} to NOT_PROCESSED for reload")
                     song.clear_error()  # Clears error message and resets to NOT_PROCESSED
-                
+
                 # Mark as queued so viewport lazy loader does not re-queue it
                 song.status = SongStatus.QUEUED
                 self.data.songs.updated.emit(song)
@@ -114,9 +114,9 @@ class SongActions(BaseActions):
         Light reload: loads only metadata (USDX tags and notes) without gap_info.
         Does NOT change song.status, does NOT queue workers, does NOT create waveforms.
         Used for viewport lazy-loading to avoid triggering heavy processing.
-        
+
         Now fully asynchronous - does NOT block GUI thread.
-        
+
         If specific_song is provided, only loads that song.
         Otherwise loads all selected songs.
         """
@@ -136,7 +136,7 @@ class SongActions(BaseActions):
                 continue
 
             logger.debug(f"Light-reloading metadata for {song.txt_file}")
-            
+
             # Use run_async with callback to avoid blocking GUI thread
             song_service = SongService()
             run_async(
@@ -163,10 +163,10 @@ class SongActions(BaseActions):
                 song.notes = reloaded_song.notes
                 song.audio_file = reloaded_song.audio_file
                 song.duration_ms = reloaded_song.duration_ms
-                
+
                 # DO NOT set gap_info - keeps status unchanged
                 # DO NOT change status - remains NOT_PROCESSED
-                
+
                 logger.debug(f"Light-reload complete for {song.title}, status unchanged: {song.status}")
                 self.data.songs.updated.emit(song)
             else:
@@ -182,7 +182,7 @@ class SongActions(BaseActions):
     async def load_notes_for_song_async(self, song: Song):
         """Load just the notes for a song without fully reloading it.
         Also compute per-note start/end/duration in milliseconds so waveform rendering works.
-        
+
         NOTE: This is async and should be called via run_async, not run_sync.
         Prefer using reload_song_light() for viewport operations.
         """

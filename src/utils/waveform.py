@@ -25,7 +25,7 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
     # scale=sqrt provides better visual balance than linear
     command = [
         'ffmpeg', '-y', '-loglevel', 'quiet', '-i', audio_file,
-        '-filter_complex', 
+        '-filter_complex',
         f"dynaudnorm=f=100:g=31:p=0.95:m=10:r=0.5:n=1:c=1,"
         f"showwavespic=s={width}x{height}:colors={color}:scale=sqrt:split_channels=1",
         '-frames:v', '1', image_path

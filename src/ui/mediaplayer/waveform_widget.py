@@ -64,7 +64,7 @@ class WaveformWidget(QLabel):
 
             # Calculate text bounding box
             text_rect = painter.fontMetrics().boundingRect(self.placeholder_text)
-            
+
             # Calculate center position
             widget_rect = self.rect()
             text_x = (widget_rect.width() - text_rect.width()) // 2

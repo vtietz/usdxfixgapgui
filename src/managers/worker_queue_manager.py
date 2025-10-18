@@ -30,7 +30,7 @@ class IWorker(QObject):
     """
     Base class to provide a common interface and functionality for worker tasks.
     This class is designed to be subclassed with specific implementations of the asynchronous run method.
-    
+
     Workers can be classified as:
     - Standard (is_instant=False): Long-running tasks that run sequentially (gap detection, normalization, scan all)
     - Instant (is_instant=True): User-triggered tasks that can run immediately in parallel with standard tasks (waveform, light reload)
@@ -109,11 +109,11 @@ class WorkerQueueManager(QObject):
         # Standard task lane (sequential, long-running) - using deque for O(1) FIFO
         self.queued_tasks = deque()
         self.running_tasks = {}
-        
+
         # Instant task lane (parallel to standard, max 1 concurrent) - using deque for O(1) FIFO
         self.queued_instant_tasks = deque()
         self.running_instant_task = None
-        
+
         self._heartbeat_active = True
         self._ui_update_interval = ui_update_interval  # Update interval in seconds
         self._ui_update_pending = False  # Flag to track if UI updates are needed
@@ -159,7 +159,7 @@ class WorkerQueueManager(QObject):
             # Instant lane: user-triggered, runs in parallel with standard tasks
             worker.status = WorkerStatus.WAITING
             self.queued_instant_tasks.append(worker)
-            
+
             # Start immediately if instant slot is free (instant tasks should always start ASAP)
             # This ensures user-triggered actions (reload, waveform) never wait behind standard tasks
             if self.running_instant_task is None:
@@ -229,7 +229,7 @@ class WorkerQueueManager(QObject):
             if self.queued_tasks and not self.running_tasks:
                 # Start next task directly, no need for QTimer
                 self.start_next_task()
-        
+
         # Emit immediately so the UI reflects removals promptly, and mark for coalesced updates
         self.on_task_list_changed.emit()
         self._mark_ui_update_needed()
@@ -317,14 +317,14 @@ class WorkerQueueManager(QObject):
             worker.cancel()
         for task_id in list(self.running_tasks.keys()):
             self.cancel_task(task_id)
-        
-        # Cancel instant queue - head-first for "top-to-bottom" user expectation  
+
+        # Cancel instant queue - head-first for "top-to-bottom" user expectation
         while self.queued_instant_tasks:
             worker = self.queued_instant_tasks.popleft()  # Cancel from head (FIFO order)
             worker.cancel()
         if self.running_instant_task:
             self.cancel_task(self.running_instant_task.id)
-            
+
         self._mark_ui_update_needed()
 
     def on_task_error(self, task_id, e):
