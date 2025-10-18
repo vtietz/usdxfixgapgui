@@ -180,7 +180,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Log completion and give async logger a moment to flush
     # This ensures initial logs appear in the log viewer
-    logger.info("=== GUI Initialized Successfully ===")
+    logger.info("GUI Initialized Successfully")
 
     # Use QTimer to allow event loop to process initial logs
     def delayed_start():

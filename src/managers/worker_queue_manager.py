@@ -237,7 +237,7 @@ class WorkerQueueManager(QObject):
     def start_next_task(self):
         if self.queued_tasks and not self.running_tasks:
             worker = self.queued_tasks.popleft()  # FIFO: remove from head
-            logger.info(f"[STANDARD LANE] Starting task: {worker.description}")
+            logger.info(f"Starting task: {worker.description}")
             run_async(self._start_worker(worker))
             # Reflect the change right away in the TaskQueueViewer
             self.on_task_list_changed.emit()
