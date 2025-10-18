@@ -20,7 +20,7 @@ class SongService:
 
     async def load_song(self, txt_file: str, force_reload=False, cancel_check: Optional[Callable] = None) -> Song:
         """Load a song from a text file, using cache if available"""
-        logger.debug(f"Loading '{txt_file}', force_reload={force_reload}")
+        logger.debug(f"Loading '{txt_file}', force_reload={force_reload}, cancel_check={'provided' if cancel_check else 'None'}")
 
         song = Song(txt_file)
 

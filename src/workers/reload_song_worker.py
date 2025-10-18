@@ -50,5 +50,9 @@ class ReloadSongWorker(IWorker):
 
         if not self.is_cancelled():
             self.signals.songReloaded.emit(song)
-            self.signals.finished.emit()
             logger.debug(f"Finished reloading song: {self.song_path}")
+        else:
+            logger.debug(f"Cancelled reloading song: {self.song_path}")
+        
+        # Always emit finished signal, even if cancelled
+        self.signals.finished.emit()

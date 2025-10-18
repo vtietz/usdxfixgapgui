@@ -1,4 +1,5 @@
 import logging
+from collections import deque
 from PySide6.QtCore import QObject, Signal as pyqtSignal
 from PySide6.QtWidgets import QApplication
 from enum import Enum
@@ -105,12 +106,12 @@ class WorkerQueueManager(QObject):
 
     def __init__(self, ui_update_interval=1.0):
         super().__init__()
-        # Standard task lane (sequential, long-running)
-        self.queued_tasks = []
+        # Standard task lane (sequential, long-running) - using deque for O(1) FIFO
+        self.queued_tasks = deque()
         self.running_tasks = {}
         
-        # Instant task lane (parallel to standard, max 1 concurrent)
-        self.queued_instant_tasks = []
+        # Instant task lane (parallel to standard, max 1 concurrent) - using deque for O(1) FIFO
+        self.queued_instant_tasks = deque()
         self.running_instant_task = None
         
         self._heartbeat_active = True
@@ -159,13 +160,15 @@ class WorkerQueueManager(QObject):
             worker.status = WorkerStatus.WAITING
             self.queued_instant_tasks.append(worker)
             
-            # Emit immediately so TaskQueueViewer updates right away
-            self.on_task_list_changed.emit()
-            self._mark_ui_update_needed()
-            
-            # Start immediately if requested and no instant task is running
-            if start_now and self.running_instant_task is None:
+            # Start immediately if instant slot is free (instant tasks should always start ASAP)
+            # This ensures user-triggered actions (reload, waveform) never wait behind standard tasks
+            if self.running_instant_task is None:
                 self.start_next_instant_task()
+            else:
+                # Only emit if we're actually queuing (not starting immediately)
+                # This prevents UI flicker showing WAITING state before transitioning to RUNNING
+                self.on_task_list_changed.emit()
+                self._mark_ui_update_needed()
         else:
             # Standard lane: long-running sequential tasks
             worker.status = WorkerStatus.WAITING
@@ -233,8 +236,8 @@ class WorkerQueueManager(QObject):
 
     def start_next_task(self):
         if self.queued_tasks and not self.running_tasks:
-            worker = self.queued_tasks.pop(0)
-            logger.info(f"Starting task: {worker.description}")
+            worker = self.queued_tasks.popleft()  # FIFO: remove from head
+            logger.info(f"[STANDARD LANE] Starting task: {worker.description}")
             run_async(self._start_worker(worker))
             # Reflect the change right away in the TaskQueueViewer
             self.on_task_list_changed.emit()
@@ -243,8 +246,8 @@ class WorkerQueueManager(QObject):
     def start_next_instant_task(self):
         """Start the next instant task if the instant slot is available"""
         if self.queued_instant_tasks and self.running_instant_task is None:
-            worker = self.queued_instant_tasks.pop(0)
-            logger.info(f"Starting instant task: {worker.description}")
+            worker = self.queued_instant_tasks.popleft()  # FIFO: remove from head
+            logger.info(f"Starting task: {worker.description}")
             self.running_instant_task = worker
             run_async(self._start_instant_worker(worker))
             # Reflect the change right away in the TaskQueueViewer
@@ -291,33 +294,33 @@ class WorkerQueueManager(QObject):
             self.on_task_list_changed.emit()
         else:
             # Check if it's in the standard queue
-            for i, worker in enumerate(self.queued_tasks):
+            for worker in list(self.queued_tasks):  # Convert to list for safe iteration
                 if worker.id == task_id:
                     worker.cancel()
-                    self.queued_tasks.pop(i)
+                    self.queued_tasks.remove(worker)  # Remove by value instead of index
                     # Force an immediate UI update
                     self.on_task_list_changed.emit()
                     return
             # Check if it's in the instant queue
-            for i, worker in enumerate(self.queued_instant_tasks):
+            for worker in list(self.queued_instant_tasks):  # Convert to list for safe iteration
                 if worker.id == task_id:
                     worker.cancel()
-                    self.queued_instant_tasks.pop(i)
+                    self.queued_instant_tasks.remove(worker)  # Remove by value instead of index
                     # Force an immediate UI update
                     self.on_task_list_changed.emit()
                     return
 
     def cancel_queue(self):
-        # Cancel standard queue
+        # Cancel standard queue - head-first for "top-to-bottom" user expectation
         while self.queued_tasks:
-            worker = self.queued_tasks.pop()
+            worker = self.queued_tasks.popleft()  # Cancel from head (FIFO order)
             worker.cancel()
         for task_id in list(self.running_tasks.keys()):
             self.cancel_task(task_id)
         
-        # Cancel instant queue
+        # Cancel instant queue - head-first for "top-to-bottom" user expectation  
         while self.queued_instant_tasks:
-            worker = self.queued_instant_tasks.pop()
+            worker = self.queued_instant_tasks.popleft()  # Cancel from head (FIFO order)
             worker.cancel()
         if self.running_instant_task:
             self.cancel_task(self.running_instant_task.id)

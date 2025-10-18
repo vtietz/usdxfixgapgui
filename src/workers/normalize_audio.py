@@ -28,8 +28,10 @@ class NormalizeAudioWorker(IWorker):
             await GapInfoService.save(self.song.gap_info)
             logger.info(f"Audio normalized to {normalization_level} dB and info saved: {self.song.audio_file}")
 
-            self.signals.finished.emit()
         except Exception as e:
             logger.error(f"Error normalizing audio: {self.song.audio_file}")
             self.song.error_message = str(e)
             self.signals.error.emit(e)
+        
+        # Always emit finished signal, even if cancelled
+        self.signals.finished.emit()

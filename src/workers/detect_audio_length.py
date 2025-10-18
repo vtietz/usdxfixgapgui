@@ -27,12 +27,16 @@ class DetectAudioLengthWorker(IWorker):
             self.song.gap_info.duration = duration
             # Use service to save gap info
             await GapInfoService.save(self.song.gap_info)
-            self.signals.lengthDetected.emit(self.song)
+            if not self.is_cancelled():
+                self.signals.lengthDetected.emit(self.song)
         except Exception as e:
             logger.error(f"Error detecting audio length song '{self.song.audio_file}'")
             self.song.error_message = str(e)
             self.signals.error.emit(e)
 
-        if not self.is_cancelled():
-            self.signals.finished.emit()
-            logger.debug("Canceled detecting audio length.")
+        # Always emit finished signal, even if cancelled
+        self.signals.finished.emit()
+        if self.is_cancelled():
+            logger.debug("Cancelled detecting audio length.")
+        else:
+            logger.debug("Finished detecting audio length.")

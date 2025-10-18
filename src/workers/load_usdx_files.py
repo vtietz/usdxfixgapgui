@@ -50,8 +50,9 @@ class LoadUsdxFilesWorker(IWorker):
             return None
 
         try:
-            # Use the service to load the song
-            song = await self.song_service.load_song(txt_file_path, self.directory, force_reload)
+            # Use the service to load the song with proper argument order:
+            # load_song(txt_file, force_reload, cancel_check)
+            song = await self.song_service.load_song(txt_file_path, force_reload, self.is_cancelled)
             song.usdb_id = self.path_usdb_id_map.get(song.path, None)
             return song
 
@@ -170,6 +171,9 @@ class LoadUsdxFilesWorker(IWorker):
         # Finally clean up stale cache entries
         await self.cleanup_cache()
 
-        if not self.is_cancelled():
-            self.signals.finished.emit()
+        # Always emit finished signal, even if cancelled
+        self.signals.finished.emit()
+        if self.is_cancelled():
+            logger.debug("Song loading cancelled.")
+        else:
             logger.debug("Finished loading songs.")
