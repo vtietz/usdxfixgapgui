@@ -77,9 +77,7 @@ class DetectGapWorker(IWorker):
         result.original_gap = self.options.original_gap
 
         try:
-            # wait 3 seconds (if needed for testing)
-            logger.debug(f"Detecting gap for '{self.options.audio_file}' in 3 seconds...")
-            time.sleep(3)
+            logger.debug(f"Detecting gap for '{self.options.audio_file}'...")
 
             # Create detect gap options with config
             detect_options = DetectGapOptions(

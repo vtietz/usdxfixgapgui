@@ -146,7 +146,7 @@ class WorkerQueueManager(QObject):
 
     def add_task(self, worker: IWorker, start_now=False):
         worker.id = self.get_unique_task_id()
-        logger.info(f"Creating task: {worker.description} (instant={worker.is_instant})")
+        logger.debug(f"Creating task: {worker.description} (instant={worker.is_instant})")
         # Be tolerant to different signal signatures (e.g. DetectGapWorker.finished emits a result)
         worker.signals.finished.connect(lambda *args, wid=worker.id: self.on_task_finished(wid))
         worker.signals.error.connect(lambda e=None, wid=worker.id: self.on_task_error(wid, e))
@@ -185,7 +185,7 @@ class WorkerQueueManager(QObject):
 
     async def _start_worker(self, worker: IWorker):
         try:
-            logger.info(f"Starting worker: {worker.description}")
+            logger.debug(f"Starting worker: {worker.description}")
             worker.status = WorkerStatus.RUNNING
             worker.signals.started.emit()
             self.running_tasks[worker.id] = worker
@@ -254,7 +254,7 @@ class WorkerQueueManager(QObject):
     async def _start_instant_worker(self, worker: IWorker):
         """Start an instant worker in the instant lane"""
         try:
-            logger.info(f"Starting instant worker: {worker.description}")
+            logger.debug(f"Starting instant worker: {worker.description}")
             worker.status = WorkerStatus.RUNNING
             worker.signals.started.emit()
             # Reflect move from queue->running immediately

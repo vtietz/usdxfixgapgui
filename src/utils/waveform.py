@@ -93,7 +93,7 @@ def draw_title(image_path, songname, color="white"):
     font = ImageFont.load_default()
 
     # Draw the song name at the bottom
-    draw.text((100, 50), songname, fill=color, font=font)
+    draw.text((10, 50), songname, fill=color, font=font)
 
     # Save the annotated image
     image.save(image_path)
