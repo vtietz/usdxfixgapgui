@@ -172,7 +172,10 @@ class TestGapDetectionContext:
                 audio_length_ms=120000,
                 tmp_root="/tmp",
                 config=Mock(),
-                overwrite=False
+                overwrite=False,
+                start_window_sec=30,
+                window_increment_sec=15,
+                window_max_sec=90
             )
     
     def test_accepts_valid_context(self):
@@ -184,7 +187,10 @@ class TestGapDetectionContext:
             audio_length_ms=120000,
             tmp_root="/tmp",
             config=Mock(),
-            overwrite=False
+            overwrite=False,
+            start_window_sec=30,
+            window_increment_sec=15,
+            window_max_sec=90
         )
         assert ctx.audio_file == __file__
         assert ctx.original_gap_ms == 5000
@@ -198,13 +204,18 @@ class TestNormalizeContext:
         """Normalizer detects audio length if not provided."""
         mock_audio.get_audio_duration.return_value = 120.5
         
+        mock_config = Mock()
+        mock_config.vocal_start_window_sec = 30
+        mock_config.vocal_window_increment_sec = 15
+        mock_config.vocal_window_max_sec = 90
+        
         ctx = normalize_context(
             audio_file=__file__,
             tmp_root="/tmp",
             original_gap=5000,
             audio_length=None,
             default_detection_time=60,
-            config=Mock(),
+            config=mock_config,
             overwrite=False
         )
         
@@ -213,13 +224,18 @@ class TestNormalizeContext:
     
     def test_uses_provided_audio_length(self):
         """Normalizer uses provided audio length."""
+        mock_config = Mock()
+        mock_config.vocal_start_window_sec = 30
+        mock_config.vocal_window_increment_sec = 15
+        mock_config.vocal_window_max_sec = 90
+        
         ctx = normalize_context(
             audio_file=__file__,
             tmp_root="/tmp",
             original_gap=5000,
             audio_length=100000,
             default_detection_time=60,
-            config=Mock(),
+            config=mock_config,
             overwrite=False
         )
         

@@ -36,6 +36,11 @@ class MdxConfig:
     radius_increment_ms: float = 7500
     max_expansions: int = 3
 
+    # Vocal start window parameters (iterative expansion)
+    start_window_ms: int = 30000
+    start_window_increment_ms: int = 15000
+    start_window_max_ms: int = 90000
+
     # Performance optimizations
     use_fp16: bool = DEFAULT_FP16
     resample_hz: int = DEFAULT_RESAMPLE_HZ
@@ -79,6 +84,9 @@ class MdxConfig:
             initial_radius_ms=getattr(config, 'mdx_initial_radius_ms', cls.initial_radius_ms),
             radius_increment_ms=getattr(config, 'mdx_radius_increment_ms', cls.radius_increment_ms),
             max_expansions=getattr(config, 'mdx_max_expansions', cls.max_expansions),
+            start_window_ms=int(getattr(config, 'vocal_start_window_sec', 30) or 30) * 1000,
+            start_window_increment_ms=int(getattr(config, 'vocal_window_increment_sec', 15) or 15) * 1000,
+            start_window_max_ms=int(getattr(config, 'vocal_window_max_sec', 90) or 90) * 1000,
             use_fp16=getattr(config, 'mdx_use_fp16', cls.use_fp16),
             resample_hz=getattr(config, 'mdx_resample_hz', cls.resample_hz),
             confidence_threshold=getattr(config, 'mdx_confidence_threshold', cls.confidence_threshold),

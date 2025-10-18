@@ -57,7 +57,10 @@ class Config(QObject):
 
         self._config['Detection'] = {
             'default_detection_time': '30',
-            'gap_tolerance': '500'
+            'gap_tolerance': '500',
+            'vocal_start_window_sec': '30',
+            'vocal_window_increment_sec': '15',
+            'vocal_window_max_sec': '90'
         }
 
         self._config['Colors'] = {
@@ -147,6 +150,9 @@ class Config(QObject):
         # Detection
         self.default_detection_time = self._config.getint('Detection', 'default_detection_time')
         self.gap_tolerance = self._config.getint('Detection', 'gap_tolerance')
+        self.vocal_start_window_sec = self._config.getint('Detection', 'vocal_start_window_sec')
+        self.vocal_window_increment_sec = self._config.getint('Detection', 'vocal_window_increment_sec')
+        self.vocal_window_max_sec = self._config.getint('Detection', 'vocal_window_max_sec')
 
         # Colors
         self.detected_gap_color = self._config.get('Colors', 'detected_gap_color')

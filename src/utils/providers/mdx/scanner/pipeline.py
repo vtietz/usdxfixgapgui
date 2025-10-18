@@ -121,49 +121,69 @@ def scan_for_onset(
         # Collect all detected onsets
         all_onsets: List[float] = []
         
-        # Generate expansion windows
-        windows = expansion_strategy.generate_windows(expected_gap_ms)
+        # Iterative window expansion: start with start_window_ms, expand if needed
+        search_limit_ms = config.start_window_ms
+        search_iteration = 0
         
-        # Process each window
-        for window in windows:
+        while search_limit_ms <= config.start_window_max_ms:
+            search_iteration += 1
             logger.info(
-                f"Expansion #{window.expansion_num}: "
-                f"radius=±{window.radius_ms/1000:.1f}s, "
-                f"window {window.start_ms/1000:.1f}s - {window.end_ms/1000:.1f}s"
+                f"Search iteration #{search_iteration}: "
+                f"limit={search_limit_ms/1000:.1f}s (max={config.start_window_max_ms/1000:.1f}s)"
             )
             _flush_logs()
             
-            # Process chunks in current window
-            chunks_processed = 0
-            for chunk in chunk_iterator.generate_chunks(window.start_ms, window.end_ms):
-                # Check cancellation
-                if check_cancellation and check_cancellation():
-                    raise DetectionFailedError("Search cancelled by user", provider_name="mdx")
-                
-                chunks_processed += 1
+            # Generate expansion windows
+            windows = expansion_strategy.generate_windows(expected_gap_ms)
+            
+            # Process each window (only chunks within search_limit_ms)
+            for window in windows:
                 logger.info(
-                    f"Loading chunk at {chunk.start_s:.1f}s-{chunk.end_s:.1f}s "
-                    f"(expansion #{window.expansion_num}, chunk {chunks_processed})"
+                    f"Expansion #{window.expansion_num}: "
+                    f"radius=±{window.radius_ms/1000:.1f}s, "
+                    f"window {window.start_ms/1000:.1f}s - {window.end_ms/1000:.1f}s"
                 )
                 _flush_logs()
                 
-                # Process chunk for onset
-                onset_ms = onset_detector.process_chunk(chunk, check_cancellation)
+                # Process chunks in current window (cap at search_limit_ms)
+                chunks_processed = 0
+                for chunk in chunk_iterator.generate_chunks(window.start_ms, window.end_ms):
+                    # Skip chunks beyond search limit
+                    if chunk.start_ms >= search_limit_ms:
+                        continue
+                    
+                    # Check cancellation
+                    if check_cancellation and check_cancellation():
+                        raise DetectionFailedError("Search cancelled by user", provider_name="mdx")
+                    
+                    chunks_processed += 1
+                    logger.info(
+                        f"Loading chunk at {chunk.start_s:.1f}s-{chunk.end_s:.1f}s "
+                        f"(expansion #{window.expansion_num}, chunk {chunks_processed})"
+                    )
+                    _flush_logs()
+                    
+                    # Process chunk for onset
+                    onset_ms = onset_detector.process_chunk(chunk, check_cancellation)
+                    
+                    if onset_ms is not None:
+                        # Check for duplicates (within 1 second)
+                        if not _is_duplicate_onset(onset_ms, all_onsets):
+                            all_onsets.append(onset_ms)
+                            logger.info(
+                                f"Found vocal onset at {onset_ms:.0f}ms "
+                                f"(distance from expected: {abs(onset_ms - expected_gap_ms):.0f}ms)"
+                            )
                 
-                if onset_ms is not None:
-                    # Check for duplicates (within 1 second)
-                    if not _is_duplicate_onset(onset_ms, all_onsets):
-                        all_onsets.append(onset_ms)
-                        logger.info(
-                            f"Found vocal onset at {onset_ms:.0f}ms "
-                            f"(distance from expected: {abs(onset_ms - expected_gap_ms):.0f}ms)"
-                        )
-            
-            logger.info(
-                f"Expansion #{window.expansion_num} complete: "
-                f"processed {chunks_processed} new chunks, "
-                f"found {len(all_onsets)} total onset(s) so far"
-            )
+                logger.info(
+                    f"Expansion #{window.expansion_num} complete: "
+                    f"processed {chunks_processed} new chunks, "
+                    f"found {len(all_onsets)} total onset(s) so far"
+                )
+                
+                # Check if should continue to next expansion
+                if not expansion_strategy.should_continue(window.expansion_num, found_onset=False):
+                    break
             
             # If onsets found, return closest to expected gap
             if all_onsets:
@@ -177,12 +197,19 @@ def scan_for_onset(
                 )
                 return closest_onset
             
-            # Check if should continue to next expansion
-            if not expansion_strategy.should_continue(window.expansion_num, found_onset=False):
+            # No onset found in current window, expand search
+            if search_limit_ms >= config.start_window_max_ms:
                 break
+            
+            search_limit_ms = min(
+                search_limit_ms + config.start_window_increment_ms,
+                config.start_window_max_ms
+            )
+            logger.info(f"No onset in current window, expanding to {search_limit_ms/1000:.1f}s")
+            _flush_logs()
         
         # No onset found after all expansions
-        logger.warning(f"No onset detected after {len(windows)} expansion(s)")
+        logger.warning(f"No onset detected after {search_iteration} search iteration(s)")
         return None
         
     except Exception as e:

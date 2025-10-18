@@ -139,7 +139,7 @@ class MdxProvider(IDetectionProvider):
                     raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
 
                 # Load audio
-                logger.info("Loading full audio file...")
+                logger.info("Loading audio file...")
                 import warnings
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
@@ -149,12 +149,22 @@ class MdxProvider(IDetectionProvider):
                 if waveform.shape[0] == 1:
                     waveform = waveform.repeat(2, 1)
 
+                # Cap to duration if specified and audio is longer
+                track_duration_sec = waveform.shape[1] / sample_rate
+                if duration > 0 and duration < track_duration_sec:
+                    num_samples = int(duration * sample_rate)
+                    waveform = waveform[:, :num_samples]
+                    logger.info(f"Capping preview vocals to first {duration}s (track is {track_duration_sec:.1f}s)")
+                else:
+                    logger.info(f"Separating full track ({track_duration_sec:.1f}s)")
+
                 # Check cancellation
                 if check_cancellation and check_cancellation():
                     raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
 
                 # Run Demucs separation
-                logger.info("Running full-track Demucs separation (this may take a while)...")
+                separation_desc = f"{duration}s preview" if duration > 0 and duration < track_duration_sec else "full-track"
+                logger.info(f"Running {separation_desc} Demucs separation (this may take a while)...")
                 model = self._get_demucs_model()
 
                 import time
@@ -169,7 +179,7 @@ class MdxProvider(IDetectionProvider):
                     vocals = sources[0, 3].cpu()  # Remove batch dimension, get vocals
 
                 elapsed = time.time() - start_time
-                logger.info(f"Full-track separation complete in {elapsed:.1f}s")
+                logger.info(f"Separation complete in {elapsed:.1f}s")
 
                 # Check cancellation
                 if check_cancellation and check_cancellation():

@@ -39,6 +39,9 @@ class GapDetectionContext:
     tmp_root: str
     config: Config
     overwrite: bool
+    start_window_sec: int = 30
+    window_increment_sec: int = 15
+    window_max_sec: int = 90
     
     def __post_init__(self):
         """Validate inputs immediately after construction."""
@@ -170,7 +173,10 @@ def normalize_context(
         audio_length_ms=audio_length,
         tmp_root=tmp_root,
         config=config,
-        overwrite=overwrite
+        overwrite=overwrite,
+        start_window_sec=config.vocal_start_window_sec,
+        window_increment_sec=config.vocal_window_increment_sec,
+        window_max_sec=config.vocal_window_max_sec
     )
 
 

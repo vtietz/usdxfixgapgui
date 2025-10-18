@@ -380,14 +380,22 @@ class TestScanForOnset:
         mock_config.initial_radius_ms = 7500
         mock_config.radius_increment_ms = 7500
         mock_config.max_expansions = 2
+        mock_config.start_window_ms = 30000
+        mock_config.start_window_increment_ms = 15000
+        mock_config.start_window_max_ms = 90000
         mock_config.resample_hz = 0
         mock_config.use_fp16 = False
+        
+        # Create mock model with required attributes
+        mock_model = Mock()
+        mock_model.samplerate = 44100
+        mock_model.sources = ['vocals', 'drums', 'bass', 'other']  # Required by Demucs len(model.sources)
         
         # Run scan
         onset_ms = scan_for_onset(
             audio_file="test.mp3",
             expected_gap_ms=5000.0,
-            model=Mock(),
+            model=mock_model,
             device="cpu",
             config=mock_config,
             vocals_cache=Mock(),
@@ -395,8 +403,10 @@ class TestScanForOnset:
         )
         
         assert onset_ms == 5000.0
-        # Should only process 1-2 chunks in initial window
-        assert mock_detect.call_count <= 3
+        # With iterative window expansion, may process more chunks
+        # (scans up to start_window_ms=30s initially, which includes multiple 12s chunks)
+        assert mock_detect.call_count >= 1  # At least found the onset
+        assert mock_detect.call_count <= 10  # Reasonable upper bound
     
     @patch('utils.providers.mdx.scanner.onset_detector.torchaudio')
     @patch('utils.providers.mdx.scanner.onset_detector.separate_vocals_chunk')
@@ -432,14 +442,22 @@ class TestScanForOnset:
         mock_config.initial_radius_ms = 7500
         mock_config.radius_increment_ms = 7500
         mock_config.max_expansions = 2
+        mock_config.start_window_ms = 30000
+        mock_config.start_window_increment_ms = 15000
+        mock_config.start_window_max_ms = 90000
         mock_config.resample_hz = 0
         mock_config.use_fp16 = False
+        
+        # Create mock model with required attributes
+        mock_model = Mock()
+        mock_model.samplerate = 44100
+        mock_model.sources = ['vocals', 'drums', 'bass', 'other']  # Required by Demucs len(model.sources)
         
         # Run scan
         onset_ms = scan_for_onset(
             audio_file="test.mp3",
             expected_gap_ms=5000.0,
-            model=Mock(),
+            model=mock_model,
             device="cpu",
             config=mock_config,
             vocals_cache=Mock(),
@@ -476,14 +494,22 @@ class TestScanForOnset:
         mock_config.initial_radius_ms = 7500
         mock_config.radius_increment_ms = 7500
         mock_config.max_expansions = 1  # Limited expansions
+        mock_config.start_window_ms = 30000
+        mock_config.start_window_increment_ms = 15000
+        mock_config.start_window_max_ms = 90000
         mock_config.resample_hz = 0
         mock_config.use_fp16 = False
+        
+        # Create mock model with required attributes
+        mock_model = Mock()
+        mock_model.samplerate = 44100
+        mock_model.sources = ['vocals', 'drums', 'bass', 'other']  # Required by Demucs len(model.sources)
         
         # Run scan
         onset_ms = scan_for_onset(
             audio_file="test.mp3",
             expected_gap_ms=5000.0,
-            model=Mock(),
+            model=mock_model,
             device="cpu",
             config=mock_config,
             vocals_cache=Mock(),
