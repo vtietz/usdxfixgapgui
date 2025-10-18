@@ -78,8 +78,7 @@ def get_vocals_file(
     """
     Get vocals file using configured detection provider.
 
-    This function now delegates to the appropriate provider based on config.
-    Maintains backward compatibility with existing code.
+    Delegates to the appropriate provider based on config settings.
     """
     logger.debug(f"Getting vocals file for {audio_file}...")
 
@@ -90,9 +89,9 @@ def get_vocals_file(
         logger.debug(f"Vocals file already exists: {destination_vocals_filepath}")
         return destination_vocals_filepath
 
-    # Config is required - no legacy fallback path
+    # Config is required for provider selection
     if not config:
-        raise Exception("Config is required for gap detection. Legacy Spleeter path has been removed.")
+        raise Exception("Config is required for gap detection.")
 
     provider = get_detection_provider(config)
     return provider.get_vocals_file(

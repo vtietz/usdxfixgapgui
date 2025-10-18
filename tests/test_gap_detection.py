@@ -1,7 +1,7 @@
-"""Unit tests for refactored gap detection pipeline.
+"""Unit tests for gap detection pipeline.
 
 Tests each pipeline step independently to ensure correctness,
-then validates end-to-end integration with feature flag.
+then validates end-to-end integration.
 """
 
 import os
@@ -241,7 +241,7 @@ class TestNormalizeContext:
         assert ctx.detection_time_sec == 90
 
 
-class TestPerformRefactored:
+class TestPerform:
     """Test end-to-end refactored pipeline."""
     
     @patch('utils.gap_detection.pipeline.get_detection_provider')

@@ -1,5 +1,5 @@
 """
-Unit tests for refactored MDX scanner modules.
+Unit tests for MDX scanner modules.
 
 Tests cover:
     - ChunkIterator: Boundary generation, overlap, deduplication
@@ -348,7 +348,7 @@ class TestHelperFunctions:
 # TestScanForOnsetRefactored (Integration)
 # ==============================================================================
 
-class TestScanForOnsetRefactored:
+class TestScanForOnset:
     """Test full refactored scanning pipeline."""
     
     @patch('utils.providers.mdx.scanner.onset_detector.torchaudio')

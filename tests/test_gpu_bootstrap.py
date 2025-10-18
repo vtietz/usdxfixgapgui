@@ -1,5 +1,5 @@
 """
-Tests for GPU Bootstrap Refactoring (Phase 4)
+Tests for GPU Bootstrap
 
 Tests staged runtime activation: layout detection, path calculation, 
 installation, and validation phases.
