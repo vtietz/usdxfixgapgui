@@ -1,58 +1,97 @@
 """
-GPU Bootstrap Module - Modular Runtime Activation
+GPU Bootstrap Module - Clean Typed API
 
-Staged approach to GPU Pack activation:
-1. LayoutDetector: Identify wheel vs site-packages structure
-2. PathCalculator: Determine required path additions
-3. PathInstaller: Apply sys.path and library path changes
-4. RuntimeValidator: Check VC++ dependencies
+Provides:
+- Staged facade: enable() returning BootstrapResult
+- Legacy compatibility: enable_gpu_runtime, bootstrap_and_maybe_enable_gpu
+- Modular components: LayoutDetector, PathCalculator, LibPathManager
+- Typed results: PathConfig, InstallationResult, ValidationResult, BootstrapResult
 
-Complexity reduction: CCN 21→5 avg, NLOC 67→15 avg per module
+No global mutable state; explicit imports only.
 """
 
+# Refactored modular components
 from .layout_detector import LayoutDetector, PackLayout
 from .path_calculator import PathCalculator, PathConfig
-from .path_installer import PathInstaller, InstallationResult
+from .path_installer import PathInstaller, InstallationResult as PathInstallerResult
 from .runtime_validator import RuntimeValidator
 from .orchestrator import enable_gpu_runtime_refactored
 
-# Import legacy bootstrap function from the .py file (not this package)
-import importlib.util
-from pathlib import Path
+# New typed API
+from .types import (
+    PathConfig as TypedPathConfig,
+    InstallationResult,
+    ValidationResult,
+    BootstrapResult
+)
+from .lib_path_manager import LibPathManager
+from .facade import enable, enable_legacy, bootstrap_and_maybe_enable_gpu_legacy
 
-_legacy_module_path = Path(__file__).parent.parent / "gpu_bootstrap.py"
-_spec = importlib.util.spec_from_file_location("_gpu_bootstrap_legacy", _legacy_module_path)
-if _spec and _spec.loader:
-    _legacy_module = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(_legacy_module)
+# Legacy functions for backward compatibility
+from .legacy import (
+    bootstrap_and_maybe_enable_gpu,
+    enable_gpu_runtime,
+    validate_cuda_torch,
+    validate_torch_cpu,
+    child_process_min_bootstrap,
+    ADDED_DLL_DIRS
+)
 
-    # Re-export legacy functions (all public functions from gpu_bootstrap.py)
-    bootstrap_and_maybe_enable_gpu = _legacy_module.bootstrap_and_maybe_enable_gpu
-    enable_gpu_runtime = _legacy_module.enable_gpu_runtime
-    ADDED_DLL_DIRS = _legacy_module.ADDED_DLL_DIRS
-    capability_probe = _legacy_module.capability_probe
-    validate_cuda_torch = _legacy_module.validate_cuda_torch
-    validate_torch_cpu = _legacy_module.validate_torch_cpu
-    child_process_min_bootstrap = _legacy_module.child_process_min_bootstrap
+# Import capability_probe from parent gpu_bootstrap.py module
+# (This was not moved to legacy as it's a utility function)
+from pathlib import Path as _Path
+_parent_module = _Path(__file__).parent.parent / "gpu_bootstrap.py"
+if _parent_module.exists():
+    import importlib.util as _importlib_util
+    _spec = _importlib_util.spec_from_file_location("_gpu_bootstrap_parent", _parent_module)
+    if _spec and _spec.loader:
+        _parent = _importlib_util.module_from_spec(_spec)
+        _spec.loader.exec_module(_parent)
+        capability_probe = _parent.capability_probe
+        resolve_pack_dir = _parent.resolve_pack_dir
+        probe_nvml = _parent.probe_nvml
+        probe_nvidia_smi = _parent.probe_nvidia_smi
+    else:
+        capability_probe = None
+        resolve_pack_dir = None
+        probe_nvml = None
+        probe_nvidia_smi = None
 else:
-    raise ImportError(f"Could not load legacy gpu_bootstrap module from {_legacy_module_path}")
+    capability_probe = None
+    resolve_pack_dir = None
+    probe_nvml = None
+    probe_nvidia_smi = None
 
 __all__ = [
-    # Refactored modular components (Phase 4)
+    # Staged facade API (primary interface)
+    'enable',
+    'enable_legacy',
+    'bootstrap_and_maybe_enable_gpu_legacy',
+    # Typed results
+    'BootstrapResult',
+    'InstallationResult',
+    'ValidationResult',
+    'TypedPathConfig',
+    # Modular components
     'LayoutDetector',
     'PackLayout',
     'PathCalculator',
     'PathConfig',
     'PathInstaller',
-    'InstallationResult',
+    'PathInstallerResult',
     'RuntimeValidator',
+    'LibPathManager',
     'enable_gpu_runtime_refactored',
     # Legacy functions (backward compatibility)
     'bootstrap_and_maybe_enable_gpu',
     'enable_gpu_runtime',
-    'capability_probe',
     'validate_cuda_torch',
     'validate_torch_cpu',
     'child_process_min_bootstrap',
     'ADDED_DLL_DIRS',
+    # Utility functions from parent module
+    'capability_probe',
+    'resolve_pack_dir',
+    'probe_nvml',
+    'probe_nvidia_smi',
 ]
