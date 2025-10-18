@@ -142,7 +142,7 @@ class GpuDownloadWorker(QThread):
             # Verify installation by checking CUDA
             try:
                 # Bootstrap the newly installed pack
-                gpu_bootstrap.enable_gpu_runtime(self.pack_dir)
+                gpu_bootstrap.enable_gpu_runtime(self.pack_dir, self.config)
 
                 # Validate CUDA
                 expected_cuda = "12.1" if self.chosen.flavor == "cu121" else "12.4"

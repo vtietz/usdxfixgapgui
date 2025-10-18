@@ -168,17 +168,32 @@ def capability_probe() -> Dict[str, Any]:
     }
 
 
-def enable_gpu_runtime(pack_dir: Path) -> bool:
+def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
     """
     Enable GPU Pack runtime by modifying sys.path and DLL search paths.
 
     Args:
         pack_dir: Path to GPU Pack installation
+        config: Optional config object for feature flag access
 
     Returns:
         True if successful, False otherwise
     """
     global ADDED_DLL_DIRS
+
+    # Feature flag routing
+    if config is not None:
+        from common.feature_flags import FeatureFlags
+        flags = FeatureFlags.from_config(config)
+        if flags.USE_STAGED_GPU_BOOTSTRAP:
+            from utils.gpu_bootstrap import enable_gpu_runtime_refactored
+            logger.debug("Using staged GPU bootstrap")
+            success, added_dirs = enable_gpu_runtime_refactored(pack_dir)
+            if success:
+                ADDED_DLL_DIRS = added_dirs
+            return success
+        logger.debug("Using legacy GPU bootstrap")
+
     ADDED_DLL_DIRS = []  # Reset tracking list
 
     if not pack_dir.exists():
@@ -397,7 +412,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
                 logger.debug("Will attempt to detect system-wide CUDA installation...")
             else:
                 # Enable GPU runtime
-                if enable_gpu_runtime(pack_dir):
+                if enable_gpu_runtime(pack_dir, config):
                     # Validate CUDA
                     success, error_msg = validate_cuda_torch(expected_cuda)
 
