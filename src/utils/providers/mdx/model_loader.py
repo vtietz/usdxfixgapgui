@@ -71,7 +71,7 @@ class ModelLoader:
                 import torch
                 from demucs.pretrained import get_model
                 from demucs.apply import apply_model
-                from common.exceptions import DetectionFailedError
+                from utils.providers.exceptions import DetectionFailedError
 
                 logger.info(f"Loading Demucs model on {device}...")
                 flush_logs()
@@ -121,7 +121,7 @@ class ModelLoader:
                 return model
             except Exception as e:
                 # Import here to avoid circular dependency
-                from common.exceptions import DetectionFailedError
+                from utils.providers.exceptions import DetectionFailedError
                 raise DetectionFailedError(
                     f"Failed to load Demucs model: {e}",
                     provider_name="mdx",
