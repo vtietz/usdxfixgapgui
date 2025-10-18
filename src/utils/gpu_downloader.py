@@ -57,9 +57,9 @@ def download_with_resume(
     Returns:
         True on success, False on failure
     """
-    from utils.download import download_with_resume_refactored
+    from utils.download import download_file
     logger.info("Using resilient downloader")
-    return download_with_resume_refactored(
+    return download_file(
         url=url,
         dest_zip=dest_zip,
         expected_sha256=expected_sha256,

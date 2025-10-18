@@ -1,6 +1,6 @@
 """Gap detection pipeline module.
 
-Provides refactored, modular gap detection implementation
+Provides modular gap detection implementation
 with clear separation of concerns and testable components.
 """
 
@@ -11,7 +11,7 @@ from .pipeline import (
     normalize_context,
     detect_gap_from_silence,
     should_retry_detection,
-    perform_refactored,
+    perform,
 )
 
 __all__ = [
@@ -21,5 +21,5 @@ __all__ = [
     'normalize_context',
     'detect_gap_from_silence',
     'should_retry_detection',
-    'perform_refactored',
+    'perform',
 ]

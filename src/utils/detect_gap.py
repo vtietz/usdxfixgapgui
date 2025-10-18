@@ -110,13 +110,13 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
     Returns a DetectGapResult with the detected gap, silence periods, and vocals file path.
     Now with extended metadata including confidence, preview, and waveform.
     """
-    from utils.gap_detection import perform_refactored
+    from utils.gap_detection import perform
     
     if not options.config:
         raise ValueError("Config is required for gap detection")
     
     logger.info("Using gap detection pipeline")
-    return perform_refactored(
+    return perform(
         audio_file=options.audio_file,
         tmp_root=options.tmp_root,
         original_gap=options.original_gap,

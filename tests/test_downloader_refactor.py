@@ -17,7 +17,7 @@ from src.utils.download.http_client import HttpClient, HttpResponse
 from src.utils.download.resume_manager import ResumeManager, DownloadState
 from src.utils.download.chunk_writer import ChunkWriter
 from src.utils.download.retry_policy import RetryPolicy
-from src.utils.download.downloader import download_with_resume_refactored
+from src.utils.download.downloader import download_file
 
 
 # ============================================================================
@@ -319,7 +319,7 @@ class TestDownloader:
                 progress_calls.append((downloaded, total))
 
             with patch('src.utils.download.downloader._verify_complete_file', return_value=True):
-                result = download_with_resume_refactored(
+                result = download_file(
                     url='http://example.com/file.zip',
                     dest_zip=dest,
                     expected_sha256=expected_hash,
@@ -347,7 +347,7 @@ class TestDownloader:
             mock_response.stream = iter([data])
             mock_client.get.return_value = mock_response
 
-            result = download_with_resume_refactored(
+            result = download_file(
                 url='http://example.com/file.zip',
                 dest_zip=dest,
                 expected_sha256=expected_hash,
@@ -368,7 +368,7 @@ class TestDownloader:
             mock_client = mock_client_class.return_value
             mock_client.get.side_effect = InterruptedError("cancelled")
 
-            result = download_with_resume_refactored(
+            result = download_file(
                 url='http://example.com/file.zip',
                 dest_zip=dest,
                 expected_sha256='abc123',
@@ -400,7 +400,7 @@ class TestDownloader:
             ]
 
             with patch('time.sleep'):  # Speed up test
-                result = download_with_resume_refactored(
+                result = download_file(
                     url='http://example.com/file.zip',
                     dest_zip=dest,
                     expected_sha256=expected_hash,
@@ -422,7 +422,7 @@ class TestDownloader:
             mock_client.get.side_effect = urllib.error.URLError('always fails')
 
             with patch('time.sleep'):  # Speed up test
-                result = download_with_resume_refactored(
+                result = download_file(
                     url='http://example.com/file.zip',
                     dest_zip=dest,
                     expected_sha256='abc123',
@@ -447,7 +447,7 @@ class TestDownloader:
             mock_client.get.return_value = mock_response
 
             with patch('time.sleep'):
-                result = download_with_resume_refactored(
+                result = download_file(
                     url='http://example.com/file.zip',
                     dest_zip=dest,
                     expected_sha256='abc123',

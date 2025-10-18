@@ -1,6 +1,6 @@
-"""Gap detection pipeline - refactored modular implementation.
+"""Gap detection pipeline - modular implementation.
 
-This module provides a refactored version of gap detection that breaks
+This module provides gap detection that breaks
 down the monolithic perform() function into pure, testable components.
 
 Architecture:
@@ -348,7 +348,7 @@ def compute_confidence_score(
         return None
 
 
-def perform_refactored(
+def perform(
     audio_file: str,
     tmp_root: str,
     original_gap: int,
@@ -358,10 +358,10 @@ def perform_refactored(
     overwrite: bool,
     check_cancellation: Optional[Callable] = None
 ) -> DetectGapResult:
-    """Refactored gap detection pipeline.
+    """Gap detection pipeline.
     
-    This implementation breaks down the monolithic perform() function
-    into clear, testable steps. Each step is a pure function where possible.
+    Breaks down gap detection into clear, testable steps.
+    Each step is a pure function where possible.
     
     Pipeline:
         1. Validate inputs
@@ -390,7 +390,7 @@ def perform_refactored(
         FileNotFoundError: If audio file not found
         Exception: If detection fails
     """
-    logger.info(f"Detecting gap for {audio_file} (refactored pipeline)")
+    logger.info(f"Detecting gap for {audio_file}")
     
     # Step 1: Normalize inputs into context
     ctx = normalize_context(
@@ -422,7 +422,7 @@ def perform_refactored(
             f"Detected gap {detected_gap}ms beyond detection window. "
             f"Consider increasing detection time."
         )
-        # Note: Retry logic removed for simplicity in refactored version
+        # Note: Retry logic not included - failed detection should be handled by caller
         # Can be re-added if needed with recursive call
     
     logger.info(f"Detected GAP: {detected_gap}ms in {audio_file}")

@@ -351,14 +351,14 @@ class MdxProvider(IDetectionProvider):
         Returns:
             Absolute timestamp in milliseconds of first vocal onset, or None
         """
-        from utils.providers.mdx.scanner import scan_for_onset_refactored
+        from utils.providers.mdx.scanner import scan_for_onset
         
         # Get audio duration
         info = torchaudio.info(audio_file)
         total_duration_ms = (info.num_frames / info.sample_rate) * 1000.0
         
         logger.debug("Using MDX scanner")
-        return scan_for_onset_refactored(
+        return scan_for_onset(
             audio_file=audio_file,
             expected_gap_ms=expected_gap_ms,
             model=self._get_demucs_model(),

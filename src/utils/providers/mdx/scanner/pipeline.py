@@ -1,5 +1,5 @@
 """
-Main orchestrator for refactored MDX onset scanning.
+Main orchestrator for MDX onset scanning.
 
 Coordinates chunk iteration, window expansion, and onset detection.
 High-level coordination - delegates actual work to specialized modules.
@@ -48,7 +48,7 @@ def _is_duplicate_onset(onset_ms: float, existing_onsets: List[float], threshold
     return any(abs(onset_ms - existing) < threshold_ms for existing in existing_onsets)
 
 
-def scan_for_onset_refactored(
+def scan_for_onset(
     audio_file: str,
     expected_gap_ms: float,
     model,
@@ -59,9 +59,9 @@ def scan_for_onset_refactored(
     check_cancellation: Optional[Callable[[], bool]] = None
 ) -> Optional[float]:
     """
-    Refactored vocal onset detection with expanding window search.
+    Vocal onset detection with expanding window search.
     
-    This is the main entry point for the refactored scanner. It coordinates:
+    This is the main entry point for the scanner. It coordinates:
         1. ChunkIterator - generates chunk boundaries with deduplication
         2. ExpansionStrategy - manages search window expansion
         3. OnsetDetectorPipeline - processes each chunk for onset detection
@@ -93,7 +93,7 @@ def scan_for_onset_refactored(
         DetectionFailedError: If scanning fails or is cancelled
     """
     try:
-        logger.info(f"Starting refactored onset scan (expected gap: {expected_gap_ms:.0f}ms)")
+        logger.info(f"Starting onset scan (expected gap: {expected_gap_ms:.0f}ms)")
         _flush_logs()
         
         # Initialize modules
@@ -188,7 +188,7 @@ def scan_for_onset_refactored(
     except Exception as e:
         if "cancelled" in str(e).lower():
             raise
-        logger.error(f"Refactored MDX scan failed: {e}")
+        logger.error(f"MDX scan failed: {e}")
         raise DetectionFailedError(
             f"MDX scanning failed: {e}",
             provider_name="mdx",

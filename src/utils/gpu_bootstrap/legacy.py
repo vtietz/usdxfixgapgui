@@ -64,9 +64,9 @@ def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
     global ADDED_DLL_DIRS
 
     # Use staged GPU bootstrap
-    from utils.gpu_bootstrap.orchestrator import enable_gpu_runtime_refactored
-    logger.debug("Using staged GPU bootstrap")
-    success, added_dirs = enable_gpu_runtime_refactored(pack_dir)
+    from utils.gpu_bootstrap.orchestrator import enable_runtime
+    logger.debug("Using GPU bootstrap")
+    success, added_dirs = enable_runtime(pack_dir)
     if success:
         ADDED_DLL_DIRS = added_dirs
     return success

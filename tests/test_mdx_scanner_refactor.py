@@ -5,7 +5,7 @@ Tests cover:
     - ChunkIterator: Boundary generation, overlap, deduplication
     - ExpansionStrategy: Window calculation, expansion logic
     - OnsetDetectorPipeline: Mocked audio processing
-    - scan_for_onset_refactored: Integration with mocks
+    - scan_for_onset: Integration with mocks
 """
 
 import pytest
@@ -17,7 +17,7 @@ from utils.providers.mdx.scanner.chunk_iterator import ChunkIterator, ChunkBound
 from utils.providers.mdx.scanner.expansion_strategy import ExpansionStrategy, SearchWindow
 from utils.providers.mdx.scanner.onset_detector import OnsetDetectorPipeline
 from utils.providers.mdx.scanner.pipeline import (
-    scan_for_onset_refactored,
+    scan_for_onset,
     _find_closest_onset,
     _is_duplicate_onset
 )
@@ -384,7 +384,7 @@ class TestScanForOnsetRefactored:
         mock_config.use_fp16 = False
         
         # Run scan
-        onset_ms = scan_for_onset_refactored(
+        onset_ms = scan_for_onset(
             audio_file="test.mp3",
             expected_gap_ms=5000.0,
             model=Mock(),
@@ -436,7 +436,7 @@ class TestScanForOnsetRefactored:
         mock_config.use_fp16 = False
         
         # Run scan
-        onset_ms = scan_for_onset_refactored(
+        onset_ms = scan_for_onset(
             audio_file="test.mp3",
             expected_gap_ms=5000.0,
             model=Mock(),
@@ -480,7 +480,7 @@ class TestScanForOnsetRefactored:
         mock_config.use_fp16 = False
         
         # Run scan
-        onset_ms = scan_for_onset_refactored(
+        onset_ms = scan_for_onset(
             audio_file="test.mp3",
             expected_gap_ms=5000.0,
             model=Mock(),

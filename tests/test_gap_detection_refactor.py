@@ -17,7 +17,7 @@ from utils.gap_detection.pipeline import (
     detect_gap_from_silence,
     should_retry_detection,
     compute_confidence_score,
-    perform_refactored,
+    perform,
 )
 from utils.types import DetectGapResult
 
@@ -262,7 +262,7 @@ class TestPerformRefactored:
         mock_get_provider.return_value = mock_provider
         
         # Execute
-        result = perform_refactored(
+        result = perform(
             audio_file=__file__,
             tmp_root="/tmp",
             original_gap=5000,
@@ -295,7 +295,7 @@ class TestPerformRefactored:
         mock_provider.compute_confidence.return_value = 0.5
         mock_get_provider.return_value = mock_provider
         
-        result = perform_refactored(
+        result = perform(
             audio_file=__file__,
             tmp_root="/tmp",
             original_gap=5000,
@@ -310,7 +310,7 @@ class TestPerformRefactored:
     def test_raises_on_invalid_inputs(self):
         """Pipeline raises appropriate errors for invalid inputs."""
         with pytest.raises(FileNotFoundError):
-            perform_refactored(
+            perform(
                 audio_file="/nonexistent.mp3",
                 tmp_root="/tmp",
                 original_gap=5000,

@@ -15,7 +15,7 @@ from .layout_detector import LayoutDetector, PackLayout
 from .path_calculator import PathCalculator, PathConfig
 from .path_installer import PathInstaller, InstallationResult as PathInstallerResult
 from .runtime_validator import RuntimeValidator
-from .orchestrator import enable_gpu_runtime_refactored
+from .orchestrator import enable_runtime
 
 # New typed API
 from .types import (
@@ -81,7 +81,7 @@ __all__ = [
     'PathInstallerResult',
     'RuntimeValidator',
     'LibPathManager',
-    'enable_gpu_runtime_refactored',
+    'enable_runtime',
     # Legacy functions (backward compatibility)
     'bootstrap_and_maybe_enable_gpu',
     'enable_gpu_runtime',

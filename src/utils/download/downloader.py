@@ -18,7 +18,7 @@ from .retry_policy import RetryPolicy
 logger = logging.getLogger(__name__)
 
 
-def download_with_resume_refactored(
+def download_file(
     url: str,
     dest_zip: Path,
     expected_sha256: str,
@@ -27,10 +27,10 @@ def download_with_resume_refactored(
     cancel_token=None
 ) -> bool:
     """
-    Download file with resume support and SHA-256 verification (refactored).
+    Download file with resume support and SHA-256 verification.
 
-    This is the modular refactored version using separate components for
-    HTTP, resume management, chunk writing, and retry logic.
+    Uses separate components for HTTP, resume management,
+    chunk writing, and retry logic.
 
     Args:
         url: Download URL

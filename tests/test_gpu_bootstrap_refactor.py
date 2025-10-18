@@ -16,7 +16,7 @@ from utils.gpu_bootstrap import (
     PathCalculator, PathConfig,
     PathInstaller, InstallationResult,
     RuntimeValidator,
-    enable_gpu_runtime_refactored
+    enable_runtime
 )
 
 
@@ -276,7 +276,7 @@ class TestOrchestratorIntegration:
         original_path = sys.path.copy()
         original_env = os.environ.get('USDXFIXGAP_GPU_PACK_DIR')
         try:
-            success, added_dirs = enable_gpu_runtime_refactored(pack_dir)
+            success, added_dirs = enable_runtime(pack_dir)
 
             assert success is True
             assert str(pack_dir) in sys.path
@@ -301,7 +301,7 @@ class TestOrchestratorIntegration:
         original_env_pack = os.environ.get('USDXFIXGAP_GPU_PACK_DIR')
         original_env_ld = os.environ.get('LD_LIBRARY_PATH')
         try:
-            success, added_dirs = enable_gpu_runtime_refactored(pack_dir)
+            success, added_dirs = enable_runtime(pack_dir)
 
             assert success is True
             assert str(pack_dir / "site-packages") in sys.path
@@ -324,7 +324,7 @@ class TestOrchestratorIntegration:
         pack_dir = tmp_path / "pack"
         pack_dir.mkdir()  # No torch/ or site-packages/
 
-        success, added_dirs = enable_gpu_runtime_refactored(pack_dir)
+        success, added_dirs = enable_runtime(pack_dir)
 
         assert success is False
         assert len(added_dirs) == 0
@@ -333,7 +333,7 @@ class TestOrchestratorIntegration:
         """Full workflow: nonexistent directory fails gracefully."""
         pack_dir = tmp_path / "nonexistent"
 
-        success, added_dirs = enable_gpu_runtime_refactored(pack_dir)
+        success, added_dirs = enable_runtime(pack_dir)
 
         assert success is False
         assert len(added_dirs) == 0
@@ -342,7 +342,7 @@ class TestOrchestratorIntegration:
 class TestFeatureFlagIntegration:
     """Test feature flag routing in original function."""
 
-    @patch('utils.gpu_bootstrap.enable_gpu_runtime_refactored')
+    @patch('utils.gpu_bootstrap.enable_runtime')
     def test_feature_flag_enabled(self, mock_refactored, tmp_path):
         """Test routing to refactored implementation when flag enabled."""
         # Import the actual .py file, not the module directory

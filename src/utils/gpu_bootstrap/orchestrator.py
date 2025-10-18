@@ -17,7 +17,7 @@ from .runtime_validator import RuntimeValidator
 logger = logging.getLogger(__name__)
 
 
-def enable_gpu_runtime_refactored(pack_dir: Path) -> tuple[bool, List[str]]:
+def enable_runtime(pack_dir: Path) -> tuple[bool, List[str]]:
     """
     Enable GPU Pack runtime using staged approach.
 
