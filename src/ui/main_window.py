@@ -19,6 +19,7 @@ from common.utils.async_logging import shutdown_async_logging
 
 from utils.enable_darkmode import enable_dark_mode
 from utils.check_dependencies import check_dependencies
+from utils.run_async import shutdown_asyncio
 from utils.files import resource_path
 from utils.gpu_startup_logger import show_gpu_pack_dialog_if_needed
 
@@ -170,10 +171,12 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     # Enable dark mode
     enable_dark_mode(app)
 
-    # Setup proper shutdown
-    app.aboutToQuit.connect(shutdown_async_logging)
-    app.aboutToQuit.connect(lambda: data.worker_queue.shutdown())
-    app.aboutToQuit.connect(logViewer.cleanup)
+    # Setup proper shutdown sequence
+    # Order matters: stop taking new work, wait for workers, stop async loop, cleanup UI
+    app.aboutToQuit.connect(lambda: data.worker_queue.shutdown())  # Cancel tasks and wait
+    app.aboutToQuit.connect(shutdown_asyncio)  # Stop asyncio event loop and thread
+    app.aboutToQuit.connect(logViewer.cleanup)  # Cleanup UI components
+    app.aboutToQuit.connect(shutdown_async_logging)  # Final logging shutdown
 
     # Log completion and give async logger a moment to flush
     # This ensures initial logs appear in the log viewer

@@ -21,6 +21,26 @@ from model.gap_info import GapInfo
 from test_utils.note_factory import create_basic_notes
 
 
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_asyncio_thread():
+    """
+    Session-scoped fixture to properly cleanup asyncio thread after all tests.
+    
+    This prevents the "QThread: Destroyed while thread is still running" warning
+    that occurs when the test process exits with the asyncio event loop thread
+    still active.
+    """
+    yield  # Run all tests
+    
+    # After all tests complete, shutdown the asyncio thread
+    try:
+        from utils.run_async import shutdown_asyncio
+        shutdown_asyncio()
+    except Exception as e:
+        # Log but don't fail tests if shutdown has issues
+        print(f"Warning: asyncio shutdown error: {e}")
+
+
 @pytest.fixture
 def app_data(tmp_path):
     """

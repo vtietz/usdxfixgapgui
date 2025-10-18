@@ -40,3 +40,16 @@ def run_sync(coro):
 
     future = asyncio.run_coroutine_threadsafe(sync_wrapper(), _loop)
     return future.result()
+
+def shutdown_asyncio():
+    """Properly shutdown the asyncio event loop and thread"""
+    logger.info("Shutting down asyncio loop")
+    # Stop the event loop (will exit run_forever())
+    _loop.call_soon_threadsafe(_loop.stop)
+    # Wait for thread to finish (with timeout)
+    if _thread.isRunning():
+        _thread.quit()
+        if not _thread.wait(2000):  # 2 second timeout
+            logger.warning("Asyncio thread did not stop within timeout")
+        else:
+            logger.info("Asyncio thread stopped cleanly")
