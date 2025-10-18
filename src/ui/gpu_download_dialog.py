@@ -29,15 +29,56 @@ class GpuDownloadWorker(QThread):
         self.chosen = chosen_manifest
         self.pack_dir = pack_dir
         self.dest_zip = dest_zip
+        self.cancel_token = gpu_downloader.CancelToken()
+        self._last_time = 0.0
+        self._last_bytes = 0
+        self._speed_samples = []  # For smoothing
 
     def run(self):
         try:
+            # Initialize timing
+            import time
+            self._last_time = time.time()
+            self._last_bytes = 0
+
             # Download with progress
             def progress_cb(downloaded, total):
                 pct = int((downloaded / total * 100)) if total > 0 else 0
                 mb_down = downloaded / (1024**2)
                 mb_total = total / (1024**2)
-                msg = f"Downloading: {mb_down:.1f} MB / {mb_total:.1f} MB"
+
+                # Calculate speed
+                now = time.time()
+                elapsed = now - self._last_time
+                if elapsed > 0:
+                    bytes_delta = downloaded - self._last_bytes
+                    speed = bytes_delta / elapsed  # bytes per second
+
+                    # Smooth speed with moving average (keep last 5 samples)
+                    self._speed_samples.append(speed)
+                    if len(self._speed_samples) > 5:
+                        self._speed_samples.pop(0)
+                    avg_speed = sum(self._speed_samples) / len(self._speed_samples)
+
+                    # Calculate ETA
+                    remaining_bytes = total - downloaded
+                    eta_seconds = remaining_bytes / max(avg_speed, 1)
+                    eta_minutes = int(eta_seconds // 60)
+                    eta_secs = int(eta_seconds % 60)
+
+                    # Format speed
+                    if avg_speed > 1024**2:
+                        speed_str = f"{avg_speed / (1024**2):.2f} MB/s"
+                    else:
+                        speed_str = f"{avg_speed / 1024:.1f} KB/s"
+
+                    msg = f"Downloading: {mb_down:.1f} MB / {mb_total:.1f} MB • {speed_str} • ETA {eta_minutes}:{eta_secs:02d}"
+
+                    self._last_time = now
+                    self._last_bytes = downloaded
+                else:
+                    msg = f"Downloading: {mb_down:.1f} MB / {mb_total:.1f} MB"
+
                 self.progress.emit(pct, msg)
 
             self.progress.emit(0, "Starting download...")
@@ -49,17 +90,29 @@ class GpuDownloadWorker(QThread):
                     dest_zip=self.dest_zip,
                     expected_sha256=self.chosen.sha256,
                     expected_size=self.chosen.size,
-                    progress_cb=progress_cb
+                    progress_cb=progress_cb,
+                    cancel_token=self.cancel_token
                 )
 
                 if not download_success:
-                    # Download failed (checksum, size, or cancelled)
+                    # Check if cancelled by user
+                    if self.cancel_token.is_cancelled():
+                        info_msg = (
+                            "ℹ️ Download cancelled\n\n"
+                            "The download was cancelled by user request.\n\n"
+                            "Partial files have been saved and the download\n"
+                            "will resume from where it left off if you try again."
+                        )
+                        logger.info("GPU Pack download cancelled by user")
+                        self.finished.emit(False, info_msg)
+                        return
+
+                    # Download failed (checksum, size, etc.)
                     error_msg = (
                         f"❌ Download verification failed\n\n"
                         f"The downloaded file failed verification checks:\n"
                         f"• File may be corrupted\n"
-                        f"• Checksum mismatch detected\n"
-                        f"• Download was cancelled\n\n"
+                        f"• Checksum mismatch detected\n\n"
                         f"Please check the logs for details and try again."
                     )
                     logger.error("GPU Pack download failed verification")
@@ -229,9 +282,14 @@ class GpuPackDownloadDialog(QDialog):
         # Buttons
         button_layout = QHBoxLayout()
 
-        self.download_btn = QPushButton("Download GPU Pack (~1 GB)")
+        self.download_btn = QPushButton("Download GPU Pack (~2 GB)")
         self.download_btn.clicked.connect(self._start_download)
         button_layout.addWidget(self.download_btn)
+
+        self.cancel_download_btn = QPushButton("Cancel Download")
+        self.cancel_download_btn.clicked.connect(self._on_cancel_download_clicked)
+        self.cancel_download_btn.setVisible(False)
+        button_layout.addWidget(self.cancel_download_btn)
 
         self.cancel_btn = QPushButton("Later")
         self.cancel_btn.clicked.connect(self._on_later_clicked)
@@ -358,6 +416,10 @@ Click "Download GPU Pack" to download and install from PyTorch.org.
         self.download_btn.setEnabled(False)
         self.cancel_btn.setEnabled(False)
 
+        # Show cancel download button
+        self.cancel_download_btn.setVisible(True)
+        self.cancel_download_btn.setEnabled(True)
+
         # Show progress
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
@@ -387,6 +449,15 @@ Click "Download GPU Pack" to download and install from PyTorch.org.
         self.worker.finished.connect(self._on_finished)
         self.worker.start()
 
+    def _on_cancel_download_clicked(self):
+        """Handle Cancel Download button click"""
+        if self.worker and self.worker.isRunning():
+            logger.info("User requested download cancellation")
+            self.worker.cancel_token.cancel()
+            self.cancel_download_btn.setEnabled(False)
+            self.cancel_download_btn.setText("Cancelling...")
+            self.progress_label.setText("Cancelling download...")
+
     def _on_progress(self, percentage, message):
         """Update progress display"""
         self.progress_bar.setValue(percentage)
@@ -396,11 +467,21 @@ Click "Download GPU Pack" to download and install from PyTorch.org.
         """Handle download completion"""
         self.progress_bar.setVisible(False)
 
+        # Hide cancel download button, restore other buttons
+        self.cancel_download_btn.setVisible(False)
+        self.cancel_download_btn.setText("Cancel Download")
+        self.cancel_download_btn.setEnabled(True)
+        self.download_btn.setEnabled(True)
+        self.cancel_btn.setEnabled(True)
+
         if success:
             QMessageBox.information(self, "Success", message)
             self.accept()  # Close dialog with success
         else:
-            QMessageBox.critical(self, "Error", message)
-            self.download_btn.setEnabled(True)
-            self.cancel_btn.setEnabled(True)
-            self.progress_label.setText("Download failed. Please try again.")
+            # Check if it was a cancellation (info message) vs error
+            if "cancelled" in message.lower() or "ℹ️" in message:
+                QMessageBox.information(self, "Download Cancelled", message)
+                self.progress_label.setText("Download cancelled. Partial files saved for resume.")
+            else:
+                QMessageBox.critical(self, "Error", message)
+                self.progress_label.setText("Download failed. Please try again.")

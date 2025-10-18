@@ -157,7 +157,7 @@ def _log_gpu_pack_not_installed(show_gui_dialog):
     print("  Benefits:")
     print("    • 5-10x faster AI vocal separation")
     print("    • Process songs in 10-30 seconds (vs 2-3 minutes)")
-    print("  To install GPU Pack (~1GB download):")
+    print("  To install GPU Pack (~2GB download):")
     print("    • GUI: Settings → Download GPU Pack")
     print(f"    • CLI: {exe_name} --setup-gpu")
     print("  See docs/gpu-acceleration.md for details")
@@ -202,7 +202,7 @@ def _show_gpu_pack_dialog(exe_name):
             f"To enable GPU acceleration:\n"
             f"  • GUI: Settings → Download GPU Pack\n"
             f"  • Command line: {exe_name} --setup-gpu\n\n"
-            f"GPU Pack download size: ~1GB"
+            f"GPU Pack download size: ~2GB"
         )
         msg.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg.exec()
@@ -229,6 +229,9 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     from ui.gpu_download_dialog import GpuPackDownloadDialog
 
     logger = logging.getLogger(__name__)
+
+    # Auto-recover GPU Pack config if pack exists on disk but config is empty
+    gpu_bootstrap.auto_recover_gpu_pack_config(config)
 
     # Check if user has chosen to not show dialog
     if config.gpu_pack_dialog_dont_show:

@@ -259,3 +259,8 @@ class Config(QObject):
     def save_config(self):
         """Alias for save() to match bootstrap expectations"""
         self.save()
+
+    def log_config_location(self):
+        """Log the configuration file location (call after logging is set up)"""
+        print(f"Configuration loaded from: {self.config_path}")
+        logger.info(f"Configuration loaded from: {self.config_path}")

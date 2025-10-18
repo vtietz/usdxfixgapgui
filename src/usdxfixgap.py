@@ -62,6 +62,9 @@ def main():
 
     logger = logging.getLogger(__name__)
     logger.info(f"Application started with log level: {config.log_level_str}")
+    
+    # Log configuration file location now that logging is ready
+    config.log_config_location()
 
     # GPU Status Logging (Console Only - dialog shown later)
     log_gpu_status(config, gpu_enabled, show_gui_dialog=False)

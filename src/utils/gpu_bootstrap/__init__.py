@@ -51,16 +51,25 @@ if _parent_module.exists():
         resolve_pack_dir = _parent.resolve_pack_dir
         probe_nvml = _parent.probe_nvml
         probe_nvidia_smi = _parent.probe_nvidia_smi
+        find_installed_pack_dirs = _parent.find_installed_pack_dirs
+        select_best_existing_pack = _parent.select_best_existing_pack
+        auto_recover_gpu_pack_config = _parent.auto_recover_gpu_pack_config
     else:
         capability_probe = None
         resolve_pack_dir = None
         probe_nvml = None
         probe_nvidia_smi = None
+        find_installed_pack_dirs = None
+        select_best_existing_pack = None
+        auto_recover_gpu_pack_config = None
 else:
     capability_probe = None
     resolve_pack_dir = None
     probe_nvml = None
     probe_nvidia_smi = None
+    find_installed_pack_dirs = None
+    select_best_existing_pack = None
+    auto_recover_gpu_pack_config = None
 
 __all__ = [
     # Staged facade API (primary interface)
@@ -94,4 +103,7 @@ __all__ = [
     'resolve_pack_dir',
     'probe_nvml',
     'probe_nvidia_smi',
+    'find_installed_pack_dirs',
+    'select_best_existing_pack',
+    'auto_recover_gpu_pack_config',
 ]

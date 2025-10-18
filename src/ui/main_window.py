@@ -160,7 +160,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
         supported_mime_types = QMediaDevices.supportedMimeTypes()
         logger.debug(f"Available multimedia backends: {supported_mime_types}")
     except AttributeError:
-        logger.warning("Unable to retrieve supported multimedia backends.")
+        logger.debug("Multimedia backend query not available (not critical - app uses its own audio processing)")
 
     # Show window
     window.show()
@@ -184,6 +184,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Use QTimer to allow event loop to process initial logs
     def delayed_start():
+        logger.info(f"Configuration file: {data.config.config_path}")
         logger.info("Application ready for user interaction")
 
     QTimer.singleShot(200, delayed_start)  # 200ms delay

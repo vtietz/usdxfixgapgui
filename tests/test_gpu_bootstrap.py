@@ -16,7 +16,10 @@ from utils.gpu_bootstrap import (
     PathCalculator, PathConfig,
     PathInstaller, InstallationResult,
     RuntimeValidator,
-    enable_runtime
+    enable_runtime,
+    find_installed_pack_dirs,
+    select_best_existing_pack,
+    auto_recover_gpu_pack_config
 )
 
 
@@ -419,6 +422,129 @@ class TestFeatureFlagIntegration:
                 assert result is True
         finally:
             sys.path = original_path
+
+
+class TestAutoRecovery:
+    """Test GPU Pack auto-recovery functionality."""
+
+    def test_find_installed_pack_dirs_empty(self, tmp_path):
+        """Test finding packs when directory doesn't exist."""
+        with patch.dict(os.environ, {'LOCALAPPDATA': str(tmp_path)}):
+            candidates = find_installed_pack_dirs()
+            assert len(candidates) == 0
+
+    def test_find_installed_pack_dirs_with_valid_pack(self, tmp_path):
+        """Test finding packs with valid folder structure."""
+        runtime_root = tmp_path / 'USDXFixGap' / 'gpu_runtime'
+        runtime_root.mkdir(parents=True)
+        
+        # Create a valid pack directory
+        pack_dir = runtime_root / 'v1.4.0-cu121'
+        pack_dir.mkdir()
+        
+        with patch.dict(os.environ, {'LOCALAPPDATA': str(tmp_path)}):
+            candidates = find_installed_pack_dirs()
+            assert len(candidates) == 1
+            assert candidates[0]['path'] == pack_dir
+            assert candidates[0]['app_version'] == '1.4.0'
+            assert candidates[0]['flavor'] == 'cu121'
+            assert candidates[0]['has_install_json'] is False
+
+    def test_find_installed_pack_dirs_with_install_json(self, tmp_path):
+        """Test finding packs with install.json."""
+        runtime_root = tmp_path / 'USDXFixGap' / 'gpu_runtime'
+        runtime_root.mkdir(parents=True)
+        
+        pack_dir = runtime_root / 'v1.4.0-cu121'
+        pack_dir.mkdir()
+        
+        # Create install.json
+        install_json = pack_dir / 'install.json'
+        import json
+        with open(install_json, 'w') as f:
+            json.dump({
+                'app_version': '1.4.0',
+                'flavor': 'cu121',
+                'torch_version': '2.1.0',
+                'cuda_version': '12.1'
+            }, f)
+        
+        with patch.dict(os.environ, {'LOCALAPPDATA': str(tmp_path)}):
+            candidates = find_installed_pack_dirs()
+            assert len(candidates) == 1
+            assert candidates[0]['has_install_json'] is True
+            assert candidates[0]['app_version'] == '1.4.0'
+            assert candidates[0]['flavor'] == 'cu121'
+
+    def test_select_best_existing_pack_prefer_flavor(self, tmp_path):
+        """Test pack selection prefers matching flavor."""
+        candidates = [
+            {'path': tmp_path / 'v1.4.0-cu121', 'app_version': '1.4.0', 'flavor': 'cu121', 'has_install_json': False},
+            {'path': tmp_path / 'v1.4.0-cu124', 'app_version': '1.4.0', 'flavor': 'cu124', 'has_install_json': False},
+        ]
+        
+        best = select_best_existing_pack(candidates, config_flavor='cu124')
+        assert best == tmp_path / 'v1.4.0-cu124'
+
+    def test_select_best_existing_pack_prefer_install_json(self, tmp_path):
+        """Test pack selection prefers packs with install.json."""
+        candidates = [
+            {'path': tmp_path / 'v1.4.0-cu121', 'app_version': '1.4.0', 'flavor': 'cu121', 'has_install_json': False},
+            {'path': tmp_path / 'v1.3.0-cu121', 'app_version': '1.3.0', 'flavor': 'cu121', 'has_install_json': True},
+        ]
+        
+        best = select_best_existing_pack(candidates, config_flavor='cu121')
+        assert best == tmp_path / 'v1.3.0-cu121'  # Prefers install.json
+
+    def test_select_best_existing_pack_prefer_recent_version(self, tmp_path):
+        """Test pack selection prefers most recent version."""
+        candidates = [
+            {'path': tmp_path / 'v1.3.0-cu121', 'app_version': '1.3.0', 'flavor': 'cu121', 'has_install_json': True},
+            {'path': tmp_path / 'v1.4.0-cu121', 'app_version': '1.4.0', 'flavor': 'cu121', 'has_install_json': True},
+        ]
+        
+        best = select_best_existing_pack(candidates, config_flavor='cu121')
+        assert best == tmp_path / 'v1.4.0-cu121'  # Newer version
+
+    def test_auto_recover_gpu_pack_config_no_recovery_needed(self, tmp_path):
+        """Test auto-recovery skips when pack path already set."""
+        mock_config = Mock()
+        mock_config.gpu_pack_path = '/existing/path'
+        
+        recovered = auto_recover_gpu_pack_config(mock_config)
+        assert recovered is False
+
+    def test_auto_recover_gpu_pack_config_successful_recovery(self, tmp_path):
+        """Test successful auto-recovery updates config."""
+        runtime_root = tmp_path / 'USDXFixGap' / 'gpu_runtime'
+        runtime_root.mkdir(parents=True)
+        
+        pack_dir = runtime_root / 'v1.4.0-cu121'
+        pack_dir.mkdir()
+        
+        # Create install.json
+        install_json = pack_dir / 'install.json'
+        import json
+        with open(install_json, 'w') as f:
+            json.dump({
+                'app_version': '1.4.0',
+                'flavor': 'cu121',
+                'torch_version': '2.1.0',
+                'cuda_version': '12.1'
+            }, f)
+        
+        mock_config = Mock()
+        mock_config.gpu_pack_path = ''
+        mock_config.gpu_flavor = 'cu121'
+        
+        with patch.dict(os.environ, {'LOCALAPPDATA': str(tmp_path)}):
+            recovered = auto_recover_gpu_pack_config(mock_config)
+        
+        assert recovered is True
+        assert mock_config.gpu_pack_path == str(pack_dir)
+        assert mock_config.gpu_pack_installed_version == '1.4.0'
+        assert mock_config.gpu_opt_in is True
+        mock_config.save_config.assert_called_once()
 
 
 if __name__ == '__main__':
