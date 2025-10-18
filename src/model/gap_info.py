@@ -42,7 +42,7 @@ class GapInfo:
         self.normalization_level: Optional[float] = None
 
         # Detection method and metadata (new fields)
-        self.detection_method: str = "spleeter"  # Options: spleeter, vad_preview, hq_segment
+        self.detection_method: str = "mdx"  # Default to MDX (only supported method)
         self.preview_wav_path: Optional[str] = None
         self.waveform_json_path: Optional[str] = None
         self.confidence: Optional[float] = None  # Detection confidence 0.0-1.0

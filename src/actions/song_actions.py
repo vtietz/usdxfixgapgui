@@ -60,6 +60,12 @@ class SongActions(BaseActions):
 
             logger.info(f"Reloading song {song.path}")
             try:
+                # Reset ERROR or PROCESSING states before reloading
+                # This allows users to retry after errors or stuck processing states
+                if song.status in (SongStatus.ERROR, SongStatus.PROCESSING):
+                    logger.info(f"Resetting status from {song.status} to NOT_PROCESSED for reload")
+                    song.clear_error()  # Clears error message and resets to NOT_PROCESSED
+                
                 # Mark as queued so viewport lazy loader does not re-queue it
                 song.status = SongStatus.QUEUED
                 self.data.songs.updated.emit(song)
@@ -229,14 +235,12 @@ class SongActions(BaseActions):
                 # This avoids 'Songs' object does not support item assignment error
                 self._update_song_attributes(song, reloaded_song)
 
-                # DO NOT create waveforms automatically for viewport lazy-loading
-                # Waveforms are only created when:
-                # 1. User selects a song (MediaPlayerComponent.on_song_changed)
-                # 2. User explicitly reloads a song with full reload
-                # 3. Gap detection completes (via GapActions)
-                #
-                # This prevents mass waveform generation when scrolling through songs
-                # and keeps Song.status unchanged during viewport loads
+                # Regenerate waveforms after reload
+                # This ensures waveforms reflect the current song data
+                from actions.audio_actions import AudioActions
+                audio_actions = AudioActions(self.data)
+                audio_actions._create_waveforms(song, overwrite=True, use_queue=True)
+                logger.info(f"Queued waveform regeneration after reload for {song.title}")
 
                 # Notify update after successful reload
                 self.data.songs.updated.emit(song)

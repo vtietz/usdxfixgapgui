@@ -161,7 +161,7 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
         provider = get_detection_provider(options.config)
         detection_method = provider.get_method_name()
     else:
-        detection_method = "spleeter"  # Legacy default
+        detection_method = "mdx"  # Default to MDX (only supported method)
 
     # detect gap, increasing the detection time if necessary
     while True:

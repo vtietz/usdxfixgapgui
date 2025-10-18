@@ -49,10 +49,13 @@ def get_detection_provider(config: Config) -> IDetectionProvider:
     try:
         method = config.method.lower()
 
+        # Only MDX is supported - silently use it regardless of config
         if method != "mdx":
-            logger.warning(
-                f"Detection method '{method}' is not supported. Only 'mdx' is available. "
-                f"Using MDX provider."
+            # Update config to mdx to prevent future warnings
+            config.method = "mdx"
+            logger.info(
+                f"Detection method '{method}' is not supported. Automatically switching to 'mdx'. "
+                f"Config has been updated."
             )
 
         logger.debug("Selecting MDX detection provider")

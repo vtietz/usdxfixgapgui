@@ -249,8 +249,8 @@ class MediaPlayerComponent(QWidget):
     def update_player_files(self):
         """Load the appropriate media files based on current state"""
         song: Song = self._song
-        if not song or song.status == SongStatus.PROCESSING:
-            logger.debug("No song or song is processing - not loading media")
+        if not song:
+            logger.debug("No song - not loading media")
             self.player.load_media(None)
             self.waveform_widget.load_waveform(None)
             self.waveform_widget.clear_placeholder()
@@ -276,6 +276,7 @@ class MediaPlayerComponent(QWidget):
         
         if audio_status == AudioFileStatus.AUDIO:
             logger.debug(f"Loading audio file: {paths['audio_file']}")
+            # Keep audio playback available even during gap detection (PROCESSING status)
             self.player.load_media(paths['audio_file'])
             
             # Check if audio waveform exists
@@ -283,7 +284,11 @@ class MediaPlayerComponent(QWidget):
                 self.waveform_widget.load_waveform(paths['audio_waveform_file'])
             else:
                 self.waveform_widget.load_waveform(None)
-                self.waveform_widget.set_placeholder("Loading waveform…")
+                # Show different message during gap detection
+                if song.status == SongStatus.PROCESSING:
+                    self.waveform_widget.set_placeholder("Gap detection in progress…")
+                else:
+                    self.waveform_widget.set_placeholder("Loading waveform…")
             
             # Clear vocals button tooltip in audio mode
             self.vocals_btn.setToolTip("")

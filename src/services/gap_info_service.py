@@ -44,7 +44,7 @@ class GapInfoService:
             gap_info.normalization_level = data.get("normalization_level", None)
 
             # Load new detection metadata fields (backward compatible)
-            gap_info.detection_method = data.get("detection_method", "spleeter")
+            gap_info.detection_method = data.get("detection_method", "mdx")
             gap_info.preview_wav_path = data.get("preview_wav_path", None)
             gap_info.waveform_json_path = data.get("waveform_json_path", None)
             gap_info.confidence = data.get("confidence", None)
