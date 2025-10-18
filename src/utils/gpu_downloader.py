@@ -39,10 +39,14 @@ def download_with_resume(
     expected_sha256: str,
     expected_size: int,
     progress_cb: Optional[Callable[[int, int], None]] = None,
-    cancel_token: Optional[CancelToken] = None
+    cancel_token: Optional[CancelToken] = None,
+    config=None
 ) -> bool:
     """
     Download file with resume support and SHA-256 verification.
+
+    This function supports feature-flagged refactored implementation.
+    Set experimental.resilient_downloader=true in config to use new modular architecture.
 
     Args:
         url: Download URL
@@ -51,10 +55,30 @@ def download_with_resume(
         expected_size: Expected file size in bytes
         progress_cb: Optional callback(bytes_downloaded, total_size)
         cancel_token: Optional cancellation token
+        config: Optional configuration object for feature flags
 
     Returns:
         True on success, False on failure
     """
+    # Check feature flag for refactored implementation
+    if config:
+        from common.feature_flags import FeatureFlags
+        flags = FeatureFlags.from_config(config)
+        
+        if flags.USE_RESILIENT_DOWNLOADER:
+            from utils.download import download_with_resume_refactored
+            logger.info("Using refactored resilient downloader (modular architecture)")
+            return download_with_resume_refactored(
+                url=url,
+                dest_zip=dest_zip,
+                expected_sha256=expected_sha256,
+                expected_size=expected_size,
+                progress_cb=progress_cb,
+                cancel_token=cancel_token
+            )
+
+    # Legacy implementation
+    logger.info("Using legacy downloader")
     part_file = dest_zip.with_suffix('.part')
     meta_file = dest_zip.with_suffix('.meta')
 
@@ -279,7 +303,7 @@ def extract_zip(zip_path: Path, dest_dir: Path) -> bool:
         if temp_dir and temp_dir.exists():
             try:
                 shutil.rmtree(temp_dir)
-            except:
+            except Exception:
                 pass
 
         return False
