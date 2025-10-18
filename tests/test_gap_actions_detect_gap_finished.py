@@ -1,5 +1,6 @@
 """Integration-light tests for GapActions._on_detect_gap_finished completion handler."""
 
+import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 from actions.gap_actions import GapActions
@@ -11,7 +12,7 @@ from test_utils.result_factory import create_match_result, create_mismatch_resul
 class TestDetectGapFinished:
     """Integration-light tests for gap detection completion handler"""
 
-    def test_updates_gap_info_and_orchestrates_followups(self, app_data, song_factory, tmp_path):
+    def test_updates_gap_info_and_orchestrates_followups(self, app_data, song_factory, tmp_path, fake_run_async):
         """Test: Updates gap_info fields and orchestrates waveforms/normalization"""
         # Setup: Create song with initial gap_info
         audio_file = tmp_path / "test_audio.mp3"
@@ -39,6 +40,9 @@ class TestDetectGapFinished:
         with patch('actions.gap_actions.run_async') as mock_run_async, \
              patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_gap_service_save, \
              patch('actions.gap_actions.AudioActions') as mock_audio_actions_class:
+
+            # Use centralized async executor fixture
+            mock_run_async.side_effect = fake_run_async
 
             # Mock AudioActions instance
             mock_audio_actions = Mock()
@@ -74,7 +78,7 @@ class TestDetectGapFinished:
             # Assert: songs.updated.emit was called
             app_data.songs.updated.emit.assert_called_once_with(song)
 
-    def test_mismatch_status_mapped_correctly(self, app_data, song_factory):
+    def test_mismatch_status_mapped_correctly(self, app_data, song_factory, fake_run_async):
         """Test: MISMATCH status is correctly mapped to song"""
         song = song_factory(title="Mismatch Song", gap=1000)
 
@@ -88,9 +92,12 @@ class TestDetectGapFinished:
         result.silence_periods = []
         result.duration_ms = 150000
 
-        with patch('actions.gap_actions.run_async'), \
-             patch('actions.gap_actions.GapInfoService'), \
+        with patch('actions.gap_actions.run_async') as mock_run_async, \
+             patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_save, \
              patch('actions.gap_actions.AudioActions'):
+
+            # Use centralized async executor fixture
+            mock_run_async.side_effect = fake_run_async
 
             gap_actions = GapActions(app_data)
             gap_actions._on_detect_gap_finished(song, result)
@@ -128,7 +135,7 @@ class TestDetectGapFinished:
             # Assert: Normalization NOT called
             mock_audio._normalize_song.assert_not_called()
 
-    def test_no_normalization_when_no_audio_file(self, app_data, song_factory):
+    def test_no_normalization_when_no_audio_file(self, app_data, song_factory, fake_run_async):
         """Test: Normalization skipped when song has no audio_file"""
         song = song_factory(title="No Audio", audio_file="")
         result = create_match_result(song.txt_file)
@@ -136,9 +143,12 @@ class TestDetectGapFinished:
         # Enable auto_normalize but song has no audio
         app_data.config.auto_normalize = True
 
-        with patch('actions.gap_actions.run_async'), \
-             patch('actions.gap_actions.GapInfoService'), \
+        with patch('actions.gap_actions.run_async') as mock_run_async, \
+             patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_save, \
              patch('actions.gap_actions.AudioActions') as mock_audio_class:
+
+            # Use centralized async executor fixture
+            mock_run_async.side_effect = fake_run_async
 
             mock_audio = Mock()
             mock_audio_class.return_value = mock_audio

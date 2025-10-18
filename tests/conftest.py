@@ -1,5 +1,6 @@
 import os
 import sys
+import asyncio
 import pytest
 from unittest.mock import Mock
 from typing import Optional
@@ -112,3 +113,30 @@ def song_factory(tmp_path):
         return song
 
     return _create_song
+
+
+@pytest.fixture
+def fake_run_async():
+    """
+    Fixture providing synchronous executor for run_async in tests.
+    
+    This fixture ensures coroutines scheduled via run_async are immediately
+    awaited and resolved during test execution, preventing RuntimeWarnings
+    about unawaited coroutines.
+    
+    Usage:
+        with patch('actions.gap_actions.run_async') as mock_run_async:
+            mock_run_async.side_effect = fake_run_async
+            # Test code that calls run_async(coro, callback)
+    
+    Returns:
+        Callable that executes coroutine synchronously and invokes callback
+    """
+    def _executor(coro, callback=None):
+        """Execute coroutine synchronously and invoke optional callback."""
+        result = asyncio.run(coro)
+        if callback:
+            callback(result)
+        return result
+    
+    return _executor

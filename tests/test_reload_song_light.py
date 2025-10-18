@@ -28,7 +28,7 @@ def song_actions(mock_app_data):
     return SongActions(mock_app_data)
 
 
-def test_reload_song_light_uses_txt_file_not_path(song_actions):
+def test_reload_song_light_uses_txt_file_not_path(song_actions, fake_run_async):
     """
     Test that reload_song_light() passes song.txt_file (not song.path) to service.
     This validates the fix for the PermissionError bug.
@@ -39,7 +39,8 @@ def test_reload_song_light_uses_txt_file_not_path(song_actions):
     test_song.artist = "Test Artist"
     
     # Mock the service to verify the parameter it receives
-    with patch('actions.song_actions.SongService') as mock_service_class:
+    with patch('actions.song_actions.SongService') as mock_service_class, \
+         patch('actions.song_actions.run_async') as mock_run_async:
         mock_service = mock_service_class.return_value
         
         # Mock load_song_metadata_only to return a reloaded song
@@ -47,6 +48,9 @@ def test_reload_song_light_uses_txt_file_not_path(song_actions):
         reloaded.title = "Reloaded Song"
         reloaded.artist = "Reloaded Artist"
         mock_service.load_song_metadata_only = AsyncMock(return_value=reloaded)
+        
+        # Use centralized async executor fixture
+        mock_run_async.side_effect = fake_run_async
         
         # Call reload_song_light
         song_actions.reload_song_light(specific_song=test_song)
@@ -64,7 +68,7 @@ def test_reload_song_light_uses_txt_file_not_path(song_actions):
             f"Service should receive txt_file, not path (directory)"
 
 
-def test_reload_song_light_does_not_change_status(song_actions, mock_app_data):
+def test_reload_song_light_does_not_change_status(song_actions, mock_app_data, fake_run_async):
     """
     Test that reload_song_light() does not change song.status.
     This is the core requirement for viewport lazy-loading.
@@ -83,13 +87,17 @@ def test_reload_song_light_does_not_change_status(song_actions, mock_app_data):
     
     initial_status = test_song.status
     
-    with patch('actions.song_actions.SongService') as mock_service_class:
+    with patch('actions.song_actions.SongService') as mock_service_class, \
+         patch('actions.song_actions.run_async') as mock_run_async:
         mock_service = mock_service_class.return_value
         
         # Mock reloaded song - metadata only, no status change
         reloaded = Song("Z:/Songs/Artist/Title.txt")
         reloaded.title = "Reloaded"
         mock_service.load_song_metadata_only = AsyncMock(return_value=reloaded)
+        
+        # Use centralized async executor fixture
+        mock_run_async.side_effect = fake_run_async
         
         # Call reload
         song_actions.reload_song_light(specific_song=test_song)
@@ -99,12 +107,11 @@ def test_reload_song_light_does_not_change_status(song_actions, mock_app_data):
             f"Status should remain {initial_status}, got {test_song.status}"
 
 
-def test_reload_song_light_with_error_handling(song_actions):
+def test_reload_song_light_with_error_handling(song_actions, fake_run_async):
     """
     Test that reload_song_light() handles service errors gracefully.
     Now async - uses QTimer to wait for callback completion.
     """
-    import time
     from PySide6.QtCore import QCoreApplication
     
     test_song = Song("Z:/Songs/NonExistent/Title.txt")
@@ -118,14 +125,7 @@ def test_reload_song_light_with_error_handling(song_actions):
         error_song.set_error("File not found: Z:/Songs/NonExistent/Title.txt")
         mock_service.load_song_metadata_only = AsyncMock(return_value=error_song)
         
-        # Mock run_async to execute callback immediately (simulating async completion)
-        def fake_run_async(coro, callback=None):
-            if callback:
-                # Simulate async execution completing and calling callback
-                import asyncio
-                result = asyncio.run(coro)
-                callback(result)
-        
+        # Use centralized async executor fixture
         mock_run_async.side_effect = fake_run_async
         
         # Should not raise exception
