@@ -328,6 +328,20 @@ build.bat                 # Build Windows executable
 - Naming: descriptive, consistent, no abbreviations without reason.
 - Immutability by default: avoid mutating global state.
 
+## PEP 8 Style Compliance (critical for new code)
+**ALWAYS follow these PEP 8 rules when writing new code:**
+- **Blank lines**: 2 blank lines before top-level functions/classes (E302), 1 blank line at end of file (W391)
+- **Whitespace**: Space around operators (`x = y + z` not `x=y+z`), after commas (`[1, 2, 3]` not `[1,2,3]`)
+- **Line length**: Max 120 characters (E501) - break long lines with parentheses or backslash
+- **Indentation**: 4 spaces per level, align continuation lines properly (E121, E125, E128)
+- **Imports**: At top of file (E402), no unused imports (F401), group stdlib/third-party/local
+- **f-strings**: Only use when actually formatting values (F541) - use regular strings otherwise
+- **Comments**: Space after `#` (E265), 2 spaces before inline comments (E261)
+- **Bare except**: Never use `except:` without exception type (E722) - catches KeyboardInterrupt!
+- **Unused variables**: Prefix with `_` if intentionally unused (F841) or remove entirely
+
+**Style Check Command**: `run.bat analyze` will flag PEP 8 violations - fix them before committing!
+
 ## Code Quality Analysis
 * **When to Run**: After bigger implementations, refactorings, or before committing significant changes
 * **How to Run**:

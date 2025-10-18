@@ -164,42 +164,46 @@ class SongTableModel(QAbstractTableModel):
     def columnCount(self, parent=QModelIndex()):
         return 12
 
+    def _format_column_display(self, song: Song, column: int, cache_entry) -> str:
+        """Format display text for a specific column."""
+        if column == 0:
+            return cache_entry['relative_path'] if cache_entry else files.get_relative_path(self.app_data.directory, song.path)
+        elif column == 1:
+            return song.artist
+        elif column == 2:
+            return song.title
+        elif column == 3:
+            return song.duration_str
+        elif column == 4:
+            return str(song.bpm)
+        elif column == 5:
+            return str(song.gap)
+        elif column == 6:
+            return str(song.gap_info.detected_gap) if song.gap_info else ""
+        elif column == 7:
+            return str(song.gap_info.diff) if song.gap_info else ""
+        elif column == 8:
+            return str(song.gap_info.notes_overlap) if song.gap_info else ""
+        elif column == 9:
+            return song.gap_info.processed_time if song.gap_info else ""
+        elif column == 10:
+            return song.normalized_str
+        elif column == 11:
+            return f"ERROR: {song.error_message}" if song.status == SongStatus.ERROR else song.status.name
+        return ""
+
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self.songs)):
             return None
+
         song: Song = self.songs[index.row()]
         column = index.column()
+
         if role == Qt.ItemDataRole.UserRole:
             return song
         elif role == Qt.ItemDataRole.DisplayRole:
-            # Use cached values where available
             cache_entry = self._row_cache.get(song.path)
-
-            if column == 0:
-                # Use cached relative path
-                return cache_entry['relative_path'] if cache_entry else files.get_relative_path(self.app_data.directory, song.path)
-            elif column == 1:
-                return song.artist
-            elif column == 2:
-                return song.title
-            elif column == 3:
-                return song.duration_str
-            elif column == 4:
-                return str(song.bpm)
-            elif column == 5:
-                return str(song.gap)
-            elif column == 6:
-                return str(song.gap_info.detected_gap) if song.gap_info else ""
-            elif column == 7:
-                return str(song.gap_info.diff) if song.gap_info else ""
-            elif column == 8:
-                return str(song.gap_info.notes_overlap) if song.gap_info else ""
-            elif column == 9:
-                return song.gap_info.processed_time if song.gap_info else ""
-            elif column == 10:
-                return song.normalized_str
-            elif column == 11:
-                return f"ERROR: {song.error_message}" if song.status == SongStatus.ERROR else song.status.name
+            return self._format_column_display(song, column, cache_entry)
         elif role == Qt.ItemDataRole.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter if 3 <= column <= 8 or column == 10 else Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         elif role == Qt.ItemDataRole.BackgroundRole and song.status == SongStatus.ERROR:
@@ -211,42 +215,42 @@ class SongTableModel(QAbstractTableModel):
             return ["Path", "Artist", "Title", "Length", "BPM", "Gap", "Detected Gap", "Diff", "Notes", "Time", "Normalized", "Status"][section]
         return None
 
+    def _get_sort_key(self, song: Song, column: int):
+        """Get sort key for a song based on column."""
+        cache_entry = self._row_cache.get(song.path)
+
+        if column == 0:  # Path
+            return cache_entry['relative_path'] if cache_entry else files.get_relative_path(self.app_data.directory, song.path)
+        elif column == 1:  # Artist
+            return song.artist.lower()
+        elif column == 2:  # Title
+            return song.title.lower()
+        elif column == 3:  # Duration
+            return song.duration_ms if song.duration_ms else 0
+        elif column == 4:  # BPM
+            return song.bpm if song.bpm else 0
+        elif column == 5:  # Gap
+            return song.gap if song.gap else 0
+        elif column == 6:  # Detected Gap
+            return song.gap_info.detected_gap if song.gap_info and song.gap_info.detected_gap else 0
+        elif column == 7:  # Diff
+            return song.gap_info.diff if song.gap_info and song.gap_info.diff else 0
+        elif column == 8:  # Notes Overlap
+            return song.gap_info.notes_overlap if song.gap_info and song.gap_info.notes_overlap else 0
+        elif column == 9:  # Time
+            return song.gap_info.processed_time if song.gap_info and song.gap_info.processed_time else ""
+        elif column == 10:  # Normalized
+            return 1 if song.gap_info and song.gap_info.is_normalized else 0
+        elif column == 11:  # Status
+            return song.status.name
+        else:
+            return ""
+
     def sort(self, column, order=Qt.SortOrder.AscendingOrder):
         """Optimized sort using direct attribute access instead of data() calls."""
         self.layoutAboutToBeChanged.emit()
 
-        # Define sort key function based on column
-        def get_sort_key(song: Song):
-            cache_entry = self._row_cache.get(song.path)
-
-            if column == 0:  # Path
-                return cache_entry['relative_path'] if cache_entry else files.get_relative_path(self.app_data.directory, song.path)
-            elif column == 1:  # Artist
-                return song.artist.lower()
-            elif column == 2:  # Title
-                return song.title.lower()
-            elif column == 3:  # Duration
-                return song.duration_ms if song.duration_ms else 0
-            elif column == 4:  # BPM
-                return song.bpm if song.bpm else 0
-            elif column == 5:  # Gap
-                return song.gap if song.gap else 0
-            elif column == 6:  # Detected Gap
-                return song.gap_info.detected_gap if song.gap_info and song.gap_info.detected_gap else 0
-            elif column == 7:  # Diff
-                return song.gap_info.diff if song.gap_info and song.gap_info.diff else 0
-            elif column == 8:  # Notes Overlap
-                return song.gap_info.notes_overlap if song.gap_info and song.gap_info.notes_overlap else 0
-            elif column == 9:  # Time
-                return song.gap_info.processed_time if song.gap_info and song.gap_info.processed_time else ""
-            elif column == 10:  # Normalized
-                return 1 if song.gap_info and song.gap_info.is_normalized else 0
-            elif column == 11:  # Status
-                return song.status.name
-            else:
-                return ""
-
-        self.songs.sort(key=get_sort_key)
+        self.songs.sort(key=lambda song: self._get_sort_key(song, column))
         if order == Qt.SortOrder.DescendingOrder:
             self.songs.reverse()
         self.layoutChanged.emit()
