@@ -184,21 +184,21 @@ MDX (Demucs-based) method settings for high-quality, GPU-accelerated vocal separ
 **Valid values**: Positive integer (recommended: 10-30)
 
 #### noise_floor_duration_ms
-**Default**: `800`  
-**Description**: Duration at start of audio used to estimate background noise level  
-**Valid values**: Positive integer (recommended: 500-2000)
+**Default**: `1000`  
+**Description**: Duration at start of audio used to estimate background noise level (increased for more stable baseline)  
+**Valid values**: Positive integer (recommended: 800-2000)
 
 ### Onset Detection
 
 #### onset_snr_threshold
-**Default**: `6.0`  
-**Description**: Signal-to-noise ratio threshold for detecting vocal onset (RMS must exceed noise + 6.0×sigma)  
-**Valid values**: Float (recommended: 4.0-10.0, higher = stricter)
+**Default**: `4.0`  
+**Description**: Signal-to-noise ratio threshold for detecting vocal onset (RMS must exceed noise + 4.0×sigma). Lowered from 6.0 for better sensitivity to soft vocals.  
+**Valid values**: Float (recommended: 3.5-10.0, higher = stricter)
 
 #### onset_abs_threshold
-**Default**: `0.02`  
-**Description**: Absolute minimum RMS threshold (2% amplitude) to prevent false positives in quiet sections  
-**Valid values**: Float 0.0-1.0 (recommended: 0.01-0.05)
+**Default**: `0.01`  
+**Description**: Absolute minimum RMS threshold (1% amplitude) to prevent false positives in quiet sections. Lowered from 0.02 for better detection of quiet starts.  
+**Valid values**: Float 0.0-1.0 (recommended: 0.005-0.05)
 
 #### min_voiced_duration_ms
 **Default**: `300`  

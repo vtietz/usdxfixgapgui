@@ -70,11 +70,11 @@ class MdxConfig:
     # Energy analysis parameters
     frame_duration_ms: float = 25
     hop_duration_ms: float = 20
-    noise_floor_duration_ms: float = 800
+    noise_floor_duration_ms: float = 1000
 
     # Onset detection thresholds
-    onset_snr_threshold: float = 6.0
-    onset_abs_threshold: float = 0.02
+    onset_snr_threshold: float = 4.0
+    onset_abs_threshold: float = 0.01
     min_voiced_duration_ms: float = 300
     hysteresis_ms: float = 200
 

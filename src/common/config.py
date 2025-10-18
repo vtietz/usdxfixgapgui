@@ -87,11 +87,11 @@ class Config(QObject):
             # Energy analysis (tuned for speed)
             'frame_duration_ms': '25',         # 25ms frames for RMS computation
             'hop_duration_ms': '20',           # 20ms hop (increased from 10ms for 2x speed)
-            'noise_floor_duration_ms': '800',  # First 800ms for noise floor estimation
+            'noise_floor_duration_ms': '1000', # First 1000ms for noise floor estimation (increased from 800ms)
 
             # Onset detection thresholds (improved for reliability)
-            'onset_snr_threshold': '6.0',      # RMS > noise + 6.0*sigma
-            'onset_abs_threshold': '0.02',     # Absolute RMS threshold (2% amplitude minimum)
+            'onset_snr_threshold': '4.0',      # RMS > noise + 4.0*sigma (lowered from 6.0 for better sensitivity)
+            'onset_abs_threshold': '0.01',     # Absolute RMS threshold (1% amplitude minimum, lowered from 0.02)
             'min_voiced_duration_ms': '300',   # 300ms minimum sustained vocals (reduced from 500ms)
             'hysteresis_ms': '200',            # 200ms hysteresis for onset refinement
 
