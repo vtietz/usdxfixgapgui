@@ -142,7 +142,6 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Check dependencies
     dependencies = [
-        ('spleeter', '--version'),
         ('ffmpeg', '-version'),
     ]
     if not check_dependencies(dependencies):

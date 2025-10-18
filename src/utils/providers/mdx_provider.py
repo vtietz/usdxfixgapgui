@@ -173,7 +173,7 @@ class MdxProvider(IDetectionProvider):
     Use Cases:
         - Fast vocal onset detection with high accuracy
         - Songs with continuous intro music (where VAD fails)
-        - When Spleeter is too slow but VAD too unreliable
+        - Reliable AI-based vocal separation for gap detection
     """
 
     def __init__(self, config):

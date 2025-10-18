@@ -29,7 +29,7 @@ def app_data(tmp_path):
     Provides:
         - songs.updated.emit mock
         - worker_queue.add_task mock
-        - config object with spleeter=True, auto_normalize=False
+        - config object with method='mdx', auto_normalize=False
         - tmp_path attribute for filesystem operations
     """
     data = Mock()
@@ -45,7 +45,7 @@ def app_data(tmp_path):
 
     # Configuration
     data.config = Mock()
-    data.config.spleeter = True
+    data.config.method = 'mdx'
     data.config.auto_normalize = False
 
     # Filesystem access

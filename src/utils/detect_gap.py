@@ -2,7 +2,6 @@ import logging
 import os
 import utils.files as files
 import utils.audio as audio
-from utils.separate import separate_audio
 from typing import List, Tuple, Optional
 from common.config import Config
 from utils.types import DetectGapResult
@@ -91,43 +90,19 @@ def get_vocals_file(
         logger.debug(f"Vocals file already exists: {destination_vocals_filepath}")
         return destination_vocals_filepath
 
-    # Use provider system if config available, otherwise fallback to legacy
-    if config:
-        provider = get_detection_provider(config)
-        return provider.get_vocals_file(
-            audio_file,
-            temp_root,
-            destination_vocals_filepath,
-            duration,
-            overwrite,
-            check_cancellation
-        )
-    else:
-        # Legacy Spleeter path (backward compatibility)
-        logger.debug("No config provided, using legacy Spleeter path")
-        output_path = os.path.join(temp_root, "spleeter")
-        vocals_file, instrumental_file = separate_audio(
-            audio_file,
-            duration,
-            output_path,
-            overwrite,
-            check_cancellation=None
-        )
+    # Config is required - no legacy fallback path
+    if not config:
+        raise Exception("Config is required for gap detection. Legacy Spleeter path has been removed.")
 
-        if vocals_file is None:
-            raise Exception(f"Failed to extract vocals from '{audio_file}'")
-
-        vocals_file = audio.make_clearer_voice(vocals_file, check_cancellation)
-        vocals_file = audio.convert_to_mp3(vocals_file, check_cancellation)
-
-        if(vocals_file and destination_vocals_filepath):
-            if os.path.exists(destination_vocals_filepath):
-                os.remove(destination_vocals_filepath)
-            files.move_file(vocals_file, destination_vocals_filepath)
-
-        files.rmtree(output_path)
-
-        return destination_vocals_filepath
+    provider = get_detection_provider(config)
+    return provider.get_vocals_file(
+        audio_file,
+        temp_root,
+        destination_vocals_filepath,
+        duration,
+        overwrite,
+        check_cancellation
+    )
 
 def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResult:
     """

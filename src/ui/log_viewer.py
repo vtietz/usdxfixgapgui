@@ -32,7 +32,11 @@ class LogViewerWidget(QWidget):
         super().__init__(parent)
         self.log_file_path = log_file_path
         self.max_lines = max_lines
-        self.last_position = 0  # Track file position for incremental reading
+        # Start from current end of file (skip old logs from previous sessions)
+        try:
+            self.last_position = os.path.getsize(log_file_path) if os.path.exists(log_file_path) else 0
+        except Exception:
+            self.last_position = 0
         self.log_lines = deque(maxlen=max_lines)  # Ring buffer for log lines
 
         self._init_ui()

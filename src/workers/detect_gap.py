@@ -86,7 +86,7 @@ class DetectGapWorker(IWorker):
                 original_gap=self.options.original_gap,
                 audio_length=self.options.duration_ms,
                 default_detection_time=self.options.config.default_detection_time,
-                silence_detect_params="silencedetect=noise=-10dB:d=0.2",  # Default value (spleeter config removed)
+                silence_detect_params="silencedetect=noise=-10dB:d=0.2",  # Default value
                 overwrite=self.options.overwrite,
                 config=self.options.config  # Pass config for provider selection
             )
