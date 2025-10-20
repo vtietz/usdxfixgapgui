@@ -518,6 +518,37 @@ def validate_torch_cpu() -> Tuple[bool, str]:
         return (False, f"Unexpected error during CPU validation: {str(e)}")
 
 
+def validate_torchaudio() -> Tuple[bool, str]:
+    """
+    Validate that torchaudio can be imported and is functional.
+    This is critical for gap detection with MDX provider.
+    
+    Returns:
+        Tuple of (success, error_message)
+    """
+    try:
+        import torchaudio
+        
+        # Try to access a simple torchaudio function
+        try:
+            # Just accessing torchaudio functionality is enough
+            # The import itself often fails if DLLs are broken
+            _ = torchaudio.info
+            logger.info(f"torchaudio validation successful: {torchaudio.__version__}")
+            return (True, "")
+        except Exception as e:
+            return (False, f"torchaudio import succeeded but functionality broken: {str(e)}")
+            
+    except (ImportError, OSError) as e:
+        # OSError happens when DLLs are missing or broken (WinError 127)
+        error_msg = str(e)
+        if "WinError 127" in error_msg or "DLL" in error_msg:
+            return (False, f"torchaudio DLL error (broken GPU Pack): {error_msg}")
+        return (False, f"Failed to import torchaudio: {error_msg}")
+    except Exception as e:
+        return (False, f"Unexpected error during torchaudio validation: {str(e)}")
+
+
 def bootstrap_and_maybe_enable_gpu(config) -> bool:
     """
     Orchestrate GPU Pack activation and validation.
@@ -591,19 +622,53 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
             else:
                 # Enable GPU runtime
                 if enable_gpu_runtime(pack_dir, config):
-                    # Validate CUDA
-                    success, error_msg = validate_cuda_torch(expected_cuda)
+                    # Validate CUDA first
+                    cuda_success, cuda_error = validate_cuda_torch(expected_cuda)
 
-                    if success:
-                        config.gpu_last_health = "healthy"
-                        config.gpu_last_error = ""
-                        config.save_config()
-                        logger.info("GPU Pack activated successfully")
-                        return True
+                    if cuda_success:
+                        # CUDA works - now validate torchaudio (critical for MDX gap detection)
+                        audio_success, audio_error = validate_torchaudio()
+                        
+                        if audio_success:
+                            config.gpu_last_health = "healthy"
+                            config.gpu_last_error = ""
+                            config.save_config()
+                            logger.info("GPU Pack activated successfully (PyTorch + torchaudio validated)")
+                            return True
+                        else:
+                            # torchaudio broken - this breaks gap detection!
+                            logger.error(f"GPU Pack torchaudio validation failed: {audio_error}")
+                            
+                            # Provide clear guidance to user
+                            diagnostic_info = (
+                                f"GPU Pack is broken (torchaudio DLL error).\n\n"
+                                f"Location: {pack_dir}\n"
+                                f"Error: {audio_error}\n\n"
+                                f"SOLUTION: Delete the GPU Pack folder and restart the app to download a fresh copy.\n"
+                                f"The app will automatically re-download and install a working GPU Pack."
+                            )
+                            
+                            config.gpu_last_error = diagnostic_info
+                            config.gpu_last_health = "broken"
+                            config.save_config()
+                            
+                            logger.warning("=" * 80)
+                            logger.warning("GPU Pack is BROKEN - Gap detection will NOT work!")
+                            logger.warning(f"Location: {pack_dir}")
+                            logger.warning(f"Error: {audio_error}")
+                            logger.warning("")
+                            logger.warning("SOLUTION:")
+                            logger.warning(f"1. Delete folder: {pack_dir}")
+                            logger.warning("2. Restart the app")
+                            logger.warning("3. App will auto-download a fresh GPU Pack")
+                            logger.warning("=" * 80)
+                            
+                            # Don't try fallback - broken GPU Pack in sys.path will break everything
+                            return False
                     else:
-                        logger.warning(f"GPU Pack validation failed: {error_msg}")
+                        logger.warning(f"GPU Pack CUDA validation failed: {cuda_error}")
                         # Compose detailed diagnostic message
-                        diagnostic_info = _build_diagnostic_message(pack_dir, gpu_flavor, expected_cuda, error_msg)
+                        diagnostic_info = _build_diagnostic_message(pack_dir, gpu_flavor, expected_cuda, cuda_error)
                         config.gpu_last_error = diagnostic_info
                         config.gpu_last_health = "failed"
                         config.save_config()
