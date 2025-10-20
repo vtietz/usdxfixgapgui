@@ -1,5 +1,6 @@
 import os
 import logging
+from pathlib import Path
 from PySide6.QtCore import QObject, Signal, QUrl
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from utils.files import get_file_checksum
@@ -8,6 +9,14 @@ from ui.mediaplayer.constants import AudioFileStatus
 from ui.mediaplayer.loader import MediaPlayerLoader
 
 logger = logging.getLogger(__name__)
+
+# Try to import torchaudio for validation, but make it optional
+try:
+    import torchaudio
+    TORCHAUDIO_AVAILABLE = True
+except (ImportError, OSError) as e:
+    logger.warning(f"torchaudio not available for media validation: {e}")
+    TORCHAUDIO_AVAILABLE = False
 
 class PlayerController(QObject):
     position_changed = Signal(int)
@@ -114,10 +123,13 @@ class PlayerController(QObject):
             logger.warning(f"Media file is empty: {file}")
             return False
         
-        # For vocals files (MP3), use torchaudio to validate
+        # For vocals files (MP3), use torchaudio to validate IF available
         if "vocals" in file.lower() and file.lower().endswith('.mp3'):
+            if not TORCHAUDIO_AVAILABLE:
+                logger.debug("torchaudio not available, using basic validation only")
+                return True  # Fall back to basic validation when torchaudio unavailable
+            
             try:
-                import torchaudio
                 info = torchaudio.info(file)
                 
                 logger.info(f"Vocals file validation - Format: {info.num_channels}ch @ {info.sample_rate}Hz, "
