@@ -53,6 +53,7 @@ class MediaPlayerComponent(QWidget):
         self.player.audio_file_status_changed.connect(self.audio_file_status_changed)
         self.player.media_player.positionChanged.connect(self.update_position)
         self.player.media_status_changed.connect(self.update_ui)
+        self.player.vocals_validation_failed.connect(self.on_vocals_validation_failed)
 
         # Connect signals from self to player
         self.is_playing_changed.connect(self.on_play_state_changed)
@@ -185,6 +186,22 @@ class MediaPlayerComponent(QWidget):
         """Handle change between audio/vocals mode"""
         self.player.stop()
         self.update_player_files()
+        self.update_ui()
+
+    def on_vocals_validation_failed(self):
+        """Handle when vocals file fails validation"""
+        # Clear waveform and show error placeholder
+        self.waveform_widget.load_waveform(None)
+        self.waveform_widget.set_placeholder(
+            "Invalid vocals file - re-run gap detection to regenerate"
+        )
+        
+        # Update vocals button tooltip
+        self.vocals_btn.setToolTip(
+            "Invalid vocals file format. Re-run gap detection to re-extract vocals."
+        )
+        
+        # Update UI state
         self.update_ui()
 
     def on_song_changed(self, song: Song):

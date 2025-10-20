@@ -14,6 +14,7 @@ class PlayerController(QObject):
     is_playing_changed = Signal(bool)
     audio_file_status_changed = Signal(AudioFileStatus)
     media_status_changed = Signal(bool)
+    vocals_validation_failed = Signal()  # NEW: Emitted when vocals file validation fails
 
     def __init__(self, config):
         super().__init__()
@@ -35,6 +36,7 @@ class PlayerController(QObject):
         # Connect media player events
         self.media_player.playbackStateChanged.connect(self._on_playback_state_changed)
         self.media_player.mediaStatusChanged.connect(self._on_media_status_changed)
+        self.media_player.errorOccurred.connect(self._on_media_error)
 
     def play(self):
         """Toggle play/pause"""
@@ -61,7 +63,7 @@ class PlayerController(QObject):
         self.audio_file_status_changed.emit(self._audioFileStatus)
 
     def load_media(self, file: str):
-        """Load a media file into the player"""
+        """Load a media file into the player with pre-validation"""
         old_source = self.media_player.source()
 
         if not file:
@@ -77,11 +79,70 @@ class PlayerController(QObject):
             logger.debug("Media source unchanged - not reloading")
             return
 
+        # Pre-validate the media file before loading
+        if not self._validate_media_file(file):
+            logger.error(f"Media file validation failed: {file}")
+            # Don't load invalid file - switch to audio mode if in vocals mode
+            if self._audioFileStatus == AudioFileStatus.VOCALS:
+                logger.info("Switching to audio mode due to invalid vocals file")
+                self.vocals_validation_failed.emit()
+                self.audio_mode()
+            return
+
         logger.debug(f"Setting new media source: {new_source}")
         self.media_player.stop()
         self.media_player_loader.load(file)
         self.old_source = new_source
         self.old_checksum = get_file_checksum(file)
+
+    def _validate_media_file(self, file: str) -> bool:
+        """Validate media file before loading to prevent QMediaPlayer freezes
+        
+        Args:
+            file: Path to media file
+            
+        Returns:
+            True if file is valid and can be loaded safely, False otherwise
+        """
+        if not os.path.exists(file):
+            logger.warning(f"Media file does not exist: {file}")
+            return False
+        
+        # Check file size - reject empty files
+        file_size = os.path.getsize(file)
+        if file_size == 0:
+            logger.warning(f"Media file is empty: {file}")
+            return False
+        
+        # For vocals files (MP3), use torchaudio to validate
+        if "vocals" in file.lower() and file.lower().endswith('.mp3'):
+            try:
+                import torchaudio
+                info = torchaudio.info(file)
+                
+                logger.info(f"Vocals file validation - Format: {info.num_channels}ch @ {info.sample_rate}Hz, "
+                           f"Frames: {info.num_frames}, Encoding: {getattr(info, 'encoding', 'N/A')}")
+                
+                # Check for reasonable audio properties
+                if info.num_channels == 0 or info.sample_rate == 0 or info.num_frames == 0:
+                    logger.error("Invalid audio properties detected")
+                    return False
+                
+                # Check for reasonable sample rate (8kHz - 192kHz)
+                if info.sample_rate < 8000 or info.sample_rate > 192000:
+                    logger.warning(f"Unusual sample rate: {info.sample_rate}Hz")
+                    return False
+                
+                logger.info("Vocals file validation passed")
+                return True
+                
+            except Exception as e:
+                logger.error(f"torchaudio validation failed for {file}: {e}", exc_info=True)
+                return False
+        
+        # For other files (audio.mp3), basic validation only
+        logger.debug(f"Basic validation passed for {file}")
+        return True
 
     def unload_all_media(self):
         """Unload all media from the player"""
@@ -140,6 +201,48 @@ class PlayerController(QObject):
 
     def _on_media_status_changed(self, status):
         """Internal handler for media status changes"""
+        # Handle invalid or stalled media
+        if status == QMediaPlayer.MediaStatus.InvalidMedia:
+            logger.error("Media player encountered invalid media - recovering")
+            self._media_is_loaded = False
+            self.media_player.stop()
+            self.media_player.setSource(QUrl())
+            self.media_status_changed.emit(False)
+            self.is_playing_changed.emit(False)
+            # Switch back to audio mode to show proper hint
+            if self._audioFileStatus == AudioFileStatus.VOCALS:
+                logger.info("Switching back to audio mode due to invalid vocals file")
+                self.audio_mode()
+            return
+        
+        if status == QMediaPlayer.MediaStatus.StalledMedia:
+            logger.warning("Media player stalled - attempting recovery")
+            self._media_is_loaded = False
+            self.media_player.stop()
+            self.media_status_changed.emit(False)
+            return
+        
+        # Normal status handling
         self._media_is_loaded = status == QMediaPlayer.MediaStatus.LoadedMedia
         logger.debug(f"Media status changed: {status}, loaded: {self._media_is_loaded}")
         self.media_status_changed.emit(self._media_is_loaded)
+
+    def _on_media_error(self, error, error_string):
+        """Internal handler for media player errors"""
+        logger.error(f"QMediaPlayer error occurred: {error} - {error_string}")
+        logger.error(f"Error code: {error.name if hasattr(error, 'name') else error}")
+        
+        # Stop playback and clear source to prevent freeze
+        self._media_is_loaded = False
+        self._is_playing = False
+        self.media_player.stop()
+        self.media_player.setSource(QUrl())
+        
+        # Emit signals to update UI
+        self.media_status_changed.emit(False)
+        self.is_playing_changed.emit(False)
+        
+        # If vocals mode caused the error, switch back to audio mode
+        if self._audioFileStatus == AudioFileStatus.VOCALS:
+            logger.info("Switching back to audio mode due to vocals file error")
+            self.audio_mode()
