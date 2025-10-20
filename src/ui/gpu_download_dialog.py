@@ -218,8 +218,28 @@ class GpuDownloadWorker(QThread):
                     logger.info(f"GPU Pack installed successfully: CUDA {cuda_version}, PyTorch {pytorch_version}, Device: {device_name}")
                     self.finished.emit(True, msg)
                 else:
-                    msg = f"⚠️ Installation completed but CUDA validation failed:\n{error_msg}\n\nYou may need to restart the application."
-                    logger.warning(f"GPU Pack installed but validation failed: {error_msg}")
+                    # Check if it's a Python version mismatch (old GPU Pack for wrong Python version)
+                    import sys
+                    current_py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+                    
+                    if "WinError 126" in error_msg or "Das angegebene Modul wurde nicht gefunden" in error_msg or "torch_python.dll" in error_msg:
+                        # Could be VC++ runtime OR Python version mismatch
+                        msg = (
+                            f"⚠️ Installation completed but GPU validation failed\n\n"
+                            f"Possible causes:\n\n"
+                            f"1. **Python version mismatch** (you have Python {current_py_version})\n"
+                            f"   → Delete the GPU Pack folder and re-download:\n"
+                            f"   {self.pack_dir}\n\n"
+                            f"2. **Missing Visual C++ Redistributable**\n"
+                            f"   → Download and install VC++ 2015-2022 (x64):\n"
+                            f"   https://aka.ms/vs/17/release/vc_redist.x64.exe\n\n"
+                            f"After fixing, restart the application.\n\n"
+                            f"Technical details:\n{error_msg}"
+                        )
+                    else:
+                        msg = f"⚠️ Installation completed but CUDA validation failed:\n{error_msg}\n\nYou may need to restart the application."
+                    
+                    logger.warning(f"GPU Pack installed but validation failed (Python {current_py_version}): {error_msg}")
                     self.finished.emit(True, msg)
             except Exception as e:
                 msg = f"✅ Installation completed!\n\nGPU Pack installed to: {self.pack_dir}\n\nPlease restart the application to use GPU acceleration."
