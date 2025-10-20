@@ -374,6 +374,63 @@ def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
     return success
 
 
+def detect_system_pytorch_cuda() -> Optional[Dict[str, str]]:
+    """
+    Detect if system has usable PyTorch with CUDA support.
+
+    Checks if PyTorch is already available in the system/environment
+    (not from GPU Pack) and has CUDA support enabled.
+
+    Returns:
+        Dict with torch_version, cuda_version, device_name if usable
+        None if PyTorch not available or CUDA not supported
+    """
+    try:
+        import torch
+
+        # Check if CUDA is available
+        if not torch.cuda.is_available():
+            logger.debug("System PyTorch found but CUDA not available")
+            return None
+
+        # Check minimum PyTorch version (2.0+)
+        version = torch.__version__
+        try:
+            major = int(version.split('.')[0].replace('+', ''))  # Handle version like "2.7.1+cpu"
+            if major < 2:
+                logger.debug(f"System PyTorch version too old: {version} (need 2.0+)")
+                return None
+        except (ValueError, IndexError):
+            logger.debug(f"Could not parse PyTorch version: {version}")
+            return None
+
+        # Get CUDA version
+        cuda_version = torch.version.cuda
+        if cuda_version is None:
+            logger.debug("System PyTorch has no CUDA version")
+            return None
+
+        # Get device name
+        try:
+            device_name = torch.cuda.get_device_name(0)
+        except Exception as e:
+            logger.debug(f"Could not get CUDA device name: {e}")
+            device_name = "Unknown GPU"
+
+        return {
+            'torch_version': version,
+            'cuda_version': cuda_version,
+            'device_name': device_name
+        }
+
+    except ImportError:
+        logger.debug("System PyTorch not available (ImportError)")
+        return None
+    except Exception as e:
+        logger.debug(f"Error detecting system PyTorch: {e}")
+        return None
+
+
 def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
     """
     Validate that PyTorch with CUDA is properly loaded and functional.
@@ -465,10 +522,11 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
     """
     Orchestrate GPU Pack activation and validation.
     Tries multiple approaches in order:
-    1. Use GPU Pack if installed and enabled
-    2. Auto-detect system-wide CUDA/PyTorch if available
-    3. Fall back to CPU-only torch (if torch already importable)
-    4. Fall back to no torch (FFmpeg only)
+    1. If prefer_system_pytorch=true: Try system PyTorch+CUDA first
+    2. Use GPU Pack if installed and enabled
+    3. Auto-detect system-wide CUDA/PyTorch if available (fallback)
+    4. Fall back to CPU-only torch (if torch already importable)
+    5. Fall back to no torch (FFmpeg only)
 
     Args:
         config: Application config object
@@ -488,7 +546,36 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
             logger.debug("GPU acceleration explicitly disabled (GpuOptIn=false)")
             return False
 
-        # Try GPU Pack first if configured
+        # STEP 1: Try system PyTorch+CUDA first if enabled
+        prefer_system = getattr(config, 'prefer_system_pytorch', True)
+        if prefer_system and gpu_opt_in is not False:
+            logger.debug("Checking for system PyTorch with CUDA...")
+            system_pytorch = detect_system_pytorch_cuda()
+            
+            if system_pytorch:
+                logger.info(f"Found system PyTorch {system_pytorch['torch_version']} "
+                           f"with CUDA {system_pytorch['cuda_version']} "
+                           f"({system_pytorch['device_name']})")
+                
+                # Validate it works properly
+                try:
+                    success, error_msg = validate_cuda_torch(expected_cuda="12")  # Accept CUDA 12.x
+                    if success:
+                        logger.info("✓ System PyTorch validated successfully - using it instead of GPU Pack")
+                        config.gpu_last_health = "healthy (system)"
+                        config.gpu_last_error = ""
+                        config.save_config()
+                        return True
+                    else:
+                        logger.warning(f"System PyTorch validation failed: {error_msg}")
+                        logger.info("Falling back to GPU Pack...")
+                except Exception as e:
+                    logger.warning(f"System PyTorch validation error: {e}")
+                    logger.info("Falling back to GPU Pack...")
+            else:
+                logger.debug("System PyTorch with CUDA not found, trying GPU Pack...")
+
+        # STEP 2: Try GPU Pack if configured
         pack_path = getattr(config, 'gpu_pack_path', '')
         pack_dir = None
         gpu_flavor = getattr(config, 'gpu_flavor', 'cu121')
@@ -526,7 +613,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
                 else:
                     logger.debug(f"Could not enable GPU runtime from {pack_dir}, trying system CUDA...")
 
-        # If GPU Pack not available or failed, try system-wide CUDA/PyTorch
+        # STEP 3: If GPU Pack not available or failed, try system-wide CUDA/PyTorch (fallback)
         if gpu_opt_in is not False:  # None or True means try auto-detection
             logger.debug("Attempting to detect system-wide CUDA/PyTorch...")
             success, error_msg = validate_cuda_torch(expected_cuda="12")  # Accept CUDA 12.x

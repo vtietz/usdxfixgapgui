@@ -248,6 +248,15 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     # Auto-recover GPU Pack config if pack exists on disk but config is empty
     gpu_bootstrap.auto_recover_gpu_pack_config(config)
 
+    # Check if system PyTorch with CUDA is available
+    prefer_system = getattr(config, 'prefer_system_pytorch', True)
+    if prefer_system:
+        system_pytorch = gpu_bootstrap.detect_system_pytorch_cuda()
+        if system_pytorch:
+            logger.debug(f"System PyTorch {system_pytorch['torch_version']} with CUDA "
+                        f"{system_pytorch['cuda_version']} detected - GPU Pack dialog not needed")
+            return None
+
     # Check if user has chosen to not show dialog
     if config.gpu_pack_dialog_dont_show:
         logger.debug("GPU Pack dialog suppressed by user preference (GpuPackDialogDontShow=true)")

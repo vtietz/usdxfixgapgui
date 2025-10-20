@@ -123,7 +123,8 @@ class Config(QObject):
             'GpuPackPath': '',
             'GpuLastHealth': '',
             'GpuLastError': '',
-            'GpuPackDialogDontShow': 'false'
+            'GpuPackDialogDontShow': 'false',
+            'PreferSystemPytorch': 'true'  # Try system PyTorch+CUDA before GPU Pack download
         }
 
         self._config['Audio'] = {
@@ -208,6 +209,7 @@ class Config(QObject):
         self.gpu_last_health = self._config.get('General', 'GpuLastHealth', fallback='')
         self.gpu_last_error = self._config.get('General', 'GpuLastError', fallback='')
         self.gpu_pack_dialog_dont_show = self._config.getboolean('General', 'GpuPackDialogDontShow', fallback=False)
+        self.prefer_system_pytorch = self._config.getboolean('General', 'PreferSystemPytorch', fallback=True)
 
         # Window geometry
         self.window_width = self._config.getint('Window', 'width', fallback=1024)
@@ -242,6 +244,7 @@ class Config(QObject):
         self._config['General']['GpuLastHealth'] = self.gpu_last_health
         self._config['General']['GpuLastError'] = self.gpu_last_error
         self._config['General']['GpuPackDialogDontShow'] = 'true' if self.gpu_pack_dialog_dont_show else 'false'
+        self._config['General']['PreferSystemPytorch'] = 'true' if self.prefer_system_pytorch else 'false'
 
         # Window geometry
         self._config['Window']['width'] = str(self.window_width)

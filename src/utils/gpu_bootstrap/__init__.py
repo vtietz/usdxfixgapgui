@@ -54,6 +54,7 @@ if _parent_module.exists():
         find_installed_pack_dirs = _parent.find_installed_pack_dirs
         select_best_existing_pack = _parent.select_best_existing_pack
         auto_recover_gpu_pack_config = _parent.auto_recover_gpu_pack_config
+        detect_system_pytorch_cuda = _parent.detect_system_pytorch_cuda
     else:
         capability_probe = None
         resolve_pack_dir = None
@@ -62,6 +63,7 @@ if _parent_module.exists():
         find_installed_pack_dirs = None
         select_best_existing_pack = None
         auto_recover_gpu_pack_config = None
+        detect_system_pytorch_cuda = None
 else:
     capability_probe = None
     resolve_pack_dir = None
@@ -70,6 +72,7 @@ else:
     find_installed_pack_dirs = None
     select_best_existing_pack = None
     auto_recover_gpu_pack_config = None
+    detect_system_pytorch_cuda = None
 
 __all__ = [
     # Staged facade API (primary interface)
@@ -106,4 +109,5 @@ __all__ = [
     'find_installed_pack_dirs',
     'select_best_existing_pack',
     'auto_recover_gpu_pack_config',
+    'detect_system_pytorch_cuda',
 ]
