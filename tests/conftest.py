@@ -19,6 +19,8 @@ if TESTS_DIR not in sys.path:
 from model.song import Song
 from model.gap_info import GapInfo
 from test_utils.note_factory import create_basic_notes
+from test_utils import separation_stub
+from utils.providers.mdx.config import MdxConfig
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -160,3 +162,77 @@ def fake_run_async():
         return result
 
     return _executor
+
+
+# ============================================================================
+# Tier-2 Scanner Test Fixtures
+# ============================================================================
+
+@pytest.fixture
+def patch_separator(monkeypatch):
+    """
+    Fixture to patch separate_vocals_chunk with stub for Tier-2 tests.
+    
+    The stub returns the right channel (ground-truth vocals) as separation result,
+    simulating perfect separation without running Demucs.
+    """
+    # Patch where it's used, not where it's defined
+    monkeypatch.setattr(
+        'utils.providers.mdx.scanner.onset_detector.separate_vocals_chunk',
+        separation_stub.stub_separate_vocals_chunk
+    )
+    yield  # Allow tests to execute
+
+
+@pytest.fixture
+def mdx_config_tight():
+    """
+    Tight MDX configuration for fast scanner tests.
+    
+    Smaller windows and faster convergence for testing.
+    """
+    return MdxConfig(
+        chunk_duration_ms=12000,
+        chunk_overlap_ms=6000,
+        start_window_ms=20000,  # 20s initial window
+        start_window_increment_ms=10000,  # 10s increments
+        start_window_max_ms=60000,  # 60s max
+        initial_radius_ms=7500,
+        radius_increment_ms=7500,
+        max_expansions=2,
+        early_stop_tolerance_ms=500
+    )
+
+
+@pytest.fixture
+def mdx_config_loose():
+    """
+    Loose MDX configuration for edge case tests.
+    
+    Larger windows to catch very late vocals.
+    """
+    return MdxConfig(
+        chunk_duration_ms=12000,
+        chunk_overlap_ms=6000,
+        start_window_ms=30000,  # 30s initial window
+        start_window_increment_ms=15000,  # 15s increments
+        start_window_max_ms=90000,  # 90s max
+        initial_radius_ms=10000,
+        radius_increment_ms=10000,
+        max_expansions=3,
+        early_stop_tolerance_ms=500
+    )
+
+
+@pytest.fixture
+def model_placeholder():
+    """
+    Mock Demucs model for scanner tests.
+    
+    Provides minimal attributes expected by scanner code.
+    """
+    model = Mock()
+    model.samplerate = 44100
+    model.sources = ['drums', 'bass', 'other', 'vocals']
+    model.segment = 4.0  # Segment duration in seconds (required by demucs.apply_model)
+    return model
