@@ -37,6 +37,16 @@ def main():
 
     # Create config
     config = Config()
+    
+    # Validate config and auto-fix critical errors
+    from utils.config_validator import validate_config, print_validation_report
+    is_valid, validation_errors = validate_config(config, auto_fix=True)
+    if validation_errors:
+        print_validation_report(validation_errors)
+        if not is_valid:
+            print("❌ Critical configuration errors detected!")
+            print("Please review and fix config.ini, then restart the application.")
+            sys.exit(1)
 
     # Setup model paths BEFORE importing any AI libraries (PyTorch, TensorFlow, etc.)
     # This ensures Demucs and Spleeter download models to our centralized location

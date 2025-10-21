@@ -82,6 +82,13 @@ class ModelLoader:
                     torch.backends.cudnn.benchmark = True
                     logger.debug("Enabled cuDNN benchmark for GPU optimization")
                     flush_logs()
+
+                    # Enable TF32 for faster matrix multiplication on Ampere+ GPUs
+                    torch.backends.cuda.matmul.allow_tf32 = True
+                    torch.backends.cudnn.allow_tf32 = True
+                    torch.set_float32_matmul_precision('high')
+                    logger.debug("Enabled TF32 for faster matrix operations on CUDA")
+                    flush_logs()
                 else:
                     # CPU optimization: use most cores but leave one free
                     import os
@@ -106,12 +113,12 @@ class ModelLoader:
                 logger.info("Warming up model (JIT compilation, memory allocation)...")
                 flush_logs()
                 try:
-                    dummy_input = torch.zeros(1, 2, 44100, device=device)  # 1 second stereo
+                    dummy_input = torch.zeros(1, 2, 44100, device=device)  # 1 second stereo (already [1, 2, 44100])
                     with torch.no_grad():
                         if device == 'cuda' and use_fp16:
                             dummy_input = dummy_input.half()
-                        # Use apply_model for Demucs inference (not direct call)
-                        _ = apply_model(model, dummy_input.unsqueeze(0), device=device)
+                        # Use apply_model for Demucs inference (no additional unsqueeze needed)
+                        _ = apply_model(model, dummy_input, device=device)
                     logger.info("Model warm-up complete, ready for detection")
                     flush_logs()
                 except Exception as e:

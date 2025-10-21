@@ -186,9 +186,10 @@ def detect_onset_in_vocal_chunk(
                     else:
                         break  # Stop at first frame below threshold (this is the onset!)
 
-                # Refine onset by looking for maximum energy rise (derivative peak)
-                # within a small window around the detected onset
-                refine_window = min(10, onset_frame - search_start)  # 10 frames = 100ms window
+                # Refine onset by looking for energy rise pattern
+                # For abrupt onsets: find steepest rise
+                # For gradual fade-ins: find first consistent rise
+                refine_window = min(15, onset_frame - search_start)  # 15 frames = 300ms window
                 if refine_window > 2:
                     window_start = max(search_start, onset_frame - refine_window)
                     window_end = min(onset_frame + 5, len(rms_values) - 1)
@@ -198,16 +199,28 @@ def detect_onset_in_vocal_chunk(
                     if len(rms_window) > 1:
                         energy_derivative = np.diff(rms_window)
 
-                        # Find maximum positive derivative (steepest rise)
                         if len(energy_derivative) > 0:
-                            max_rise_idx = np.argmax(energy_derivative)
-                            refined_onset = window_start + max_rise_idx
-
-                            # Only use refined onset if it's close to original and makes sense
-                            if abs(refined_onset - onset_frame) <= refine_window:
-                                logger.debug(f"Refined onset from frame {onset_frame} to {refined_onset} "
-                                             f"(energy rise: {energy_derivative[max_rise_idx]:.4f})")
-                                onset_frame = refined_onset
+                            # Strategy: Find the first significant positive derivative
+                            # This catches gradual fade-ins better than finding the steepest rise
+                            mean_derivative = np.mean(np.abs(energy_derivative))
+                            threshold_derivative = mean_derivative * 0.5  # 50% of mean change
+                            
+                            # Find first frame where derivative exceeds threshold (consistent rise)
+                            first_rise_idx = None
+                            for idx, deriv in enumerate(energy_derivative):
+                                if deriv > threshold_derivative:
+                                    first_rise_idx = idx
+                                    break
+                            
+                            if first_rise_idx is not None:
+                                refined_onset = window_start + first_rise_idx
+                                
+                                # Only use refined onset if it makes sense (earlier than or close to original)
+                                if refined_onset <= onset_frame:
+                                    logger.debug(f"Refined onset from frame {onset_frame} to {refined_onset} "
+                                                 f"(first rise: {energy_derivative[first_rise_idx]:.4f}, "
+                                                 f"threshold: {threshold_derivative:.4f})")
+                                    onset_frame = refined_onset
 
                 break
 

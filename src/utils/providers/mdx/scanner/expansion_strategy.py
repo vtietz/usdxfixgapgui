@@ -108,6 +108,9 @@ class ExpansionStrategy:
         """
         Calculate search window for given radius.
         
+        CRITICAL FIX: Always include position 0 in first expansion to catch
+        vocals that start immediately, even if expected_gap suggests later start.
+        
         Args:
             expected_gap_ms: Expected gap position
             radius_ms: Search radius around expected gap
@@ -116,7 +119,13 @@ class ExpansionStrategy:
         Returns:
             SearchWindow with boundaries clamped to audio duration
         """
-        start_ms = max(0.0, expected_gap_ms - radius_ms)
+        # For first expansion (expansion_num=0), always start from 0 to catch immediate vocals
+        # For subsequent expansions, use centered window around expected gap
+        if expansion_num == 0:
+            start_ms = 0.0
+        else:
+            start_ms = max(0.0, expected_gap_ms - radius_ms)
+        
         end_ms = min(self.total_duration_ms, expected_gap_ms + radius_ms)
         
         return SearchWindow(

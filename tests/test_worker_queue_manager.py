@@ -370,9 +370,14 @@ class TestWorkerProperties:
         assert worker_a.id != worker_b.id
 
     def test_worker_status_set_to_waiting_on_queue(self):
-        """Verify worker status is set to WAITING when queued"""
+        """Verify worker status is set to WAITING when queued behind another task"""
         manager = WorkerQueueManager()
 
+        # Start a first task to block the queue
+        blocking_worker = MockWorker("Blocking Task", is_instant=False)
+        manager.add_task(blocking_worker, start_now=True)
+        
+        # Now add a second task - it should be WAITING because blocking_worker is running
         worker = MockWorker("Task", is_instant=False)
         manager.add_task(worker, start_now=False)
 

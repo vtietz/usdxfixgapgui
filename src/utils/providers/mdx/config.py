@@ -11,6 +11,8 @@ from dataclasses import dataclass
 # Performance optimization defaults
 DEFAULT_RESAMPLE_HZ = 0
 DEFAULT_FP16 = False
+DEFAULT_EARLY_STOP_TOLERANCE_MS = 500
+DEFAULT_TF32 = True
 
 
 @dataclass
@@ -44,6 +46,8 @@ class MdxConfig:
     # Performance optimizations
     use_fp16: bool = DEFAULT_FP16
     resample_hz: int = DEFAULT_RESAMPLE_HZ
+    early_stop_tolerance_ms: int = DEFAULT_EARLY_STOP_TOLERANCE_MS
+    tf32: bool = DEFAULT_TF32
 
     # Confidence and preview
     confidence_threshold: float = 0.55
@@ -89,6 +93,8 @@ class MdxConfig:
             start_window_max_ms=int(getattr(config, 'vocal_window_max_sec', 90) or 90) * 1000,
             use_fp16=getattr(config, 'mdx_use_fp16', cls.use_fp16),
             resample_hz=getattr(config, 'mdx_resample_hz', cls.resample_hz),
+            early_stop_tolerance_ms=getattr(config, 'mdx_early_stop_tolerance_ms', cls.early_stop_tolerance_ms),
+            tf32=getattr(config, 'mdx_tf32', cls.tf32),
             confidence_threshold=getattr(config, 'mdx_confidence_threshold', cls.confidence_threshold),
             preview_pre_ms=getattr(config, 'mdx_preview_pre_ms', cls.preview_pre_ms),
             preview_post_ms=getattr(config, 'mdx_preview_post_ms', cls.preview_post_ms),

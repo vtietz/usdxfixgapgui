@@ -174,6 +174,17 @@ def scan_for_onset(
                                 f"Found vocal onset at {onset_ms:.0f}ms "
                                 f"(distance from expected: {abs(onset_ms - expected_gap_ms):.0f}ms)"
                             )
+                            
+                            # Early-stop if onset is within tolerance
+                            diff = abs(onset_ms - expected_gap_ms)
+                            early_stop_threshold = max(config.hysteresis_ms, config.early_stop_tolerance_ms)
+                            if diff <= early_stop_threshold:
+                                logger.info(
+                                    f"Early-stop triggered: onset within {early_stop_threshold}ms tolerance "
+                                    f"(diff={diff:.0f}ms). Returning {onset_ms:.0f}ms immediately."
+                                )
+                                _flush_logs()
+                                return onset_ms
                 
                 logger.info(
                     f"Expansion #{window.expansion_num} complete: "

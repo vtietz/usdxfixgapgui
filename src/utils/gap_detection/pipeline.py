@@ -182,7 +182,8 @@ def normalize_context(
 
 def get_or_create_vocals(
     ctx: GapDetectionContext,
-    check_cancellation: Optional[Callable] = None
+    check_cancellation: Optional[Callable] = None,
+    provider = None
 ) -> str:
     """Get or create vocals file for detection.
     
@@ -191,6 +192,7 @@ def get_or_create_vocals(
     Args:
         ctx: Detection context
         check_cancellation: Optional cancellation callback
+        provider: Optional detection provider (reused if provided)
         
     Returns:
         Path to vocals file
@@ -205,8 +207,10 @@ def get_or_create_vocals(
         logger.debug(f"Using existing vocals file: {destination_vocals_file}")
         return destination_vocals_file
     
-    # Get provider and create vocals file
-    provider = get_detection_provider(ctx.config)
+    # Get provider if not provided (for reuse)
+    if provider is None:
+        provider = get_detection_provider(ctx.config)
+    
     vocals_file = provider.get_vocals_file(
         ctx.audio_file,
         ctx.tmp_root,
@@ -222,7 +226,8 @@ def get_or_create_vocals(
 def detect_silence_periods(
     ctx: GapDetectionContext,
     vocals_file: str,
-    check_cancellation: Optional[Callable] = None
+    check_cancellation: Optional[Callable] = None,
+    provider = None
 ) -> List[Tuple[float, float]]:
     """Detect silence periods in vocals file.
     
@@ -232,11 +237,14 @@ def detect_silence_periods(
         ctx: Detection context
         vocals_file: Path to vocals file
         check_cancellation: Optional cancellation callback
+        provider: Optional detection provider (reused if provided)
         
     Returns:
         List of (start_ms, end_ms) silence periods
     """
-    provider = get_detection_provider(ctx.config)
+    # Get provider if not provided (for reuse)
+    if provider is None:
+        provider = get_detection_provider(ctx.config)
     
     silence_periods = provider.detect_silence_periods(
         ctx.audio_file,
@@ -328,7 +336,8 @@ def should_retry_detection(
 def compute_confidence_score(
     ctx: GapDetectionContext,
     detected_gap_ms: float,
-    check_cancellation: Optional[Callable] = None
+    check_cancellation: Optional[Callable] = None,
+    provider = None
 ) -> Optional[float]:
     """Compute confidence score for detection.
     
@@ -336,12 +345,16 @@ def compute_confidence_score(
         ctx: Detection context
         detected_gap_ms: Detected gap in milliseconds
         check_cancellation: Optional cancellation callback
+        provider: Optional detection provider (reused if provided)
         
     Returns:
         Confidence score 0.0-1.0, or None if computation fails
     """
     try:
-        provider = get_detection_provider(ctx.config)
+        # Get provider if not provided (for reuse)
+        if provider is None:
+            provider = get_detection_provider(ctx.config)
+        
         confidence = provider.compute_confidence(
             ctx.audio_file,
             detected_gap_ms,
@@ -410,11 +423,14 @@ def perform(
         check_cancellation
     )
     
+    # Create provider once for reuse across pipeline (avoid redundant model loads)
+    provider = get_detection_provider(ctx.config)
+    
     # Step 2: Get or create vocals file
-    vocals_file = get_or_create_vocals(ctx, check_cancellation)
+    vocals_file = get_or_create_vocals(ctx, check_cancellation, provider)
     
     # Step 3: Detect silence periods
-    silence_periods = detect_silence_periods(ctx, vocals_file, check_cancellation)
+    silence_periods = detect_silence_periods(ctx, vocals_file, check_cancellation, provider)
     
     # Step 4: Find gap from silence (pure function)
     detected_gap = detect_gap_from_silence(silence_periods, ctx.original_gap_ms)
@@ -433,11 +449,10 @@ def perform(
     
     logger.info(f"Detected GAP: {detected_gap}ms in {audio_file}")
     
-    # Step 6: Compute confidence
-    confidence = compute_confidence_score(ctx, float(detected_gap), check_cancellation)
+    # Step 6: Compute confidence (reuse provider)
+    confidence = compute_confidence_score(ctx, float(detected_gap), check_cancellation, provider)
     
     # Step 7: Build result
-    provider = get_detection_provider(ctx.config)
     result = DetectGapResult(detected_gap, silence_periods, vocals_file)
     result.detection_method = provider.get_method_name()
     result.detected_gap_ms = float(detected_gap)

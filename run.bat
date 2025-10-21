@@ -100,7 +100,7 @@ if /i "%1"=="start" (
 if /i "%1"=="test" (
     echo Running tests...
     cd /d "%SCRIPT_DIR%"
-    "%VENV_PYTHON%" -m pytest tests/ -v
+    "%VENV_PYTHON%" -m pytest tests/ -q
     goto :end
 )
 

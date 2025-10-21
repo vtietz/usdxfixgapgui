@@ -28,9 +28,9 @@ class TestConfigWindowSettings:
         """Config should have default vocal window settings."""
         config = Config()
         
-        assert config.vocal_start_window_sec == 30
-        assert config.vocal_window_increment_sec == 15
-        assert config.vocal_window_max_sec == 90
+        assert config.vocal_start_window_sec == 20  # Optimized from 30 for faster detection
+        assert config.vocal_window_increment_sec == 10  # Optimized from 15 for faster detection
+        assert config.vocal_window_max_sec == 60  # Optimized from 90 for faster detection
     
     def test_window_settings_persist(self):
         """Window settings should persist across save/load."""

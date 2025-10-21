@@ -58,9 +58,9 @@ class Config(QObject):
         self._config['Detection'] = {
             'default_detection_time': '30',
             'gap_tolerance': '500',
-            'vocal_start_window_sec': '30',
-            'vocal_window_increment_sec': '15',
-            'vocal_window_max_sec': '90'
+            'vocal_start_window_sec': '20',
+            'vocal_window_increment_sec': '10',
+            'vocal_window_max_sec': '60'
         }
 
         self._config['Colors'] = {
@@ -87,16 +87,16 @@ class Config(QObject):
             'chunk_duration_ms': '12000',      # 12s chunks for Demucs processing
             'chunk_overlap_ms': '6000',        # 50% overlap (6s) between chunks
 
-            # Energy analysis (tuned for speed)
+            # Energy analysis (tuned for balanced detection)
             'frame_duration_ms': '25',         # 25ms frames for RMS computation
-            'hop_duration_ms': '20',           # 20ms hop (increased from 10ms for 2x speed)
-            'noise_floor_duration_ms': '1000', # First 1000ms for noise floor estimation (increased from 800ms)
+            'hop_duration_ms': '20',           # 20ms hop for good temporal resolution
+            'noise_floor_duration_ms': '1200', # 1.2s for noise floor estimation (more robust)
 
-            # Onset detection thresholds (improved for reliability)
-            'onset_snr_threshold': '4.0',      # RMS > noise + 4.0*sigma (lowered from 6.0 for better sensitivity)
-            'onset_abs_threshold': '0.01',     # Absolute RMS threshold (1% amplitude minimum, lowered from 0.02)
-            'min_voiced_duration_ms': '300',   # 300ms minimum sustained vocals (reduced from 500ms)
-            'hysteresis_ms': '200',            # 200ms hysteresis for onset refinement
+            # Onset detection thresholds (optimized for gradual fade-ins)
+            'onset_snr_threshold': '6.5',      # RMS > noise + 6.5*sigma (catches gradual onsets)
+            'onset_abs_threshold': '0.020',    # Absolute RMS threshold (2.0% amplitude minimum)
+            'min_voiced_duration_ms': '200',   # 200ms minimum sustained vocals (shorter for quick starts)
+            'hysteresis_ms': '300',            # 300ms hysteresis for better early onset detection
 
             # Expanding search parameters (NEW - balances speed and robustness)
             'initial_radius_ms': '7500',       # Start with ±7.5s window around expected gap
@@ -104,8 +104,10 @@ class Config(QObject):
             'max_expansions': '3',             # Max 3 expansions = ±30s total coverage
 
             # Performance optimizations (NEW - GPU and CPU speedup)
-            'use_fp16': 'false',               # FP16 disabled due to type mismatch issues
+            'use_fp16': 'false',               # FP16 disabled (type mismatch issues with Demucs)
             'resample_hz': '0',                # 0=disabled, 32000=downsample for CPU speed
+            'early_stop_tolerance_ms': '500',  # Early-stop scanning when onset is within tolerance
+            'tf32': 'true',                    # Enable TF32 on CUDA for faster matmul
 
             # Confidence and preview
             'confidence_threshold': '0.55',    # SNR-based confidence threshold
@@ -192,6 +194,8 @@ class Config(QObject):
             # Performance optimizations
             self.mdx_use_fp16 = self._config.getboolean('mdx', 'use_fp16')
             self.mdx_resample_hz = self._config.getint('mdx', 'resample_hz')
+            self.mdx_early_stop_tolerance_ms = self._config.getint('mdx', 'early_stop_tolerance_ms')
+            self.mdx_tf32 = self._config.getboolean('mdx', 'tf32')
             # Confidence and preview
             self.mdx_confidence_threshold = self._config.getfloat('mdx', 'confidence_threshold')
             self.mdx_preview_pre_ms = self._config.getint('mdx', 'preview_pre_ms')

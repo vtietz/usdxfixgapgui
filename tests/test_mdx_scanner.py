@@ -221,6 +221,8 @@ class TestOnsetDetectorPipeline:
         mock_config = Mock()
         mock_config.resample_hz = 0
         mock_config.use_fp16 = False
+        mock_config.hysteresis_ms = 200
+        mock_config.early_stop_tolerance_ms = 500
         
         mock_cache = Mock()
         
@@ -264,6 +266,8 @@ class TestOnsetDetectorPipeline:
         mock_config = Mock()
         mock_config.resample_hz = 0
         mock_config.use_fp16 = False
+        mock_config.hysteresis_ms = 200
+        mock_config.early_stop_tolerance_ms = 500
         
         pipeline = OnsetDetectorPipeline(
             audio_file="test.mp3",
@@ -385,6 +389,8 @@ class TestScanForOnset:
         mock_config.start_window_max_ms = 90000
         mock_config.resample_hz = 0
         mock_config.use_fp16 = False
+        mock_config.hysteresis_ms = 200
+        mock_config.early_stop_tolerance_ms = 500
         
         # Create mock model with required attributes
         mock_model = Mock()
@@ -447,6 +453,8 @@ class TestScanForOnset:
         mock_config.start_window_max_ms = 90000
         mock_config.resample_hz = 0
         mock_config.use_fp16 = False
+        mock_config.hysteresis_ms = 200
+        mock_config.early_stop_tolerance_ms = 500
         
         # Create mock model with required attributes
         mock_model = Mock()
@@ -499,6 +507,8 @@ class TestScanForOnset:
         mock_config.start_window_max_ms = 90000
         mock_config.resample_hz = 0
         mock_config.use_fp16 = False
+        mock_config.hysteresis_ms = 200
+        mock_config.early_stop_tolerance_ms = 500
         
         # Create mock model with required attributes
         mock_model = Mock()

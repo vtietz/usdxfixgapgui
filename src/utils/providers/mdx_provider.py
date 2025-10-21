@@ -172,8 +172,11 @@ class MdxProvider(IDetectionProvider):
                 with torch.no_grad():
                     # Prepare input
                     waveform = waveform.to(self._device)
-                    # Use apply_model for Demucs inference (not direct call)
-                    sources = apply_model(model, waveform.unsqueeze(0), device=self._device)
+                    # Use FP16 mixed precision on CUDA if enabled
+                    use_autocast = self._device == 'cuda' and self.mdx_config.use_fp16
+                    with torch.cuda.amp.autocast(enabled=use_autocast, dtype=torch.float16):
+                        # Use apply_model for Demucs inference (not direct call)
+                        sources = apply_model(model, waveform.unsqueeze(0), device=self._device)
 
                     # Extract vocals using index 3 (htdemucs: drums=0, bass=1, other=2, vocals=3)
                     vocals = sources[0, 3].cpu()  # Remove batch dimension, get vocals
