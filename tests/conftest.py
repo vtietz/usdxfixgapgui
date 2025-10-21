@@ -236,3 +236,125 @@ def model_placeholder():
     model.sources = ['drums', 'bass', 'other', 'vocals']
     model.segment = 4.0  # Segment duration in seconds (required by demucs.apply_model)
     return model
+
+
+# ============================================================================
+# Tier-3 Fixtures (Pipeline + Worker Integration)
+# ============================================================================
+
+@pytest.fixture
+def audio_scenario(tmp_path):
+    """
+    Factory fixture for building test audio scenarios.
+    
+    Returns a function that creates stereo test audio and returns metadata dict.
+    """
+    from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed
+    
+    def _build_scenario(
+        onset_ms: float = 5000.0,
+        duration_ms: float = 30000,
+        fade_in_ms: float = 100,
+        amp: float = 0.7,
+        noise_floor_db: float = -60.0,
+        filename: str = "test_audio.wav"
+    ):
+        """
+        Build audio scenario with given parameters.
+        
+        Returns:
+            dict with keys: audio_path, sr, truth_onset_ms, duration_ms, tmp_root
+        """
+        audio_result = build_stereo_test(
+            output_path=tmp_path / filename,
+            duration_ms=duration_ms,
+            vocal_events=[
+                VocalEvent(onset_ms=onset_ms, duration_ms=duration_ms - onset_ms - 1000, 
+                          fade_in_ms=fade_in_ms, amp=amp)
+            ],
+            instrument_bed=InstrumentBed(noise_floor_db=noise_floor_db)
+        )
+        
+        return {
+            "audio_path": str(audio_result.path),
+            "sr": audio_result.sr,
+            "truth_onset_ms": onset_ms,
+            "duration_ms": audio_result.duration_ms,
+            "tmp_root": str(tmp_path)
+        }
+    
+    return _build_scenario
+
+
+@pytest.fixture
+def stub_provider_factory():
+    """
+    Factory fixture for creating StubProvider instances.
+    
+    Returns a function that creates configured StubProvider.
+    """
+    from test_utils.provider_stub import StubProvider
+    from test_utils.config_stub import ConfigStub
+    
+    def _create_provider(
+        truth_onset_ms: Optional[float] = None,
+        confidence_value: float = 0.95,
+        raise_on_get_vocals: bool = False,
+        raise_on_detect_silence: bool = False,
+        raise_on_confidence: bool = False,
+        tmp_root: Optional[str] = None
+    ):
+        """Create StubProvider with given configuration."""
+        config = ConfigStub(tmp_root=tmp_root)
+        return StubProvider(
+            config=config,  # type: ignore  # ConfigStub duck-types Config for testing
+            truth_onset_ms=truth_onset_ms,
+            confidence_value=confidence_value,
+            raise_on_get_vocals=raise_on_get_vocals,
+            raise_on_detect_silence=raise_on_detect_silence,
+            raise_on_confidence=raise_on_confidence
+        )
+    
+    return _create_provider
+
+
+@pytest.fixture
+def patch_provider(monkeypatch, stub_provider_factory):
+    """
+    Fixture to patch get_detection_provider with StubProvider.
+    
+    Returns a function that patches the provider factory to return
+    a specific StubProvider instance.
+    """
+    def _patch_with_provider(provider):
+        """Patch get_detection_provider to return the given provider."""
+        # Patch where it's used (pipeline imports it)
+        monkeypatch.setattr(
+            'utils.gap_detection.pipeline.get_detection_provider',
+            lambda config: provider
+        )
+        return provider
+    
+    return _patch_with_provider
+
+
+@pytest.fixture
+def config_stub(tmp_path):
+    """
+    Fixture providing minimal Config stub for pipeline tests.
+    """
+    from test_utils.config_stub import ConfigStub
+    
+    return ConfigStub(tmp_root=str(tmp_path))
+
+
+@pytest.fixture
+def write_tier3_docs():
+    """
+    Fixture to check if Tier-3 docs should be generated.
+    
+    Returns True if GAP_TIER3_WRITE_DOCS=1 environment variable is set.
+    """
+    import os
+    return os.environ.get('GAP_TIER3_WRITE_DOCS', '0') == '1'
+
