@@ -70,6 +70,7 @@ if "%1"=="" (
     echo Available shortcuts:
     echo   start       - Start the USDXFixGap application
     echo   test        - Run all tests with pytest
+    echo   test --docs - Run tests and generate Tier-1 visual artifacts
     echo   install     - Install/update requirements ^(auto-detects GPU^)
     echo   install --gpu   - Force GPU/CUDA PyTorch installation
     echo   install --cpu   - Force CPU-only PyTorch installation
@@ -100,7 +101,19 @@ if /i "%1"=="start" (
 if /i "%1"=="test" (
     echo Running tests...
     cd /d "%SCRIPT_DIR%"
-    "%VENV_PYTHON%" -m pytest tests/ -q
+    
+    :: Check for --docs or --artifacts flag
+    if /i "%2"=="--docs" (
+        set GAP_TIER1_WRITE_DOCS=1
+        echo [Tier-1 Artifacts] Visual artifacts will be generated in docs/gap-tests/tier1/
+        "%VENV_PYTHON%" -m pytest tests/ -q %3 %4 %5 %6 %7 %8 %9
+    ) else if /i "%2"=="--artifacts" (
+        set GAP_TIER1_WRITE_DOCS=1
+        echo [Tier-1 Artifacts] Visual artifacts will be generated in docs/gap-tests/tier1/
+        "%VENV_PYTHON%" -m pytest tests/ -q %3 %4 %5 %6 %7 %8 %9
+    ) else (
+        "%VENV_PYTHON%" -m pytest tests/ -q %2 %3 %4 %5 %6 %7 %8 %9
+    )
     goto :end
 )
 

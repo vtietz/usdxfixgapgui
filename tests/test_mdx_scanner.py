@@ -125,8 +125,8 @@ class TestChunkIterator:
 class TestExpansionStrategy:
     """Test search window expansion logic."""
     
-    def test_initial_window_centered(self):
-        """Initial window is centered on expected gap."""
+    def test_initial_window_starts_from_zero(self):
+        """Initial window starts from 0 to catch immediate vocals (CRITICAL FIX)."""
         strategy = ExpansionStrategy(
             initial_radius_ms=7500,
             radius_increment_ms=7500,
@@ -136,7 +136,8 @@ class TestExpansionStrategy:
         
         windows = strategy.generate_windows(expected_gap_ms=10000)
         
-        assert windows[0].start_ms == 2500  # 10000 - 7500
+        # First window always starts at 0 to catch immediate vocals
+        assert windows[0].start_ms == 0.0
         assert windows[0].end_ms == 17500  # 10000 + 7500
         assert windows[0].expansion_num == 0
     
