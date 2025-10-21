@@ -177,3 +177,176 @@ class TestDetectGapFinished:
             # Assert: gap_info was NOT modified
             # (gap_info should still have default/initial values)
             assert song.gap_info.detected_gap is None or song.gap_info.detected_gap == 0
+
+    def test_song_cache_updated_after_gap_detection(self, app_data, song_factory, fake_run_async):
+        """Test: Song cache is updated after gap detection to persist status across restarts"""
+        song = song_factory(title="Cache Test", gap=1000)
+
+        # Create detection result with MATCH status
+        result = create_match_result(
+            song_file_path=song.txt_file,
+            detected_gap=1000
+        )
+        result.notes_overlap = 50
+        result.silence_periods = []
+        result.duration_ms = 150000
+
+        with patch('actions.gap_actions.run_async') as mock_run_async, \
+             patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_gap_save, \
+             patch('services.song_service.SongService') as mock_song_service_class, \
+             patch('actions.gap_actions.AudioActions'):
+
+            # Use centralized async executor fixture
+            mock_run_async.side_effect = fake_run_async
+
+            # Mock SongService instance
+            mock_song_service = Mock()
+            mock_song_service_class.return_value = mock_song_service
+
+            gap_actions = GapActions(app_data)
+            gap_actions._on_detect_gap_finished(song, result)
+
+            # Assert: GapInfoService.save was called
+            assert mock_gap_save.called, "GapInfo should be saved to .info file"
+
+            # Assert: SongService.update_cache was called with the song
+            mock_song_service.update_cache.assert_called_once_with(song)
+
+            # Assert: Status is correctly set (will be persisted in cache)
+            assert song.status == SongStatus.MATCH
+            assert song.gap_info.status == GapInfoStatus.MATCH
+
+    def test_song_cache_updated_after_update_gap_value(self, app_data, song_factory, fake_run_async):
+        """Test: Song cache is updated after user saves detected gap"""
+        from model.gap_info import GapInfo, GapInfoStatus
+
+        song = song_factory(title="Update Test", gap=1000)
+        song.gap_info = GapInfo(song.path)
+        song.gap_info.detected_gap = 1200
+        song.gap_info.status = GapInfoStatus.MISMATCH
+
+        new_gap = 1200
+
+        with patch('actions.gap_actions.run_async') as mock_run_async, \
+             patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock), \
+             patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock), \
+             patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock) as mock_gap_save, \
+             patch('services.song_service.SongService') as mock_song_service_class, \
+             patch('actions.gap_actions.AudioActions'):
+
+            # Use centralized async executor fixture
+            mock_run_async.side_effect = fake_run_async
+
+            # Mock SongService instance
+            mock_song_service = Mock()
+            mock_song_service_class.return_value = mock_song_service
+
+            gap_actions = GapActions(app_data)
+            gap_actions.update_gap_value(song, new_gap)
+
+            # Assert: Song gap was updated
+            assert song.gap == new_gap
+
+            # Assert: GapInfo was updated
+            assert song.gap_info.updated_gap == new_gap
+            assert song.gap_info.status == GapInfoStatus.UPDATED
+
+            # Assert: SongService.update_cache was called with the song
+            mock_song_service.update_cache.assert_called_once_with(song)
+
+            # Assert: Status is correctly set (will be persisted in cache)
+            assert song.status == SongStatus.UPDATED
+
+    def test_song_cache_updated_after_revert_gap_value(self, app_data, song_factory, fake_run_async):
+        """Test: Song cache is updated after user reverts gap to original"""
+        from model.gap_info import GapInfo, GapInfoStatus
+
+        song = song_factory(title="Revert Test", gap=1500)
+        song.gap_info = GapInfo(song.path)
+        song.gap_info.original_gap = 1000
+        song.gap_info.detected_gap = 1200
+        song.gap_info.status = GapInfoStatus.UPDATED
+
+        with patch('actions.gap_actions.run_async') as mock_run_async, \
+             patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock), \
+             patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock), \
+             patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock), \
+             patch('services.song_service.SongService') as mock_song_service_class, \
+             patch('actions.gap_actions.AudioActions'):
+
+            # Use centralized async executor fixture
+            mock_run_async.side_effect = fake_run_async
+
+            # Mock SongService instance
+            mock_song_service = Mock()
+            mock_song_service_class.return_value = mock_song_service
+
+            gap_actions = GapActions(app_data)
+            gap_actions.revert_gap_value(song)
+
+            # Assert: Song gap was reverted
+            assert song.gap == song.gap_info.original_gap
+
+            # Assert: SongService.update_cache was called with the song
+            mock_song_service.update_cache.assert_called_once_with(song)
+
+    def test_song_cache_updated_after_keep_gap_value(self, app_data, song_factory, fake_run_async):
+        """Test: Song cache is updated after user marks gap as solved"""
+        from model.gap_info import GapInfo, GapInfoStatus
+
+        song = song_factory(title="Keep Test", gap=1000)
+        song.gap_info = GapInfo(song.path)
+        song.gap_info.detected_gap = 1200
+        song.gap_info.status = GapInfoStatus.MISMATCH
+
+        with patch('actions.gap_actions.run_async') as mock_run_async, \
+             patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock), \
+             patch('services.song_service.SongService') as mock_song_service_class:
+
+            # Use centralized async executor fixture
+            mock_run_async.side_effect = fake_run_async
+
+            # Mock SongService instance
+            mock_song_service = Mock()
+            mock_song_service_class.return_value = mock_song_service
+
+            gap_actions = GapActions(app_data)
+            gap_actions.keep_gap_value(song)
+
+            # Assert: Status was updated to SOLVED
+            assert song.gap_info.status == GapInfoStatus.SOLVED
+            assert song.status == SongStatus.SOLVED
+
+            # Assert: SongService.update_cache was called with the song
+            mock_song_service.update_cache.assert_called_once_with(song)
+
+    def test_song_cache_updated_after_notes_overlap_calculation(self, app_data, song_factory, fake_run_async):
+        """Test: Song cache is updated after notes overlap is calculated"""
+        from model.gap_info import GapInfo
+
+        song = song_factory(title="Overlap Test", gap=1000, with_notes=True)
+        song.gap_info = GapInfo(song.path)
+
+        silence_periods = [(0, 500), (1000, 1500)]
+        detection_time = 30000
+
+        with patch('actions.gap_actions.run_async') as mock_run_async, \
+             patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock), \
+             patch('services.song_service.SongService') as mock_song_service_class, \
+             patch('actions.gap_actions.usdx.get_notes_overlap', return_value=75.5):
+
+            # Use centralized async executor fixture
+            mock_run_async.side_effect = fake_run_async
+
+            # Mock SongService instance
+            mock_song_service = Mock()
+            mock_song_service_class.return_value = mock_song_service
+
+            gap_actions = GapActions(app_data)
+            gap_actions.get_notes_overlap(song, silence_periods, detection_time)
+
+            # Assert: Notes overlap was set
+            assert song.gap_info.notes_overlap == 75.5
+
+            # Assert: SongService.update_cache was called with the song
+            mock_song_service.update_cache.assert_called_once_with(song)

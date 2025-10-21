@@ -99,8 +99,8 @@ class TestUpdateGapValue:
         assert sample_song.gap_info.updated_gap == new_gap
         assert sample_song.gap_info.status == GapInfoStatus.UPDATED
 
-        # Verify run_async called (for USDXFileService and GapInfoService)
-        assert mock_run_async.call_count == 2
+        # Verify run_async called once (combined update_gap_and_cache function)
+        assert mock_run_async.call_count == 1
 
         # Verify signal emitted
         mock_app_data.songs.updated.emit.assert_called_once_with(sample_song)
@@ -176,8 +176,8 @@ class TestRevertGapValue:
         # Verify gap reverted to original
         assert sample_song.gap == sample_song.gap_info.original_gap
 
-        # Verify run_async called (for USDXFileService and GapInfoService)
-        assert mock_run_async.call_count == 2
+        # Verify run_async called once (combined revert_gap_and_cache function)
+        assert mock_run_async.call_count == 1
 
         # Verify signal emitted
         mock_app_data.songs.updated.emit.assert_called_once_with(sample_song)
