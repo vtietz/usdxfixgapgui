@@ -21,4 +21,5 @@ src/config.ini
 # Debug/development scripts
 check_cuda.py
 debug_*.py
-*.png
+
+analysis_output.txt
