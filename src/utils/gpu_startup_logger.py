@@ -52,12 +52,19 @@ def _log_nvidia_gpu_detected(cap, config, gpu_enabled, show_gui_dialog):
             # GPU is working but no GPU Pack - must be system CUDA
             _log_system_cuda_detected()
     else:
-        # GPU not working - check if GPU Pack is installed but failed
+        # GPU not working via GPU Pack bootstrap - check if GPU Pack is installed
         if is_gpu_pack_installed(config):
             _log_gpu_pack_installed(config, gpu_enabled)
         else:
-            # No GPU Pack and GPU not working - offer to install
-            _log_gpu_pack_not_installed(show_gui_dialog)
+            # No GPU Pack - check if system CUDA is available before showing warning
+            from utils import gpu_bootstrap
+            system_pytorch = gpu_bootstrap.detect_system_pytorch_cuda()
+            if system_pytorch:
+                # System CUDA is available - GPU is actually working!
+                _log_system_cuda_detected()
+            else:
+                # No GPU Pack and no system CUDA - offer to install GPU Pack
+                _log_gpu_pack_not_installed(show_gui_dialog)
 
 
 def _log_gpu_pack_installed(config, gpu_enabled):
@@ -141,25 +148,28 @@ def _log_system_cuda_detected():
 def _log_gpu_disabled():
     """Log status when GPU is disabled."""
     exe_name = _get_executable_name()
-    print("ℹ GPU acceleration: DISABLED (GpuOptIn=false)")
+    print("ℹ GPU acceleration: DISABLED (gpu_opt_in=false)")
     print("  GPU Pack is installed but not enabled.")
     print("  To enable:")
-    print("    • GUI: Settings → GPU Acceleration → Enable")
-    print(f"    • CLI: {exe_name} --gpu-enable")
+    print("    • Edit config.ini and set: gpu_opt_in = true")
+    print("    • Then restart the application")
+    print(f"    • Or use CLI: {exe_name} --gpu-enable")
     print("  Expected speedup: 5-10x faster processing")
 
 
 def _log_gpu_pack_not_installed(show_gui_dialog):
     """Log status when GPU Pack is not installed."""
     exe_name = _get_executable_name()
+    print("✗ GPU acceleration: DISABLED (running in CPU mode)")
     print("ℹ GPU Pack: NOT INSTALLED")
     print("  Your system supports GPU acceleration!")
     print("  Benefits:")
     print("    • 5-10x faster AI vocal separation")
     print("    • Process songs in 10-30 seconds (vs 2-3 minutes)")
-    print("  To install GPU Pack (~2GB download):")
-    print("    • GUI: Settings → Download GPU Pack")
-    print(f"    • CLI: {exe_name} --setup-gpu")
+    print("  To enable GPU Pack download dialog:")
+    print("    • Edit config.ini and set: prefer_system_pytorch = false")
+    print("    • Then restart the application")
+    print(f"  Or use CLI: {exe_name} --setup-gpu")
     print("  See docs/gpu-acceleration.md for details")
 
     # Show GUI dialog if requested
@@ -200,8 +210,9 @@ def _show_gpu_pack_dialog(exe_name):
             f"  • 5-10x faster AI vocal separation\n"
             f"  • Process songs in 10-30 seconds (vs 2-3 minutes)\n\n"
             f"To enable GPU acceleration:\n"
-            f"  • GUI: Settings → Download GPU Pack\n"
-            f"  • Command line: {exe_name} --setup-gpu\n\n"
+            f"  • Edit config.ini: set prefer_system_pytorch = false\n"
+            f"  • Then restart to see download dialog\n"
+            f"  • Or use command line: {exe_name} --setup-gpu\n\n"
             f"GPU Pack download size: ~2GB"
         )
         msg.setStandardButtons(QMessageBox.StandardButton.Ok)
@@ -250,23 +261,32 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
 
     # Check if system PyTorch with CUDA is available
     prefer_system = getattr(config, 'prefer_system_pytorch', True)
+    logger.info(f"GPU Pack dialog check starting (prefer_system_pytorch={prefer_system}, gpu_enabled={gpu_enabled})")
+    
     if prefer_system:
         system_pytorch = gpu_bootstrap.detect_system_pytorch_cuda()
         if system_pytorch:
-            logger.debug(f"System PyTorch {system_pytorch['torch_version']} with CUDA "
+            logger.info(f"System PyTorch {system_pytorch['torch_version']} with CUDA "
                         f"{system_pytorch['cuda_version']} detected - GPU Pack dialog not needed")
             return None
+        else:
+            logger.info("No system PyTorch with CUDA detected - checking for GPU Pack dialog")
 
     # Check if user has chosen to not show dialog
     if config.gpu_pack_dialog_dont_show:
-        logger.debug("GPU Pack dialog suppressed by user preference (GpuPackDialogDontShow=true)")
+        logger.info("GPU Pack dialog suppressed by user preference (gpu_pack_dialog_dont_show=true)")
         return None
 
     # Only show if NVIDIA GPU detected but GPU not working
     cap = gpu_bootstrap.capability_probe()
+    logger.info(f"GPU dialog check: has_nvidia={cap['has_nvidia']}, gpu_enabled={gpu_enabled}")
+    
     if cap['has_nvidia'] and not gpu_enabled:
         # GPU detected but not working - check if GPU Pack is installed
-        if not is_gpu_pack_installed(config):
+        gpu_pack_installed = is_gpu_pack_installed(config)
+        logger.debug(f"GPU Pack installed: {gpu_pack_installed}")
+        
+        if not gpu_pack_installed:
             logger.info("NVIDIA GPU detected but no GPU acceleration available - showing download dialog")
             try:
                 dialog = GpuPackDownloadDialog(config)
@@ -279,5 +299,7 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
                 return None
         else:
             logger.debug("GPU Pack installed but GPU bootstrap failed - not showing dialog")
+    else:
+        logger.debug(f"GPU dialog not shown: conditions not met (has_nvidia={cap['has_nvidia']}, gpu_enabled={gpu_enabled})")
 
     return None

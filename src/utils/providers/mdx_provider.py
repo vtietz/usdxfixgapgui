@@ -261,7 +261,9 @@ class MdxProvider(IDetectionProvider):
         # Use original gap if provided, otherwise assume vocals at start
         expected_gap = original_gap_ms if original_gap_ms is not None else 0.0
 
-        logger.info(f"Starting vocal onset detection (expected gap: {expected_gap:.0f}ms)")
+        # Log device being used
+        device_name = "GPU (CUDA)" if self._device == 'cuda' else "CPU"
+        logger.info(f"Starting MDX vocal onset detection on {device_name} (expected gap: {expected_gap:.0f}ms)")
         _flush_logs()
         logger.info(f"Analyzing audio file: {audio_file}")
         _flush_logs()

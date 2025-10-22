@@ -110,21 +110,21 @@ class Config(QObject):
         }
 
         self._config['General'] = {
-            'LogLevel': 'INFO',
+            'log_level': 'INFO',
             # GPU Pack settings
-            'GpuOptIn': 'false',
-            'GpuFlavor': 'cu121',
-            'GpuPackInstalledVersion': '',
-            'GpuPackPath': '',
-            'GpuLastHealth': '',
-            'GpuLastError': '',
-            'GpuPackDialogDontShow': 'false',
-            'PreferSystemPytorch': 'true'  # Try system PyTorch+CUDA before GPU Pack download
+            'gpu_opt_in': 'false',
+            'gpu_flavor': 'cu121',
+            'gpu_pack_installed_version': '',
+            'gpu_pack_path': '',
+            'gpu_last_health': '',
+            'gpu_last_error': '',
+            'gpu_pack_dialog_dont_show': 'false',
+            'prefer_system_pytorch': 'true'  # Try system PyTorch+CUDA before GPU Pack download
         }
 
         self._config['Audio'] = {
-            'DefaultVolume': '0.5',
-            'AutoPlay': 'False'
+            'default_volume': '0.5',
+            'auto_play': 'False'
         }
 
         self._config['Window'] = {
@@ -195,18 +195,18 @@ class Config(QObject):
             self.mdx_preview_post_ms = self._config.getint('mdx', 'preview_post_ms')
 
         # General
-        self.log_level_str = self._config.get('General', 'LogLevel')
+        self.log_level_str = self._config.get('General', 'log_level')
         self.log_level = self._get_log_level(self.log_level_str)
 
         # GPU Pack settings
-        self.gpu_opt_in = self._config.getboolean('General', 'GpuOptIn', fallback=False)
-        self.gpu_flavor = self._config.get('General', 'GpuFlavor', fallback='cu121')
-        self.gpu_pack_installed_version = self._config.get('General', 'GpuPackInstalledVersion', fallback='')
-        self.gpu_pack_path = self._config.get('General', 'GpuPackPath', fallback='')
-        self.gpu_last_health = self._config.get('General', 'GpuLastHealth', fallback='')
-        self.gpu_last_error = self._config.get('General', 'GpuLastError', fallback='')
-        self.gpu_pack_dialog_dont_show = self._config.getboolean('General', 'GpuPackDialogDontShow', fallback=False)
-        self.prefer_system_pytorch = self._config.getboolean('General', 'PreferSystemPytorch', fallback=True)
+        self.gpu_opt_in = self._config.getboolean('General', 'gpu_opt_in', fallback=False)
+        self.gpu_flavor = self._config.get('General', 'gpu_flavor', fallback='cu121')
+        self.gpu_pack_installed_version = self._config.get('General', 'gpu_pack_installed_version', fallback='')
+        self.gpu_pack_path = self._config.get('General', 'gpu_pack_path', fallback='')
+        self.gpu_last_health = self._config.get('General', 'gpu_last_health', fallback='')
+        self.gpu_last_error = self._config.get('General', 'gpu_last_error', fallback='')
+        self.gpu_pack_dialog_dont_show = self._config.getboolean('General', 'gpu_pack_dialog_dont_show', fallback=False)
+        self.prefer_system_pytorch = self._config.getboolean('General', 'prefer_system_pytorch', fallback=True)
 
         # Window geometry
         self.window_width = self._config.getint('Window', 'width', fallback=1024)
@@ -234,14 +234,14 @@ class Config(QObject):
         self._config['Paths']['last_directory'] = self.last_directory
 
         # GPU Pack settings
-        self._config['General']['GpuOptIn'] = 'true' if self.gpu_opt_in else 'false'
-        self._config['General']['GpuFlavor'] = self.gpu_flavor
-        self._config['General']['GpuPackInstalledVersion'] = self.gpu_pack_installed_version
-        self._config['General']['GpuPackPath'] = self.gpu_pack_path
-        self._config['General']['GpuLastHealth'] = self.gpu_last_health
-        self._config['General']['GpuLastError'] = self.gpu_last_error
-        self._config['General']['GpuPackDialogDontShow'] = 'true' if self.gpu_pack_dialog_dont_show else 'false'
-        self._config['General']['PreferSystemPytorch'] = 'true' if self.prefer_system_pytorch else 'false'
+        self._config['General']['gpu_opt_in'] = 'true' if self.gpu_opt_in else 'false'
+        self._config['General']['gpu_flavor'] = self.gpu_flavor
+        self._config['General']['gpu_pack_installed_version'] = self.gpu_pack_installed_version
+        self._config['General']['gpu_pack_path'] = self.gpu_pack_path
+        self._config['General']['gpu_last_health'] = self.gpu_last_health
+        self._config['General']['gpu_last_error'] = self.gpu_last_error
+        self._config['General']['gpu_pack_dialog_dont_show'] = 'true' if self.gpu_pack_dialog_dont_show else 'false'
+        self._config['General']['prefer_system_pytorch'] = 'true' if self.prefer_system_pytorch else 'false'
 
         # Window geometry
         self._config['Window']['width'] = str(self.window_width)

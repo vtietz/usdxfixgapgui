@@ -35,14 +35,14 @@ def handle_gpu_enable(config):
     """Enable GPU acceleration"""
     config.gpu_opt_in = True
     config.save_config()
-    print("GPU acceleration enabled (GpuOptIn=true)")
+    print("GPU acceleration enabled (gpu_opt_in=true)")
 
 
 def handle_gpu_disable(config):
     """Disable GPU acceleration"""
     config.gpu_opt_in = False
     config.save_config()
-    print("GPU acceleration disabled (GpuOptIn=false)")
+    print("GPU acceleration disabled (gpu_opt_in=false)")
 
 
 def _print_gpu_capability_info(cap):
@@ -297,7 +297,7 @@ def handle_setup_gpu(config):
         config.save_config()
 
         print(f"\nGPU Pack installed successfully to: {pack_dir}")
-        print("GPU acceleration enabled (GpuOptIn=true)")
+        print("GPU acceleration enabled (gpu_opt_in=true)")
 
         # Clean up zip
         if dest_zip.exists():
@@ -362,7 +362,7 @@ def handle_setup_gpu_zip(config, zip_path_str):
         config.save_config()
 
         print(f"\nGPU Pack installed successfully from ZIP")
-        print("GPU acceleration enabled (GpuOptIn=true)")
+        print("GPU acceleration enabled (gpu_opt_in=true)")
 
     except Exception as e:
         print(f"\nERROR: GPU Pack installation from ZIP failed: {e}")

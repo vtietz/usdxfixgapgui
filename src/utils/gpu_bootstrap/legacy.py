@@ -203,7 +203,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
         # Check if user has explicitly disabled GPU
         gpu_opt_in = getattr(config, 'gpu_opt_in', None)
         if gpu_opt_in is False:
-            logger.debug("GPU acceleration explicitly disabled (GpuOptIn=false)")
+            logger.debug("GPU acceleration explicitly disabled (gpu_opt_in=false)")
             return False
 
         # Try GPU Pack first if configured

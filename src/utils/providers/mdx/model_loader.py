@@ -73,7 +73,8 @@ class ModelLoader:
                 from demucs.apply import apply_model
                 from utils.providers.exceptions import DetectionFailedError
 
-                logger.info(f"Loading Demucs model on {device}...")
+                device_name = "GPU (CUDA)" if device == 'cuda' else "CPU"
+                logger.info(f"Loading Demucs model on {device_name}...")
                 flush_logs()
 
                 # Enable device-specific optimizations

@@ -20,9 +20,9 @@ def parse_arguments():
     parser.add_argument('--setup-gpu-zip', type=str, metavar='PATH',
                        help='Install GPU Pack from offline ZIP file')
     parser.add_argument('--gpu-enable', action='store_true',
-                       help='Enable GPU acceleration (set GpuOptIn=true)')
+                       help='Enable GPU acceleration (set gpu_opt_in=true)')
     parser.add_argument('--gpu-disable', action='store_true',
-                       help='Disable GPU acceleration (set GpuOptIn=false)')
+                       help='Disable GPU acceleration (set gpu_opt_in=false)')
     parser.add_argument('--gpu-diagnostics', action='store_true',
                        help='Show GPU status and write diagnostics to file')
 

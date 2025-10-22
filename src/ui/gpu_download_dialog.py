@@ -296,7 +296,7 @@ class GpuPackDownloadDialog(QDialog):
 
         # "Don't ask again" checkbox
         self.dont_ask_checkbox = QCheckBox("Don't show this dialog again")
-        self.dont_ask_checkbox.setToolTip("You can still download GPU Pack from Settings → Download GPU Pack")
+        self.dont_ask_checkbox.setToolTip("You can re-enable by setting prefer_system_pytorch = false in config.ini")
         layout.addWidget(self.dont_ask_checkbox)
 
         # Buttons
