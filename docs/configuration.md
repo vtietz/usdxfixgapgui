@@ -259,10 +259,14 @@ MDX (Demucs-based) method settings for high-quality, GPU-accelerated vocal separ
 
 ## [General]
 
-### DefaultOutputPath
-**Default**: `%LOCALAPPDATA%\output` (Windows) or `~/.local/share/output` (Linux)  
-**Description**: Default directory for saving processed audio files  
-**Valid values**: Any valid directory path
+### Runtime Artifacts and Cache
+
+**Runtime artifacts** (separated vocals, waveform images) are automatically cached under:
+- **Windows**: `%LOCALAPPDATA%\USDXFixGap\.tmp\<hash>\<song-basename>\`
+- **Linux**: `~/.local/share/USDXFixGap/.tmp\<hash>\<song-basename>\`
+- **macOS**: `~/Library/Application Support/USDXFixGap/.tmp\<hash>\<song-basename>\`
+
+These files are temporary and managed automatically by the application. They are not persisted outside the `.tmp` cache unless explicitly exported. The cache is automatically cleaned up based on usage patterns.
 
 ### LogLevel
 **Default**: `INFO`  

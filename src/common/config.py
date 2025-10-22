@@ -30,12 +30,6 @@ class Config(QObject):
         if not os.path.exists(config_path):
             logger.info(f"Config file not found. Creating default config at: {config_path}")
 
-            # Create output directory if it doesn't exist
-            output_dir = os.path.join(get_localappdata_dir(), 'output')
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-                logger.info(f"Created output directory: {output_dir}")
-
             # Write the config file with default values
             with open(config_path, 'w') as configfile:
                 self._config.write(configfile)
@@ -116,7 +110,6 @@ class Config(QObject):
         }
 
         self._config['General'] = {
-            'DefaultOutputPath': os.path.join(get_localappdata_dir(), 'output'),
             'LogLevel': 'INFO',
             # GPU Pack settings
             'GpuOptIn': 'false',

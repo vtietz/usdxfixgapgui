@@ -190,7 +190,6 @@ if /i "%1"=="clean" (
     if exist "src\cache.db" del "src\cache.db"
     if exist "src\__pycache__" rmdir /s /q "src\__pycache__"
     if exist "tests\__pycache__" rmdir /s /q "tests\__pycache__"
-    if exist "output" rmdir /s /q "output"
     for /d /r . %%d in (__pycache__) do @if exist "%%d" rmdir /s /q "%%d"
     echo Cache cleaned successfully
     goto :end

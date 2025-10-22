@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes yet.
+### Removed
+- **DefaultOutputPath Configuration**: Removed unused 'DefaultOutputPath' configuration option and automatic 'output' directory creation
+  - Runtime artifacts (vocals, waveforms) continue to be cached under `%LOCALAPPDATA%\USDXFixGap\.tmp\`
+  - Cleanup scripts (`run.bat clean`, `run.sh clean`) no longer remove a top-level 'output' folder
+  - Existing config files with legacy `DefaultOutputPath` key are safely ignored (no warnings or errors)
+  - See documentation for details on `.tmp` cache behavior and artifact management
 
 ---
 

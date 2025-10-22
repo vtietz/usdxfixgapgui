@@ -186,7 +186,6 @@ case "$1" in
         [[ -f "src/cache.db" ]] && rm "src/cache.db"
         [[ -d "src/__pycache__" ]] && rm -rf "src/__pycache__"
         [[ -d "tests/__pycache__" ]] && rm -rf "tests/__pycache__"
-        [[ -d "output" ]] && rm -rf "output"
         
         # Remove all __pycache__ directories recursively
         find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
