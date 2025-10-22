@@ -189,8 +189,16 @@ def mdx_config_tight():
     """
     Tight MDX configuration for fast scanner tests.
     
-    Smaller windows and faster convergence for testing.
+    If GAP_TEST_USE_CONFIG_INI=1, loads from config.ini.
+    Otherwise uses hard-coded test values.
     """
+    if os.environ.get('GAP_TEST_USE_CONFIG_INI') == '1':
+        # Load from user's config.ini
+        from common.config import Config
+        cfg = Config()  # Auto-loads config.ini
+        return MdxConfig.from_config(cfg)
+    
+    # Default hard-coded test values
     return MdxConfig(
         chunk_duration_ms=12000,
         chunk_overlap_ms=6000,
@@ -209,8 +217,16 @@ def mdx_config_loose():
     """
     Loose MDX configuration for edge case tests.
     
-    Larger windows to catch very late vocals.
+    If GAP_TEST_USE_CONFIG_INI=1, loads from config.ini.
+    Otherwise uses hard-coded test values.
     """
+    if os.environ.get('GAP_TEST_USE_CONFIG_INI') == '1':
+        # Load from user's config.ini
+        from common.config import Config
+        cfg = Config()  # Auto-loads config.ini
+        return MdxConfig.from_config(cfg)
+    
+    # Default hard-coded test values
     return MdxConfig(
         chunk_duration_ms=12000,
         chunk_overlap_ms=6000,

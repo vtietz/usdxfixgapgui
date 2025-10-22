@@ -15,11 +15,29 @@
 # With visual artifacts (generates PNG images)
 .\run.bat test --docs
 
+# Test with your config.ini values (validate your settings)
+$env:GAP_TEST_USE_CONFIG_INI='1'; .\.venv\Scripts\python.exe -m pytest tests/gap_scenarios/ -v
+
+# Generate artifacts using your config.ini values
+$env:GAP_TIER1_WRITE_DOCS='1'; $env:GAP_TIER3_WRITE_DOCS='1'; $env:GAP_TEST_USE_CONFIG_INI='1'; .\.venv\Scripts\python.exe -m pytest tests/gap_scenarios/ -v
+
 # Specific test suites
 .\run.bat test tests/gap_scenarios/test_tier1_detection_energy.py -v
 .\run.bat test tests/gap_scenarios/test_tier2_scanner*.py -v
 .\run.bat test tests/gap_scenarios/test_tier3_pipeline_perform.py -v
 ```
+
+### Config Testing
+
+By default, tests use **hard-coded values** for predictable, fast results. 
+
+To test with your actual **config.ini** values:
+```powershell
+$env:GAP_TEST_USE_CONFIG_INI='1'
+.\.venv\Scripts\python.exe -m pytest tests/gap_scenarios/test_tier2_scanner*.py -v
+```
+
+This validates your MDX settings (chunk sizes, windows, thresholds) work correctly.
 
 ---
 
