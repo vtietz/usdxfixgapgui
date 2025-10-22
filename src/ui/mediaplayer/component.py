@@ -344,6 +344,7 @@ class MediaPlayerComponent(QWidget):
         self.ui_manager.handle_multiple_selection(multiple_songs_selected)
 
         if multiple_songs_selected:
+            logger.debug("Multiple songs selected, stopping player")
             self.player.stop()
             self.waveform_widget.load_waveform(None)
 

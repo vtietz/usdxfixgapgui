@@ -34,6 +34,13 @@ class SongListView(QTableView):
         # Connect the view's signal to the action handler
         self.selected_songs_changed.connect(actions.set_selected_songs)
 
+        # Selection debounce timer to prevent rapid-fire selections
+        self._selection_timer = QTimer()
+        self._selection_timer.setSingleShot(True)
+        self._selection_timer.setInterval(150)  # 150ms debounce
+        self._selection_timer.timeout.connect(self._process_selection)
+        self._pending_selection = None
+
         # Re-trigger viewport lazy-loading whenever data changes in proxy or source
         if hasattr(model, 'dataChanged'):
             model.dataChanged.connect(lambda *args: self.reset_viewport_loading())
@@ -121,6 +128,13 @@ class SongListView(QTableView):
 
 
     def onSelectionChanged(self, selected, deselected):
+        """Debounce selection changes to prevent rapid-fire updates"""
+        # Restart the debounce timer
+        self._selection_timer.stop()
+        self._selection_timer.start()
+
+    def _process_selection(self):
+        """Actually process the selection after debounce period"""
         selected_songs = []
         # Resolve source model robustly
         proxy_model = self.model()

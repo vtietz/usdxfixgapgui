@@ -231,7 +231,9 @@ class Config(QObject):
     def save(self):
         """Save current configuration to file"""
         # Update config object with current property values
-        self._config['Paths']['last_directory'] = self.last_directory
+        # Only save last_directory if it's not empty (preserve user's selection)
+        if self.last_directory:
+            self._config['Paths']['last_directory'] = self.last_directory
 
         # GPU Pack settings
         self._config['General']['gpu_opt_in'] = 'true' if self.gpu_opt_in else 'false'

@@ -34,9 +34,8 @@ class Songs(QObject):
             return
 
         self.songs.extend(songs)
-        # Emit added signal for each song for compatibility
-        for song in songs:
-            self.added.emit(song)
+        # Don't emit individual 'added' signals in batch mode - only emit once at the end
+        # This prevents N UI updates for N songs (massive performance win)
         # Only emit list changed once at the end
         self.listChanged.emit()
 
