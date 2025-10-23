@@ -1,41 +1,11 @@
 # GitHub Copilot Instructions — USDXFixGap
 
 **Project:** Python/PySide6 GUI for UltraStar song gap detection (Demucs + ffmpeg).
-**Re## 10) Final Steps
+**Current Version:** v2.0.0 (in development)
 
-1. `run.bat test` must pass.
-2. Propose a **one-line, imperative** commit message, e.g.
-   *"Refactor gap detection actions to use typed models and Songs signals"*.
+⚠️ **DO NOT bump version numbers** - Maintainer controls versioning manually.
 
----
-
-## 11) Release Notes Best Practices
-
-When creating or updating release notes (`docs/releases/vX.Y.Z.md`):
-
-* **Keep it concise** - Target one printed page; remove redundancy
-* **No horizontal lines (`---`)** - They add visual clutter without value
-* **Minimal empty lines** - One blank line between sections max
-* **Consolidate information** - Group related items, avoid repetition
-* **Essential details only:**
-  * Breaking changes (what changed, why, how to migrate)
-  * Major features (brief, benefit-focused)
-  * Key improvements (grouped by category)
-  * Notable bug fixes (user-impacting only)
-  * Minimal system requirements
-  * Compact upgrade instructions
-* **Skip verbose sections:**
-  * No detailed performance tables (brief metrics in text OK)
-  * No long dependency lists (mention core only)
-  * No separate documentation section (reference in changelog)
-  * No acknowledgments (keep in CHANGELOG.md if needed)
-* **Structure:** Scannable with clear hierarchy, emoji markers OK for quick navigation
-* **Links:** At end, compact format
-* **Tone:** Professional, direct, no marketing fluff
-
-**Bad:** 20-page document with tables, repeated explanations, every minor detail  
-**Good:** Concise 1-2 page summary hitting key points a user needs to know
-rst:** `docs/architecture.md`, `docs/coding-standards.md`, `docs/signals.md`.
+**Read First:** `docs/architecture.md`, `docs/coding-standards.md`, `docs/signals.md`.
 
 ---
 

@@ -23,14 +23,35 @@ def _find_closest_onset(onsets: List[float], expected_gap_ms: float) -> float:
     """
     Find onset closest to expected gap position.
     
+    Special case: When expected_gap is very early (< 1000ms), prefer later onsets
+    over very early ones, as songs typically have an intro before vocals start.
+    
     Args:
         onsets: List of detected onset timestamps
         expected_gap_ms: Expected gap position
         
     Returns:
-        Onset closest to expected position
+        Onset closest to expected position (always >= 0)
     """
-    return min(onsets, key=lambda x: abs(x - expected_gap_ms))
+    # Filter out negative onsets (can happen due to hysteresis lookback at chunk boundaries)
+    valid_onsets = [o for o in onsets if o >= 0.0]
+    if not valid_onsets:
+        # All onsets were negative - return 0 as fallback
+        return 0.0
+    
+    # If expected gap is very early (< 1s) and we have onsets after 1s,
+    # filter out very early onsets (< 800ms) as they're likely instrumental noise
+    MIN_PLAUSIBLE_GAP_MS = 800.0
+    
+    if expected_gap_ms < 1000.0 and any(o >= MIN_PLAUSIBLE_GAP_MS for o in valid_onsets):
+        # Filter out onsets before MIN_PLAUSIBLE_GAP_MS if we have later candidates
+        filtered = [o for o in valid_onsets if o >= MIN_PLAUSIBLE_GAP_MS]
+        if filtered:
+            # Return earliest plausible onset (most likely correct)
+            return min(filtered)
+    
+    # Normal case: return closest to expected
+    return min(valid_onsets, key=lambda x: abs(x - expected_gap_ms))
 
 
 def _is_duplicate_onset(onset_ms: float, existing_onsets: List[float], threshold_ms: float = 1000) -> bool:

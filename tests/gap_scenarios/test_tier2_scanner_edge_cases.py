@@ -4,16 +4,78 @@ Tier-2 scanner tests: edge cases.
 Tests boundary conditions and special scenarios for scan_for_onset().
 """
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
+import numpy as np
+from scipy.io import wavfile
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
 
 from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed
+from test_utils import visualize
 from utils.providers.mdx.scanner.pipeline import scan_for_onset
 from utils.providers.mdx.vocals_cache import VocalsCache
+
+
+# ============================================================================
+# Fixtures
+# ============================================================================
+
+@pytest.fixture
+def artifact_dir(tmp_path):
+    """Return docs directory if GAP_TIER2_WRITE_DOCS=1, else tmp_path."""
+    if os.environ.get('GAP_TIER2_WRITE_DOCS') == '1':
+        docs_path = Path(__file__).parent.parent.parent / 'docs' / 'gap-tests' / 'tier2'
+        docs_path.mkdir(parents=True, exist_ok=True)
+        return docs_path
+    return tmp_path
+
+
+def write_tier2_preview_if_enabled(
+    audio_path,
+    truth_ms: float,
+    detected_ms,
+    early_noise_ms,
+    expected_gap_ms: float,
+    test_name: str,
+    artifact_dir: Path
+):
+    """Write waveform preview if GAP_TIER2_WRITE_DOCS=1."""
+    if os.environ.get('GAP_TIER2_WRITE_DOCS') != '1':
+        return
+    
+    # Load stereo audio
+    sr, audio = wavfile.read(str(audio_path))
+    
+    # Extract vocals (right channel for stereo test files)
+    if audio.ndim == 2:
+        vocals = audio[:, 1].astype(np.float32) / 32768.0
+    else:
+        vocals = audio.astype(np.float32) / 32768.0
+    
+    # Build title with timing info
+    title_parts = [f"Expected: {expected_gap_ms:.0f}ms"]
+    if early_noise_ms is not None:
+        title_parts.append(f"Early Noise: {early_noise_ms:.0f}ms")
+    title_parts.append(f"Truth: {truth_ms:.0f}ms")
+    if detected_ms is not None:
+        title_parts.append(f"Detected: {detected_ms:.0f}ms")
+    title = " | ".join(title_parts)
+    
+    # Save visualization
+    output_path = artifact_dir / f"{test_name}.png"
+    visualize.save_waveform_preview(
+        wave=vocals,
+        sr=sr,
+        truth_ms=truth_ms,
+        detected_ms=detected_ms,
+        title=title,
+        out_path=str(output_path),
+        rms_overlay=True
+    )
 
 
 # ============================================================================
@@ -232,4 +294,90 @@ def test_10_quiet_vocals_with_instruments(
     assert detected is not None
     assert abs(detected - onset_ms) <= 300, (
         f"10-quiet-vocals: Detection failed or inaccurate (detected={detected}ms, truth={onset_ms}ms)"
+    )
+
+
+def test_11_zero_gap_with_late_vocals(
+    tmp_path,
+    artifact_dir,
+    patch_separator,
+    mdx_config_tight,
+    model_placeholder
+):
+    """
+    Scenario 11: Gap=0ms with instrumental intro before vocals.
+    
+    This tests the edge case where metadata has gap=0 but vocals don't
+    actually start until later (e.g., instrumental intro). The algorithm
+    should NOT blindly return 0ms, but search forward for actual vocals.
+    
+    Setup:
+    - Expected gap: 0ms (or very early, < 1000ms)
+    - Instrumental noise/energy at 0-2000ms
+    - Actual vocals start at 8000ms
+    
+    Expected behavior:
+    - Filter out very early "onsets" (< 800ms) if later candidates exist
+    - Return first plausible vocal onset (>= 800ms)
+    - NEVER return negative values (regression test for hysteresis bug)
+    """
+    instrumental_noise_ms = 500.0  # Early noise that passes thresholds
+    vocal_onset_ms = 8000.0  # Actual vocals much later
+    expected_gap_ms = 0.0  # Metadata says gap=0
+    
+    audio_result = build_stereo_test(
+        output_path=tmp_path / "test_zero_gap_late_vocals.wav",
+        duration_ms=30000,
+        vocal_events=[
+            VocalEvent(onset_ms=vocal_onset_ms, duration_ms=15000, fade_in_ms=150, amp=0.7)
+        ],
+        instrument_bed=InstrumentBed(
+            noise_floor_db=-60.0,
+            transients=[
+                # Early instrumental transients that might trigger false detection
+                {'t_ms': instrumental_noise_ms, 'level_db': -24.0, 'dur_ms': 400}
+            ]
+        )
+    )
+    
+    detected = scan_for_onset(
+        audio_file=audio_result.path,
+        expected_gap_ms=expected_gap_ms,
+        model=model_placeholder,
+        device="cpu",
+        config=mdx_config_tight,
+        vocals_cache=VocalsCache(),
+        total_duration_ms=audio_result.duration_ms
+    )
+    
+    # Write visualization
+    write_tier2_preview_if_enabled(
+        audio_result.path,
+        vocal_onset_ms,
+        detected,
+        instrumental_noise_ms,
+        expected_gap_ms,
+        "11-zero-gap-with-late-vocals",
+        artifact_dir
+    )
+    
+    # Import validation helper
+    from conftest import validate_detected_gap
+    
+    # Universal validation (catches negative gaps and other bugs)
+    validate_detected_gap(detected, "test_11_zero_gap_with_late_vocals")
+    
+    assert detected is not None, "Should detect vocals despite gap=0"
+    
+    # Should NOT return early noise position
+    assert detected >= 800.0, (
+        f"Should not return very early onset (detected={detected:.0f}ms). "
+        f"Expected >= 800ms (MIN_PLAUSIBLE_GAP_MS threshold)."
+    )
+    
+    # Should detect actual vocals
+    error_ms = abs(detected - vocal_onset_ms)
+    assert error_ms <= 500, (
+        f"Detection error {error_ms:.0f}ms (detected={detected:.0f}ms, truth={vocal_onset_ms:.0f}ms). "
+        f"Should ignore early instrumental noise and find actual vocals."
     )

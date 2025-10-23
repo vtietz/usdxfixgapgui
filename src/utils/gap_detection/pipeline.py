@@ -263,42 +263,31 @@ def detect_gap_from_silence(
 ) -> Optional[int]:
     """Pure function: detect gap from silence periods.
     
-    Finds silence boundary closest to expected gap position.
-    No I/O, no logging, no side effects - fully testable.
+    Returns the END of the first silence period (where vocals start).
+    This is the detected gap value.
     
     Args:
         silence_periods: Sequence of (start_ms, end_ms) silence periods
-        original_gap_ms: Expected gap position in milliseconds
+        original_gap_ms: Expected gap position in milliseconds (unused in current logic)
         
     Returns:
-        Detected gap in milliseconds, or None if not found
+        Detected gap in milliseconds (end of first silence period), or 0 if no silence
         
     Example:
-        >>> periods = [(0, 1000), (5000, 6000)]
-        >>> detect_gap_from_silence(periods, 5500)
-        5000  # Closest boundary to 5500ms
+        >>> periods = [(0, 2600)]
+        >>> detect_gap_from_silence(periods, 0)
+        2600  # Vocals start at end of silence
     """
     # If no silence periods found, vocals start immediately
     if not silence_periods:
         return 0
     
-    closest_gap_ms = None
-    closest_gap_diff_ms = float('inf')
+    # Return the end of the first silence period
+    # This is where vocals actually start
+    first_silence = silence_periods[0]
+    gap_ms = first_silence[1]  # end_ms
     
-    # Evaluate both start and end of each silence period
-    for start_ms, end_ms in silence_periods:
-        start_diff = abs(start_ms - original_gap_ms)
-        end_diff = abs(end_ms - original_gap_ms)
-        
-        if start_diff < closest_gap_diff_ms:
-            closest_gap_diff_ms = start_diff
-            closest_gap_ms = start_ms
-        
-        if end_diff < closest_gap_diff_ms:
-            closest_gap_diff_ms = end_diff
-            closest_gap_ms = end_ms
-    
-    return int(closest_gap_ms) if closest_gap_ms is not None else None
+    return int(gap_ms)
 
 
 def should_retry_detection(
@@ -437,6 +426,14 @@ def perform(
     
     if detected_gap is None:
         raise Exception(f"Failed to detect gap in {audio_file}")
+    
+    # Validate: gap must be non-negative
+    if detected_gap < 0:
+        logger.warning(
+            f"Detected negative gap ({detected_gap}ms) in {audio_file}. "
+            f"Clamping to 0ms. Silence periods: {silence_periods}"
+        )
+        detected_gap = 0
     
     # Step 5: Check if we need to retry with larger window
     if should_retry_detection(detected_gap, ctx.detection_time_sec, ctx.audio_length_ms):

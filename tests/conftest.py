@@ -23,6 +23,37 @@ from test_utils import separation_stub
 from utils.providers.mdx.config import MdxConfig
 
 
+def validate_detected_gap(detected_ms: Optional[float], test_name: str = "unknown") -> None:
+    """
+    Validate that a detected gap meets basic sanity checks.
+    
+    This is a universal assertion that ALL gap detection tests should call
+    to catch regression bugs like negative gaps.
+    
+    Args:
+        detected_ms: The detected gap value (or None if no detection)
+        test_name: Name of the test for better error messages
+        
+    Raises:
+        AssertionError: If detected gap fails validation
+    """
+    if detected_ms is None:
+        return  # None is valid (no vocals detected)
+    
+    # CRITICAL: Gap must NEVER be negative
+    assert detected_ms >= 0.0, (
+        f"[{test_name}] Gap must be non-negative! Detected={detected_ms:.0f}ms. "
+        f"Negative gaps indicate a bug (likely hysteresis lookback before chunk start)."
+    )
+    
+    # Sanity check: Gap shouldn't be absurdly large (> 10 minutes)
+    MAX_REASONABLE_GAP_MS = 600000  # 10 minutes
+    assert detected_ms <= MAX_REASONABLE_GAP_MS, (
+        f"[{test_name}] Gap seems unreasonably large: {detected_ms:.0f}ms ({detected_ms/1000:.1f}s). "
+        f"Expected < {MAX_REASONABLE_GAP_MS/1000:.0f}s. This might indicate a bug."
+    )
+
+
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_asyncio_thread():
     """

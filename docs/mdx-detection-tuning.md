@@ -143,11 +143,71 @@ When tuning parameters:
 
 For problematic songs, you can create genre-specific presets or use the GUI to manually adjust after auto-detection.
 
+---
+
+## Edge Case: Negative Gap Values
+
+### Problem
+In rare cases, the UI may show **negative gap values** (e.g., -22ms), even though the detection algorithm filters negative onsets.
+
+### Root Causes
+1. **Float precision issues** when converting onset timestamps
+2. **Rounding errors** in millisecond conversions
+3. **Edge cases** in chunk boundary handling
+
+### Safeguards in Place
+The pipeline now has **multiple layers of protection**:
+
+```python
+# Layer 1: Scanner filters negative onsets (mdx/scanner/pipeline.py)
+valid_onsets = [o for o in onsets if o >= 0.0]
+
+# Layer 2: Clamp onset before silence conversion (mdx_provider.py)  
+onset_ms = max(0.0, onset_ms)
+
+# Layer 3: Validate final gap value (gap_detection/pipeline.py)
+if detected_gap < 0:
+    logger.warning(f"Negative gap ({detected_gap}ms), clamping to 0ms")
+    detected_gap = 0
+```
+
+**Result:** Even if bugs exist elsewhere, the final gap value **cannot be negative**.
+
+If you see a warning in the logs about negative gaps being clamped, please report it as a bug with the song file for investigation.
+
+---
+
 ## Version History
 
-- **v2.1** (2025-10-21): Optimized for gradual fade-ins (6.5/0.020/200/300) + improved refinement algorithm
-  - Changed onset refinement from "steepest rise" to "first consistent rise"
-  - Better detection of gradual vocal fade-ins while avoiding false positives
+### Recent Improvements (v2.0.0 development)
+
+**Gap=0 Edge Case Fix + Negative Gap Safety Net:**
+- Fixed `detect_gap_from_silence()` returning wrong boundary for gap=0 songs
+  - Changed from "closest boundary" to "end of first silence period"
+  - Fixes Disney Duck scenario where scanner detected 2600ms but pipeline returned 0ms
+- Added triple-layer negative gap protection:
+  - Layer 1: Scanner filters negative onsets
+  - Layer 2: MDX provider clamps onset >= 0
+  - Layer 3: Pipeline validates detected_gap >= 0
+- Optimized thresholds (4.5/0.012/150/350) for gradual fade-ins
+
+**Detection Sensitivity Improvements (v2.2):**
+- Real-world testing showed songs with 2+ second gradual fade-ins detected 1.5s late
+- Adjusted defaults for better early detection:
+  - `onset_snr_threshold`: 6.5 → **5.0** (more sensitive to quiet starts)
+  - `onset_abs_threshold`: 0.020 → **0.015** (catches 1.5% energy vs 2.0%)
+  - `min_voiced_duration_ms`: 200 → **150** (shorter phrases)
+  - `hysteresis_ms`: 300 → **400** (looks further back)
+- Added test case `test_02b_very_gradual_fade_in` (2s fade-in validation)
+- Trade-off: May occasionally detect breath sounds or pre-vocal artifacts
+
+**Algorithm Improvements (v2.1):**
+- Changed onset refinement from "steepest rise" to "first consistent rise"
+- Increased refinement window from 200ms to 300ms
+- Uses adaptive threshold (50% of mean derivative) to find onset start
+- Better for both abrupt starts AND gradual fade-ins
+
+### Earlier Versions
 - **v2.0** (2025-10-21): Balanced settings (7.0/0.025/250/250) - compromise between early/late detection
 - **v1.0** (Initial): Conservative settings (6.0/0.02/300/200) - favored late over false positives
 
@@ -156,3 +216,4 @@ For problematic songs, you can create genre-specific presets or use the GUI to m
 - `src/utils/providers/mdx/detection.py` - Core detection algorithm
 - `src/utils/providers/mdx/config.py` - MdxConfig dataclass
 - `docs/architecture.md` - System architecture overview
+

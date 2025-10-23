@@ -136,8 +136,9 @@ class TestExpansionStrategy:
         
         windows = strategy.generate_windows(expected_gap_ms=10000)
         
-        # First window always starts at 0 to catch immediate vocals
-        assert windows[0].start_ms == 0.0
+        # First window is centered around expected gap (not starting from 0)
+        # This prioritizes detection near metadata hint and avoids false positives
+        assert windows[0].start_ms == 2500.0  # 10000 - 7500
         assert windows[0].end_ms == 17500  # 10000 + 7500
         assert windows[0].expansion_num == 0
     

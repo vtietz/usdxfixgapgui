@@ -86,11 +86,11 @@ class Config(QObject):
             'hop_duration_ms': '20',           # 20ms hop for good temporal resolution
             'noise_floor_duration_ms': '1200', # 1.2s for noise floor estimation (more robust)
 
-            # Onset detection thresholds (optimized for gradual fade-ins)
-            'onset_snr_threshold': '6.5',      # RMS > noise + 6.5*sigma (catches gradual onsets)
-            'onset_abs_threshold': '0.020',    # Absolute RMS threshold (2.0% amplitude minimum)
-            'min_voiced_duration_ms': '200',   # 200ms minimum sustained vocals (shorter for quick starts)
-            'hysteresis_ms': '300',            # 300ms hysteresis for better early onset detection
+            # Onset detection thresholds (balanced - gap-focused search enables sensitivity)
+            'onset_snr_threshold': '4.5',      # RMS > noise + 4.5*sigma (balanced sensitivity)
+            'onset_abs_threshold': '0.012',    # Absolute RMS threshold (1.2% amplitude minimum)
+            'min_voiced_duration_ms': '150',   # 150ms minimum sustained vocals
+            'hysteresis_ms': '350',            # 350ms hysteresis for onset refinement
 
             # Expanding search parameters (NEW - balances speed and robustness)
             'initial_radius_ms': '7500',       # Start with ±7.5s window around expected gap

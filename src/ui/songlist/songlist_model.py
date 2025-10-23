@@ -36,6 +36,7 @@ class SongTableModel(QAbstractTableModel):
         self.songs_model.updated.connect(self.song_updated)
         self.songs_model.deleted.connect(self.song_deleted)
         self.songs_model.cleared.connect(self.songs_cleared)
+        self.songs_model.listChanged.connect(self.list_changed)  # Handle batch updates
 
         # Timer for adding pending songs - reduced for better responsiveness
         self.timer = QTimer()
@@ -50,6 +51,27 @@ class SongTableModel(QAbstractTableModel):
         logger.debug(f"Added: {song}")
         if not self.timer.isActive():
             self.timer.start()
+
+    def list_changed(self):
+        """Handle list structure changes (e.g., batch additions, bulk operations)."""
+        # Check if new songs were added (batch operation that didn't emit individual 'added' signals)
+        current_count = len(self.songs)
+        model_count = len(self.songs_model.songs)
+        
+        if model_count > current_count:
+            # Songs were added in batch - add them all at once
+            new_songs = self.songs_model.songs[current_count:]
+            self.beginInsertRows(QModelIndex(), current_count, model_count - 1)
+            self.songs.extend(new_songs)
+            # Populate cache for newly added songs
+            for song in new_songs:
+                self._add_to_cache(song)
+            self.endInsertRows()
+            logger.debug(f"Batch added {len(new_songs)} songs via listChanged")
+        elif model_count < current_count:
+            # Songs were removed - full rebuild needed
+            self.songs_cleared()
+        # If equal, just a metadata update, no action needed
 
     def add_pending_songs(self):
         if self.pending_songs:

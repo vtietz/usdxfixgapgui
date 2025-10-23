@@ -1,7 +1,7 @@
 # Gap Detection Tests
 
-**Status**: ✅ 46 tests passing  
-**Coverage**: Energy detection, scanner orchestration, pipeline integration  
+**Status**: ✅ 51 tests passing  
+**Coverage**: Energy detection, scanner orchestration, gap-focused search, pipeline integration  
 **Test Files**: `tests/gap_scenarios/test_tier*.py`
 
 ---
@@ -86,10 +86,10 @@ This validates your MDX settings (chunk sizes, windows, thresholds) work correct
 
 ---
 
-### Level 2: Scanner Orchestration (13 tests)
+### Level 2: Scanner Orchestration (18 tests)
 **Target**: [`scan_for_onset()`](../../src/utils/providers/mdx/scanner/pipeline.py)  
 **Scope**: Integration with chunk iterator, expansion strategy, stubbed separation  
-**Execution**: ~2.7 seconds
+**Execution**: ~3.5 seconds
 
 #### Test Infrastructure
 
@@ -111,7 +111,7 @@ This validates your MDX settings (chunk sizes, windows, thresholds) work correct
 | 4 | 20000ms | 2000ms | ±300ms | Multiple expansions required |
 | 5 | 5100ms | 5000ms | ±200ms | Early-stop optimization |
 
-**Edge Cases** (`test_tier2_scanner_edge_cases.py` - 5 tests):
+**Edge Cases** (`test_tier2_scanner_edge_cases.py` - 6 tests):
 
 | # | Scenario | Expected Behavior |
 |---|----------|------------------|
@@ -120,6 +120,7 @@ This validates your MDX settings (chunk sizes, windows, thresholds) work correct
 | 8 | No vocals (silent channel) | Returns `None` gracefully |
 | 9 | Very late vocals (70s) vs early expected (2s) | Max window limit handling |
 | 10 | Quiet vocals with loud instruments | Clean separation (stub) |
+| 11 | Gap=0ms with instrumental intro → vocals at 8000ms | Filters out very early onsets (< 800ms) |
 
 **Performance & Optimization** (`test_tier2_scanner_performance.py` - 3 tests):
 
@@ -129,7 +130,28 @@ This validates your MDX settings (chunk sizes, windows, thresholds) work correct
 | 12 | Early-stop optimization | Stops when within tolerance |
 | 13 | Resample to 44100 | Timing accuracy preserved |
 
+**Gap-Focused Search** (`test_tier2_gap_focused_search.py` - 4 tests):
+
+These tests validate the v2.4 fix for false positive detection. Previously, the scanner started from t=0, causing detection of early noise/artifacts. The fix centers the search window around `expected_gap_ms`:
+
+```python
+# v2.4: Always center window around expected gap
+start_ms = max(0.0, expected_gap_ms - radius_ms)
+# First window: [expected_gap - 7.5s, expected_gap + 7.5s]
+```
+
+This allows aggressive thresholds (5.0/0.015/150/400) to catch gradual fade-ins without triggering on early noise.
+
+| # | Scenario | Early Noise | Vocals | Expected | Validates | Image |
+|---|----------|-------------|--------|----------|-----------|-------|
+| 11 | Ignore early noise, detect at expected | 2000ms | 10000ms | 10000ms | False positive rejection | ![](tier2/11-ignore-early-noise-detect-expected-gap.png) |
+| 12 | Multiple false positives (1500, 3500, 5000ms) | Yes | 12000ms | 12000ms | Robust filtering | ![](tier2/12-multiple-false-positives-detect-correct-gap.png) |
+| 13 | Early vocals with late expected | No | 1000ms | 10000ms | Expansion fallback | ![](tier2/13-early-vocals-outside-initial-window.png) |
+| 14 | Gradual fade-in + early noise | 3000ms | 15000ms | 15000ms | Combined challenges | ![](tier2/14-gradual-fade-in-with-early-noise.png) |
+
 **Key Validations**:
+- ✅ **Gap-focused search** - Centers window around expected_gap_ms (v2.4)
+- ✅ **False positive rejection** - Ignores noise outside search window
 - ✅ Expanding window search strategy
 - ✅ Chunk iteration with deduplication
 - ✅ Early-stop when onset within tolerance
@@ -199,6 +221,11 @@ docs/gap-tests/
 │   ├── 02-gradual-fade-in.png
 │   ├── 03-breathy-start.png
 │   └── ...
+├── tier2/           # Scanner orchestration (4 images) - NEW v2.4
+│   ├── 11-ignore-early-noise-detect-expected-gap.png
+│   ├── 12-multiple-false-positives-detect-correct-gap.png
+│   ├── 13-early-vocals-outside-initial-window.png
+│   └── 14-gradual-fade-in-with-early-noise.png
 └── tier3/           # Pipeline overview plots (7 images)
     ├── 01-exact-match.png
     ├── 02-no-silence.png
@@ -206,6 +233,17 @@ docs/gap-tests/
 ```
 
 **Image Format**: Blue waveform + RMS overlay (red), truth onset (green dashed), detected onset (blue solid), delta error in legend
+
+**Environment Variables**:
+- `GAP_TIER1_WRITE_DOCS=1` - Generate tier-1 energy detection images
+- `GAP_TIER2_WRITE_DOCS=1` - Generate tier-2 scanner orchestration images (v2.4+)
+- `GAP_TIER3_WRITE_DOCS=1` - Generate tier-3 pipeline integration images
+
+**Tier-2 Images** (Gap-Focused Search Validation):
+- Show early noise markers (ignored outside search window)
+- Display expected_gap_ms position (search center)
+- Visualize detection accuracy near expected gap
+- Prove false positive rejection works
 
 ---
 

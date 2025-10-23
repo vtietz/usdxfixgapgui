@@ -93,30 +93,29 @@ class TestDetectGapFromSilence:
         result = detect_gap_from_silence([], 5000)
         assert result == 0
     
-    def test_finds_closest_period_start(self):
-        """Finds start of closest silence period."""
+    def test_finds_first_silence_end(self):
+        """Returns end of first silence period (where vocals start)."""
         periods = [(0, 1000), (5000, 6000), (10000, 11000)]
         result = detect_gap_from_silence(periods, 5200)
-        assert result == 5000  # Closer than 6000
+        assert result == 1000  # End of FIRST silence = vocal onset
     
-    def test_finds_closest_period_end(self):
-        """Finds end of closest silence period."""
+    def test_ignores_later_silence_periods(self):
+        """Ignores silence periods after first one (vocal pauses)."""
         periods = [(0, 1000), (5000, 6000), (10000, 11000)]
         result = detect_gap_from_silence(periods, 5900)
-        assert result == 6000  # Closer than 5000
+        assert result == 1000  # Still returns first silence end
     
-    def test_handles_exact_match(self):
-        """Exact match on period boundary."""
+    def test_returns_first_silence_end_always(self):
+        """Always returns end of first silence period."""
         periods = [(0, 1000), (5000, 6000)]
         result = detect_gap_from_silence(periods, 5000)
-        assert result == 5000
+        assert result == 1000  # First silence end
     
-    def test_chooses_earlier_on_tie(self):
-        """When equidistant, chooses first encountered."""
-        periods = [(0, 1000), (5000, 6000)]
-        # 5500 is equidistant from 5000 and 6000
-        result = detect_gap_from_silence(periods, 5500)
-        assert result in [5000, 6000]  # Either is valid
+    def test_single_silence_period(self):
+        """Typical MDX case: single silence from 0 to onset."""
+        periods = [(0, 2600)]  # Disney Duck Tales scenario
+        result = detect_gap_from_silence(periods, 0)
+        assert result == 2600  # End of silence = vocal onset
 
 
 class TestShouldRetryDetection:
@@ -273,7 +272,8 @@ class TestPerform:
         mock_provider = Mock()
         mock_provider.get_method_name.return_value = "mdx"
         mock_provider.get_vocals_file.return_value = "/tmp/song/vocals.wav"
-        mock_provider.detect_silence_periods.return_value = [(4500, 5500)]
+        # MDX returns single silence period from start to vocal onset
+        mock_provider.detect_silence_periods.return_value = [(0, 5500)]
         mock_provider.compute_confidence.return_value = 0.95
         mock_get_provider.return_value = mock_provider
         
@@ -290,7 +290,7 @@ class TestPerform:
         
         # Verify
         assert isinstance(result, DetectGapResult)
-        assert result.detected_gap == 4500  # Closest boundary: 4500 is 500ms from 5000, 5500 is 500ms from 5000
+        assert result.detected_gap == 5500  # End of first silence = vocal onset
         assert result.detection_method == "mdx"
         assert result.confidence == 0.95
         assert len(result.silence_periods) == 1

@@ -281,6 +281,9 @@ class MdxProvider(IDetectionProvider):
 
             # Convert onset to silence period
             # Return one silence period from 0 to onset
+            # Clamp onset to >= 0 to handle float precision issues
+            onset_ms = max(0.0, onset_ms)
+            
             if onset_ms > 0:
                 silence_periods = [(0.0, onset_ms)]
             else:
