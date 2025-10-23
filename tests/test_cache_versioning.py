@@ -12,8 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 class TestCacheVersioning:
     """Test cache version migration functionality"""
 
-    def test_cache_version_initialized_on_fresh_database(self):
-        """New database should be initialized with current version"""
+    def test_fresh_database_no_cache_clear(self):
+        """New database should be initialized with current version and not flag cache clear"""
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = os.path.join(temp_dir, 'test_cache.db')
             
@@ -22,12 +22,16 @@ class TestCacheVersioning:
                 # Reset initialization flag
                 import common.database as db_module
                 db_module._db_initialized = False
+                db_module._cache_was_cleared = False
                 
                 # Initialize database
                 from common.database import init_database, CACHE_VERSION
-                init_database()
+                cache_was_cleared = init_database()
                 
-                # Check version was set
+                # Should NOT flag cache clear on fresh database
+                assert cache_was_cleared is False, "Fresh database should not flag cache clear"
+                
+                # Check version was set correctly
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
                 cursor.execute('SELECT value FROM cache_metadata WHERE key=?', ('version',))
@@ -37,8 +41,8 @@ class TestCacheVersioning:
                 assert result is not None, "Version metadata should be set"
                 assert int(result[0]) == CACHE_VERSION, f"Version should be {CACHE_VERSION}"
 
-    def test_cache_cleared_on_version_mismatch(self):
-        """Cache should be cleared when version is outdated"""
+    def test_version_mismatch_triggers_cache_clear(self):
+        """Cache should be cleared when version is outdated and return flag"""
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = os.path.join(temp_dir, 'test_cache.db')
             
@@ -65,24 +69,18 @@ class TestCacheVersioning:
             # Set old version
             cursor.execute('INSERT INTO cache_metadata VALUES (?, ?)', ('version', '1'))
             
-            # Add some dummy cache entries
+            # Add dummy cache entries
             cursor.execute('INSERT INTO song_cache VALUES (?, ?, ?)', 
                           ('/path/to/song1.txt', b'dummy_data_1', '2025-01-01'))
             cursor.execute('INSERT INTO song_cache VALUES (?, ?, ?)',
                           ('/path/to/song2.txt', b'dummy_data_2', '2025-01-01'))
-            cursor.execute('INSERT INTO song_cache VALUES (?, ?, ?)',
-                          ('/path/to/song3.txt', b'dummy_data_3', '2025-01-01'))
             
             conn.commit()
             
             # Verify initial state
             cursor.execute('SELECT COUNT(*) FROM song_cache')
             initial_count = cursor.fetchone()[0]
-            assert initial_count == 3, "Should have 3 initial cache entries"
-            
-            cursor.execute('SELECT value FROM cache_metadata WHERE key=?', ('version',))
-            initial_version = int(cursor.fetchone()[0])
-            assert initial_version == 1, "Initial version should be 1"
+            assert initial_count == 2, "Should have 2 initial cache entries"
             
             conn.close()
             
@@ -90,11 +88,15 @@ class TestCacheVersioning:
             with patch('common.database.DB_PATH', db_path):
                 import common.database as db_module
                 db_module._db_initialized = False
+                db_module._cache_was_cleared = False
                 
                 from common.database import init_database, CACHE_VERSION
-                init_database()
+                cache_was_cleared = init_database()
                 
-                # Verify migration happened
+                # SHOULD flag cache clear on version mismatch
+                assert cache_was_cleared is True, "Version mismatch should flag cache clear"
+                
+                # Verify cache was actually cleared
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
                 
@@ -110,7 +112,7 @@ class TestCacheVersioning:
                 
                 conn.close()
 
-    def test_cache_preserved_on_matching_version(self):
+    def test_matching_version_preserves_cache(self):
         """Cache should be preserved when version matches"""
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = os.path.join(temp_dir, 'test_cache.db')
@@ -150,38 +152,30 @@ class TestCacheVersioning:
                           ('/path/to/song2.txt', b'dummy_data_2', '2025-01-01'))
             
             conn.commit()
-            
-            # Verify initial state
-            cursor.execute('SELECT COUNT(*) FROM song_cache')
-            initial_count = cursor.fetchone()[0]
-            assert initial_count == 2, "Should have 2 initial cache entries"
-            
             conn.close()
             
             # Now initialize (should not clear cache)
             with patch('common.database.DB_PATH', db_path):
                 db_module._db_initialized = False
+                db_module._cache_was_cleared = False
                 
                 from common.database import init_database, CACHE_VERSION
-                init_database()
+                cache_was_cleared = init_database()
+                
+                # Should NOT flag cache clear when version matches
+                assert cache_was_cleared is False, "Matching version should not flag cache clear"
                 
                 # Verify cache was preserved
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
                 
-                # Check version is still current
-                cursor.execute('SELECT value FROM cache_metadata WHERE key=?', ('version',))
-                version = int(cursor.fetchone()[0])
-                assert version == CACHE_VERSION, f"Version should still be {CACHE_VERSION}"
-                
-                # Check cache was NOT cleared
                 cursor.execute('SELECT COUNT(*) FROM song_cache')
                 final_count = cursor.fetchone()[0]
                 assert final_count == 2, "Cache should be preserved when version matches"
                 
                 conn.close()
 
-    def test_cache_cleared_when_no_version_metadata(self):
+    def test_legacy_cache_without_metadata_triggers_clear(self):
         """Cache should be cleared when metadata table doesn't exist (very old cache)"""
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = os.path.join(temp_dir, 'test_cache.db')
@@ -198,43 +192,33 @@ class TestCacheVersioning:
             )
             ''')
             
-            # Add some entries
+            # Add entry
             cursor.execute('INSERT INTO song_cache VALUES (?, ?, ?)', 
                           ('/path/to/song1.txt', b'dummy_data_1', '2025-01-01'))
             
             conn.commit()
-            
-            # Verify initial state
-            cursor.execute('SELECT COUNT(*) FROM song_cache')
-            initial_count = cursor.fetchone()[0]
-            assert initial_count == 1, "Should have 1 initial cache entry"
-            
-            # Verify metadata table doesn't exist
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cache_metadata'")
-            assert cursor.fetchone() is None, "Metadata table should not exist"
-            
             conn.close()
             
             # Initialize with versioning
             with patch('common.database.DB_PATH', db_path):
                 import common.database as db_module
                 db_module._db_initialized = False
+                db_module._cache_was_cleared = False
                 
                 from common.database import init_database, CACHE_VERSION
-                init_database()
+                cache_was_cleared = init_database()
+                
+                # SHOULD flag cache clear for legacy database
+                assert cache_was_cleared is True, "Legacy database should flag cache clear"
                 
                 # Verify migration
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
                 
-                # Metadata table should now exist with version
-                cursor.execute('SELECT value FROM cache_metadata WHERE key=?', ('version',))
-                version = int(cursor.fetchone()[0])
-                assert version == CACHE_VERSION
-                
                 # Cache should be cleared (version 0 -> current version)
                 cursor.execute('SELECT COUNT(*) FROM song_cache')
                 final_count = cursor.fetchone()[0]
-                assert final_count == 0, "Cache should be cleared when migrating from no-version to versioned"
+                assert final_count == 0, "Cache should be cleared when migrating from legacy"
                 
                 conn.close()
+

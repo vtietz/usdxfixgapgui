@@ -7,7 +7,7 @@ Separated from main entry point for better code organization.
 
 import sys
 import logging
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QMessageBox
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
@@ -47,8 +47,34 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     """
 
     # Initialize database before creating AppData
-    db_path = initialize_song_cache()
+    db_path, cache_was_cleared = initialize_song_cache()
     logger.info(f"Song cache database initialized at: {db_path}")
+    
+    # If cache was cleared due to version upgrade, show confirmation dialog
+    if cache_was_cleared:
+        logger.info("Displaying re-scan confirmation dialog to user")
+        # Create minimal QApplication for the dialog
+        temp_app = QApplication.instance()
+        if temp_app is None:
+            temp_app = QApplication(sys.argv)
+        
+        msgBox = QMessageBox()
+        msgBox.setIcon(QMessageBox.Icon.Information)
+        msgBox.setWindowTitle("Re-scan Required")
+        msgBox.setText("Due to application upgrade, a complete re-scan of all songs is required.")
+        msgBox.setInformativeText("This will happen automatically on startup. Do you want to start now?")
+        msgBox.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+        msgBox.button(QMessageBox.StandardButton.Ok).setText("Start Re-scan")
+        msgBox.button(QMessageBox.StandardButton.Cancel).setText("Quit Application")
+        msgBox.setDefaultButton(QMessageBox.StandardButton.Ok)
+        
+        result = msgBox.exec()
+        
+        if result == QMessageBox.StandardButton.Cancel:
+            logger.info("User cancelled re-scan. Exiting application.")
+            return 0  # Clean exit
+        
+        logger.info("User confirmed re-scan. Proceeding with application startup.")
 
     # Create app data and actions
     data = AppData()
