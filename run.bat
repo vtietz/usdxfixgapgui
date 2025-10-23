@@ -71,8 +71,6 @@ if "%1"=="" (
     echo   start       - Start the USDXFixGap application
     echo   test        - Run all tests with pytest
     echo   test --docs - Run tests and generate Tier-1/Tier-3 visual artifacts
-    echo   test --config - Run tests with config.ini values ^(validate your settings^)
-    echo   test --docs --config - Generate artifacts using your config.ini values
     echo   install     - Install/update requirements ^(auto-detects GPU^)
     echo   install --gpu   - Force GPU/CUDA PyTorch installation
     echo   install --cpu   - Force CPU-only PyTorch installation
@@ -104,51 +102,26 @@ if /i "%1"=="test" (
     echo Running tests...
     cd /d "%SCRIPT_DIR%"
     
-    :: Check for flags (--docs, --artifacts, --config)
+    :: Check for --docs flag
     set TEST_DOCS=
-    set TEST_CONFIG=
     set PYTEST_ARGS=
     
-    :: Parse all arguments
+    :: Parse arguments
     if /i "%2"=="--docs" set TEST_DOCS=1
     if /i "%2"=="--artifacts" set TEST_DOCS=1
-    if /i "%2"=="--config" set TEST_CONFIG=1
     if /i "%3"=="--docs" set TEST_DOCS=1
     if /i "%3"=="--artifacts" set TEST_DOCS=1
-    if /i "%3"=="--config" set TEST_CONFIG=1
-    if /i "%4"=="--docs" set TEST_DOCS=1
-    if /i "%4"=="--artifacts" set TEST_DOCS=1
-    if /i "%4"=="--config" set TEST_CONFIG=1
     
     :: Collect pytest args (skip our custom flags)
-    if /i not "%2"=="--docs" if /i not "%2"=="--artifacts" if /i not "%2"=="--config" set PYTEST_ARGS=%PYTEST_ARGS% %2
-    if /i not "%3"=="--docs" if /i not "%3"=="--artifacts" if /i not "%3"=="--config" set PYTEST_ARGS=%PYTEST_ARGS% %3
-    if /i not "%4"=="--docs" if /i not "%4"=="--artifacts" if /i not "%4"=="--config" set PYTEST_ARGS=%PYTEST_ARGS% %4
-    if /i not "%5"=="" set PYTEST_ARGS=%PYTEST_ARGS% %5 %6 %7 %8 %9
+    if /i not "%2"=="--docs" if /i not "%2"=="--artifacts" set PYTEST_ARGS=%PYTEST_ARGS% %2
+    if /i not "%3"=="--docs" if /i not "%3"=="--artifacts" set PYTEST_ARGS=%PYTEST_ARGS% %3
+    if /i not "%4"=="" set PYTEST_ARGS=%PYTEST_ARGS% %4 %5 %6 %7 %8 %9
     
-    :: Set environment variables based on flags
+    :: Set environment variables for doc generation
     if defined TEST_DOCS (
         set GAP_TIER1_WRITE_DOCS=1
         set GAP_TIER3_WRITE_DOCS=1
         echo [Test Artifacts] Visual artifacts will be generated in docs/gap-tests/
-    )
-    if defined TEST_CONFIG (
-        set GAP_TEST_USE_CONFIG_INI=1
-        echo.
-        echo ============================================================
-        echo [WARNING] --config flag enabled!
-        echo Tests will READ and WRITE to your REAL config.ini at:
-        echo %LOCALAPPDATA%\USDXFixGap\config.ini
-        echo.
-        echo Your settings ^(including last_directory^) may be modified!
-        echo A backup ^(config.ini.bak^) will be created on save.
-        echo ============================================================
-        echo.
-    ) else (
-        :: Default: Isolate tests from real config
-        set USDXFIXGAP_DATA_DIR=%SCRIPT_DIR%src\.tmp\test-appdata
-        echo [Test Isolation] Using isolated data directory
-        echo [Test Isolation] Your real config will NOT be modified
     )
     
     "%VENV_PYTHON%" -m pytest tests/ -q %PYTEST_ARGS%

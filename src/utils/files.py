@@ -50,8 +50,6 @@ def get_localappdata_dir():
 
     This is the recommended location for all user data (config, cache, models, etc.).
     Follows platform conventions and respects XDG Base Directory Specification on Linux.
-    
-    Can be overridden via USDXFIXGAP_DATA_DIR environment variable for test isolation.
 
     Returns:
         str: Path to application data directory
@@ -61,14 +59,7 @@ def get_localappdata_dir():
         Linux:   ~/.local/share/USDXFixGap/ (respects XDG_DATA_HOME)
         macOS:   ~/Library/Application Support/USDXFixGap/
         Portable: <app_directory>/
-        Override: $USDXFIXGAP_DATA_DIR (for testing)
     """
-    # Check for test/tooling override first
-    override_dir = os.getenv('USDXFIXGAP_DATA_DIR')
-    if override_dir:
-        os.makedirs(override_dir, exist_ok=True)
-        return override_dir
-    
     # Windows: Use LOCALAPPDATA
     if sys.platform == 'win32':
         local_app_data = os.getenv('LOCALAPPDATA')

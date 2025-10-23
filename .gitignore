@@ -18,6 +18,9 @@ env/
 config.ini
 src/config.ini
 
+# Test custom configs (developer-specific experimentation)
+tests/custom_config.ini
+
 # Debug/development scripts
 check_cuda.py
 debug_*.py

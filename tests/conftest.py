@@ -23,52 +23,6 @@ from test_utils import separation_stub
 from utils.providers.mdx.config import MdxConfig
 
 
-@pytest.fixture(scope="session", autouse=True)
-def isolate_test_data_dir(tmp_path_factory, monkeypatch_session):
-    """
-    Isolate tests from real user config by default.
-    
-    Sets USDXFIXGAP_DATA_DIR to a temporary directory for all tests UNLESS
-    the user explicitly opts in to using real config via GAP_TEST_USE_CONFIG_INI=1.
-    
-    This prevents tests from accidentally modifying the user's config.ini,
-    cache.db, logs, and other application data.
-    
-    To explicitly use real config (WITH CAUTION):
-        run.bat test --config
-        OR
-        set GAP_TEST_USE_CONFIG_INI=1 && pytest
-    """
-    # Check if user explicitly requested real config
-    use_real_config = os.getenv('GAP_TEST_USE_CONFIG_INI') == '1'
-    
-    if not use_real_config:
-        # Isolate: Create temp directory for test data
-        test_data_dir = tmp_path_factory.mktemp("test_appdata")
-        monkeypatch_session.setenv("USDXFIXGAP_DATA_DIR", str(test_data_dir))
-        print(f"\n[Test Isolation] Using isolated data dir: {test_data_dir}")
-        print(f"[Test Isolation] Real config will NOT be modified")
-    else:
-        # User opted in to real config
-        from utils.files import get_localappdata_dir
-        real_dir = get_localappdata_dir()
-        print(f"\n[WARNING] Tests will use REAL config at: {real_dir}")
-        print(f"[WARNING] Your config.ini, cache.db may be modified!")
-    
-    yield
-    
-    # Cleanup is automatic for tmp_path_factory
-
-
-@pytest.fixture(scope="session")
-def monkeypatch_session():
-    """Session-scoped monkeypatch for environment variables."""
-    from _pytest.monkeypatch import MonkeyPatch
-    m = MonkeyPatch()
-    yield m
-    m.undo()
-
-
 def validate_detected_gap(detected_ms: Optional[float], test_name: str = "unknown") -> None:
     """
     Validate that a detected gap meets basic sanity checks.
@@ -266,13 +220,15 @@ def mdx_config_tight():
     """
     Tight MDX configuration for fast scanner tests.
     
-    If GAP_TEST_USE_CONFIG_INI=1, loads from config.ini.
-    Otherwise uses hard-coded test values.
+    Automatically loads from tests/custom_config.ini if it exists,
+    otherwise uses hard-coded test values for predictable results.
     """
-    if os.environ.get('GAP_TEST_USE_CONFIG_INI') == '1':
-        # Load from user's config.ini
+    custom_config_path = os.path.join(os.path.dirname(__file__), "custom_config.ini")
+    
+    if os.path.exists(custom_config_path):
+        # Load from custom config for experimentation
         from common.config import Config
-        cfg = Config()  # Auto-loads config.ini
+        cfg = Config(custom_config_path=custom_config_path)
         return MdxConfig.from_config(cfg)
     
     # Default hard-coded test values
@@ -294,13 +250,15 @@ def mdx_config_loose():
     """
     Loose MDX configuration for edge case tests.
     
-    If GAP_TEST_USE_CONFIG_INI=1, loads from config.ini.
-    Otherwise uses hard-coded test values.
+    Automatically loads from tests/custom_config.ini if it exists,
+    otherwise uses hard-coded test values for predictable results.
     """
-    if os.environ.get('GAP_TEST_USE_CONFIG_INI') == '1':
-        # Load from user's config.ini
+    custom_config_path = os.path.join(os.path.dirname(__file__), "custom_config.ini")
+    
+    if os.path.exists(custom_config_path):
+        # Load from custom config for experimentation
         from common.config import Config
-        cfg = Config()  # Auto-loads config.ini
+        cfg = Config(custom_config_path=custom_config_path)
         return MdxConfig.from_config(cfg)
     
     # Default hard-coded test values

@@ -7,11 +7,23 @@ from utils.files import get_localappdata_dir
 logger = logging.getLogger(__name__)
 
 class Config(QObject):
-    def __init__(self):
+    def __init__(self, custom_config_path: str | None = None):
+        """Initialize Config from file.
+        
+        Args:
+            custom_config_path: Optional path to custom config file.
+                               Useful for testing different parameter sets.
+                               If None, uses system config location.
+        """
         super().__init__()
         
-        # Determine config path first
-        self.config_path = os.path.join(get_localappdata_dir(), 'config.ini')
+        # Determine config path
+        if custom_config_path:
+            self.config_path = custom_config_path
+            logger.debug(f"Using custom config: {self.config_path}")
+        else:
+            self.config_path = os.path.join(get_localappdata_dir(), 'config.ini')
+        
         config_exists = os.path.exists(self.config_path)
         
         if config_exists:
@@ -402,15 +414,5 @@ class Config(QObject):
 
     def log_config_location(self):
         """Log the configuration file location (call after logging is set up)"""
-        # Check if we're using an isolated data directory (test mode)
-        data_dir_override = os.getenv('USDXFIXGAP_DATA_DIR')
-        
-        if data_dir_override:
-            print(f"⚠️  [Test Mode] Configuration loaded from isolated directory:")
-            print(f"   {self.config_path}")
-            print(f"   (USDXFIXGAP_DATA_DIR={data_dir_override})")
-            logger.info(f"[Test Mode] Configuration loaded from isolated directory: {self.config_path}")
-            logger.info(f"USDXFIXGAP_DATA_DIR override active: {data_dir_override}")
-        else:
-            print(f"Configuration loaded from: {self.config_path}")
-            logger.info(f"Configuration loaded from: {self.config_path}")
+        print(f"Configuration loaded from: {self.config_path}")
+        logger.info(f"Configuration loaded from: {self.config_path}")

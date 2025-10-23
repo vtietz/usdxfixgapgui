@@ -84,6 +84,7 @@ if [[ $# -eq 0 ]]; then
     echo "Available shortcuts:"
     echo "  start       - Start the USDXFixGap application"
     echo "  test        - Run all tests with pytest"
+    echo "  test --docs - Run tests and generate Tier-1/Tier-3 visual artifacts"
     echo "  install     - Install/update requirements (auto-detects GPU)"
     echo "  install --gpu   - Force GPU/CUDA PyTorch installation"
     echo "  install --cpu   - Force CPU-only PyTorch installation"
@@ -113,7 +114,28 @@ case "$1" in
     "test")
         print_info "Running tests..."
         cd "$SCRIPT_DIR"
-        "$VENV_PYTHON" -m pytest tests/ -v
+        
+        # Check for --docs flag
+        TEST_DOCS=""
+        PYTEST_ARGS=""
+        
+        # Parse arguments looking for --docs or --artifacts
+        for arg in "$@"; do
+            if [[ "$arg" == "--docs" ]] || [[ "$arg" == "--artifacts" ]]; then
+                TEST_DOCS=1
+            else
+                PYTEST_ARGS="$PYTEST_ARGS $arg"
+            fi
+        done
+        
+        # Set environment variables for doc generation
+        if [[ -n "$TEST_DOCS" ]]; then
+            export GAP_TIER1_WRITE_DOCS=1
+            export GAP_TIER3_WRITE_DOCS=1
+            print_info "[Test Artifacts] Visual artifacts will be generated in docs/gap-tests/"
+        fi
+        
+        "$VENV_PYTHON" -m pytest tests/ -q $PYTEST_ARGS
         ;;
     "install")
         print_info "Installing/updating requirements..."
