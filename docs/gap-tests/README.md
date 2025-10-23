@@ -78,6 +78,7 @@ hysteresis_ms = 300
 |---|----------|--------------|-----------|-------|
 | 1 | Abrupt onset | 1500 ms | ±50 ms | ![](tier1/01-abrupt-onset.png) |
 | 2 | Gradual fade-in (1000ms) | 1500 ms | ±200 ms | ![](tier1/02-gradual-fade-in.png) |
+| 2b | Very gradual fade-in (2000ms) | 1500 ms | ±300 ms | ![](tier1/02b-very-gradual-fade-in.png) |
 | 3 | Breathy start (300ms preroll) | 1500 ms | ±150 ms | ![](tier1/03-breathy-start.png) |
 | 4 | Quiet vocals (low SNR) | 1500 ms | ±250 ms | ![](tier1/04-quiet-vocals.png) |
 | 5 | High noise floor (-24dB) | 1500 ms | ±200 ms | ![](tier1/05-high-noise-floor.png) |
@@ -123,14 +124,14 @@ hysteresis_ms = 300
 
 **Edge Cases** (`test_tier2_scanner_edge_cases.py` - 6 tests):
 
-| # | Scenario | Expected Behavior |
-|---|----------|------------------|
-| 6 | Early vocals (1000ms) vs late expected (8000ms) | Detects in first expansion |
-| 7 | Multiple onsets (2000ms, 21000ms) | Chooses closest to expected |
-| 8 | No vocals (silent channel) | Returns `None` gracefully |
-| 9 | Very late vocals (70s) vs early expected (2s) | Max window limit handling |
-| 10 | Quiet vocals with loud instruments | Clean separation (stub) |
-| 11 | Gap=0ms with instrumental intro → vocals at 8000ms | Filters out very early onsets (< 800ms) |
+| # | Scenario | Expected Behavior | Image |
+|---|----------|-------------------|-------|
+| 6 | Early vocals (1000ms) vs late expected (8000ms) | Detects in first expansion | — |
+| 7 | Multiple onsets (2000ms, 21000ms) | Chooses closest to expected | — |
+| 8 | No vocals (silent channel) | Returns `None` gracefully | — |
+| 9 | Very late vocals (70s) vs early expected (2s) | Max window limit handling | — |
+| 10 | Quiet vocals with loud instruments | Clean separation (stub) | — |
+| 11 | Gap=0ms with instrumental intro → vocals at 8000ms | Filters out very early onsets (< 800ms) | ![](tier2/11-zero-gap-with-late-vocals.png) |
 
 **Performance & Optimization** (`test_tier2_scanner_performance.py` - 3 tests):
 
@@ -226,20 +227,25 @@ Generated with `.\run.bat test --docs`:
 
 ```
 docs/gap-tests/
-├── tier1/           # Energy detection waveforms (13 images)
+├── tier1/           # Energy detection waveforms (12 images)
 │   ├── 01-abrupt-onset.png
 │   ├── 02-gradual-fade-in.png
+│   ├── 02b-very-gradual-fade-in.png
 │   ├── 03-breathy-start.png
-│   └── ...
-├── tier2/           # Scanner orchestration (4 images) - NEW v2.4
+│   ├── 04-quiet-vocals.png
+│   ├── 05-high-noise-floor.png
+│   ├── 06-instrument-spike.png
+│   ├── 07-too-short-energy.png
+│   └── 09-sensitivity-*.png (4 variants)
+├── tier2/           # Scanner orchestration (5 images) - v2.4+
 │   ├── 11-ignore-early-noise-detect-expected-gap.png
+│   ├── 11-zero-gap-with-late-vocals.png
 │   ├── 12-multiple-false-positives-detect-correct-gap.png
 │   ├── 13-early-vocals-outside-initial-window.png
 │   └── 14-gradual-fade-in-with-early-noise.png
-└── tier3/           # Pipeline overview plots (7 images)
+└── tier3/           # Pipeline overview plots (2 images)
     ├── 01-exact-match.png
-    ├── 02-no-silence.png
-    └── ...
+    └── 02-no-silence-periods.png
 ```
 
 **Image Format**: Blue waveform + RMS overlay (red), truth onset (green dashed), detected onset (blue solid), delta error in legend
