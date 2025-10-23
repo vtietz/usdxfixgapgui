@@ -55,8 +55,10 @@ class SongService:
             logger.error(f"Error loading song {txt_file}: {e}", exc_info=True)
             song.set_error(str(e))
 
-        # Load gap_info
-        song.gap_info = GapInfoService.create_for_song_path(song.path)
+        # Load gap_info with txt_basename for multi-entry support
+        txt_basename = os.path.basename(txt_file)
+        song.gap_info = GapInfoService.create_for_song_path(song.path, txt_basename)
+        song.gap_info.owner = song
         try:
             logger.debug(f"Loading gap_info for {txt_file}")
             if song.gap_info:

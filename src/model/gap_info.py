@@ -17,9 +17,12 @@ class GapInfoStatus(Enum):
 class GapInfo:
     """Data class for song gap analysis information"""
 
-    def __init__(self, file_path: str = ""):
+    def __init__(self, file_path: str = "", txt_basename: str = ""):
         # File path where the gap info will be stored
         self.file_path = file_path
+        
+        # Txt basename for multi-entry support (e.g., "SongA.txt")
+        self.txt_basename = txt_basename
 
         # Status and gap information
         self._status = GapInfoStatus.NOT_PROCESSED
@@ -61,6 +64,17 @@ class GapInfo:
 
     @status.setter
     def status(self, value):
+        # Ensure status is always stored as enum, even if string is passed
+        if isinstance(value, str):
+            try:
+                value = GapInfoStatus[value]
+            except KeyError:
+                logger.warning(f"Invalid status string '{value}', defaulting to ERROR")
+                value = GapInfoStatus.ERROR
+        elif not isinstance(value, GapInfoStatus):
+            logger.warning(f"Invalid status type {type(value)}, defaulting to ERROR")
+            value = GapInfoStatus.ERROR
+            
         self._status = value
         # Update owner's status when this status changes
         if hasattr(self, 'owner') and self.owner is not None:
