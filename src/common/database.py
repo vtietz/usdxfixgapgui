@@ -12,6 +12,11 @@ logger = logging.getLogger(__name__)
 DB_PATH = os.path.join(get_localappdata_dir(), 'cache.db')
 _db_initialized = False
 
+# Cache schema version - increment when cache structure changes
+# Version 1: Original cache (pre-multi-txt support)
+# Version 2: Multi-txt support (txt_file path is primary key)
+CACHE_VERSION = 2
+
 def get_connection():
     """Get a connection to the database."""
     return sqlite3.connect(DB_PATH)
@@ -36,6 +41,26 @@ def init_database():
         timestamp DATETIME
     )
     ''')
+
+    # Create metadata table for cache versioning
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS cache_metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )
+    ''')
+
+    # Check cache version
+    cursor.execute('SELECT value FROM cache_metadata WHERE key=?', ('version',))
+    result = cursor.fetchone()
+    current_version = int(result[0]) if result else 0
+
+    if current_version < CACHE_VERSION:
+        logger.info(f"Cache version mismatch (current: {current_version}, required: {CACHE_VERSION}). Clearing cache...")
+        cursor.execute('DELETE FROM song_cache')
+        cursor.execute('INSERT OR REPLACE INTO cache_metadata (key, value) VALUES (?, ?)', 
+                      ('version', str(CACHE_VERSION)))
+        logger.info("Cache cleared and version updated")
 
     conn.commit()
     conn.close()
