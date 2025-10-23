@@ -134,7 +134,21 @@ if /i "%1"=="test" (
     )
     if defined TEST_CONFIG (
         set GAP_TEST_USE_CONFIG_INI=1
-        echo [Config Testing] Tests will use values from config.ini
+        echo.
+        echo ============================================================
+        echo [WARNING] --config flag enabled!
+        echo Tests will READ and WRITE to your REAL config.ini at:
+        echo %LOCALAPPDATA%\USDXFixGap\config.ini
+        echo.
+        echo Your settings ^(including last_directory^) may be modified!
+        echo A backup ^(config.ini.bak^) will be created on save.
+        echo ============================================================
+        echo.
+    ) else (
+        :: Default: Isolate tests from real config
+        set USDXFIXGAP_DATA_DIR=%SCRIPT_DIR%src\.tmp\test-appdata
+        echo [Test Isolation] Using isolated data directory
+        echo [Test Isolation] Your real config will NOT be modified
     )
     
     "%VENV_PYTHON%" -m pytest tests/ -q %PYTEST_ARGS%

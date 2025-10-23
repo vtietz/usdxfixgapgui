@@ -35,9 +35,11 @@ class CoreActions(BaseActions):
         self.data.directory = directory
 
         # Save this directory as the last used directory in config
+        logger.debug(f"Before save: config.last_directory = '{self.config.last_directory}'")
         self.config.last_directory = directory
+        logger.debug(f"After assignment: config.last_directory = '{self.config.last_directory}'")
         self.config.save()
-        logger.debug(f"Saved last directory to config: {directory}")
+        logger.info(f"Saved last directory to config: {directory}")
 
         self._clear_songs()
         self._load_songs()
