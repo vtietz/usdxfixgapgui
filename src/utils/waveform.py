@@ -20,13 +20,12 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
 
     os.makedirs(os.path.dirname(image_path), exist_ok=True)
 
-    # Create waveform image with normalized amplitude for better visibility
-    # Using dynaudnorm to normalize audio before visualization (prevents overflow)
-    # scale=sqrt provides better visual balance than linear
+    # Create waveform image preserving original amplitude
+    # scale=sqrt provides better visibility while maintaining relative loudness differences
+    # No normalization: allows visual comparison between original and normalized songs
     command = [
         'ffmpeg', '-y', '-loglevel', 'quiet', '-i', audio_file,
         '-filter_complex',
-        f"dynaudnorm=f=100:g=31:p=0.95:m=10:r=0.5:n=1:c=1,"
         f"showwavespic=s={width}x{height}:colors={color}:scale=sqrt:split_channels=1",
         '-frames:v', '1', image_path
     ]

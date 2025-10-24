@@ -138,11 +138,19 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Create UI components
     menuBar = MenuBar(actions, data)
-    songStatus = SongsStatusVisualizer(data.songs)
+    songStatus = SongsStatusVisualizer(data.songs, data)
     songListView = SongListWidget(data.songs, actions, data)
     mediaPlayerComponent = MediaPlayerComponent(data, actions)
     taskQueueViewer = TaskQueueViewer(actions.worker_queue)
     logViewer = LogViewerWidget(log_file_path, max_lines=1000)
+    
+    # Connect loading state changes to status visualizer
+    def on_loading_state_changed():
+        songStatus.update_visualization()
+    
+    # Monitor is_loading_songs changes (will be set in CoreActions)
+    # We'll update every time songs are added during loading
+    data.songs.listChanged.connect(on_loading_state_changed)
 
     # Install event filter
     app.installEventFilter(mediaPlayerComponent.globalEventFilter)

@@ -1,15 +1,17 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QProgressBar
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 
 from model.songs import Songs, SongStatus
+from app.app_data import AppData
 
 # Assuming SongStatus and Songs are defined elsewhere
 
 class SongsStatusVisualizer(QWidget):
-    def __init__(self, songs: Songs, parent=None):
+    def __init__(self, songs: Songs, data: 'AppData | None' = None, parent=None):
         super().__init__(parent)
         self.songs = songs
+        self.data = data  # Optional AppData for loading state
         self.layout = QHBoxLayout()
         self.setLayout(self.layout)
         self.layout.setSpacing(0)
@@ -18,6 +20,12 @@ class SongsStatusVisualizer(QWidget):
 
         # Optional: Store labels for updating without recreation
         self.status_labels = {}
+        
+        # Placeholder (shown when there are no songs)
+        self.placeholder_label = QLabel()
+        self.placeholder_label.setStyleSheet("background-color: #2E2E2E; color: rgba(255, 255, 255, 0.3);")
+        self.placeholder_label.setFixedHeight(20)  # Same height as status bar
+        self.layout.addWidget(self.placeholder_label)
 
         # Initialize visualization
         self.update_visualization()
@@ -27,16 +35,22 @@ class SongsStatusVisualizer(QWidget):
         self.songs.updated.connect(self.update_visualization)
         self.songs.deleted.connect(self.update_visualization)
         self.songs.cleared.connect(self.update_visualization)
+        self.songs.listChanged.connect(self.update_visualization)  # React to batch adds
 
     def update_visualization(self):
         counts = self.calculate_status_counts()
         total_songs = sum(counts.values())
 
         if total_songs == 0:
-            # Optionally handle the case when there are no songs at all
+            # Show placeholder when no songs
+            self.placeholder_label.show()
+            # Hide all status labels
             for label in self.status_labels.values():
                 label.hide()
             return
+        else:
+            # Hide placeholder when we have songs
+            self.placeholder_label.hide()
 
         for status in SongStatus:
 

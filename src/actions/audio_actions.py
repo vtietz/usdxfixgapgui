@@ -55,14 +55,52 @@ class AudioActions(BaseActions):
         worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
         worker.signals.finished.connect(lambda: self._on_song_worker_finished(song))
 
-        # Defer reload to prevent UI freeze - reload only updates the gap_info
-        # which is already updated by the worker, so we just need to refresh the display
-        # Use QTimer to defer the reload to prevent blocking the UI thread
-        worker.signals.finished.connect(lambda: self._schedule_deferred_reload(song))
+        # Defer reload only on success; skip when status is ERROR to preserve the error display
+        def _reload_if_success():
+            try:
+                if getattr(song, "status", None) != SongStatus.ERROR:
+                    self._schedule_deferred_reload(song)
+                else:
+                    logger.debug(f"Skipping reload due to error status for song: {song}")
+            except Exception:
+                # Be resilient; avoid raising in signal handler
+                pass
+        worker.signals.finished.connect(_reload_if_success)
+
+        # Lock audio file to prevent UI from reloading it or instant waveform tasks from accessing it during normalization
+        try:
+            if hasattr(song, "audio_file") and song.audio_file:
+                self.data.lock_file(song.audio_file)
+        except Exception:
+            pass
+
+        # Ensure locks are cleared when the worker finishes or errors
+        try:
+            worker.signals.finished.connect(lambda: self.data.clear_file_locks_for_song(song))
+            worker.signals.error.connect(lambda e: self.data.clear_file_locks_for_song(song))
+        except Exception:
+            pass
+
+        # Request media unload to prevent Windows file locks from QMediaPlayer during os.replace().
+        if hasattr(self.data, "media_unload_requested"):
+            try:
+                self.data.media_unload_requested.emit()
+            except Exception:
+                # If signal wiring fails, proceed without emit
+                pass
 
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
-        self.worker_queue.add_task(worker, start_now)
+
+        # Defer adding the task to allow QMediaPlayer to fully release file handles on Windows
+        try:
+            from PySide6.QtCore import QTimer
+            # Increase delay to 800 ms to ensure QMediaPlayer has released file handles
+            # on all systems including network drives
+            QTimer.singleShot(800, lambda: self.worker_queue.add_task(worker, start_now))
+        except Exception:
+            # If QTimer unavailable, fallback to immediate add
+            self.worker_queue.add_task(worker, start_now)
 
     def _schedule_deferred_reload(self, song: Song):
         """Schedule a deferred reload to prevent UI thread blocking."""

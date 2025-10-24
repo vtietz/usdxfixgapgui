@@ -64,6 +64,9 @@ class MediaPlayerComponent(QWidget):
         self._data.selected_songs_changed.connect(self.on_selected_songs_changed)
         self._data.songs.updated.connect(self.on_song_updated)
         self._data.songs.deleted.connect(lambda: self.player.unload_all_media())
+        # New: allow actions to request unloading media to prevent Windows file locks during normalization
+        if hasattr(self._data, "media_unload_requested"):
+            self._data.media_unload_requested.connect(lambda: self.player.unload_all_media())
 
     def initUI(self):
         # Create control buttons
@@ -260,6 +263,9 @@ class MediaPlayerComponent(QWidget):
             return
 
         logger.debug(f"Current song updated: {updated_song.title}")
+        # Ensure we reference the latest Song instance so status checks (e.g., QUEUED) are accurate.
+        # Without this, update_player_files may use a stale self._song and re-load media, causing file locks.
+        self._song = updated_song
         self.update_ui()
         self.update_player_files()
 
@@ -273,6 +279,16 @@ class MediaPlayerComponent(QWidget):
             self.waveform_widget.clear_placeholder()
             return
 
+        # Avoid re-loading media while a processing task has just been queued or is running.
+        # The QUEUED state is emitted immediately before starting normalization and can
+        # cause the player to re-open the file, leading to Windows file locks.
+        # PROCESSING state means a worker is actively modifying the file.
+        # Skip loading during QUEUED/PROCESSING to allow background workers to operate safely.
+        if song.status in (SongStatus.QUEUED, SongStatus.PROCESSING):
+            logger.debug(f"Song is {song.status.name}; not loading media to prevent file locks during processing")
+            self.player.load_media(None)
+            # Keep waveform as-is; do not reload here
+            return
         # Check if song has notes attribute but don't prevent playback
         if not hasattr(song, 'notes') or song.notes is None:
             logger.warning(f"Song '{song.title}' does not have notes data, but will play audio anyway")

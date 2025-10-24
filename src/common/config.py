@@ -22,7 +22,16 @@ class Config(QObject):
             self.config_path = custom_config_path
             logger.debug(f"Using custom config: {self.config_path}")
         else:
-            self.config_path = os.path.join(get_localappdata_dir(), 'config.ini')
+            # Check if running in test mode (pytest sets PYTEST_CURRENT_TEST)
+            # In test mode, use temp config to avoid polluting user's real config
+            if 'PYTEST_CURRENT_TEST' in os.environ:
+                import tempfile
+                test_config_dir = os.path.join(tempfile.gettempdir(), 'usdxfixgap_test')
+                os.makedirs(test_config_dir, exist_ok=True)
+                self.config_path = os.path.join(test_config_dir, 'config.ini')
+                logger.debug(f"Test mode detected, using temp config: {self.config_path}")
+            else:
+                self.config_path = os.path.join(get_localappdata_dir(), 'config.ini')
         
         config_exists = os.path.exists(self.config_path)
         

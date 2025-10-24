@@ -160,6 +160,9 @@ class PlayerController(QObject):
         """Unload all media from the player"""
         self.media_player.stop()
         self.media_player.setSource(QUrl())
+        # Clear internal tracking to prevent re-validation from loading
+        self.old_source = None
+        self.old_checksum = None
 
     def adjust_position_left(self):
         """Move playback position backwards"""
