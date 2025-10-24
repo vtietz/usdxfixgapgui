@@ -157,6 +157,8 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Setup layout
     layout = QVBoxLayout()
+    layout.setContentsMargins(10, 10, 10, 10)
+    layout.setSpacing(10)
     layout.addWidget(menuBar)
     layout.addWidget(songStatus)
     layout.addWidget(songListView, 2)

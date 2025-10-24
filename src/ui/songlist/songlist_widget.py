@@ -68,6 +68,8 @@ class SongListWidget(QWidget):
         self.countLabel = QLabel()
 
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         layout.addWidget(self.tableView)
         layout.addWidget(self.countLabel)
         self.setLayout(layout)
