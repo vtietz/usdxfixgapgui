@@ -1,9 +1,9 @@
-<p align="center"> 
+<p align="center">
     <img width="150" src="./src/assets/usdxfixgap-icon.png" alt="Logo">
     <h3 align="center">Effortlessly synchronize your Ultrastar Deluxe songs with AI-powered GAP detection and correction for the ultimate karaoke experience!</h3>
     <br/>
 </p>
-<p align="center"> 
+<p align="center">
     <img style="width:80%;" src="./screenshot.png" alt="Screenshot">
     <br/>
 </p>
@@ -186,7 +186,7 @@ watch_ignore_patterns = .tmp,~,.crdownload,.part  # Comma-separated patterns to 
 3. **Run the application** and start fixing gaps!
 
 4. **(Optional) Enable GPU Acceleration**:
-   - Have an NVIDIA GPU with driver ≥531? 
+   - Have an NVIDIA GPU with driver ≥531?
    - The app will automatically offer to download GPU Pack (~1GB) for 5-10x faster processing
    - [→ GPU Acceleration Guide](docs/gpu-acceleration.md)
 
@@ -215,7 +215,7 @@ The run script automatically handles environment setup and dependencies!
    py -3.10 -m venv .venv
    # Or fallback to:
    python -m venv .venv
-   
+
    # Linux/macOS
    python3 -m venv .venv
    ```
@@ -224,7 +224,7 @@ The run script automatically handles environment setup and dependencies!
    ```bash
    # Windows
    .venv\Scripts\pip.exe install -r requirements.txt
-   
+
    # Linux/macOS
    .venv/bin/pip install -r requirements.txt
    ```
@@ -234,7 +234,7 @@ The run script automatically handles environment setup and dependencies!
    # Windows
    cd src
    .venv\Scripts\python.exe usdxfixgap.py
-   
+
    # Linux/macOS
    cd src
    .venv/bin/python usdxfixgap.py
@@ -315,7 +315,6 @@ Want to contribute or understand how the code works?
 - **[Development Guide](docs/DEVELOPMENT.md)** - Setup, testing, code quality tools, building executables
 - **[Architecture Guide](docs/architecture.md)** - System design, component responsibilities, signal patterns
 - **[Coding Standards](docs/coding-standards.md)** - DRY principles, SOLID patterns, testing guidelines
-- **[Signal Usage Guide](docs/signals.md)** - Event communication patterns and best practices
 - **[Configuration Reference](docs/configuration.md)** - Complete config.ini settings documentation
 - **[GPU Acceleration](docs/gpu-acceleration.md)** - GPU Pack setup, troubleshooting, architecture
 - **[Performance Optimization](docs/performance-optimization.md)** - Qt TableView optimization patterns

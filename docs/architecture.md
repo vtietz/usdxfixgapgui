@@ -3,7 +3,6 @@
 
 > **📋 Related Documentation:**
 > - [Coding Standards](coding-standards.md) - DRY principle, clean code practices, and implementation guidelines
-> - [Signals](signals.md) - Signal flow patterns and usage guidelines
 
 ### **Layers**
 1. **Models (Data Layer)**:
@@ -110,7 +109,7 @@
           self.config = Config()
           self.songs = Songs()
           self.worker_queue = WorkerQueueManager()
-          
+
           # Service instances for injection (optional - static methods also acceptable)
           self.gap_info_service = GapInfoService()
           self.usdx_file_service = USDXFileService()
@@ -195,7 +194,7 @@ class Song:
         """Set error status and message"""
         self.status = SongStatus.ERROR
         self.error_message = error_message
-    
+
     def clear_error(self):
         """Clear error status and message, resetting to neutral ready state (NOT_PROCESSED)"""
         self.status = SongStatus.NOT_PROCESSED  # Neutral ready state
@@ -230,17 +229,17 @@ class GapActions:
         song.gap_info.detected_gap = result.detected_gap
         song.gap_info.diff = result.gap_diff
         song.gap_info.status = result.status  # Triggers _gap_info_updated()
-        
+
         # ❌ DO NOT set song.status directly
         # song.status = SongStatus.MATCH  # WRONG!
-        
+
         self.data.songs.updated.emit(song)
-    
+
     def update_gap_value(self, song: Song, gap: int):
         # ✅ Update gap_info.status - Song.status updates automatically
         song.gap_info.updated_gap = gap
         song.gap_info.status = GapInfoStatus.UPDATED
-        
+
         # ❌ DO NOT set song.status directly
         # song.status = SongStatus.UPDATED  # WRONG!
 ```
@@ -285,7 +284,7 @@ def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
     # Update model state
     song.gap_info.detected_gap = result.detected_gap
     song.gap_info.status = result.status
-    
+
     # Queue follow-up tasks (like auto-normalization)
     if self.config.auto_normalize and song.audio_file:
         logger.info(f"Queueing auto-normalization for {song}")
@@ -297,7 +296,7 @@ def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
 # ❌ WRONG: Inline execution blocks UI and bypasses queue
 def _on_detect_gap_finished_bad(self, song: Song, result: GapDetectionResult):
     song.gap_info.status = result.status
-    
+
     # Inline call bypasses queue - blocks UI, no status tracking
     if self.config.auto_normalize:
         audio_actions._normalize_song(song)  # Executes immediately!
@@ -421,11 +420,110 @@ This architecture relies on consistent application of clean code principles:
 
 For detailed coding standards, clean code practices, and implementation guidelines, see [Coding Standards](coding-standards.md).
 
-### **11. Documentation References**
+### **11. Signal Communication Patterns**
+
+#### **When to Use Signals**
+
+Use signals for **asynchronous communication** between components:
+- **UI updates** based on background tasks (worker completed/errored)
+- **Decoupling** components (e.g., workers ↔ UI)
+- **Event-driven behavior** (e.g., notifying when a task completes)
+
+**Good use cases:**
+- Workers: Notify UI about progress, completion, errors
+- Model changes: `songs.updated.emit(song)` when data changes
+- Inter-component communication: Decouple actions, services, and UI
+
+**Avoid signals for:**
+- Direct method calls where synchronous behavior is expected
+- Internal logic within a single class or tightly coupled components
+- Actions emitting UI signals directly (update models instead, emit via data model)
+
+#### **Signal Anti-Patterns**
+
+**❌ Actions Emitting Signals Directly:**
+Actions should NOT emit their own signals. Instead, update models and emit through data model aggregators like `self.data.songs.updated.emit(song)`.
+
+**❌ Models Calling Services:**
+Models should NOT import or call services. Services operate on models, not vice versa.
+
+**❌ Services Emitting Signals:**
+Services should NOT emit signals. They return results or raise exceptions. Actions handle results and emit signals.
+
+#### **Signal Usage Guidelines**
+
+**✅ Data Models Emit Signals:**
+Data model classes (e.g., `Songs`) emit signals when their data changes:
+- `self.data.songs.updated.emit(song)` - Single song changed
+- `self.data.songs.listChanged.emit()` - List structure changed
+
+**✅ Actions Orchestrate and Emit Via Data Model:**
+Actions update models, then signal through the data model aggregator, not directly.
+
+**✅ Workers Emit Task Signals:**
+Workers emit `started`, `finished`, `error` signals to notify about task progress.
+
+**✅ Always Wire Worker Error Signals:**
+Worker error signals carry exception context that must be forwarded to error handlers. Lambda connectors must accept and forward the exception parameter.
+
+#### **Layer-Specific Signal Responsibilities**
+
+**Workers:**
+- Perform long-running or asynchronous tasks
+- Emit signals (`started`, `finished`, `error`) to notify about task progress
+- Should NOT directly interact with UI or services
+
+**Services:**
+- Handle business logic and data manipulation
+- Should NOT emit signals
+- Return results or raise exceptions for actions to handle
+- Should be stateless and reusable
+
+**Actions:**
+- Act as the controller layer, orchestrating workers, services, and UI updates
+- Connect worker signals to appropriate handlers
+- Update models based on results
+- Signal changes through data model aggregators
+
+**UI Components:**
+- Handle user interactions and display updates
+- Connect to signals from actions or data models
+- Avoid directly interacting with workers or services
+
+#### **Signal Encapsulation**
+
+Encapsulate signals within specific layers:
+- **Workers**: Emit task-specific signals (`started`, `finished`, `error`)
+- **Data Models**: Emit signals for data changes (`songs.updated`, `songs.listChanged`)
+- **UI Components**: Connect to signals from data models or actions
+
+**Workflow:**
+1. UI triggers action (e.g., "Detect Gap" button clicked)
+2. Action starts worker and connects signals to handlers
+3. Worker emits signals (`finished`, `error`) when task completes
+4. Action handles worker signals, updates data model
+5. Data model emits signals (e.g., `songs.updated.emit(song)`)
+6. UI listens to data model signals and updates itself
+
+### **12. Documentation References**
 
 - **[Coding Standards](coding-standards.md)**: DRY principle, SOLID principles, clean code practices, testing standards
-- **[Signals](signals.md)**: Signal flow patterns, best practices, and anti-patterns
+- **[Development Guide](DEVELOPMENT.md)**: Setup, testing, code quality tools
 - **[GitHub Copilot Instructions](../.github/copilot-instructions.md)**: AI assistance guidelines for consistent code generation
+
+### **13. Testing Strategy by Layer**
+
+#### **Model Testing**
+- Test data validation and derived properties
+- Test state management methods (e.g., `set_error`)
+- Mock external dependencies if any
+- Focus on pure data logic
+
+#### **Service Testing**
+- Test business logic in isolation
+- Mock external dependencies (file system, network)
+- Test error conditions and edge cases
+- Services should be stateless and easily testable
 
 #### **Action Testing**
 - Test orchestration logic

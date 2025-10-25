@@ -5,7 +5,7 @@
 
 ⚠️ **DO NOT bump version numbers** - Maintainer controls versioning manually.
 
-**Read First:** `docs/architecture.md`, `docs/coding-standards.md`, `docs/signals.md`.
+**Read First:** `docs/architecture.md` (includes signal patterns), `docs/coding-standards.md`.
 
 ---
 
