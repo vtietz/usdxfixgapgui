@@ -23,8 +23,6 @@ class MenuBar(QWidget):
     # detectClicked = Signal()
     # deleteClicked = Signal()
 
-    _selected_songs: List[Song] = []  # Use List[Song]
-
     def __init__(self, actions: Actions, data: AppData, parent=None):
 
         super().__init__(parent)
@@ -42,63 +40,17 @@ class MenuBar(QWidget):
         self.loadSongsButton.clicked.connect(self.choose_directory)
         self._layout.addWidget(self.loadSongsButton)
 
-        # Detect Button - Now triggers action for multiple songs
-        self.detectButton = QPushButton("Detect")  # Renamed for clarity
-        # Action handles iteration
-        self.detectButton.clicked.connect(lambda: self._actions.detect_gap(overwrite=True))
-        self._layout.addWidget(self.detectButton)
-
-        # Open song folder - Opens folder of the first selected song
-        self.openFolderButton = QPushButton("Open Folder")
-        self.openFolderButton.clicked.connect(lambda: self._actions.open_folder())  # Action handles logic
-        self._layout.addWidget(self.openFolderButton)
-
-        # Open usdx webseite - Only enabled for single selection
-        self.open_usdx_button = QPushButton("Open in USDB")
-        self.open_usdx_button.clicked.connect(lambda: self._actions.open_usdx())  # Action handles logic
-        self._layout.addWidget(self.open_usdx_button)
-
-        # Reload song - Reloads all selected songs
-        self.reload_button = QPushButton("Reload")  # Renamed for clarity
-        self.reload_button.clicked.connect(lambda: self._actions.reload_song())  # Action handles iteration
-        self._layout.addWidget(self.reload_button)
-
-        # Normalize song - Normalizes all selected songs
-        self.normalize_button = QPushButton("Normalize")  # Renamed for clarity
-        self.normalize_button.clicked.connect(lambda: self._actions.normalize_song())  # Action handles iteration
-        self._layout.addWidget(self.normalize_button)
-
-        # Delete song - Deletes all selected songs after confirmation
-        self.delete_button = QPushButton("Delete")  # Renamed for clarity
-        self.delete_button.clicked.connect(self.onDeleteButtonClicked)
-        self._layout.addWidget(self.delete_button)
-
         # Watch Mode toggle button - checkable button for watch mode
         self.watch_mode_button = QPushButton("Watch Mode")
         self.watch_mode_button.setCheckable(True)
         self.watch_mode_button.setChecked(False)
         self.watch_mode_button.setEnabled(False)  # Disabled until requirements met
         self.watch_mode_button.setToolTip("Monitor directory for changes and auto-update")
-        # Style to match other toolbar buttons (flat appearance, highlight when checked)
+        # Simple style with dark orange when checked
         self.watch_mode_button.setStyleSheet("""
-            QPushButton {
-                border: 1px solid #8f8f91;
-                border-radius: 3px;
-                padding: 4px 8px;
-                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                                  stop: 0 #f6f7fa, stop: 1 #dadbde);
-            }
             QPushButton:checked {
-                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                                  stop: 0 #dadbde, stop: 1 #f6f7fa);
-                border: 1px solid #5c5c5e;
-            }
-            QPushButton:hover {
-                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                                  stop: 0 #e7e8eb, stop: 1 #c8c9cc);
-            }
-            QPushButton:disabled {
-                color: #787878;
+                background-color: #D2691E;
+                color: white;
             }
         """)
         self.watch_mode_button.clicked.connect(self.onWatchModeToggled)
@@ -128,79 +80,15 @@ class MenuBar(QWidget):
         # Or use choose_directory
         self.loadSongsClicked.connect(lambda: self._actions.set_directory(self.data.directory))
 
-        self._actions.data.selected_songs_changed.connect(self.onSelectedSongsChanged)
-
         # Connect to watch mode signals
         self._actions.initial_scan_completed.connect(self.onInitialScanCompleted)
         self._actions.watch_mode_enabled_changed.connect(self.onWatchModeEnabledChanged)
-
-        self.onSelectedSongsChanged([])  # Initial state
-
-    def onDeleteButtonClicked(self):
-        if not self._selected_songs:
-            return
-
-        count = len(self._selected_songs)
-        if count == 1:
-            msg_text = f"Are you sure you want to delete the following directory?\r\n{self._selected_songs[0].path}?"
-        else:
-            msg_text = f"Are you sure you want to delete the {count} selected song directories?"
-            # Optionally list the first few?
-            # msg_text += "\r\nIncluding:\r\n" + "\r\n".join([s.path for s in self._selected_songs[:3]])
-            # if count > 3: msg_text += "\r\n..."
-
-        msgBox = QMessageBox()
-        msgBox.setIcon(QMessageBox.Icon.Warning)  # Use Warning for deletion
-        msgBox.setText(msg_text)
-        msgBox.setWindowTitle("Delete Confirmation")
-        msgBox.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
-
-        returnValue = msgBox.exec()
-        if returnValue == QMessageBox.StandardButton.Ok:
-            self._actions.delete_selected_song()  # Action handles iteration
 
     def updateLoadButtonState(self, isLoading: bool):
         self.loadSongsButton.setEnabled(not isLoading)
 
     def onSearchChanged(self, text):
         self._actions.data.songs.filter_text = text
-
-    # Renamed method to reflect it handles a list
-    def onSelectedSongsChanged(self, songs: List[Song]):  # Use List[Song]
-        self._selected_songs = songs
-        num_selected = len(songs)
-        first_song = songs[0] if num_selected > 0 else None
-
-        # Enable buttons if at least one song is selected
-        has_selection = num_selected > 0
-        self.openFolderButton.setEnabled(has_selection)
-        self.reload_button.setEnabled(has_selection)
-        self.delete_button.setEnabled(has_selection)
-
-        # Enable detect/normalize if at least one selected song is suitable
-        # Detection uses MDX (only supported method)
-        can_detect = has_selection and any(s.audio_file for s in songs)
-        self.detectButton.setEnabled(can_detect)
-
-        can_normalize = has_selection and any(s.audio_file for s in songs)
-        self.normalize_button.setEnabled(can_normalize)
-
-        # Enable USDB only if exactly one song is selected and has a valid usdb_id
-        # Improved check to ensure usdb_id is a non-empty string
-        can_open_usdb = bool(
-            (num_selected == 1)
-            and (first_song is not None)
-            and (first_song.usdb_id is not None)
-            and (first_song.usdb_id != "")
-            and (first_song.usdb_id != "0")
-        )
-        self.open_usdx_button.setEnabled(can_open_usdb)
-
-        # Disable player/editor related buttons if multiple songs are selected
-        # Assuming these actions require a single song context
-        # Example:
-        # self.playButton.setEnabled(num_selected == 1)
-        # self.editButton.setEnabled(num_selected == 1)
 
     def open_config_file(self):
         """Open config.ini in the default text editor (cross-platform)"""
