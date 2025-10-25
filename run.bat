@@ -13,7 +13,7 @@ set "VENV_PIP=%SCRIPT_DIR%%VENV_DIR%\Scripts\pip.exe"
 :: Bootstrap venv if missing
 if not exist "%VENV_PYTHON%" (
     echo Virtual environment not found. Creating at %VENV_DIR%...
-    
+
     :: Detect system Python (prefer py launcher with version selection)
     set "SYS_PYTHON="
     py -3.10 --version >nul 2>nul
@@ -37,7 +37,7 @@ if not exist "%VENV_PYTHON%" (
             )
         )
     )
-    
+
     :: Create venv
     !SYS_PYTHON! -m venv "%SCRIPT_DIR%%VENV_DIR%"
     if !errorlevel! neq 0 (
@@ -45,14 +45,14 @@ if not exist "%VENV_PYTHON%" (
         echo Make sure Python venv module is available
         exit /b 1
     )
-    
+
     echo Upgrading pip...
     "%VENV_PYTHON%" -m pip install --upgrade pip setuptools wheel
     if !errorlevel! neq 0 (
         echo ERROR: Failed to upgrade pip
         exit /b 1
     )
-    
+
     echo Installing requirements...
     "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt"
     if !errorlevel! neq 0 (
@@ -101,46 +101,46 @@ if /i "%1"=="start" (
 if /i "%1"=="test" (
     echo Running tests...
     cd /d "%SCRIPT_DIR%"
-    
+
     :: Check for --docs flag
     set TEST_DOCS=
     set PYTEST_ARGS=
-    
+
     :: Parse arguments
     if /i "%2"=="--docs" set TEST_DOCS=1
     if /i "%2"=="--artifacts" set TEST_DOCS=1
     if /i "%3"=="--docs" set TEST_DOCS=1
     if /i "%3"=="--artifacts" set TEST_DOCS=1
-    
+
     :: Collect pytest args (skip our custom flags)
     if /i not "%2"=="--docs" if /i not "%2"=="--artifacts" set PYTEST_ARGS=%PYTEST_ARGS% %2
     if /i not "%3"=="--docs" if /i not "%3"=="--artifacts" set PYTEST_ARGS=%PYTEST_ARGS% %3
     if /i not "%4"=="" set PYTEST_ARGS=%PYTEST_ARGS% %4 %5 %6 %7 %8 %9
-    
+
     :: Set environment variables for doc generation
     if defined TEST_DOCS (
         set GAP_TIER1_WRITE_DOCS=1
         set GAP_TIER3_WRITE_DOCS=1
         echo [Test Artifacts] Visual artifacts will be generated in docs/gap-tests/
     )
-    
+
     "%VENV_PYTHON%" -m pytest tests/ -q %PYTEST_ARGS%
     goto :end
 )
 
 if /i "%1"=="install" (
     echo Installing/updating requirements...
-    
+
     :: Check for manual GPU/CPU override flags
     set INSTALL_MODE=auto
     if /i "%2"=="--gpu" set INSTALL_MODE=gpu
     if /i "%2"=="--cuda" set INSTALL_MODE=gpu
     if /i "%2"=="--cpu" set INSTALL_MODE=cpu
-    
+
     :: Detect NVIDIA GPU for PyTorch optimization
     echo.
     echo Detecting hardware configuration...
-    
+
     if "!INSTALL_MODE!"=="cpu" (
         echo [Manual Override] Installing CPU-only version as requested
         "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt" --upgrade
@@ -148,13 +148,13 @@ if /i "%1"=="install" (
         echo Installation complete!
         goto :end
     )
-    
+
     if "!INSTALL_MODE!"=="gpu" (
         echo [Manual Override] Installing GPU version as requested
         call :install_gpu
         goto :end
     )
-    
+
     :: Auto-detection mode
     nvidia-smi >nul 2>nul
     if !errorlevel! equ 0 (
@@ -206,9 +206,24 @@ if /i "%1"=="info" (
 
 if /i "%1"=="install-dev" (
     echo Installing development dependencies...
-    "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements-dev.txt" --upgrade
     echo.
-    echo Development dependencies installed!
+    echo Step 1: Installing base requirements...
+    "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt" --upgrade
+    if !errorlevel! neq 0 (
+        echo ERROR: Failed to install base requirements
+        exit /b 1
+    )
+
+    echo.
+    echo Step 2: Installing development tools...
+    "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements-dev.txt" --upgrade
+    if !errorlevel! neq 0 (
+        echo ERROR: Failed to install development dependencies
+        exit /b 1
+    )
+
+    echo.
+    echo Development environment ready!
     echo You can now use:
     echo   - run.bat analyze    ^(code quality analysis^)
     echo   - run.bat cleanup    ^(code cleanup tools^)
@@ -218,14 +233,14 @@ if /i "%1"=="install-dev" (
 if /i "%1"=="analyze" (
     echo Running code quality analysis...
     cd /d "%SCRIPT_DIR%"
-    
+
     :: Check if analyze script exists
     if not exist "scripts\analyze_code.py" (
         echo ERROR: scripts\analyze_code.py not found
         echo Make sure you're in the project root directory
         goto :end
     )
-    
+
     :: Determine mode: default to "changed" if %2 is empty or starts with --
     set MODE=changed
     set EXTRA_ARGS=
@@ -240,7 +255,7 @@ if /i "%1"=="analyze" (
             set EXTRA_ARGS=%2 %3 %4 %5
         )
     )
-    
+
     "%VENV_PYTHON%" scripts\analyze_code.py !MODE! !EXTRA_ARGS!
     goto :end
 )
@@ -248,14 +263,14 @@ if /i "%1"=="analyze" (
 if /i "%1"=="cleanup" (
     echo Running code cleanup...
     cd /d "%SCRIPT_DIR%"
-    
+
     :: Check if cleanup script exists
     if not exist "scripts\cleanup_code.py" (
         echo ERROR: scripts\cleanup_code.py not found
         echo Make sure you're in the project root directory
         goto :end
     )
-    
+
     :: Determine mode: default to "changed" if %2 is empty or starts with --
     set MODE=changed
     set EXTRA_ARGS=
@@ -270,7 +285,7 @@ if /i "%1"=="cleanup" (
             set EXTRA_ARGS=%2 %3 %4 %5
         )
     )
-    
+
     "%VENV_PYTHON%" scripts\cleanup_code.py !MODE! !EXTRA_ARGS!
     goto :end
 )
