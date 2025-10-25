@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QLabel, QWidget, QSizePolicy
 from PySide6.QtGui import QPainter, QPen, QPixmap, QColor
 from PySide6.QtCore import Qt, Signal, QEvent
 from ui.mediaplayer.gap_marker_colors import (
-    PLAYHEAD_COLOR, ORIGINAL_GAP_COLOR, CURRENT_GAP_COLOR, DETECTED_GAP_COLOR
+    PLAYHEAD_COLOR, DETECTED_GAP_COLOR, REVERT_GAP_COLOR
 )
 
 class WaveformWidget(QLabel):
@@ -41,10 +41,11 @@ class WaveformWidget(QLabel):
     def paint_overlay(self, event):
         """Draw playhead and gap markers on waveform."""
         painter = QPainter(self.overlay)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         overlay_width = self.overlay.width()
         overlay_height = self.overlay.height()
 
-        # 1. Draw playhead (red)
+        # 1. Draw playhead (red, solid, thin)
         pen = QPen(PLAYHEAD_COLOR, 2)
         painter.setPen(pen)
         playhead_x = int(self.currentPosition * overlay_width)
@@ -52,24 +53,17 @@ class WaveformWidget(QLabel):
 
         # 2. Draw gap markers if duration is known
         if self.duration_ms > 0:
-            # Draw original gap marker (orange, dotted)
+            # Draw revert/original gap marker (gray, dashed, decent)
             if self.original_gap_ms is not None:
                 original_x = int((self.original_gap_ms / self.duration_ms) * overlay_width)
-                pen = QPen(ORIGINAL_GAP_COLOR, 2, Qt.PenStyle.DotLine)  # Orange dotted
+                pen = QPen(REVERT_GAP_COLOR, 2, Qt.PenStyle.DashLine)  # Gray dashed
                 painter.setPen(pen)
                 painter.drawLine(original_x, 0, original_x, overlay_height)
 
-            # Draw current gap marker (blue, solid)
-            if self.current_gap_ms is not None:
-                current_x = int((self.current_gap_ms / self.duration_ms) * overlay_width)
-                pen = QPen(CURRENT_GAP_COLOR, 2)  # Blue solid
-                painter.setPen(pen)
-                painter.drawLine(current_x, 0, current_x, overlay_height)
-
-            # Draw detected gap marker (green, dashed)
+            # Draw detected gap marker (green, solid, visible)
             if self.detected_gap_ms is not None:
                 detected_x = int((self.detected_gap_ms / self.duration_ms) * overlay_width)
-                pen = QPen(DETECTED_GAP_COLOR, 2, Qt.PenStyle.DashLine)  # Green dashed
+                pen = QPen(DETECTED_GAP_COLOR, 3)  # Green solid, thicker
                 painter.setPen(pen)
                 painter.drawLine(detected_x, 0, detected_x, overlay_height)
 
@@ -124,17 +118,15 @@ class WaveformWidget(QLabel):
             self.currentPosition = 0
             self.duration_ms = 0
 
-    def set_gap_markers(self, original_gap_ms=None, current_gap_ms=None, detected_gap_ms=None):
+    def set_gap_markers(self, original_gap_ms=None, detected_gap_ms=None):
         """
         Set gap marker positions for display.
 
         Args:
-            original_gap_ms: Original gap position in milliseconds (orange marker)
-            current_gap_ms: Current gap position in milliseconds (blue marker)
-            detected_gap_ms: Detected gap position in milliseconds (green marker)
+            original_gap_ms: Original/revert gap position in milliseconds (gray dashed marker)
+            detected_gap_ms: AI-detected gap position in milliseconds (green solid marker)
         """
         self.original_gap_ms = original_gap_ms
-        self.current_gap_ms = current_gap_ms
         self.detected_gap_ms = detected_gap_ms
         self.overlay.update()  # Trigger repaint to show markers
 

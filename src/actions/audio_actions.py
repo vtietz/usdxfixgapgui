@@ -190,10 +190,11 @@ class AudioActions(BaseActions):
                             silence_color = self.config.silence_periods_color if hasattr(self.config, 'silence_periods_color') else (105, 105, 105, 128)
                             draw_silence_periods(waveform_file, song.gap_info.silence_periods, song.duration_ms, silence_color)
 
-                        # Draw detected gap
-                        if hasattr(song.gap_info, 'detected_gap') and song.gap_info.detected_gap is not None:
-                            gap_color = self.config.detected_gap_color if hasattr(self.config, 'detected_gap_color') else "blue"
-                            draw_gap(waveform_file, song.gap_info.detected_gap, song.duration_ms, gap_color)
+                        # Gap markers are now drawn dynamically by the overlay system - no need to bake into PNG
+                        # # Draw detected gap
+                        # if hasattr(song.gap_info, 'detected_gap') and song.gap_info.detected_gap is not None:
+                        #     gap_color = self.config.detected_gap_color if hasattr(self.config, 'detected_gap_color') else "blue"
+                        #     draw_gap(waveform_file, song.gap_info.detected_gap, song.duration_ms, gap_color)
 
                     # Draw notes overlay
                     if hasattr(song, 'notes') and song.notes:

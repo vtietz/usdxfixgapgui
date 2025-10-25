@@ -45,17 +45,18 @@ class UIManager:
 
         if song:
             detected_gap_text = f"{song.gap_info.detected_gap} ms" if song.gap_info.detected_gap is not None else "0 ms"
-            self.save_detected_gap_btn.setText(f" Save detected gap ({detected_gap_text})")
-            self.keep_original_gap_btn.setText(f" Keep original gap ({song.gap_info.original_gap} ms)")
+            self.save_detected_gap_btn.setText(f"  Save detected gap ({detected_gap_text})")
+            self.keep_original_gap_btn.setText(f"  Keep current gap ({song.gap} ms)")
             self.revert_btn.setText(f"Revert gap ({song.gap_info.original_gap} ms)")
         else:
-            self.save_detected_gap_btn.setText(" Save detected gap (0 ms)")
-            self.keep_original_gap_btn.setText(" Keep original gap (0 ms)")
+            self.save_detected_gap_btn.setText("  Save detected gap (0 ms)")
+            self.keep_original_gap_btn.setText("  Keep current gap (0 ms)")
             self.revert_btn.setText("Revert gap (0 ms)")
 
         self.audio_btn.setChecked(audio_status == AudioFileStatus.AUDIO)
         self.vocals_btn.setChecked(audio_status == AudioFileStatus.VOCALS)
-        self.waveform_widget.overlay.setVisible(is_enabled and (is_media_loaded or is_playing))
+        # Always show overlay when song is enabled (to show gap markers even when not playing)
+        self.waveform_widget.overlay.setVisible(is_enabled)
 
     def set_playback_state(self, is_playing):
         """Update UI for play/pause state"""
@@ -73,7 +74,7 @@ class UIManager:
 
         playposition_text = audio.milliseconds_to_str(position)
         self.position_label.setText(playposition_text)
-        self.save_current_play_position_btn.setText(f" Save play position ({position} ms)")
+        self.save_current_play_position_btn.setText(f"  Save play position ({position} ms)")
 
     def update_syllable_label(self, position, song):
         """Update the syllable label with the current lyric"""
