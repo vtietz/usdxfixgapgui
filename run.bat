@@ -84,6 +84,7 @@ if "%1"=="" (
     echo   cleanup     - Clean code ^(whitespace, unused imports^)
     echo   cleanup all - Clean entire project
     echo   cleanup --dry-run  - Preview cleanup without changes
+    echo   build       - Build Windows executable with PyInstaller
     echo.
     echo Or run any Python command directly:
     echo   %0 python script.py
@@ -287,6 +288,61 @@ if /i "%1"=="cleanup" (
     )
 
     "%VENV_PYTHON%" scripts\cleanup_code.py !MODE! !EXTRA_ARGS!
+    goto :end
+)
+
+if /i "%1"=="build" (
+    echo ==========================================
+    echo Building USDXFixGap Executable
+    echo ==========================================
+    echo.
+    cd /d "%SCRIPT_DIR%"
+
+    :: Check if PyInstaller is installed
+    "%VENV_PIP%" show pyinstaller >nul 2>nul
+    if !errorlevel! neq 0 (
+        echo PyInstaller not found. Installing...
+        "%VENV_PIP%" install pyinstaller
+        if !errorlevel! neq 0 (
+            echo ERROR: Failed to install PyInstaller
+            exit /b 1
+        )
+    )
+
+    :: Build with PyInstaller
+    echo Building executable ^(this may take a few minutes^)...
+    echo NOTE: Bundling CPU-only PyTorch. Users can upgrade to GPU via GPU Pack download.
+    "%VENV_PYTHON%" -m PyInstaller --onefile ^
+        --windowed ^
+        --icon="%SCRIPT_DIR%src\assets\usdxfixgap-icon.ico" ^
+        --add-data "%SCRIPT_DIR%src\assets;assets" ^
+        --exclude-module pytest ^
+        --exclude-module pytest-qt ^
+        --exclude-module pytest-mock ^
+        --exclude-module lizard ^
+        --exclude-module flake8 ^
+        --exclude-module mypy ^
+        --exclude-module autoflake ^
+        --exclude-module IPython ^
+        --exclude-module jupyter ^
+        --exclude-module notebook ^
+        --name usdxfixgap ^
+        "%SCRIPT_DIR%src\usdxfixgap.py"
+
+    if !errorlevel! equ 0 (
+        echo.
+        echo ==========================================
+        echo Build completed successfully!
+        echo ==========================================
+        echo.
+        echo Executable: %SCRIPT_DIR%dist\usdxfixgap.exe
+    ) else (
+        echo.
+        echo ==========================================
+        echo Build failed!
+        echo ==========================================
+        exit /b 1
+    )
     goto :end
 )
 

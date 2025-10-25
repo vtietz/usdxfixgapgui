@@ -75,30 +75,35 @@ git push origin v1.1.0
 
 ### 5. Build Release Artifacts
 
+**Automated (Recommended):**
+Pushing the tag triggers `.github/workflows/release.yml` which automatically:
+- Builds executables for Windows, Linux, macOS
+- Uses `requirements-build.txt` (CPU-only PyTorch for small size)
+- Creates GitHub release with all artifacts
+- Generates checksums
+
+**Manual (Local Testing):**
+
 **Windows:**
 ```bash
-.\build.bat
+.\run.bat build
 ```
-Creates: `build\usdxfixgap\usdxfixgap.exe`
+Creates: `dist\usdxfixgap.exe` (will use your local PyTorch, may be larger)
 
-**Linux:**
+**Linux/macOS:**
 ```bash
-./build_linux.sh
+./run.sh build
 ```
-Creates: `dist/usdxfixgap`
+Creates: `dist/usdxfixgap` (will use your local PyTorch, may be larger)
 
-**macOS:**
-```bash
-./build_macos.sh
-```
-Creates: `dist/usdxfixgap.app`
+**Note:** GitHub Actions builds use CPU-only PyTorch (~350-500 MB). Local builds may be larger if you have GPU PyTorch installed
 
 ### 6. Package Artifacts
 
 **Windows:**
 ```bash
-cd build\usdxfixgap
-7z a usdxfixgap-v1.1.0-windows.zip *
+cd dist
+7z a usdxfixgap-v1.1.0-windows.zip usdxfixgap.exe
 ```
 
 **Linux:**
@@ -258,7 +263,7 @@ Before upgrading:
 2. Backup your config.ini if desired
 3. Note the new data location for your platform
 
-The app will create a new config automatically. Your old data remains 
+The app will create a new config automatically. Your old data remains
 untouched in the app directory.
 
 See full details: [Migration Guide](link)

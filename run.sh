@@ -36,7 +36,7 @@ print_error() {
 # Bootstrap venv if missing
 if [[ ! -f "$VENV_PYTHON" ]]; then
     print_info "Virtual environment not found. Creating at $VENV_DIR..."
-    
+
     # Detect system Python
     if command -v python3.10 &> /dev/null; then
         SYS_PYTHON="python3.10"
@@ -52,7 +52,7 @@ if [[ ! -f "$VENV_PYTHON" ]]; then
         print_error "Please install Python 3.8+ from your package manager"
         exit 1
     fi
-    
+
     # Create venv
     $SYS_PYTHON -m venv "$SCRIPT_DIR/$VENV_DIR"
     if [[ $? -ne 0 ]]; then
@@ -60,14 +60,14 @@ if [[ ! -f "$VENV_PYTHON" ]]; then
         print_error "Make sure python3-venv is installed: sudo apt-get install python3-venv"
         exit 1
     fi
-    
+
     print_info "Upgrading pip..."
     "$VENV_PYTHON" -m pip install --upgrade pip setuptools wheel
     if [[ $? -ne 0 ]]; then
         print_error "Failed to upgrade pip"
         exit 1
     fi
-    
+
     print_info "Installing requirements..."
     "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt"
     if [[ $? -ne 0 ]]; then
@@ -98,6 +98,7 @@ if [[ $# -eq 0 ]]; then
     echo "  cleanup     - Clean code (whitespace, unused imports)"
     echo "  cleanup all - Clean entire project"
     echo "  cleanup --dry-run  - Preview cleanup without changes"
+    echo "  build       - Build executable with PyInstaller"
     echo ""
     echo "Or run any Python command directly:"
     echo "  $0 python script.py"
@@ -114,11 +115,11 @@ case "$1" in
     "test")
         print_info "Running tests..."
         cd "$SCRIPT_DIR"
-        
+
         # Check for --docs flag
         TEST_DOCS=""
         PYTEST_ARGS=""
-        
+
         # Parse arguments looking for --docs or --artifacts
         for arg in "$@"; do
             if [[ "$arg" == "--docs" ]] || [[ "$arg" == "--artifacts" ]]; then
@@ -127,19 +128,19 @@ case "$1" in
                 PYTEST_ARGS="$PYTEST_ARGS $arg"
             fi
         done
-        
+
         # Set environment variables for doc generation
         if [[ -n "$TEST_DOCS" ]]; then
             export GAP_TIER1_WRITE_DOCS=1
             export GAP_TIER3_WRITE_DOCS=1
             print_info "[Test Artifacts] Visual artifacts will be generated in docs/gap-tests/"
         fi
-        
+
         "$VENV_PYTHON" -m pytest tests/ -q $PYTEST_ARGS
         ;;
     "install")
         print_info "Installing/updating requirements..."
-        
+
         # Check for manual GPU/CPU override flags
         INSTALL_MODE="auto"
         if [[ "$2" == "--gpu" ]] || [[ "$2" == "--cuda" ]]; then
@@ -147,11 +148,11 @@ case "$1" in
         elif [[ "$2" == "--cpu" ]]; then
             INSTALL_MODE="cpu"
         fi
-        
+
         # Detect NVIDIA GPU for PyTorch optimization
         echo ""
         print_info "Detecting hardware configuration..."
-        
+
         if [[ "$INSTALL_MODE" == "cpu" ]]; then
             print_warning "Manual Override: Installing CPU-only version as requested"
             "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt" --upgrade
@@ -159,7 +160,7 @@ case "$1" in
             print_success "Installation complete!"
             exit 0
         fi
-        
+
         if [[ "$INSTALL_MODE" == "gpu" ]]; then
             print_warning "Manual Override: Installing GPU version as requested"
         else
@@ -175,43 +176,43 @@ case "$1" in
                 exit 0
             fi
         fi
-        
+
         # Install GPU version
         print_info "This will enable GPU acceleration for faster processing"
-        
+
         # Install base requirements first (without PyTorch)
         "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt" --upgrade
-        
+
         # Uninstall any existing PyTorch (CPU or CUDA)
         echo ""
         print_info "Removing existing PyTorch installation..."
         "$VENV_PIP" uninstall -y torch torchvision torchaudio 2>/dev/null || true
-        
+
         # Install PyTorch with CUDA 12.1 support
         echo ""
         print_info "Installing PyTorch with CUDA 12.1 support..."
         "$VENV_PIP" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-        
+
         # Verify CUDA availability
         echo ""
         print_info "Verifying GPU acceleration..."
         "$VENV_PYTHON" -c "import torch; print('GPU Available:', torch.cuda.is_available()); cuda_available = torch.cuda.is_available(); print('GPU:', torch.cuda.get_device_name(0) if cuda_available else 'N/A')"
-        
+
         echo ""
         print_success "Installation complete!"
         ;;
     "clean")
         print_info "Cleaning cache and temporary files..."
         cd "$SCRIPT_DIR"
-        
+
         # Remove cache files
         [[ -f "src/cache.db" ]] && rm "src/cache.db"
         [[ -d "src/__pycache__" ]] && rm -rf "src/__pycache__"
         [[ -d "tests/__pycache__" ]] && rm -rf "tests/__pycache__"
-        
+
         # Remove all __pycache__ directories recursively
         find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-        
+
         print_success "Cache cleaned successfully"
         ;;
     "shell")
@@ -245,17 +246,17 @@ case "$1" in
     "analyze")
         print_info "Running code quality analysis..."
         cd "$SCRIPT_DIR"
-        
+
         # Check if analyze script exists
         if [[ ! -f "scripts/analyze_code.py" ]]; then
             print_error "scripts/analyze_code.py not found"
             print_error "Make sure you're in the project root directory"
             exit 1
         fi
-        
+
         # Default to "changed" mode if no second argument
         ANALYZE_MODE="${2:-changed}"
-        
+
         # Pass all arguments to analyze script
         shift  # Remove first argument (analyze)
         "$VENV_PYTHON" scripts/analyze_code.py "$ANALYZE_MODE" "${@:2}"
@@ -263,20 +264,81 @@ case "$1" in
     "cleanup")
         print_info "Running code cleanup..."
         cd "$SCRIPT_DIR"
-        
+
         # Check if cleanup script exists
         if [[ ! -f "scripts/cleanup_code.py" ]]; then
             print_error "scripts/cleanup_code.py not found"
             print_error "Make sure you're in the project root directory"
             exit 1
         fi
-        
+
         # Default to "changed" mode if no second argument
         CLEANUP_MODE="${2:-changed}"
-        
+
         # Pass all arguments to cleanup script
         shift  # Remove first argument (cleanup)
         "$VENV_PYTHON" scripts/cleanup_code.py "$CLEANUP_MODE" "${@:2}"
+        ;;
+    "build")
+        echo "=========================================="
+        echo "Building USDXFixGap Executable"
+        echo "=========================================="
+        echo ""
+        cd "$SCRIPT_DIR"
+
+        # Detect OS for output message
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            OS_NAME="macOS"
+        else
+            OS_NAME="Linux"
+        fi
+
+        print_info "Building for $OS_NAME..."
+
+        # Check if PyInstaller is installed
+        if ! "$VENV_PIP" show pyinstaller &> /dev/null; then
+            print_info "PyInstaller not found. Installing..."
+            "$VENV_PIP" install pyinstaller
+            if [[ $? -ne 0 ]]; then
+                print_error "Failed to install PyInstaller"
+                exit 1
+            fi
+        fi
+
+        # Build with PyInstaller
+        print_info "Building executable (this may take a few minutes)..."
+        print_info "NOTE: Bundling CPU-only PyTorch. Users can upgrade to GPU via GPU Pack download."
+        "$VENV_PYTHON" -m PyInstaller --onefile \
+            --windowed \
+            --icon="$SCRIPT_DIR/src/assets/usdxfixgap-icon.ico" \
+            --add-data "$SCRIPT_DIR/src/assets:assets" \
+            --exclude-module pytest \
+            --exclude-module pytest-qt \
+            --exclude-module pytest-mock \
+            --exclude-module lizard \
+            --exclude-module flake8 \
+            --exclude-module mypy \
+            --exclude-module autoflake \
+            --exclude-module IPython \
+            --exclude-module jupyter \
+            --exclude-module notebook \
+            --name usdxfixgap \
+            "$SCRIPT_DIR/src/usdxfixgap.py"
+
+        if [[ $? -eq 0 ]]; then
+            echo ""
+            echo "=========================================="
+            print_success "Build completed successfully!"
+            echo "=========================================="
+            echo ""
+            echo "Executable: $SCRIPT_DIR/dist/usdxfixgap"
+        else
+            echo ""
+            echo "=========================================="
+            print_error "Build failed!"
+            echo "=========================================="
+            exit 1
+        fi
         ;;
     *)
         print_info "Executing: $*"

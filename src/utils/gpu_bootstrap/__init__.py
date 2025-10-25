@@ -37,42 +37,16 @@ from .legacy import (
     ADDED_DLL_DIRS
 )
 
-# Import capability_probe from parent gpu_bootstrap.py module
-# (This was not moved to legacy as it's a utility function)
-from pathlib import Path as _Path
-_parent_module = _Path(__file__).parent.parent / "gpu_bootstrap.py"
-if _parent_module.exists():
-    import importlib.util as _importlib_util
-    _spec = _importlib_util.spec_from_file_location("_gpu_bootstrap_parent", _parent_module)
-    if _spec and _spec.loader:
-        _parent = _importlib_util.module_from_spec(_spec)
-        _spec.loader.exec_module(_parent)
-        capability_probe = _parent.capability_probe
-        resolve_pack_dir = _parent.resolve_pack_dir
-        probe_nvml = _parent.probe_nvml
-        probe_nvidia_smi = _parent.probe_nvidia_smi
-        find_installed_pack_dirs = _parent.find_installed_pack_dirs
-        select_best_existing_pack = _parent.select_best_existing_pack
-        auto_recover_gpu_pack_config = _parent.auto_recover_gpu_pack_config
-        detect_system_pytorch_cuda = _parent.detect_system_pytorch_cuda
-    else:
-        capability_probe = None
-        resolve_pack_dir = None
-        probe_nvml = None
-        probe_nvidia_smi = None
-        find_installed_pack_dirs = None
-        select_best_existing_pack = None
-        auto_recover_gpu_pack_config = None
-        detect_system_pytorch_cuda = None
-else:
-    capability_probe = None
-    resolve_pack_dir = None
-    probe_nvml = None
-    probe_nvidia_smi = None
-    find_installed_pack_dirs = None
-    select_best_existing_pack = None
-    auto_recover_gpu_pack_config = None
-    detect_system_pytorch_cuda = None
+# Import utility functions
+# These are now in the submodule and work in both dev and frozen contexts
+from .capability_utils import capability_probe, probe_nvml, probe_nvidia_smi
+from .system_pytorch_detector import detect_system_pytorch_cuda
+from .pack_utils import (
+    resolve_pack_dir,
+    find_installed_pack_dirs,
+    select_best_existing_pack,
+    auto_recover_gpu_pack_config
+)
 
 __all__ = [
     # Staged facade API (primary interface)

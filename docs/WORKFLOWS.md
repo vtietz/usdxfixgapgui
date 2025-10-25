@@ -161,18 +161,24 @@ pip install -r requirements-dev.txt      # Dev tools (includes base)
 
 1. **requirements.txt**
    - Runtime dependencies only
-   - Included in built executables
-   - Used by CI and release builds
+   - Flexible PyTorch version (torch>=2.0.0)
+   - Used for local development
 
-2. **requirements-dev.txt**
+2. **requirements-build.txt**
+   - **CI/CD build dependencies**
+   - Locked CPU-only PyTorch (torch==2.4.1+cpu)
+   - Used by GitHub Actions to build small executables (~350-500 MB)
+   - Users can upgrade to GPU Pack (~2.8 GB) at runtime
+
+3. **requirements-dev.txt**
    - Development tools (pytest, flake8, black, etc.)
    - **Includes** `requirements.txt` via `-r requirements.txt`
    - NOT included in executables
    - Used by CI for testing/quality checks
 
-3. **Build Process**
-   - Only `requirements.txt` is installed during builds
-   - Keeps executable size small
+4. **Build Process**
+   - GitHub Actions uses `requirements-build.txt` (CPU-only PyTorch)
+   - Local builds use `requirements.txt` (flexible PyTorch)
    - PyInstaller excludes dev packages explicitly
 
 ---
@@ -248,11 +254,10 @@ pip install -r requirements-dev.txt      # Dev tools (includes base)
 2. Test build locally:
    ```bash
    # Windows
-   .\build.bat
+   .\run.bat build
 
    # Linux/macOS
-   ./build_linux.sh
-   ./build_macos.sh
+   ./run.sh build
    ```
 
 **Release notes not found:**

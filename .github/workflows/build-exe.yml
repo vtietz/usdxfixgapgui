@@ -25,11 +25,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller
-          pip install -r requirements.txt
+          pip install -r requirements-build.txt
 
       - name: Build Windows EXE
         shell: cmd
-        run: build.bat
+        run: run.bat build
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
@@ -61,13 +61,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller
-          pip install -r requirements.txt
+          pip install -r requirements-build.txt
 
       - name: Make build script executable
-        run: chmod +x build_linux.sh
+        run: chmod +x run.sh
 
       - name: Build Linux Executable
-        run: ./build_linux.sh
+        run: ./run.sh build
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
@@ -98,13 +98,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller
-          pip install -r requirements.txt
+          pip install -r requirements-build.txt
 
       - name: Make build script executable
-        run: chmod +x build_macos.sh
+        run: chmod +x run.sh
 
       - name: Build macOS Executable
-        run: ./build_macos.sh
+        run: ./run.sh build
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4

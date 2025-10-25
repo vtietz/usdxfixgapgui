@@ -89,7 +89,7 @@
 .\run.bat start      # run app
 .\run.bat test       # run tests
 .\run.bat analyze    # flake8/lizard/etc.
-build.bat            # build exe
+.\run.bat build      # build exe
 ```
 
 **Linux/macOS**
@@ -98,6 +98,7 @@ build.bat            # build exe
 ./run.sh install
 ./run.sh start
 ./run.sh test
+./run.sh build
 ```
 
 ---

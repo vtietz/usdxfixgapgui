@@ -12,8 +12,10 @@ scipy>=1.10.0
 soundfile>=0.12.1
 watchdog>=4.0.0
 
-# PyTorch - CPU-only by default for smaller executable builds
-# For GPU support (5-10x faster), developers can use: run.bat install --gpu
+# PyTorch - CPU-only by default (smaller downloads, works everywhere)
+# Bundled in executables for immediate CPU-based gap detection
+# For 10x faster GPU acceleration: Download GPU Pack via Settings or --setup-gpu
+# Development with GPU: run.bat install --gpu
 torch>=2.0.0
 torchaudio>=2.0.0
 matplotlib>=3.5.0
