@@ -322,6 +322,37 @@ These files are temporary and managed automatically by the application. They are
 **Description**: Automatically start playback when loading audio  
 **Valid values**: `True`, `False`
 
+## [WatchMode]
+
+Watch Mode provides real-time filesystem monitoring to automatically update caches and schedule gap detection when songs are added, modified, or removed.
+
+### watch_mode_default
+**Default**: `false`  
+**Description**: Automatically enable watch mode when a directory is loaded  
+**Valid values**: `true`, `false`
+
+### watch_debounce_ms
+**Default**: `500`  
+**Description**: Milliseconds to wait after the last filesystem event before processing changes. This prevents processing storms during bulk file operations (e.g., copying multiple songs).  
+**Valid values**: Positive integer (recommended: 300-1000)
+
+### watch_ignore_patterns
+**Default**: `.tmp,~,.crdownload,.part`  
+**Description**: Comma-separated list of file extension patterns to ignore. These are typically temporary files created by editors, browsers, or download managers.  
+**Valid values**: Comma-separated string of patterns (e.g., `.tmp,.bak,~,.swp,.crdownload,.part`)
+
+**How Watch Mode Works**:
+- **Created**: New .txt files or folders are detected and scheduled for scanning
+- **Modified**: Changes to .txt, .mp3, or .wav files automatically queue gap detection
+- **Deleted**: Removed songs are deleted from cache and UI
+- **Moved/Renamed**: Treated as delete + create for cache consistency
+
+**Performance Notes**:
+- Uses OS-native filesystem watchers (Windows ReadDirectoryChangesW, macOS FSEvents, Linux inotify)
+- Debouncing prevents duplicate processing during rapid file changes
+- Only changed songs are processed, not the entire directory
+- At-most-one detection task per song prevents duplicates
+
 ## Editing Configuration
 
 You can manually edit `config.ini` while the application is closed. The application will validate settings on startup and use defaults for any invalid values.

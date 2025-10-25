@@ -73,6 +73,16 @@ class MenuBar(QWidget):
         self.delete_button.clicked.connect(self.onDeleteButtonClicked)
         self._layout.addWidget(self.delete_button)
 
+        # Watch Mode toggle button - checkable button for watch mode
+        self.watch_mode_button = QPushButton("Watch Mode")
+        self.watch_mode_button.setCheckable(True)
+        self.watch_mode_button.setChecked(False)
+        self.watch_mode_button.setEnabled(False)  # Disabled until requirements met
+        self.watch_mode_button.setToolTip("Monitor directory for changes and auto-update")
+        self.watch_mode_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        self.watch_mode_button.clicked.connect(self.onWatchModeToggled)
+        self._layout.addWidget(self.watch_mode_button)
+
         # Config button - Opens config.ini in default text editor
         self.config_button = QPushButton("Config")
         self.config_button.setToolTip("Open config.ini in text editor")
@@ -98,6 +108,10 @@ class MenuBar(QWidget):
         self.loadSongsClicked.connect(lambda: self._actions.set_directory(self.data.directory))
 
         self._actions.data.selected_songs_changed.connect(self.onSelectedSongsChanged)
+
+        # Connect to watch mode signals
+        self._actions.initial_scan_completed.connect(self.onInitialScanCompleted)
+        self._actions.watch_mode_enabled_changed.connect(self.onWatchModeEnabledChanged)
 
         self.onSelectedSongsChanged([])  # Initial state
 
@@ -231,3 +245,32 @@ class MenuBar(QWidget):
 
     def onFilterChanged(self, selectedStatuses):
         self._actions.data.songs.filter = selectedStatuses
+
+    def onWatchModeToggled(self, checked: bool):
+        """Handle watch mode toggle button click."""
+        if checked:
+            # User wants to enable watch mode
+            success = self._actions.start_watch_mode()
+            if not success:
+                # Failed to start - uncheck the button
+                self.watch_mode_button.setChecked(False)
+                QMessageBox.warning(
+                    self,
+                    "Watch Mode Error",
+                    "Failed to start watch mode. Check logs for details."
+                )
+        else:
+            # User wants to disable watch mode
+            self._actions.stop_watch_mode()
+
+    def onInitialScanCompleted(self):
+        """Handle initial scan completion - enables watch mode button."""
+        if self._actions.can_enable_watch_mode():
+            self.watch_mode_button.setEnabled(True)
+            logger.info("Watch mode button enabled after initial scan")
+
+    def onWatchModeEnabledChanged(self, enabled: bool):
+        """Handle watch mode state change from actions."""
+        # Update button state to match actual watch mode state
+        self.watch_mode_button.setChecked(enabled)
+        logger.info(f"Watch mode {'enabled' if enabled else 'disabled'}")

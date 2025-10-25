@@ -9,14 +9,14 @@ logger = logging.getLogger(__name__)
 class Config(QObject):
     def __init__(self, custom_config_path: str | None = None):
         """Initialize Config from file.
-        
+
         Args:
             custom_config_path: Optional path to custom config file.
                                Useful for testing different parameter sets.
                                If None, uses system config location.
         """
         super().__init__()
-        
+
         # Determine config path
         if custom_config_path:
             self.config_path = custom_config_path
@@ -32,9 +32,9 @@ class Config(QObject):
                 logger.debug(f"Test mode detected, using temp config: {self.config_path}")
             else:
                 self.config_path = os.path.join(get_localappdata_dir(), 'config.ini')
-        
+
         config_exists = os.path.exists(self.config_path)
-        
+
         if config_exists:
             # Existing config: Load without injecting defaults
             logger.debug(f"Loading existing config from: {self.config_path}")
@@ -45,13 +45,13 @@ class Config(QObject):
             logger.info(f"Config file not found. Creating default config at: {self.config_path}")
             self._config = configparser.ConfigParser()
             self._set_defaults()
-            
+
             # Write the default config file
             os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
             with open(self.config_path, 'w') as configfile:
                 self._config.write(configfile)
             logger.info("Default config.ini created successfully")
-        
+
         # Initialize properties from config values (using fallbacks for missing keys)
         self._initialize_properties()
 
@@ -157,6 +157,12 @@ class Config(QObject):
             'maximized': 'false'  # Window maximized state
         }
 
+        self._config['WatchMode'] = {
+            'watch_mode_default': 'false',
+            'watch_debounce_ms': '500',
+            'watch_ignore_patterns': '.tmp,~,.crdownload,.part'
+        }
+
     def _get_defaults(self):
         """Get default configuration values as a dictionary structure."""
         localappdata = get_localappdata_dir()
@@ -231,13 +237,18 @@ class Config(QObject):
                 'x': -1,
                 'y': -1,
                 'maximized': False
+            },
+            'WatchMode': {
+                'watch_mode_default': False,
+                'watch_debounce_ms': 500,
+                'watch_ignore_patterns': '.tmp,~,.crdownload,.part'
             }
         }
 
     def _set_defaults(self):
         """Set default configuration values in the ConfigParser object."""
         defaults = self._get_defaults()
-        
+
         for section, values in defaults.items():
             self._config[section] = {}
             for key, value in values.items():
@@ -250,7 +261,7 @@ class Config(QObject):
     def _initialize_properties(self):
         """Initialize class properties from config values with fallbacks."""
         defaults = self._get_defaults()
-        
+
         # Paths
         self.tmp_root = self._config.get('Paths', 'tmp_root', fallback=defaults['Paths']['tmp_root'])
         self.default_directory = self._config.get('Paths', 'default_directory', fallback=defaults['Paths']['default_directory'])
@@ -336,6 +347,12 @@ class Config(QObject):
         self.window_y = self._config.getint('Window', 'y', fallback=window_defaults['y'])
         self.window_maximized = self._config.getboolean('Window', 'maximized', fallback=window_defaults['maximized'])
 
+        # WatchMode
+        watch_mode_defaults = defaults['WatchMode']
+        self.watch_mode_default = self._config.getboolean('WatchMode', 'watch_mode_default', fallback=watch_mode_defaults['watch_mode_default'])
+        self.watch_debounce_ms = self._config.getint('WatchMode', 'watch_debounce_ms', fallback=watch_mode_defaults['watch_debounce_ms'])
+        self.watch_ignore_patterns = self._config.get('WatchMode', 'watch_ignore_patterns', fallback=watch_mode_defaults['watch_ignore_patterns'])
+
         logger.debug(f"Configuration loaded: {self.config_path}")
 
     def _get_log_level(self, level_str):
@@ -351,14 +368,14 @@ class Config(QObject):
 
     def save(self):
         """Save current configuration to file with minimal mutation.
-        
+
         Re-reads the existing config file, updates ONLY managed keys,
         creates a backup, and preserves all unrelated sections/keys.
         """
         import shutil
-        
+
         logger.debug(f"Config.save() called: last_directory property = '{self.last_directory}'")
-        
+
         # Create a fresh ConfigParser to read the current file state
         current = configparser.ConfigParser()
         if os.path.exists(self.config_path):
@@ -367,7 +384,7 @@ class Config(QObject):
                 logger.debug(f"Re-read existing config from {self.config_path}")
             except Exception as e:
                 logger.warning(f"Failed to re-read config file: {e}. Will create fresh config.")
-        
+
         # Create backup before modifying
         if os.path.exists(self.config_path):
             backup_path = self.config_path + '.bak'
@@ -376,7 +393,7 @@ class Config(QObject):
                 logger.debug(f"Created backup at {backup_path}")
             except Exception as e:
                 logger.warning(f"Failed to create backup: {e}")
-        
+
         # Update ONLY managed keys (minimal mutation)
         # 1. Paths section - last_directory
         if not current.has_section('Paths'):
@@ -386,7 +403,7 @@ class Config(QObject):
         if old_last_dir != new_last_dir:
             logger.debug(f"Config.save(): Updating last_directory: '{old_last_dir}' → '{new_last_dir}'")
         current['Paths']['last_directory'] = new_last_dir
-        
+
         # 2. General section - GPU Pack settings
         if not current.has_section('General'):
             current.add_section('General')
@@ -398,7 +415,7 @@ class Config(QObject):
         current['General']['gpu_last_error'] = self.gpu_last_error
         current['General']['gpu_pack_dialog_dont_show'] = 'true' if self.gpu_pack_dialog_dont_show else 'false'
         current['General']['prefer_system_pytorch'] = 'true' if self.prefer_system_pytorch else 'false'
-        
+
         # 3. Window section - geometry
         if not current.has_section('Window'):
             current.add_section('Window')
@@ -407,7 +424,7 @@ class Config(QObject):
         current['Window']['x'] = str(self.window_x)
         current['Window']['y'] = str(self.window_y)
         current['Window']['maximized'] = 'true' if self.window_maximized else 'false'
-        
+
         # Write back to file
         try:
             with open(self.config_path, 'w', encoding='utf-8') as configfile:

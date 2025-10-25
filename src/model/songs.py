@@ -44,6 +44,28 @@ class Songs(QObject):
         self.deleted.emit(song)  # Changed from updated to deleted signal
         self.listChanged.emit()  # Emit list changed signal
 
+    def get_by_txt_file(self, txt_file: str) -> Song | None:
+        """Get song by txt file path."""
+        for song in self.songs:
+            if song.txt_file == txt_file:
+                return song
+        return None
+
+    def get_by_path(self, path: str) -> Song | None:
+        """Get song by folder path."""
+        for song in self.songs:
+            if song.path == path:
+                return song
+        return None
+
+    def remove_by_txt_file(self, txt_file: str) -> bool:
+        """Remove song by txt file path. Returns True if removed."""
+        song = self.get_by_txt_file(txt_file)
+        if song:
+            self.remove(song)
+            return True
+        return False
+
     def list_changed(self):
         """Manually trigger list changed signal"""
         self.listChanged.emit()
