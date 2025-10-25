@@ -79,7 +79,28 @@ class MenuBar(QWidget):
         self.watch_mode_button.setChecked(False)
         self.watch_mode_button.setEnabled(False)  # Disabled until requirements met
         self.watch_mode_button.setToolTip("Monitor directory for changes and auto-update")
-        self.watch_mode_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        # Style to match other toolbar buttons (flat appearance, highlight when checked)
+        self.watch_mode_button.setStyleSheet("""
+            QPushButton {
+                border: 1px solid #8f8f91;
+                border-radius: 3px;
+                padding: 4px 8px;
+                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                                  stop: 0 #f6f7fa, stop: 1 #dadbde);
+            }
+            QPushButton:checked {
+                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                                  stop: 0 #dadbde, stop: 1 #f6f7fa);
+                border: 1px solid #5c5c5e;
+            }
+            QPushButton:hover {
+                background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                                  stop: 0 #e7e8eb, stop: 1 #c8c9cc);
+            }
+            QPushButton:disabled {
+                color: #787878;
+            }
+        """)
         self.watch_mode_button.clicked.connect(self.onWatchModeToggled)
         self._layout.addWidget(self.watch_mode_button)
 

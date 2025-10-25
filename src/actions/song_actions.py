@@ -6,6 +6,7 @@ from model.song import Song, SongStatus
 from workers.reload_song_worker import ReloadSongWorker
 from services.usdx_file_service import USDXFileService
 from services.song_service import SongService
+from services.gap_state import GapState
 from model.usdx_file import USDXFile
 from utils.audio import get_audio_duration
 from utils.run_async import run_async
@@ -25,6 +26,20 @@ class SongActions(BaseActions):
     def set_selected_songs(self, songs: List[Song]):
         logger.debug(f"Setting selected songs: {[s.title for s in songs]}")
         self.data.selected_songs = songs
+
+        # Track B: Create GapState for single selection
+        if len(songs) == 1:
+            song = songs[0]
+            self.data.gap_state = GapState.from_song(
+                current_gap=song.gap_info.original_gap if song.gap_info else 0,
+                detected_gap=song.gap_info.detected_gap if song.gap_info else None
+            )
+            logger.debug(f"Created GapState for {song.title}: current={self.data.gap_state.current_gap_ms}, detected={self.data.gap_state.detected_gap_ms}")
+        else:
+            # Multi-selection or no selection
+            self.data.gap_state = None
+            logger.debug("Cleared GapState (multi/no selection)")
+
         # Removed waveform creation here - will be handled by MediaPlayerComponent
 
     def _mark_reload_started(self, song_path: str):

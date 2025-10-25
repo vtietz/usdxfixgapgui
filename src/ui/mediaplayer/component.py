@@ -1,7 +1,7 @@
 import logging
 import os
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Signal, Qt, QSize
 
 from actions import Actions
 from app.app_data import AppData
@@ -13,8 +13,15 @@ from ui.mediaplayer.event_filter import MediaPlayerEventFilter
 from ui.mediaplayer.waveform_widget import WaveformWidget
 from ui.mediaplayer.player_controller import PlayerController
 from ui.mediaplayer.ui_manager import UIManager
+from ui.mediaplayer.gap_marker_colors import (
+    ORIGINAL_GAP_HEX,
+    CURRENT_GAP_HEX,
+    DETECTED_GAP_HEX
+)
+from ui.ui_utils import make_color_dot_icon
 
 logger = logging.getLogger(__name__)
+
 
 class MediaPlayerComponent(QWidget):
     position_changed = Signal(int)
@@ -85,9 +92,20 @@ class MediaPlayerComponent(QWidget):
         # Setup action buttons
         self.position_label = QLabel('')
         self.position_label.setStyleSheet(f"color: {self._config.playback_position_color};")
-        self.keep_original_gap_btn = QPushButton("Keep original gap (0 ms)")
-        self.save_current_play_position_btn = QPushButton("Save play position (0 ms)")
-        self.save_detected_gap_btn = QPushButton("Save detected gap (0 ms)")
+
+        # Add colored dot icons matching waveform markers
+        self.keep_original_gap_btn = QPushButton(" Keep original gap (0 ms)")
+        self.keep_original_gap_btn.setIcon(make_color_dot_icon(ORIGINAL_GAP_HEX, diameter=8))
+        self.keep_original_gap_btn.setIconSize(QSize(8, 8))
+
+        self.save_current_play_position_btn = QPushButton(" Save play position (0 ms)")
+        self.save_current_play_position_btn.setIcon(make_color_dot_icon(CURRENT_GAP_HEX, diameter=8))
+        self.save_current_play_position_btn.setIconSize(QSize(8, 8))
+
+        self.save_detected_gap_btn = QPushButton(" Save detected gap (0 ms)")
+        self.save_detected_gap_btn.setIcon(make_color_dot_icon(DETECTED_GAP_HEX, diameter=8))
+        self.save_detected_gap_btn.setIconSize(QSize(8, 8))
+
         self.revert_btn = QPushButton("Revert")
 
         self.syllable_label = QLabel('')
@@ -198,12 +216,12 @@ class MediaPlayerComponent(QWidget):
         self.waveform_widget.set_placeholder(
             "Invalid vocals file - re-run gap detection to regenerate"
         )
-        
+
         # Update vocals button tooltip
         self.vocals_btn.setToolTip(
             "Invalid vocals file format. Re-run gap detection to re-extract vocals."
         )
-        
+
         # Update UI state
         self.update_ui()
 
@@ -222,11 +240,23 @@ class MediaPlayerComponent(QWidget):
             logger.debug("Song is None, clearing player")
             self.update_ui()
             self.update_player_files()
+            # Track B: Clear gap markers
+            self.waveform_widget.set_gap_markers(None, None, None)
             return
 
         # Update UI immediately for instant feedback
         self.update_ui()
         self.update_player_files()
+
+        # Track B: Update gap markers from GapState
+        if hasattr(self._data, 'gap_state') and self._data.gap_state:
+            self.waveform_widget.set_gap_markers(
+                original_gap_ms=self._data.gap_state.saved_gap_ms,
+                current_gap_ms=self._data.gap_state.current_gap_ms,
+                detected_gap_ms=self._data.gap_state.detected_gap_ms
+            )
+        else:
+            self.waveform_widget.set_gap_markers(None, None, None)
 
         # Defer async operations slightly to let UI render selection first
         # This eliminates any perceived lag from event loop contention
@@ -376,4 +406,3 @@ class MediaPlayerComponent(QWidget):
 
     def on_save_detected_gap_btn_clicked(self):
         self._actions.update_gap_value(self._song, self._song.gap_info.detected_gap)
-

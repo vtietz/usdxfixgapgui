@@ -24,6 +24,10 @@ class AppData(QObject):
     selected_songs_changed = Signal(list)  # Signal still uses list
     is_loading_songs_changed = Signal(bool)
 
+    # Track B: State facades for selected song
+    gap_state: Optional['GapState'] = None  # Forward ref to avoid circular import
+    audio_service: Optional['AudioService'] = None
+
     # Add these new signals to support manager communication
     gap_detection_finished = Signal(object)  # Emits the song when gap detection is finished
     gap_updated = Signal(object)             # Emits the song when gap value is updated
@@ -150,4 +154,3 @@ class AppData(QObject):
             self.unlock_file(song.audio_file)
         # Vocals file may exist depending on processing pipeline
         # Avoid strict dependency on services here; let callers supply more specific paths if needed.
-

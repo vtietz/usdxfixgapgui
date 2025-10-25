@@ -2,6 +2,9 @@ import os
 from PySide6.QtWidgets import QLabel, QWidget, QSizePolicy
 from PySide6.QtGui import QPainter, QPen, QPixmap, QColor
 from PySide6.QtCore import Qt, Signal, QEvent
+from ui.mediaplayer.gap_marker_colors import (
+    PLAYHEAD_COLOR, ORIGINAL_GAP_COLOR, CURRENT_GAP_COLOR, DETECTED_GAP_COLOR
+)
 
 class WaveformWidget(QLabel):
     # Change signal type to float
@@ -26,15 +29,51 @@ class WaveformWidget(QLabel):
         self.overlay.paintEvent = self.paint_overlay
 
         self.currentPosition = 0
+
+        # Track B: Gap markers
+        self.duration_ms = 0  # Total duration for gap position calculation
+        self.original_gap_ms = None  # Original gap marker (orange)
+        self.current_gap_ms = None  # Current gap marker (blue)
+        self.detected_gap_ms = None  # Detected gap marker (green)
+
         self.installEventFilter(self)
 
     def paint_overlay(self, event):
+        """Draw playhead and gap markers on waveform."""
         painter = QPainter(self.overlay)
-        pen = QPen(Qt.GlobalColor.red, 2)
+        overlay_width = self.overlay.width()
+        overlay_height = self.overlay.height()
+
+        # 1. Draw playhead (red)
+        pen = QPen(PLAYHEAD_COLOR, 2)
         painter.setPen(pen)
-        # Convert x to an integer to ensure it matches the expected argument type
-        x = int(self.currentPosition * self.overlay.width())
-        painter.drawLine(x, 0, x, self.overlay.height())
+        playhead_x = int(self.currentPosition * overlay_width)
+        painter.drawLine(playhead_x, 0, playhead_x, overlay_height)
+
+        # 2. Draw gap markers if duration is known
+        if self.duration_ms > 0:
+            # Draw original gap marker (orange, dotted)
+            if self.original_gap_ms is not None:
+                original_x = int((self.original_gap_ms / self.duration_ms) * overlay_width)
+                pen = QPen(ORIGINAL_GAP_COLOR, 2, Qt.PenStyle.DotLine)  # Orange dotted
+                painter.setPen(pen)
+                painter.drawLine(original_x, 0, original_x, overlay_height)
+
+            # Draw current gap marker (blue, solid)
+            if self.current_gap_ms is not None:
+                current_x = int((self.current_gap_ms / self.duration_ms) * overlay_width)
+                pen = QPen(CURRENT_GAP_COLOR, 2)  # Blue solid
+                painter.setPen(pen)
+                painter.drawLine(current_x, 0, current_x, overlay_height)
+
+            # Draw detected gap marker (green, dashed)
+            if self.detected_gap_ms is not None:
+                detected_x = int((self.detected_gap_ms / self.duration_ms) * overlay_width)
+                pen = QPen(DETECTED_GAP_COLOR, 2, Qt.PenStyle.DashLine)  # Green dashed
+                painter.setPen(pen)
+                painter.drawLine(detected_x, 0, detected_x, overlay_height)
+
+        painter.end()
 
     def set_placeholder(self, text: str):
         """Set placeholder text to display when waveform is not available"""
@@ -79,9 +118,25 @@ class WaveformWidget(QLabel):
     def update_position(self, position, duration):
         if duration > 0:
             self.currentPosition = position / duration
+            self.duration_ms = duration  # Track B: Store duration for gap markers
             self.overlay.update()  # Trigger a repaint
         else:
             self.currentPosition = 0
+            self.duration_ms = 0
+
+    def set_gap_markers(self, original_gap_ms=None, current_gap_ms=None, detected_gap_ms=None):
+        """
+        Set gap marker positions for display.
+
+        Args:
+            original_gap_ms: Original gap position in milliseconds (orange marker)
+            current_gap_ms: Current gap position in milliseconds (blue marker)
+            detected_gap_ms: Detected gap position in milliseconds (green marker)
+        """
+        self.original_gap_ms = original_gap_ms
+        self.current_gap_ms = current_gap_ms
+        self.detected_gap_ms = detected_gap_ms
+        self.overlay.update()  # Trigger repaint to show markers
 
     def load_waveform(self, file: str):
         if file and os.path.exists(file):
