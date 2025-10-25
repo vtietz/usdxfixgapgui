@@ -11,8 +11,9 @@ lizard>=1.18.0        # Complexity analysis
 flake8>=7.0.0         # Style and syntax checking
 mypy>=1.5.0           # Optional type checking
 
-# Code cleanup
+# Code cleanup and formatting
 autoflake>=2.2.0      # Remove unused imports
+black>=24.0.0         # Opinionated code formatter
 
 # Base requirements (runtime dependencies)
 -r requirements.txt
