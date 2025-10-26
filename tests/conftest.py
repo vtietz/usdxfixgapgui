@@ -23,6 +23,28 @@ from test_utils import separation_stub
 from utils.providers.mdx.config import MdxConfig
 
 
+# ============================================================================
+# Platform-specific test markers
+# ============================================================================
+
+def pytest_collection_modifyitems(config, items):
+    """
+    Automatically skip Windows-only tests when running on non-Windows platforms.
+    """
+    skip_on_non_windows = pytest.mark.skipif(
+        sys.platform != 'win32',
+        reason="Windows-only test - requires Windows APIs (os.add_dll_directory, ctypes.WinDLL, os.startfile)"
+    )
+    
+    windows_only_keywords = ['_windows', 'windll', 'startfile', 'dll_director']
+    
+    for item in items:
+        # Skip tests with windows-specific names
+        test_name = item.nodeid.lower()
+        if any(keyword in test_name for keyword in windows_only_keywords):
+            item.add_marker(skip_on_non_windows)
+
+
 def validate_detected_gap(detected_ms: Optional[float], test_name: str = "unknown") -> None:
     """
     Validate that a detected gap meets basic sanity checks.
