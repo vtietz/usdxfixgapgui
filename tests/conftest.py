@@ -41,7 +41,8 @@ def pytest_collection_modifyitems(config, items):
         'enable_gpu_runtime_wheel',  # Uses os.add_dll_directory
         'feature_flag',  # GPU feature flags use Windows-specific code
         'url_format_for_python',  # Tests expect Windows URLs
-        'open_config_file'  # Uses os.startfile
+        'open_config_file',  # Uses os.startfile
+        'no_config_uses_legacy'  # Part of FeatureFlagIntegration, uses os.add_dll_directory
     ]
 
     for item in items:
