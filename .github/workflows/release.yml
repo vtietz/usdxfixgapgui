@@ -26,6 +26,7 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller
           pip install -r requirements-build.txt
+          pip install --index-url https://download.pytorch.org/whl/cpu torch==2.4.1+cpu torchaudio==2.4.1+cpu
 
       - name: Build Windows EXE
         shell: cmd
@@ -62,6 +63,7 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller
           pip install -r requirements-build.txt
+          pip install --index-url https://download.pytorch.org/whl/cpu torch==2.4.1+cpu torchaudio==2.4.1+cpu
 
       - name: Make build script executable
         run: chmod +x run.sh
