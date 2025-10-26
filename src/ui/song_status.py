@@ -20,7 +20,7 @@ class SongsStatusVisualizer(QWidget):
 
         # Optional: Store labels for updating without recreation
         self.status_labels = {}
-        
+
         # Placeholder (shown when there are no songs)
         self.placeholder_label = QLabel()
         self.placeholder_label.setStyleSheet("background-color: #2E2E2E; color: rgba(255, 255, 255, 0.3);")

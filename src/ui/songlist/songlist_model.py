@@ -58,7 +58,7 @@ class SongTableModel(QAbstractTableModel):
         # Check if new songs were added (batch operation that didn't emit individual 'added' signals)
         current_count = len(self.songs)
         model_count = len(self.songs_model.songs)
-        
+
         if model_count > current_count:
             # Songs were added in batch - add them all at once
             new_songs = self.songs_model.songs[current_count:]
