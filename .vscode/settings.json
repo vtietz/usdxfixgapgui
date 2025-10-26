@@ -47,5 +47,14 @@
         "**/dist/**": true,
         "**/.venv/**": true,
         "**/pretrained_models/**": true
-    }
+    },
+
+    // Disable Pylance for non-Python files
+    "python.analysis.exclude": [
+        "**/.github/**",
+        "**/*.yml",
+        "**/*.yaml",
+        "**/*.json",
+        "**/*.md"
+    ]
 }
