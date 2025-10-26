@@ -26,6 +26,7 @@
 # Markdown and documentation - always LF
 *.md text eol=lf
 *.txt text eol=lf
+VERSION text eol=lf
 
 # Data files - treat as binary
 *.db binary
