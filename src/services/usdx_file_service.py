@@ -3,10 +3,11 @@ import os
 import logging
 import aiofiles
 from typing import List, Tuple
-from model.usdx_file import USDXFile, Tags, Note, ValidationError  # Changed import path
+from model.usdx_file import USDXFile, Tags, Note, ValidationError
 import utils.files as files
 
 logger = logging.getLogger(__name__)
+
 
 class USDXFileService:
     """Service class for operations on USDX files"""
@@ -56,7 +57,10 @@ class USDXFileService:
         async with aiofiles.open(usdx_file.filepath, 'rb') as file:
             raw = await file.read()
 
-        encodings = ['utf-8', 'utf-16', 'utf-32', 'cp1252', 'cp1250', 'latin-1', 'ascii', 'windows-1252', 'iso-8859-1', 'iso-8859-15']
+        encodings = [
+            'utf-8', 'utf-16', 'utf-32', 'cp1252', 'cp1250', 'latin-1',
+            'ascii', 'windows-1252', 'iso-8859-1', 'iso-8859-15'
+        ]
 
         for encoding in encodings:
             try:
@@ -73,47 +77,15 @@ class USDXFileService:
 
     @staticmethod
     def parse(content: str) -> Tuple[Tags, List[Note]]:
-        """Parse USDX file content into tags and notes"""
+        """Parse USDX file content into tags and notes using strategy pattern"""
+        from services.usdx.parsers import create_registry
+
         tags = Tags()
         notes: List[Note] = []
+        registry = create_registry()
 
         for line in content.splitlines():
-            if line.startswith('#GAP:'):
-                value = line.split(':')[1].strip()
-                # remove all numbers after "," or "."
-                value = value.split(",")[0].split(".")[0]
-                tags.GAP = int(value) if value else None
-            elif line.startswith('#TITLE:'):
-                tags.TITLE = line.split(':')[1].strip()
-            elif line.startswith('#ARTIST:'):
-                tags.ARTIST = line.split(':')[1].strip()
-            elif line.startswith('#MP3:'):
-                tags.AUDIO = line.split(':')[1].strip()
-            elif line.startswith('#AUDIO:'):
-                tags.AUDIO = line.split(':')[1].strip()
-            elif line.startswith('#BPM:'):
-                value = line.split(':')[1].strip()
-                # Handle both period and comma as decimal separator (locale-aware)
-                value_normalized = value.replace(',', '.') if value else None
-                tags.BPM = float(value_normalized) if value_normalized else None
-            elif line.startswith('#START:'):
-                value = line.split(':')[1].strip()
-                # Handle both period and comma as decimal separator
-                value_normalized = value.replace(',', '.') if value else None
-                tags.START = float(value_normalized) if value_normalized else None
-            elif line.startswith('#RELATIVE:'):
-                value = line.split(':')[1].strip()
-                tags.RELATIVE = value.lower() == "yes" if value else None
-            elif not line.startswith('#'):
-                parts = line.strip().split()
-                if len(parts) >= 5 and parts[0] in {':', '*', 'R', '-', 'F', 'G'}:
-                    note = Note()
-                    note.NoteType = parts[0]
-                    note.StartBeat = int(parts[1])
-                    note.Length = int(parts[2])
-                    note.Pitch = int(parts[3])
-                    note.Text = ' '.join(parts[4:])
-                    notes.append(note)
+            registry.parse_line(line, tags, notes)
 
         return tags, notes
 
@@ -207,9 +179,13 @@ class USDXFileService:
             if not os.path.exists(usdx_file.filepath):
                 raise FileNotFoundError(f"File not found: {usdx_file.filepath}")
 
-            # Open the file and read content
-            with open(usdx_file.filepath, 'r', encoding=usdx_file.encoding or 'utf-8') as f:
-                lines = f.readlines()
+            # Determine encoding if not already set
+            if usdx_file.encoding is None:
+                await USDXFileService.determine_encoding(usdx_file)
+
+            # Open the file and read content asynchronously
+            async with aiofiles.open(usdx_file.filepath, 'r', encoding=usdx_file.encoding) as f:
+                lines = await f.readlines()
 
             # Find and parse notes
             notes = []

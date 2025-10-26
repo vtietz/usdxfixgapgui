@@ -15,7 +15,7 @@ class ReloadSongWorker(IWorker):
     """Worker specifically designed for reloading a single song"""
 
     def __init__(self, song_path, directory):
-        super().__init__()
+        super().__init__(is_instant=True)  # Reload is instant - don't wait behind long tasks
         self.signals = WorkerSignals()
         self.song_path = song_path
         self.directory = directory
@@ -50,5 +50,9 @@ class ReloadSongWorker(IWorker):
 
         if not self.is_cancelled():
             self.signals.songReloaded.emit(song)
-            self.signals.finished.emit()
             logger.debug(f"Finished reloading song: {self.song_path}")
+        else:
+            logger.debug(f"Cancelled reloading song: {self.song_path}")
+
+        # Always emit finished signal, even if cancelled
+        self.signals.finished.emit()

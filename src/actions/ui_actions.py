@@ -14,13 +14,13 @@ class UiActions(BaseActions):
         if len(self.data.selected_songs) != 1:
             logger.error("Please select exactly one song to open in USDB.")
             return
-        song: Song = self.data.first_selected_song
+        song: Song | None = self.data.first_selected_song
         if not song:
             logger.error("No song selected")
             return
 
-        # More robust check for usdb_id validity
-        if not song.usdb_id or song.usdb_id == "0" or song.usdb_id == "":
+        # More robust check for usdb_id validity (usdb_id is Optional[int])
+        if not song.usdb_id or song.usdb_id == 0:
             logger.error(f"Song '{song.title}' has no valid USDB ID.")
             return
 
@@ -33,7 +33,7 @@ class UiActions(BaseActions):
 
     def open_folder(self):
         # Opens the folder of the first selected song
-        song: Song = self.data.first_selected_song
+        song: Song | None = self.data.first_selected_song
         if not song:
             logger.error("No song selected to open folder.")
             return

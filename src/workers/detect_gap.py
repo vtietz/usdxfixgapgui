@@ -1,4 +1,3 @@
-import time
 from typing import List, Tuple, Optional
 from PySide6.QtCore import Signal
 from common.config import Config
@@ -77,9 +76,7 @@ class DetectGapWorker(IWorker):
         result.original_gap = self.options.original_gap
 
         try:
-            # wait 3 seconds (if needed for testing)
-            logger.debug(f"Detecting gap for '{self.options.audio_file}' in 3 seconds...")
-            time.sleep(3)
+            logger.debug(f"Detecting gap for '{self.options.audio_file}'...")
 
             # Create detect gap options with config
             detect_options = DetectGapOptions(
@@ -88,7 +85,7 @@ class DetectGapWorker(IWorker):
                 original_gap=self.options.original_gap,
                 audio_length=self.options.duration_ms,
                 default_detection_time=self.options.config.default_detection_time,
-                silence_detect_params=self.options.config.spleeter_silence_detect_params,
+                silence_detect_params="silencedetect=noise=-10dB:d=0.2",  # Default value
                 overwrite=self.options.overwrite,
                 config=self.options.config  # Pass config for provider selection
             )

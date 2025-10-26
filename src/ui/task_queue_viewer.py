@@ -32,61 +32,40 @@ class TaskQueueViewer(QWidget):
         self.tableWidget.setColumnWidth(1, 100)  # Set width of "Status" column
 
     def updateTaskList(self):
+        """
+        Update task list with explicit FIFO ordering:
+        1. Running instant task (if any)
+        2. Running standard tasks
+        3. Queued instant tasks (oldest first)
+        4. Queued standard tasks (oldest first)
+        """
         # Save current scroll position
         vscroll_pos = self.tableWidget.verticalScrollBar().value() if self.tableWidget.verticalScrollBar() else 0
 
-        # Get current tasks
-        running_tasks = list(self.workerQueueManager.running_tasks.items())
-        queued_tasks = list(self.workerQueueManager.queued_tasks)
+        # Build ordered list of (task_id, description, status, lane) tuples
+        ordered_tasks = []
 
-        # Create a map of task IDs to their data
-        task_map = {}
-        for task_id, worker in running_tasks:
-            task_map[task_id] = (worker.description, worker.status.name)
-        for worker in queued_tasks:
-            task_map[worker.id] = (worker.description, worker.status.name)
+        # 1. Running instant task (single slot)
+        if self.workerQueueManager.running_instant_task:
+            worker = self.workerQueueManager.running_instant_task
+            ordered_tasks.append((worker.id, worker.description, worker.status.name, "instant"))
 
-        # Process existing rows first
-        rows_to_remove = []
-        for row in range(self.tableWidget.rowCount()):
-            # Get the task ID stored in the first column
-            desc_item = self.tableWidget.item(row, 0)
-            if not desc_item:
-                rows_to_remove.append(row)
-                continue
+        # 2. Running standard tasks (dict - use values in insertion order)
+        for task_id, worker in self.workerQueueManager.running_tasks.items():
+            ordered_tasks.append((task_id, worker.description, worker.status.name, "standard"))
 
-            task_id = desc_item.data(Qt.ItemDataRole.UserRole)
-            if not task_id or task_id not in task_map:
-                rows_to_remove.append(row)
-                continue
+        # 3. Queued instant tasks (deque - oldest first)
+        for worker in self.workerQueueManager.queued_instant_tasks:
+            ordered_tasks.append((worker.id, worker.description, worker.status.name, "instant"))
 
-            # Update the existing row
-            description, status = task_map[task_id]
-            desc_item.setText(description)
+        # 4. Queued standard tasks (deque - oldest first)
+        for worker in self.workerQueueManager.queued_tasks:
+            ordered_tasks.append((worker.id, worker.description, worker.status.name, "standard"))
 
-            status_item = self.tableWidget.item(row, 1)
-            if status_item:
-                status_item.setText(status)
+        # Clear and rebuild table to ensure correct ordering
+        self.tableWidget.setRowCount(0)
 
-            # Update button state
-            button = self.tableWidget.cellWidget(row, 2)
-            if button:
-                if status == WorkerStatus.CANCELLING.name or task_id in self.cancelling_tasks:
-                    button.setText("Cancelling...")
-                    button.setEnabled(False)
-                else:
-                    button.setText("Cancel")
-                    button.setEnabled(True)
-
-            # Mark this task as handled
-            del task_map[task_id]
-
-        # Remove rows in reverse order to avoid index issues
-        for row in sorted(rows_to_remove, reverse=True):
-            self.tableWidget.removeRow(row)
-
-        # Add rows for remaining tasks
-        for task_id, (description, status) in task_map.items():
+        for task_id, description, status, lane in ordered_tasks:
             row = self.tableWidget.rowCount()
             self.tableWidget.insertRow(row)
 

@@ -34,6 +34,13 @@ class SongListView(QTableView):
         # Connect the view's signal to the action handler
         self.selected_songs_changed.connect(actions.set_selected_songs)
 
+        # Selection debounce timer to prevent rapid-fire selections
+        self._selection_timer = QTimer()
+        self._selection_timer.setSingleShot(True)
+        self._selection_timer.setInterval(150)  # 150ms debounce
+        self._selection_timer.timeout.connect(self._process_selection)
+        self._pending_selection = None
+
         # Re-trigger viewport lazy-loading whenever data changes in proxy or source
         if hasattr(model, 'dataChanged'):
             model.dataChanged.connect(lambda *args: self.reset_viewport_loading())
@@ -121,6 +128,13 @@ class SongListView(QTableView):
 
 
     def onSelectionChanged(self, selected, deselected):
+        """Debounce selection changes to prevent rapid-fire updates"""
+        # Restart the debounce timer
+        self._selection_timer.stop()
+        self._selection_timer.start()
+
+    def _process_selection(self):
+        """Actually process the selection after debounce period"""
         selected_songs = []
         # Resolve source model robustly
         proxy_model = self.model()
@@ -308,17 +322,17 @@ class SongListView(QTableView):
         return needs_load
 
     def _reload_songs_in_background(self, songs):
-        """Trigger reload of songs in the background."""
-        logger.debug(f"Triggering background reload for {len(songs)} songs")
+        """Trigger light reload of songs for viewport lazy-loading.
+        Uses metadata-only reload that does NOT change status or queue workers."""
+        logger.debug(f"Triggering light reload for {len(songs)} songs in viewport")
         for song in songs:
-            logger.debug(f"  - Reloading: {song.title} by {song.artist} (path: {song.path})")
-            # Use the actions to reload the song
-            self.ui_actions.reload_song(specific_song=song)
+            logger.debug(f"  - Light-reloading: {song.title or song.path}")
+            # Use light reload instead of full reload to avoid waveform generation
+            self.ui_actions.reload_song_light(specific_song=song)
 
     def reset_viewport_loading(self):
         """Reset viewport loading state (call when data changes)."""
         self._loaded_rows.clear()
         # Trigger initial load
         QTimer.singleShot(100, self._load_visible_songs)
-
 

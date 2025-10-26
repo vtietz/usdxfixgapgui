@@ -57,7 +57,7 @@ def is_gpu_enabled(config) -> bool:
         config: Application config object
 
     Returns:
-        True if GpuOptIn is enabled, False otherwise
+        True if gpu_opt_in is enabled, False otherwise
     """
     return bool(config.gpu_opt_in)
 

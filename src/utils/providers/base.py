@@ -60,9 +60,9 @@ class IDetectionProvider(ABC):
 
         This method is responsible for generating the audio file that will be
         analyzed for silence/speech boundaries. Implementations may:
-        - Perform full stem separation (Spleeter)
+        - Perform AI-based vocal separation (MDX-Net)
         - Create vocal-forward preview (HPSS + VAD)
-        - Extract and separate time windows (HQ segment)
+        - Extract and separate time windows for analysis
 
         Args:
             audio_file: Absolute path to input audio file
@@ -98,7 +98,7 @@ class IDetectionProvider(ABC):
         **IMPORTANT SEMANTIC NOTE:**
         Providers return different segment types based on their detection strategy:
         - Speech-centric providers (VAD preview): Return SPEECH segments (start, end)
-        - Silence-centric providers (Spleeter, HQ): Return SILENCE segments (start, end)
+        - Silence-centric providers (AI vocal separation): Return SILENCE segments (start, end)
 
         The orchestration layer (detect_gap.perform) handles routing to appropriate
         boundary selection logic based on get_method_name().
@@ -168,10 +168,8 @@ class IDetectionProvider(ABC):
         - Configuration selection
 
         Returns:
-            Provider identifier string, one of:
-            - 'vad_preview': VAD + HPSS preview method
-            - 'spleeter': Full Spleeter stem separation
-            - 'hq_segment': High-quality windowed separation
+            Provider identifier string:
+            - 'mdx': MDX-Net AI vocal separation with VAD
 
         Note:
             Must match the method name in Config.method for factory selection.

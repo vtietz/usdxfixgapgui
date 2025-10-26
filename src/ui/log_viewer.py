@@ -32,7 +32,11 @@ class LogViewerWidget(QWidget):
         super().__init__(parent)
         self.log_file_path = log_file_path
         self.max_lines = max_lines
-        self.last_position = 0  # Track file position for incremental reading
+        # Start from current end of file (skip old logs from previous sessions)
+        try:
+            self.last_position = os.path.getsize(log_file_path) if os.path.exists(log_file_path) else 0
+        except Exception:
+            self.last_position = 0
         self.log_lines = deque(maxlen=max_lines)  # Ring buffer for log lines
 
         self._init_ui()
@@ -123,9 +127,12 @@ class LogViewerWidget(QWidget):
 
     def _refresh_display(self):
         """Refresh the text display with current log lines."""
-        # Remember current scroll position
-        scrollbar = self.text_edit.verticalScrollBar()
-        was_at_bottom = scrollbar.value() >= scrollbar.maximum() - 10
+        # Remember current scroll positions (both vertical and horizontal)
+        v_scrollbar = self.text_edit.verticalScrollBar()
+        h_scrollbar = self.text_edit.horizontalScrollBar()
+        was_at_bottom = v_scrollbar.value() >= v_scrollbar.maximum() - 10
+        # Always preserve horizontal scroll position (user controls horizontal scrolling)
+        h_scroll_pos = h_scrollbar.value()
 
         # Build display text with enhanced color coding
         display_text = []
@@ -159,10 +166,13 @@ class LogViewerWidget(QWidget):
         # Auto-scroll to bottom only if we were already at bottom
         # OR if the scrollbar maximum was 0 (empty/first load)
         # This preserves manual scroll position for reviewing history
-        if was_at_bottom or scrollbar.maximum() == 0:
+        if was_at_bottom or v_scrollbar.maximum() == 0:
             # Use QTimer to ensure scroll happens AFTER HTML is rendered
-            from PySide6.QtCore import QTimer
             QTimer.singleShot(0, lambda: self._scroll_to_bottom())
+
+        # ALWAYS restore horizontal scroll position to prevent jumping
+        # (user controls horizontal scrolling, we only auto-scroll vertically)
+        QTimer.singleShot(0, lambda: h_scrollbar.setValue(h_scroll_pos))
 
     def _scroll_to_bottom(self):
         """Scroll to the bottom of the log display."""

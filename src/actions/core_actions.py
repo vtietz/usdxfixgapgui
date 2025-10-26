@@ -35,9 +35,11 @@ class CoreActions(BaseActions):
         self.data.directory = directory
 
         # Save this directory as the last used directory in config
+        logger.debug(f"Before save: config.last_directory = '{self.config.last_directory}'")
         self.config.last_directory = directory
+        logger.debug(f"After assignment: config.last_directory = '{self.config.last_directory}'")
         self.config.save()
-        logger.debug(f"Saved last directory to config: {directory}")
+        logger.info(f"Saved last directory to config: {directory}")
 
         self._clear_songs()
         self._load_songs()
@@ -48,6 +50,7 @@ class CoreActions(BaseActions):
 
     def _load_songs(self):
         logger.info(f"Loading songs from directory: {self.data.directory}")
+        self.data.is_loading_songs = True  # Set loading flag immediately
         worker = LoadUsdxFilesWorker(self.data.directory, self.data.tmp_path)
         worker.signals.songLoaded.connect(self._on_song_loaded)
         worker.signals.songsLoadedBatch.connect(self._on_songs_batch_loaded)  # Connect batch handler
@@ -57,11 +60,12 @@ class CoreActions(BaseActions):
 
     def _on_songs_batch_loaded(self, songs: list):
         """Handle batch of songs loaded - much faster than one-by-one."""
-        logger.info(f"Batch loading {len(songs)} songs")
+        logger.debug(f"Batch loading {len(songs)} songs")
         # Set original gap for all songs
         for song in songs:
             if song.status == SongStatus.NOT_PROCESSED and song.gap_info:
-                song.gap_info.original_gap = song.gap
+                if hasattr(song.gap_info, 'original_gap'):  # Type guard
+                    song.gap_info.original_gap = song.gap
 
         # Use bulk add for better performance
         self.data.songs.add_batch(songs)
@@ -69,14 +73,16 @@ class CoreActions(BaseActions):
     def _on_song_loaded(self, song: Song):
         """Handle individual song loaded (for single file reloads)."""
         self.data.songs.add(song)
-        if song.status == SongStatus.NOT_PROCESSED:
-            song.gap_info.original_gap = song.gap
-            # Only run auto-detection for single file loads, not bulk loads
-            # Auto-detection works with any configured method (spleeter, vad_preview, etc.)
-            if hasattr(self, '_is_bulk_load') and not self._is_bulk_load:
-                from actions.gap_actions import GapActions
-                gap_actions = GapActions(self.data)
-                gap_actions._detect_gap(song)
+        if song.status == SongStatus.NOT_PROCESSED and song.gap_info:
+            if hasattr(song.gap_info, 'original_gap'):  # Type guard
+                song.gap_info.original_gap = song.gap
+        # Only run auto-detection for single file loads, not bulk loads
+        # Auto-detection uses MDX (only supported method)
+        is_bulk_load = getattr(self, '_is_bulk_load', False)  # Safe attribute access
+        if not is_bulk_load:
+            from actions.gap_actions import GapActions
+            gap_actions = GapActions(self.data)
+            gap_actions._detect_gap(song)
 
     def _on_loading_songs_finished(self):
         self.data.is_loading_songs = False

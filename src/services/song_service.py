@@ -20,7 +20,7 @@ class SongService:
 
     async def load_song(self, txt_file: str, force_reload=False, cancel_check: Optional[Callable] = None) -> Song:
         """Load a song from a text file, using cache if available"""
-        logger.debug(f"Loading '{txt_file}', force_reload={force_reload}")
+        logger.debug(f"Loading '{txt_file}', force_reload={force_reload}, cancel_check={'provided' if cancel_check else 'None'}")
 
         song = Song(txt_file)
 
@@ -41,7 +41,7 @@ class SongService:
             else:
                 logger.debug(f"Cache miss for {txt_file}, loading from disk")
 
-        logger.debug(f"Loading song {txt_file} from disk and updating cache")
+        logger.info(f"Loading new/changed song from disk: {txt_file}")
 
         # Load USDX file
         try:
@@ -55,8 +55,10 @@ class SongService:
             logger.error(f"Error loading song {txt_file}: {e}", exc_info=True)
             song.set_error(str(e))
 
-        # Load gap_info
-        song.gap_info = GapInfoService.create_for_song_path(song.path)
+        # Load gap_info with txt_basename for multi-entry support
+        txt_basename = os.path.basename(txt_file)
+        song.gap_info = GapInfoService.create_for_song_path(song.path, txt_basename)
+        song.gap_info.owner = song
         try:
             logger.debug(f"Loading gap_info for {txt_file}")
             if song.gap_info:
@@ -103,6 +105,60 @@ class SongService:
             logger.warning(f"Audio file not found for {song.txt_file}: {song.audio_file}")
 
         logger.debug(f"Updating status from gap_info for {song.txt_file}")
+
+    async def load_song_metadata_only(self, txt_file: str, cancel_check: Optional[Callable] = None) -> Song:
+        """
+        Load only metadata from a song file - USDX tags and notes.
+        Does NOT load gap_info, so Song.status remains unchanged.
+        Used for viewport lazy-loading to avoid triggering status changes and waveform generation.
+        """
+        logger.debug(f"Loading metadata only for '{txt_file}'")
+
+        song = Song(txt_file)
+
+        # Validate that txt_file is actually a file, not a directory
+        if os.path.isdir(txt_file):
+            logger.error(f"Expected file path but got directory: {txt_file}")
+            song.set_error(f"Invalid path: expected file, got directory")
+            return song
+
+        # Check if file exists
+        if not os.path.exists(txt_file):
+            logger.error(f"File not found during metadata load: {txt_file}")
+            song.set_error(f"File not found: {txt_file}")
+            return song
+
+        # Load USDX file (tags and notes only)
+        try:
+            usdx_file = USDXFile(txt_file)
+            await USDXFileService.load(usdx_file)
+            await self._initialize_song_from_usdx(song, usdx_file)
+        except FileNotFoundError as e:
+            logger.error(f"File not found during metadata load: {txt_file}")
+            song.set_error(str(e))
+            return song
+        except PermissionError as e:
+            logger.error(f"Permission denied during metadata load: {txt_file}")
+            song.set_error(f"Permission denied: {txt_file}")
+            return song
+        except Exception as e:
+            logger.error(f"Error loading song metadata {txt_file}: {e}", exc_info=True)
+            song.set_error(str(e))
+            return song
+
+        # Determine duration from audio file if available
+        if not song.duration_ms or song.duration_ms == 0:
+            if song.audio_file and os.path.exists(song.audio_file):
+                try:
+                    song.duration_ms = audio.get_audio_duration(song.audio_file, cancel_check)
+                except Exception as e:
+                    logger.warning(f"Could not determine audio duration for {txt_file}: {e}")
+
+        # DO NOT load gap_info - this keeps status at NOT_PROCESSED
+        # DO NOT update cache - metadata-only loads are ephemeral
+        logger.debug(f"Metadata loaded for {txt_file}, status remains {song.status}")
+
+        return song
 
     def get_notes(self, song: Song):
         """Get notes for a song from its USDX file"""

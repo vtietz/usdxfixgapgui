@@ -1,0 +1,60 @@
+# Black code formatter configuration
+[tool.black]
+line-length = 120
+target-version = ['py311']
+extend-exclude = '''
+/(
+    # Directories to exclude
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | pretrained_models
+  | samples
+)/
+'''
+
+# Flake8 configuration (Black-compatible)
+[tool.flake8]
+max-line-length = 120
+extend-ignore = [
+    "E203",  # Whitespace before ':' (conflicts with Black)
+    "E266",  # Too many leading '#' for block comment (Black's style)
+    "E501",  # Line too long (Black handles this)
+    "W503",  # Line break before binary operator (Black's style)
+]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    ".eggs",
+    "*.egg",
+    "pretrained_models",
+    "samples"
+]
+
+# MyPy type checking configuration
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = [
+    "build",
+    "dist",
+    ".venv",
+    "venv",
+    "pretrained_models",
+    "samples"
+]

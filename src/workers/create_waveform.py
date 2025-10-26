@@ -13,9 +13,10 @@ class CreateWaveform(IWorker):
             song: Song,
             config: Config,
             audio_file,
-            waveform_file
+            waveform_file,
+            is_instant: bool = True  # Default to instant - waveform creation is user-triggered
         ):
-        super().__init__()
+        super().__init__(is_instant=is_instant)
         self.signals = IWorkerSignals()
         self.song = song
         self.config = config
@@ -72,12 +73,13 @@ class CreateWaveform(IWorker):
         if silence_periods:
             waveform.draw_silence_periods(waveform_file, silence_periods, duration_ms, silence_periods_color)
 
-        # Draw original gap line
-        waveform.draw_gap(waveform_file, gap, duration_ms, waveform_color)
+        # Gap markers are now drawn dynamically by the overlay system - no need to bake into PNG
+        # # Draw original gap line
+        # waveform.draw_gap(waveform_file, gap, duration_ms, waveform_color)
 
-        # Draw detected gap line if available
-        if detected_gap is not None:
-            waveform.draw_gap(waveform_file, detected_gap, duration_ms, detected_gap_color)
+        # # Draw detected gap line if available
+        # if detected_gap is not None:
+        #     waveform.draw_gap(waveform_file, detected_gap, duration_ms, detected_gap_color)
 
         # Draw notes only if timings are present (helper filters invalid notes)
         if notes:

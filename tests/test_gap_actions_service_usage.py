@@ -5,7 +5,7 @@ without accessing non-existent song.usdx_file property.
 """
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, AsyncMock
 from model.song import Song
 from model.gap_info import GapInfo, GapInfoStatus
 from model.usdx_file import Note
@@ -70,16 +70,20 @@ def create_note(start_beat, length, pitch, text):
 class TestUpdateGapValue:
     """Tests for update_gap_value() method"""
 
-    @patch('actions.gap_actions.USDXFileService')
-    @patch('actions.gap_actions.GapInfoService')
+    @patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock)
+    @patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock)
+    @patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock)
     @patch('actions.gap_actions.AudioActions')
     @patch('actions.gap_actions.run_async')
     def test_update_gap_value_uses_services_not_property(
-        self, mock_run_async, mock_audio_actions, mock_gap_info_service, mock_usdx_service, mock_app_data, sample_song
+        self, mock_run_async, mock_audio_actions, mock_save, mock_write_gap, mock_load, mock_app_data, sample_song, fake_run_async
     ):
         """Verify update_gap_value uses services instead of song.usdx_file property"""
-        # Close coroutines to avoid RuntimeWarning
-        mock_run_async.side_effect = lambda coro: coro.close()
+        # Use centralized async executor fixture
+        mock_run_async.side_effect = fake_run_async
+
+        # Mock load to return a mock USDXFile
+        mock_load.return_value = Mock()
 
         # Setup
         gap_actions = GapActions(mock_app_data)
@@ -95,22 +99,26 @@ class TestUpdateGapValue:
         assert sample_song.gap_info.updated_gap == new_gap
         assert sample_song.gap_info.status == GapInfoStatus.UPDATED
 
-        # Verify run_async called (for USDXFileService and GapInfoService)
-        assert mock_run_async.call_count == 2
+        # Verify run_async called once (combined update_gap_and_cache function)
+        assert mock_run_async.call_count == 1
 
         # Verify signal emitted
         mock_app_data.songs.updated.emit.assert_called_once_with(sample_song)
 
-    @patch('actions.gap_actions.USDXFileService')
-    @patch('actions.gap_actions.GapInfoService')
+    @patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock)
+    @patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock)
+    @patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock)
     @patch('actions.gap_actions.AudioActions')
     @patch('actions.gap_actions.run_async')
     def test_update_gap_value_recalculates_note_times(
-        self, mock_run_async, mock_audio_actions, mock_gap_info_service, mock_usdx_service, mock_app_data, sample_song
+        self, mock_run_async, mock_audio_actions, mock_save, mock_write_gap, mock_load, mock_app_data, sample_song, fake_run_async
     ):
         """Verify note times are recalculated with new gap value"""
-        # Close coroutines to avoid RuntimeWarning
-        mock_run_async.side_effect = lambda coro: coro.close()
+        # Use centralized async executor fixture
+        mock_run_async.side_effect = fake_run_async
+
+        # Mock load to return a mock USDXFile
+        mock_load.return_value = Mock()
 
         gap_actions = GapActions(mock_app_data)
         new_gap = 1500
@@ -123,20 +131,19 @@ class TestUpdateGapValue:
         for note in sample_song.notes:
             assert note.start_ms != 0 or note.end_ms != 0  # Times were calculated
 
-    @patch('actions.gap_actions.USDXFileService')
-    @patch('actions.gap_actions.GapInfoService')
-    @patch('actions.gap_actions.AudioActions')
     @patch('actions.gap_actions.run_async')
-    def test_update_gap_value_no_song(
-        self, mock_run_async, mock_audio_actions, mock_gap_info_service, mock_usdx_service, mock_app_data
-    ):
-        """Verify graceful handling when no song selected"""
+    def test_update_gap_value_no_song(self, mock_run_async, mock_app_data):
+        """Verify graceful handling when no song selected
+
+        Note: No AsyncMock patches needed since code path returns early
+        and never calls services (update_gap_tag or GapInfoService.save).
+        """
         gap_actions = GapActions(mock_app_data)
 
         # Execute with None song and no first_selected_song
         gap_actions.update_gap_value(None, 1500)
 
-        # Verify no service calls made
+        # Verify early return - no service calls made
         mock_run_async.assert_not_called()
         mock_app_data.songs.updated.emit.assert_not_called()
 
@@ -144,16 +151,20 @@ class TestUpdateGapValue:
 class TestRevertGapValue:
     """Tests for revert_gap_value() method"""
 
-    @patch('actions.gap_actions.USDXFileService')
-    @patch('actions.gap_actions.GapInfoService')
+    @patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock)
+    @patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock)
+    @patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock)
     @patch('actions.gap_actions.AudioActions')
     @patch('actions.gap_actions.run_async')
     def test_revert_gap_value_uses_services_not_property(
-        self, mock_run_async, mock_audio_actions, mock_gap_info_service, mock_usdx_service, mock_app_data, sample_song
+        self, mock_run_async, mock_audio_actions, mock_save, mock_write_gap, mock_load, mock_app_data, sample_song, fake_run_async
     ):
         """Verify revert_gap_value uses services instead of song.usdx_file property"""
-        # Close coroutines to avoid RuntimeWarning
-        mock_run_async.side_effect = lambda coro: coro.close()
+        # Use centralized async executor fixture
+        mock_run_async.side_effect = fake_run_async
+
+        # Mock load to return a mock USDXFile
+        mock_load.return_value = Mock()
 
         # Setup
         gap_actions = GapActions(mock_app_data)
@@ -165,22 +176,26 @@ class TestRevertGapValue:
         # Verify gap reverted to original
         assert sample_song.gap == sample_song.gap_info.original_gap
 
-        # Verify run_async called (for USDXFileService and GapInfoService)
-        assert mock_run_async.call_count == 2
+        # Verify run_async called once (combined revert_gap_and_cache function)
+        assert mock_run_async.call_count == 1
 
         # Verify signal emitted
         mock_app_data.songs.updated.emit.assert_called_once_with(sample_song)
 
-    @patch('actions.gap_actions.USDXFileService')
-    @patch('actions.gap_actions.GapInfoService')
+    @patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock)
+    @patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock)
+    @patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock)
     @patch('actions.gap_actions.AudioActions')
     @patch('actions.gap_actions.run_async')
     def test_revert_gap_value_recalculates_note_times(
-        self, mock_run_async, mock_audio_actions, mock_gap_info_service, mock_usdx_service, mock_app_data, sample_song
+        self, mock_run_async, mock_audio_actions, mock_save, mock_write_gap, mock_load, mock_app_data, sample_song, fake_run_async
     ):
         """Verify note times are recalculated with original gap value"""
-        # Close coroutines to avoid RuntimeWarning
-        mock_run_async.side_effect = lambda coro: coro.close()
+        # Use centralized async executor fixture
+        mock_run_async.side_effect = fake_run_async
+
+        # Mock load to return a mock USDXFile
+        mock_load.return_value = Mock()
 
         gap_actions = GapActions(mock_app_data)
         sample_song.gap = 1500  # Changed from original

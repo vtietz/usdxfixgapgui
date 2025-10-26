@@ -1,5 +1,7 @@
 import logging
 import os
+import stat
+import time
 from utils.cancellable_process import run_cancellable_process
 import tempfile
 from typing import List, Tuple
@@ -41,17 +43,69 @@ def run_ffmpeg(audio_file, command, check_cancellation=None):
 
     temp_dir = os.path.dirname(audio_file)
     extension = os.path.splitext(audio_file)[1]
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f'_processed{extension}', dir=temp_dir).name
+
+    # Create a temp output path without keeping a handle open (Windows-friendly)
+    fd, temp_file = tempfile.mkstemp(suffix=f'_processed{extension}', dir=temp_dir)
+    try:
+        os.close(fd)
+    except Exception:
+        pass
 
     full_command = ["ffmpeg", "-i", audio_file, "-y"] + command + [temp_file]
     returncode, stdout, stderr = run_cancellable_process(full_command, check_cancellation)
 
     if returncode == 0:
-        if os.path.exists(audio_file):
-            os.remove(audio_file)
-        os.replace(temp_file, audio_file)
+        # Avoid explicit delete; use atomic replace. Requires destination not open on Windows.
+        # Add robust retry to handle transient sharing violations or AV scanners on Windows/network drives.
+        # Media player file locks require longer retry window
+        max_retries = 15
+        last_exc = None
+        for attempt in range(max_retries):
+            try:
+                # Ensure destination and temp are writable (clear read-only attribute on Windows)
+                try:
+                    os.chmod(audio_file, stat.S_IWRITE)
+                except Exception:
+                    pass
+                try:
+                    os.chmod(temp_file, stat.S_IWRITE)
+                except Exception:
+                    pass
+                os.replace(temp_file, audio_file)
+                last_exc = None
+                break
+            except PermissionError as e:
+                last_exc = e
+                if attempt < max_retries - 1:
+                    logger.debug(f"File locked (PermissionError), retry {attempt + 1}/{max_retries}")
+            except OSError as e:
+                # On Windows, check specific sharing/permission errors and retry briefly
+                winerr = getattr(e, "winerror", None)
+                if winerr in (5, 32):  # Access denied / Sharing violation
+                    last_exc = e
+                    if attempt < max_retries - 1:
+                        logger.debug(f"File locked (WinError {winerr}), retry {attempt + 1}/{max_retries}")
+                else:
+                    # Non-retryable
+                    last_exc = e
+                    break
+            # Longer backoff for media player to release file handles (up to ~3 seconds total)
+            time.sleep(0.1 * (attempt + 1))
+        if last_exc is not None:
+            # Best-effort cleanup of temp file before re-raising
+            if os.path.exists(temp_file):
+                try:
+                    os.remove(temp_file)
+                except Exception:
+                    pass
+            raise last_exc
     else:
-        os.remove(temp_file)  # Cleanup the temporary file if processing failed
+        # Cleanup the temporary file if processing failed
+        if os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+            except Exception:
+                pass
         raise Exception(f"Failed to apply command on {audio_file}. Error: {stderr}")
 
     return audio_file
@@ -84,13 +138,23 @@ def detect_silence_periods(
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
 
     silence_periods = []
+    silence_start_ms = None
     for line in stderr.splitlines():
         if "silence_start" in line:
-            silence_start_ms = float(line.split("silence_start: ")[1]) * 1000
-        if "silence_end" in line:
-            silence_end_ms = float(line.split("silence_end: ")[1].split(" ")[0]) * 1000
-            # Since ffmpeg reports end after start, we pair the last start with this end
-            silence_periods.append((silence_start_ms, silence_end_ms))
+            try:
+                silence_start_ms = float(line.split("silence_start: ")[1]) * 1000
+            except Exception:
+                silence_start_ms = None
+        elif "silence_end" in line and silence_start_ms is not None:
+            try:
+                silence_end_ms = float(line.split("silence_end: ")[1].split(" ")[0]) * 1000
+                # Since ffmpeg reports end after start, we pair the last start with this end
+                silence_periods.append((silence_start_ms, silence_end_ms))
+            except Exception:
+                pass
+            finally:
+                # Reset start for the next segment
+                silence_start_ms = None
 
     return silence_periods
 
@@ -105,5 +169,4 @@ def make_clearer_voice(audio_file, check_cancellation=None):
         "-af",
         ",".join(filters),]
     return run_ffmpeg(audio_file, command, check_cancellation)
-
 

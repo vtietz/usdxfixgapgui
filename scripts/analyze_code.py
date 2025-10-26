@@ -48,6 +48,11 @@ MAX_COMPLEXITY = 15  # CCN (Cyclomatic Complexity Number) threshold
 MAX_NLOC = 100       # Max lines of code per function
 MAX_LINE_LENGTH = 120  # Max line length (matches project style)
 
+# File length thresholds (for AI-friendly architecture)
+FILE_LENGTH_WARN = 500    # Warning threshold
+FILE_LENGTH_ERROR = 800   # Error threshold
+FILE_LENGTH_FAIL = 1000   # Fail threshold
+
 # Project root
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -79,9 +84,9 @@ def run_command(cmd: List[str], description: str) -> Tuple[int, str]:
     Returns:
         Tuple of (exit_code, output)
     """
-    print(f"\n{'='*80}")
+    print(f"\n{' = '*80}")
     print(f"🔍 {description}")
-    print(f"{'='*80}")
+    print(f"{' = '*80}")
 
     try:
         result = subprocess.run(
@@ -258,6 +263,109 @@ def analyze_types(files: List[str] = None) -> tuple:
         return 0, output  # Don't fail on type issues
 
 
+def analyze_file_length(files: List[str] = None) -> tuple:
+    """Check file length to ensure AI-friendly file sizes.
+
+    Args:
+        files: Specific files to analyze, or None for all
+
+    Returns:
+        Tuple of (exit_code, output_text)
+    """
+    print(f"\n{'='*80}")
+    print("🔍 File Length Analysis")
+    print(f"{'='*80}")
+
+    # Collect all Python files to analyze
+    files_to_check = []
+    if files:
+        # Convert to absolute paths if relative
+        for f in files:
+            if f.endswith('.py'):
+                file_path = Path(f)
+                if not file_path.is_absolute():
+                    file_path = PROJECT_ROOT / file_path
+                files_to_check.append(file_path)
+    else:
+        for dir_name in PYTHON_DIRS:
+            dir_path = PROJECT_ROOT / dir_name
+            if dir_path.exists():
+                files_to_check.extend(dir_path.rglob('*.py'))
+
+    # Filter out excluded patterns
+    files_to_check = [
+        f for f in files_to_check
+        if not any(excl in str(f) for excl in EXCLUDE_PATTERNS)
+    ]
+
+    if not files_to_check:
+        print("No files to analyze")
+        return 0, ""
+
+    # Count lines in each file
+    file_lengths = []
+    for file_path in files_to_check:
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                line_count = len(f.readlines())
+            file_lengths.append((file_path, line_count))
+        except Exception as e:
+            print(f"⚠️  Warning: Could not read {file_path}: {e}")
+
+    # Sort by line count (descending)
+    file_lengths.sort(key=lambda x: x[1], reverse=True)
+
+    # Categorize files
+    fail_files = [(f, l) for f, l in file_lengths if l > FILE_LENGTH_FAIL]
+    error_files = [(f, l) for f, l in file_lengths if FILE_LENGTH_ERROR < l <= FILE_LENGTH_FAIL]
+    warn_files = [(f, l) for f, l in file_lengths if FILE_LENGTH_WARN < l <= FILE_LENGTH_ERROR]
+
+    # Build output
+    output_lines = []
+
+    if fail_files:
+        output_lines.append(f"\n🔴 CRITICAL: Files exceeding {FILE_LENGTH_FAIL} lines (must be split):")
+        for file_path, line_count in fail_files:
+            rel_path = file_path.relative_to(PROJECT_ROOT)
+            output_lines.append(f"  {rel_path}: {line_count} lines")
+            print(f"  🔴 {rel_path}: {line_count} lines (CRITICAL - split required)")
+
+    if error_files:
+        output_lines.append(f"\n⚠️  ERROR: Files exceeding {FILE_LENGTH_ERROR} lines (should be split):")
+        for file_path, line_count in error_files:
+            rel_path = file_path.relative_to(PROJECT_ROOT)
+            output_lines.append(f"  {rel_path}: {line_count} lines")
+            print(f"  ⚠️  {rel_path}: {line_count} lines")
+
+    if warn_files:
+        output_lines.append(f"\nℹ️  WARNING: Files exceeding {FILE_LENGTH_WARN} lines (consider splitting):")
+        for file_path, line_count in warn_files:
+            rel_path = file_path.relative_to(PROJECT_ROOT)
+            output_lines.append(f"  {rel_path}: {line_count} lines")
+            print(f"  ℹ️  {rel_path}: {line_count} lines")
+
+    # Print summary
+    total_issues = len(fail_files) + len(error_files) + len(warn_files)
+    if total_issues == 0:
+        print(f"✅ All files under {FILE_LENGTH_WARN} lines (AI-friendly)")
+        return 0, ""
+    else:
+        print("\nSummary:")
+        print(f"  Critical (>{FILE_LENGTH_FAIL}): {len(fail_files)}")
+        print(f"  Error (>{FILE_LENGTH_ERROR}): {len(error_files)}")
+        print(f"  Warning (>{FILE_LENGTH_WARN}): {len(warn_files)}")
+        print("\n💡 Tip: Split large files into smaller modules for better AI assistance")
+
+        output = "\n".join(output_lines)
+
+        # Fail only if we have critical files (>1000 lines)
+        if fail_files:
+            print(f"⚠️  Found {len(fail_files)} file(s) requiring immediate refactoring")
+            return 1, output
+        else:
+            return 0, output
+
+
 def parse_style_output(output: str) -> dict:
     """Parse flake8 output to count issues per file.
 
@@ -300,20 +408,45 @@ def parse_complexity_output(output: str) -> dict:
     return dict(file_issues)
 
 
-def print_file_summary(complexity_output: str = "", style_output: str = ""):
+def parse_file_length_output(output: str) -> dict:
+    """Parse file length output to count issues per file.
+
+    Args:
+        output: File length analysis output
+
+    Returns:
+        Dict mapping file path to issue count (1 per file)
+    """
+    file_issues = {}
+
+    for line in output.split('\n'):
+        if '.py:' in line and 'lines' in line:
+            # Extract file path
+            parts = line.strip().split(':')
+            if len(parts) >= 2:
+                filepath = parts[0].strip()
+                if filepath:
+                    file_issues[filepath] = 1
+
+    return file_issues
+
+
+def print_file_summary(complexity_output: str = "", style_output: str = "", length_output: str = ""):
     """Print summary of issues grouped by file.
 
     Args:
         complexity_output: Lizard output
         style_output: flake8 output
+        length_output: File length analysis output
     """
 
     # Parse outputs
     complexity_issues = parse_complexity_output(complexity_output) if complexity_output else {}
     style_issues = parse_style_output(style_output) if style_output else {}
+    length_issues = parse_file_length_output(length_output) if length_output else {}
 
     # Combine all files
-    all_files = set(complexity_issues.keys()) | set(style_issues.keys())
+    all_files = set(complexity_issues.keys()) | set(style_issues.keys()) | set(length_issues.keys())
 
     if not all_files:
         return
@@ -321,41 +454,45 @@ def print_file_summary(complexity_output: str = "", style_output: str = ""):
     # Calculate totals per file
     file_totals = []
     for filepath in all_files:
-        total = complexity_issues.get(filepath, 0) + style_issues.get(filepath, 0)
-        file_totals.append((filepath, complexity_issues.get(filepath, 0), style_issues.get(filepath, 0), total))
+        complexity = complexity_issues.get(filepath, 0)
+        style = style_issues.get(filepath, 0)
+        length = length_issues.get(filepath, 0)
+        total = complexity + style + length
+        file_totals.append((filepath, complexity, style, length, total))
 
     # Sort by total issues (descending)
-    file_totals.sort(key=lambda x: x[3], reverse=True)
+    file_totals.sort(key=lambda x: x[4], reverse=True)
 
     # Print top offenders
-    print(f"\n{'='*80}")
+    print(f"\n{' = '*80}")
     print("📋 TOP FILES BY ISSUE COUNT")
-    print(f"{'='*80}")
-    print(f"{'File':<60} {'Complex':>8} {'Style':>8} {'Total':>8}")
-    print(f"{'-'*60} {'-'*8} {'-'*8} {'-'*8}")
+    print(f"{' = '*80}")
+    print(f"{'File':<55} {'Complex':>7} {'Style':>7} {'Length':>7} {'Total':>7}")
+    print(f"{'-'*55} {'-'*7} {'-'*7} {'-'*7} {'-'*7}")
 
     # Show top 20 files
-    for filepath, complexity, style, total in file_totals[:20]:
+    for filepath, complexity, style, length, total in file_totals[:20]:
         # Shorten path for display
-        display_path = filepath if len(filepath) <= 60 else '...' + filepath[-57:]
-        print(f"{display_path:<60} {complexity:>8} {style:>8} {total:>8}")
+        display_path = filepath if len(filepath) <= 55 else '...' + filepath[-52:]
+        print(f"{display_path:<55} {complexity:>7} {style:>7} {length:>7} {total:>7}")
 
     total_files = len(file_totals)
     if total_files > 20:
         print(f"\n... and {total_files - 20} more file(s) with issues")
 
 
-def print_summary(results: dict, complexity_output: str = "", style_output: str = ""):
+def print_summary(results: dict, complexity_output: str = "", style_output: str = "", length_output: str = ""):
     """Print analysis summary.
 
     Args:
         results: Dict mapping check name to exit code
         complexity_output: Lizard output for file summary
         style_output: flake8 output for file summary
+        length_output: File length output for file summary
     """
     # Print file summary first if we have output
-    if complexity_output or style_output:
-        print_file_summary(complexity_output, style_output)
+    if complexity_output or style_output or length_output:
+        print_file_summary(complexity_output, style_output, length_output)
 
     print(f"\n{'='*80}")
     print("📊 ANALYSIS SUMMARY")
@@ -417,6 +554,11 @@ Examples:
         action='store_true',
         help='Skip mypy type analysis'
     )
+    parser.add_argument(
+        '--skip-length',
+        action='store_true',
+        help='Skip file length analysis'
+    )
 
     args = parser.parse_args()
 
@@ -444,6 +586,7 @@ Examples:
     results = {}
     complexity_output = ""
     style_output = ""
+    length_output = ""
 
     if not args.skip_complexity:
         exit_code, output = analyze_complexity(files_to_analyze)
@@ -455,12 +598,17 @@ Examples:
         results['Style'] = exit_code
         style_output = output
 
+    if not args.skip_length:
+        exit_code, output = analyze_file_length(files_to_analyze)
+        results['File Length'] = exit_code
+        length_output = output
+
     if not args.skip_types:
         exit_code, output = analyze_types(files_to_analyze)
         results['Types'] = exit_code
 
     # Print summary with file breakdown
-    return print_summary(results, complexity_output, style_output)
+    return print_summary(results, complexity_output, style_output, length_output)
 
 
 if __name__ == '__main__':

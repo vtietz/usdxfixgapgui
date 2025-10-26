@@ -12,6 +12,7 @@ class SongStatus(Enum):
     NOT_PROCESSED = 'NOT_PROCESSED'
     QUEUED = 'QUEUED'
     PROCESSING = 'PROCESSING'
+    GAP_DETECTED = 'GAP_DETECTED'
     SOLVED = 'SOLVED'
     UPDATED = 'UPDATED'
     MATCH = 'MATCH'
@@ -67,6 +68,13 @@ class Song:
                 return f"{self.gap_info.normalization_level:.1f} dB"
             return "YES"
         return "NO"
+
+    @property
+    def status_text(self):
+        """Human-readable status text - returns error message if status is ERROR"""
+        if self.status == SongStatus.ERROR and self.error_message:
+            return self.error_message
+        return self.status.value
 
     @property
     def gap_info(self):

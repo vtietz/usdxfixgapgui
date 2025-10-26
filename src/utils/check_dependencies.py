@@ -46,4 +46,3 @@ def check_dependencies(dependencies):
             logger.error(f"Dependency {command} not found.")
             all_dependencies_met = False
     return all_dependencies_met
-

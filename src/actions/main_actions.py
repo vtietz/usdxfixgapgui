@@ -5,6 +5,7 @@ from actions.song_actions import SongActions
 from actions.gap_actions import GapActions
 from actions.audio_actions import AudioActions
 from actions.ui_actions import UiActions
+from actions.watch_mode_actions import WatchModeActions
 
 class Actions(BaseActions):
     """Main actions class that combines all action modules"""
@@ -18,6 +19,11 @@ class Actions(BaseActions):
         self._gap_actions = GapActions(data)
         self._audio_actions = AudioActions(data)
         self._ui_actions = UiActions(data)
+        self._watch_mode_actions = WatchModeActions(data)
+
+        # Expose watch mode signals
+        self.watch_mode_enabled_changed = self._watch_mode_actions.watch_mode_enabled_changed
+        self.initial_scan_completed = self._watch_mode_actions.initial_scan_completed
 
     # Core Actions
     def auto_load_last_directory(self):
@@ -32,6 +38,9 @@ class Actions(BaseActions):
 
     def reload_song(self, specific_song=None):
         self._song_actions.reload_song(specific_song)
+
+    def reload_song_light(self, specific_song=None):
+        self._song_actions.reload_song_light(specific_song)
 
     def delete_selected_song(self):
         self._song_actions.delete_selected_song()
@@ -62,3 +71,19 @@ class Actions(BaseActions):
 
     def open_folder(self):
         return self._ui_actions.open_folder()
+
+    # Watch Mode Actions
+    def can_enable_watch_mode(self):
+        return self._watch_mode_actions.can_enable_watch_mode()
+
+    def is_watch_mode_enabled(self):
+        return self._watch_mode_actions.is_watch_mode_enabled()
+
+    def start_watch_mode(self):
+        return self._watch_mode_actions.start_watch_mode()
+
+    def stop_watch_mode(self):
+        self._watch_mode_actions.stop_watch_mode()
+
+    def toggle_watch_mode(self):
+        return self._watch_mode_actions.toggle_watch_mode()

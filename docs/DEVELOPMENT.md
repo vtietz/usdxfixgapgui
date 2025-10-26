@@ -18,8 +18,9 @@ This installs:
   - pytest, pytest-qt, pytest-mock (testing)
   - lizard (complexity analysis)
   - flake8 (style checking)
-  - mypy (type checking - optional)
+  - mypy (type checking)
   - autoflake (unused import removal)
+  - black (code formatting)
 
 ## Development Workflow
 
@@ -102,6 +103,7 @@ run.bat cleanup all --skip-whitespace
 - Fix whitespace-only blank lines
 - Add missing newline at end of file
 - Remove unused imports (via autoflake)
+- Format code with Black (opinionated formatter, line-length=120)
 
 ## Development Dependencies
 
@@ -140,27 +142,86 @@ All build scripts automatically **exclude development dependencies** to minimize
 
 ```bash
 # Windows
-build.bat
+.\run.bat build
 
-# Linux
-./build_linux.sh
-
-# macOS
-./build_macos.sh
+# Linux/macOS
+./run.sh build
 ```
 
 **Excluded from builds:**
 - pytest, pytest-qt, pytest-mock
-- lizard, flake8, mypy, autoflake
+- lizard, flake8, mypy, autoflake, black
 - IPython, jupyter, notebook
 
-This significantly reduces the executable size while keeping all runtime functionality.
+**Included in builds:**
+- **CPU-only PyTorch** (~300-500 MB) - Works immediately, no extra downloads required
+- All other runtime dependencies (PySide6, librosa, demucs, etc.)
+
+**GPU Pack Architecture:**
+The executable bundles **CPU-only PyTorch** for immediate functionality. Users can optionally upgrade:
+- **CPU mode** (bundled): ~2-5 minutes per song, works everywhere
+- **GPU mode** (optional download): ~10-30 seconds per song with GPU Pack (~2.8 GB)
+- Downloads from GitHub releases with automatic hardware detection
+- Supports CUDA 12.1 and 12.4 flavors
+- GPU Pack overrides bundled CPU-only PyTorch when installed
+
+This approach provides immediate functionality while enabling optional 10x GPU acceleration.
 
 ### Build Output
 
 - Windows: `dist/usdxfixgap.exe`
 - Linux: `dist/usdxfixgap`
 - macOS: `dist/usdxfixgap`
+
+## Code Formatting with Black
+
+The project uses [Black](https://black.readthedocs.io/) for consistent code formatting.
+
+**Configuration** (`pyproject.toml`):
+- Line length: 120 characters
+- Python version: 3.11
+- Excludes: `.venv`, `build`, `dist`, `pretrained_models`
+
+**Format code manually:**
+```bash
+# Format specific file
+black src/ui/main_window.py
+
+# Format entire project
+black .
+```
+
+**Automatic formatting:**
+- VS Code: Save file triggers auto-format (enabled in `.vscode/settings.json`)
+- Command line: `run.bat cleanup` applies Black formatting
+
+**Check formatting without changes:**
+```bash
+black --check .
+```
+
+## CI/CD Workflows
+
+The project uses GitHub Actions for continuous integration:
+
+**CI Workflow** (`.github/workflows/ci.yml`):
+- Triggers: Push to `main`/`develop`/`mdx_only_detection_method`, pull requests
+- Runs: Tests, lizard, flake8, mypy, black check
+- Purpose: Ensure code quality before merging
+- Dependencies: Uses `requirements.txt` + `requirements-dev.txt`
+
+**Build Workflow** (`.github/workflows/build-exe.yml`):
+- Triggers: Manual workflow dispatch
+- Builds: Windows (.exe), Linux (.tar.gz), macOS (.tar.gz)
+- Dependencies: Uses `requirements-build.txt` (CPU-only PyTorch)
+- Purpose: Test builds without creating releases
+
+**Release Workflow** (`.github/workflows/release.yml`):
+- Triggers: Git tags (e.g., `v2.0.0`)
+- Builds: Windows (.exe), Linux (.tar.gz), macOS (.tar.gz)
+- Dependencies: Uses `requirements-build.txt` (CPU-only PyTorch)
+- Publishes: GitHub release with artifacts and notes from `docs/releases/{VERSION}.md`
+- Executable size: ~350-500 MB (CPU-only PyTorch bundled)
 
 ## Best Practices
 
@@ -171,17 +232,22 @@ This significantly reduces the executable size while keeping all runtime functio
    run.bat test
    ```
 
-2. **Analyze code quality**:
-   ```bash
-   run.bat analyze
-   ```
-
-3. **Clean up code**:
+2. **Format code**:
    ```bash
    run.bat cleanup
    ```
 
+3. **Analyze code quality**:
+   ```bash
+   run.bat analyze
+   ```
+
 4. **Address any issues** found by the analysis tools
+
+**Quick validation** (same as CI):
+```bash
+run.bat test && run.bat cleanup && run.bat analyze
+```
 
 ### During Development
 
@@ -192,11 +258,14 @@ This significantly reduces the executable size while keeping all runtime functio
 ### Code Quality Gates
 
 Before committing, ensure:
-- ✅ All tests pass
-- ✅ No functions with CCN > 15
-- ✅ No functions with NLOC > 100
-- ✅ No flake8 style violations
-- ✅ No trailing whitespace or missing EOF newlines
+- ✅ All tests pass (`run.bat test`)
+- ✅ Code is formatted with Black (`run.bat cleanup`)
+- ✅ No functions with CCN > 15 (`run.bat analyze`)
+- ✅ No functions with NLOC > 100 (`run.bat analyze`)
+- ✅ No flake8 style violations (`run.bat analyze`)
+- ✅ No type errors (`run.bat analyze`)
+
+**CI will reject PRs that fail these checks.**
 
 ## Additional Commands
 
@@ -256,13 +325,12 @@ run.bat install-dev
 
 This shouldn't happen with the updated build scripts. If it does:
 
-1. Check that `build.bat` (or `build_linux.sh`/`build_macos.sh`) has the `--exclude-module` flags
+1. Check that `run.bat build` / `run.sh build` has the `--exclude-module` flags in the PyInstaller command
 2. Clean old build artifacts: `rmdir /s /q build dist` (Windows) or `rm -rf build dist` (Linux/macOS)
 3. Rebuild
 
 ## See Also
 
-- [Architecture](architecture.md) - System design and patterns
+- [Architecture](architecture.md) - System design, layers, signal patterns
 - [Coding Standards](coding-standards.md) - Code style guidelines
-- [Signals](signals.md) - Signal/slot patterns
 - [Release Process](RELEASE_PROCESS.md) - How to create releases

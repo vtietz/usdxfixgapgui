@@ -14,6 +14,40 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Module-level list to track DLL directories added for diagnostics
+ADDED_DLL_DIRS: List[str] = []
+
+
+def _check_vcruntime() -> None:
+    """
+    Check for Microsoft Visual C++ Redistributable DLLs on Windows.
+    Logs a warning with download URL if they're missing.
+    """
+    if sys.platform != 'win32':
+        return
+
+    try:
+        import ctypes
+
+        # Try to load critical VC++ runtime DLLs
+        required_dlls = ['vcruntime140_1.dll', 'msvcp140.dll']
+        missing_dlls = []
+
+        for dll_name in required_dlls:
+            try:
+                ctypes.WinDLL(dll_name)
+            except (OSError, FileNotFoundError):
+                missing_dlls.append(dll_name)
+
+        if missing_dlls:
+            logger.warning(
+                f"Microsoft Visual C++ Redistributable DLLs missing: {', '.join(missing_dlls)}. "
+                "Install Visual Studio 2015-2022 (x64) runtime from: "
+                "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+            )
+    except Exception as e:
+        logger.debug(f"Could not check VC++ runtime: {e}")
+
 
 def resolve_pack_dir(app_version: str, flavor: str = "cu121") -> Path:
     """
@@ -33,6 +67,190 @@ def resolve_pack_dir(app_version: str, flavor: str = "cu121") -> Path:
 
     pack_dir = Path(local_app_data) / 'USDXFixGap' / 'gpu_runtime' / f'v{app_version}-{flavor}'
     return pack_dir
+
+
+def find_installed_pack_dirs() -> List[Dict[str, Any]]:
+    """
+    Scan GPU runtime root for existing GPU Pack installations.
+
+    Returns:
+        List of dictionaries with keys: path, app_version, flavor, has_install_json
+    """
+    import json
+    import re
+
+    local_app_data = os.getenv('LOCALAPPDATA')
+    if not local_app_data:
+        local_app_data = os.path.expanduser('~/.local/share')
+
+    runtime_root = Path(local_app_data) / 'USDXFixGap' / 'gpu_runtime'
+
+    if not runtime_root.exists():
+        return []
+
+    candidates = []
+    version_pattern = re.compile(r'^v([\d.]+)-(cu\d+)$')
+
+    try:
+        for item in runtime_root.iterdir():
+            if not item.is_dir():
+                continue
+
+            # Try to parse folder name (e.g., v1.4.0-cu121)
+            match = version_pattern.match(item.name)
+            app_version = None
+            flavor = None
+            has_install_json = False
+
+            if match:
+                app_version = match.group(1)
+                flavor = match.group(2)
+
+            # Check for install.json
+            install_json_path = item / 'install.json'
+            if install_json_path.exists():
+                has_install_json = True
+                try:
+                    with open(install_json_path, 'r') as f:
+                        install_data = json.load(f)
+                        # Override with install.json data if available
+                        if 'app_version' in install_data:
+                            app_version = install_data['app_version']
+                        if 'flavor' in install_data:
+                            flavor = install_data['flavor']
+                except Exception as e:
+                    logger.debug(f"Could not parse install.json in {item}: {e}")
+
+            # Add candidate if we have at least a version or install.json
+            if app_version or has_install_json:
+                candidates.append({
+                    'path': item,
+                    'app_version': app_version,
+                    'flavor': flavor,
+                    'has_install_json': has_install_json
+                })
+
+    except Exception as e:
+        logger.debug(f"Error scanning GPU runtime directory: {e}")
+
+    return candidates
+
+
+def select_best_existing_pack(candidates: List[Dict[str, Any]], config_flavor: Optional[str] = None) -> Optional[Path]:
+    """
+    Select the best GPU Pack from candidates.
+
+    Preference order:
+    1. Matches config.gpu_flavor if provided
+    2. Has valid install.json
+    3. Most recent version
+
+    Args:
+        candidates: List of candidate pack dictionaries
+        config_flavor: Optional preferred flavor from config
+
+    Returns:
+        Path to best pack or None
+    """
+    if not candidates:
+        return None
+
+    # Filter by flavor if specified
+    if config_flavor:
+        flavor_matches = [c for c in candidates if c.get('flavor') == config_flavor]
+        if flavor_matches:
+            candidates = flavor_matches
+
+    # Prefer packs with install.json
+    with_install = [c for c in candidates if c['has_install_json']]
+    if with_install:
+        candidates = with_install
+
+    # Sort by version (most recent first)
+    def version_key(candidate):
+        ver = candidate.get('app_version')
+        if ver:
+            try:
+                parts = [int(p) for p in ver.split('.')]
+                return tuple(parts)
+            except:
+                pass
+        return (0, 0, 0)
+
+    candidates.sort(key=version_key, reverse=True)
+
+    return candidates[0]['path'] if candidates else None
+
+
+def auto_recover_gpu_pack_config(config) -> bool:
+    """
+    Auto-detect and recover GPU Pack configuration if pack exists on disk.
+
+    If config.gpu_pack_path is empty but a valid pack is found on disk,
+    this function will update the config and optionally enable GPU.
+
+    Args:
+        config: Application config object
+
+    Returns:
+        True if recovery was performed, False otherwise
+    """
+    import json
+
+    # Only recover if pack path is not set
+    pack_path = getattr(config, 'gpu_pack_path', '')
+    if pack_path:
+        return False
+
+    logger.debug("GPU Pack path empty in config, scanning for existing installations...")
+
+    # Scan for existing packs
+    candidates = find_installed_pack_dirs()
+    if not candidates:
+        logger.debug("No existing GPU Pack installations found")
+        return False
+
+    # Select best pack
+    config_flavor = getattr(config, 'gpu_flavor', None)
+    best_pack = select_best_existing_pack(candidates, config_flavor)
+
+    if not best_pack:
+        logger.debug("No suitable GPU Pack found")
+        return False
+
+    logger.info(f"Auto-recovery: Found existing GPU Pack at {best_pack}")
+
+    # Update config with found pack
+    config.gpu_pack_path = str(best_pack)
+
+    # Try to read install.json for version info
+    install_json_path = best_pack / 'install.json'
+    if install_json_path.exists():
+        try:
+            with open(install_json_path, 'r') as f:
+                install_data = json.load(f)
+                if 'app_version' in install_data:
+                    config.gpu_pack_installed_version = install_data['app_version']
+                if 'flavor' in install_data and not config_flavor:
+                    config.gpu_flavor = install_data['flavor']
+                logger.debug(f"Loaded installation metadata: version={install_data.get('app_version')}, "
+                           f"flavor={install_data.get('flavor')}")
+        except Exception as e:
+            logger.debug(f"Could not read install.json: {e}")
+
+    # Auto-enable GPU if pack is found (silent recovery)
+    # This ensures bootstrap proceeds to validate CUDA
+    config.gpu_opt_in = True
+    logger.info("Auto-recovery: Enabled GPU opt-in for existing pack")
+
+    # Save config
+    try:
+        config.save_config()
+        logger.info("Auto-recovery: Config updated and saved")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to save recovered config: {e}")
+        return False
 
 
 def probe_nvml() -> Optional[Tuple[List[str], str]]:
@@ -134,86 +352,83 @@ def capability_probe() -> Dict[str, Any]:
     }
 
 
-def enable_gpu_runtime(pack_dir: Path) -> bool:
+def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
     """
     Enable GPU Pack runtime by modifying sys.path and DLL search paths.
 
     Args:
         pack_dir: Path to GPU Pack installation
+        config: Optional config object (unused, kept for compatibility)
 
     Returns:
         True if successful, False otherwise
     """
-    if not pack_dir.exists():
-        logger.warning(f"GPU Pack directory does not exist: {pack_dir}")
-        return False
+    global ADDED_DLL_DIRS
 
-    # Check if this is a wheel extraction (torch/, functorch/ at root)
-    # or a traditional install (site-packages/)
-    torch_dir = pack_dir / 'torch'
-    site_packages = pack_dir / 'site-packages'
+    # Use GPU bootstrap orchestrator
+    from utils.gpu_bootstrap import enable_runtime
+    logger.debug("Using GPU bootstrap")
+    success, added_dirs = enable_runtime(pack_dir)
+    if success:
+        ADDED_DLL_DIRS = added_dirs
+    return success
 
-    if torch_dir.exists():
-        # Wheel extraction - add pack_dir itself to sys.path
-        pack_dir_str = str(pack_dir)
-        if pack_dir_str not in sys.path:
-            sys.path.insert(0, pack_dir_str)
-            logger.info(f"Added GPU Pack directory to sys.path: {pack_dir_str}")
 
-        # Platform-specific library path setup
-        if sys.platform == 'win32':
-            # Windows: Add torch/lib directory to DLL search path for CUDA libraries
-            torch_lib_dir = torch_dir / 'lib'
-            if torch_lib_dir.exists() and hasattr(os, 'add_dll_directory'):
-                try:
-                    os.add_dll_directory(str(torch_lib_dir))
-                    logger.info(f"Added torch/lib to DLL search path: {torch_lib_dir}")
-                except Exception as e:
-                    logger.warning(f"Failed to add DLL directory: {e}")
-        else:
-            # Linux: Add torch/lib directory to LD_LIBRARY_PATH
-            torch_lib_dir = torch_dir / 'lib'
-            if torch_lib_dir.exists():
-                ld_path = os.environ.get('LD_LIBRARY_PATH', '')
-                new_ld_path = f"{torch_lib_dir}:{ld_path}" if ld_path else str(torch_lib_dir)
-                os.environ['LD_LIBRARY_PATH'] = new_ld_path
-                logger.info(f"Added torch/lib to LD_LIBRARY_PATH: {torch_lib_dir}")
+def detect_system_pytorch_cuda() -> Optional[Dict[str, str]]:
+    """
+    Detect if system has usable PyTorch with CUDA support.
 
-    elif site_packages.exists():
-        # Traditional install with site-packages
-        bin_dir = pack_dir / 'bin'
+    Checks if PyTorch is already available in the system/environment
+    (not from GPU Pack) and has CUDA support enabled.
 
-        # Prepend site-packages to sys.path (highest priority)
-        site_packages_str = str(site_packages)
-        if site_packages_str not in sys.path:
-            sys.path.insert(0, site_packages_str)
-            logger.info(f"Added GPU Pack site-packages to sys.path: {site_packages_str}")
+    Returns:
+        Dict with torch_version, cuda_version, device_name if usable
+        None if PyTorch not available or CUDA not supported
+    """
+    try:
+        import torch
 
-        # Platform-specific library path setup
-        if sys.platform == 'win32':
-            # Windows: Add bin directory to DLL search path
-            if bin_dir.exists() and hasattr(os, 'add_dll_directory'):
-                try:
-                    os.add_dll_directory(str(bin_dir))
-                    logger.info(f"Added GPU Pack bin to DLL search path: {bin_dir}")
-                except Exception as e:
-                    logger.warning(f"Failed to add DLL directory: {e}")
-        else:
-            # Linux: Add lib directory to LD_LIBRARY_PATH
-            lib_dir = pack_dir / 'lib'
-            if lib_dir.exists():
-                ld_path = os.environ.get('LD_LIBRARY_PATH', '')
-                new_ld_path = f"{lib_dir}:{ld_path}" if ld_path else str(lib_dir)
-                os.environ['LD_LIBRARY_PATH'] = new_ld_path
-                logger.info(f"Added GPU Pack lib to LD_LIBRARY_PATH: {lib_dir}")
-    else:
-        logger.warning(f"GPU Pack has neither torch/ nor site-packages/: {pack_dir}")
-        return False
+        # Check if CUDA is available
+        if not torch.cuda.is_available():
+            logger.debug("System PyTorch found but CUDA not available")
+            return None
 
-    # Set environment variable for child processes
-    os.environ['USDXFIXGAP_GPU_PACK_DIR'] = str(pack_dir)
+        # Check minimum PyTorch version (2.0+)
+        version = torch.__version__
+        try:
+            major = int(version.split('.')[0].replace('+', ''))  # Handle version like "2.7.1+cpu"
+            if major < 2:
+                logger.debug(f"System PyTorch version too old: {version} (need 2.0+)")
+                return None
+        except (ValueError, IndexError):
+            logger.debug(f"Could not parse PyTorch version: {version}")
+            return None
 
-    return True
+        # Get CUDA version
+        cuda_version = torch.version.cuda
+        if cuda_version is None:
+            logger.debug("System PyTorch has no CUDA version")
+            return None
+
+        # Get device name
+        try:
+            device_name = torch.cuda.get_device_name(0)
+        except Exception as e:
+            logger.debug(f"Could not get CUDA device name: {e}")
+            device_name = "Unknown GPU"
+
+        return {
+            'torch_version': version,
+            'cuda_version': cuda_version,
+            'device_name': device_name
+        }
+
+    except ImportError:
+        logger.debug("System PyTorch not available (ImportError)")
+        return None
+    except Exception as e:
+        logger.debug(f"Error detecting system PyTorch: {e}")
+        return None
 
 
 def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
@@ -272,13 +487,77 @@ def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
         return (False, f"Unexpected error during validation: {str(e)}")
 
 
+def validate_torch_cpu() -> Tuple[bool, str]:
+    """
+    Validate that PyTorch is available for CPU-only operation.
+    Does not check CUDA availability - only verifies torch can be imported.
+
+    Returns:
+        Tuple of (success, error_message)
+    """
+    try:
+        import torch
+
+        # Basic smoke test on CPU
+        try:
+            x = torch.randn(10, 10)
+            y = torch.randn(10, 10)
+            z = torch.matmul(x, y)
+
+            if z.shape != (10, 10):
+                return (False, "CPU smoke test failed: unexpected result shape")
+        except Exception as e:
+            return (False, f"CPU smoke test failed: {str(e)}")
+
+        logger.info(f"CPU-only torch validation successful: PyTorch {torch.__version__}")
+        return (True, "")
+
+    except ImportError as e:
+        return (False, f"Failed to import torch: {str(e)}")
+    except Exception as e:
+        return (False, f"Unexpected error during CPU validation: {str(e)}")
+
+
+def validate_torchaudio() -> Tuple[bool, str]:
+    """
+    Validate that torchaudio can be imported and is functional.
+    This is critical for gap detection with MDX provider.
+
+    Returns:
+        Tuple of (success, error_message)
+    """
+    try:
+        import torchaudio
+
+        # Try to access a simple torchaudio function
+        try:
+            # Just accessing torchaudio functionality is enough
+            # The import itself often fails if DLLs are broken
+            _ = torchaudio.info
+            logger.info(f"torchaudio validation successful: {torchaudio.__version__}")
+            return (True, "")
+        except Exception as e:
+            return (False, f"torchaudio import succeeded but functionality broken: {str(e)}")
+
+    except (ImportError, OSError) as e:
+        # OSError happens when DLLs are missing or broken (WinError 127)
+        error_msg = str(e)
+        if "WinError 127" in error_msg or "DLL" in error_msg:
+            return (False, f"torchaudio DLL error (broken GPU Pack): {error_msg}")
+        return (False, f"Failed to import torchaudio: {error_msg}")
+    except Exception as e:
+        return (False, f"Unexpected error during torchaudio validation: {str(e)}")
+
+
 def bootstrap_and_maybe_enable_gpu(config) -> bool:
     """
     Orchestrate GPU Pack activation and validation.
     Tries multiple approaches in order:
-    1. Use GPU Pack if installed and enabled
-    2. Auto-detect system-wide CUDA/PyTorch if available
-    3. Fall back to CPU
+    1. If prefer_system_pytorch=true: Try system PyTorch+CUDA first
+    2. Use GPU Pack if installed and enabled
+    3. Auto-detect system-wide CUDA/PyTorch if available (fallback)
+    4. Fall back to CPU-only torch (if torch already importable)
+    5. Fall back to no torch (FFmpeg only)
 
     Args:
         config: Application config object
@@ -286,43 +565,120 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
     Returns:
         True if GPU is enabled and validated, False otherwise
     """
+    global ADDED_DLL_DIRS
+
     try:
+        # Auto-recover GPU Pack config if pack exists on disk but config is empty
+        auto_recover_gpu_pack_config(config)
+
         # Check if user has explicitly disabled GPU
         gpu_opt_in = getattr(config, 'gpu_opt_in', None)
         if gpu_opt_in is False:
-            logger.debug("GPU acceleration explicitly disabled (GpuOptIn=false)")
+            logger.debug("GPU acceleration explicitly disabled (gpu_opt_in=false)")
             return False
 
-        # Try GPU Pack first if configured
+        # STEP 1: Try system PyTorch+CUDA first if enabled
+        prefer_system = getattr(config, 'prefer_system_pytorch', True)
+        if prefer_system and gpu_opt_in is not False:
+            logger.debug("Checking for system PyTorch with CUDA...")
+            system_pytorch = detect_system_pytorch_cuda()
+
+            if system_pytorch:
+                logger.info(f"Found system PyTorch {system_pytorch['torch_version']} "
+                           f"with CUDA {system_pytorch['cuda_version']} "
+                           f"({system_pytorch['device_name']})")
+
+                # Validate it works properly
+                try:
+                    success, error_msg = validate_cuda_torch(expected_cuda="12")  # Accept CUDA 12.x
+                    if success:
+                        logger.info("✓ System PyTorch validated successfully - using it instead of GPU Pack")
+                        config.gpu_last_health = "healthy (system)"
+                        config.gpu_last_error = ""
+                        config.save_config()
+                        return True
+                    else:
+                        logger.warning(f"System PyTorch validation failed: {error_msg}")
+                        logger.info("Falling back to GPU Pack...")
+                except Exception as e:
+                    logger.warning(f"System PyTorch validation error: {e}")
+                    logger.info("Falling back to GPU Pack...")
+            else:
+                logger.debug("System PyTorch with CUDA not found, trying GPU Pack...")
+
+        # STEP 2: Try GPU Pack if configured
         pack_path = getattr(config, 'gpu_pack_path', '')
+        pack_dir = None
+        gpu_flavor = getattr(config, 'gpu_flavor', 'cu121')
+        expected_cuda = "12.1" if gpu_flavor == "cu121" else "12.4"
+
         if pack_path:
             pack_dir = Path(pack_path)
 
-            # Enable GPU runtime
-            if enable_gpu_runtime(pack_dir):
-                # Validate CUDA
-                gpu_flavor = getattr(config, 'gpu_flavor', 'cu121')
-                expected_cuda = "12.1" if gpu_flavor == "cu121" else "12.4"
-
-                success, error_msg = validate_cuda_torch(expected_cuda)
-
-                if success:
-                    config.gpu_last_health = "healthy"
-                    config.gpu_last_error = ""
-                    config.save_config()
-                    logger.info("GPU Pack activated successfully")
-                    return True
-                else:
-                    logger.warning(f"CUDA validation failed: {error_msg}")
-                    config.gpu_last_health = "failed"
-                    config.gpu_last_error = error_msg
-                    config.save_config()
-                    # Continue to try system CUDA
+            # Check if GPU Pack directory exists before trying to enable it
+            if not pack_dir.exists():
+                logger.debug(f"GPU Pack path configured but directory not found: {pack_dir}")
+                logger.debug("Will attempt to detect system-wide CUDA installation...")
             else:
-                logger.warning(f"Failed to enable GPU runtime from {pack_dir}")
+                # Enable GPU runtime
+                if enable_gpu_runtime(pack_dir, config):
+                    # Validate CUDA first
+                    cuda_success, cuda_error = validate_cuda_torch(expected_cuda)
 
-        # If GPU Pack not available or failed, try system-wide CUDA/PyTorch
-        # This allows users with existing CUDA installations to use GPU without downloading pack
+                    if cuda_success:
+                        # CUDA works - now validate torchaudio (critical for MDX gap detection)
+                        audio_success, audio_error = validate_torchaudio()
+
+                        if audio_success:
+                            config.gpu_last_health = "healthy"
+                            config.gpu_last_error = ""
+                            config.save_config()
+                            logger.info("GPU Pack activated successfully (PyTorch + torchaudio validated)")
+                            return True
+                        else:
+                            # torchaudio broken - this breaks gap detection!
+                            logger.error(f"GPU Pack torchaudio validation failed: {audio_error}")
+
+                            # Provide clear guidance to user
+                            diagnostic_info = (
+                                f"GPU Pack is broken (torchaudio DLL error).\n\n"
+                                f"Location: {pack_dir}\n"
+                                f"Error: {audio_error}\n\n"
+                                f"SOLUTION: Delete the GPU Pack folder and restart the app to download a fresh copy.\n"
+                                f"The app will automatically re-download and install a working GPU Pack."
+                            )
+
+                            config.gpu_last_error = diagnostic_info
+                            config.gpu_last_health = "broken"
+                            config.save_config()
+
+                            logger.warning("=" * 80)
+                            logger.warning("GPU Pack is BROKEN - Gap detection will NOT work!")
+                            logger.warning(f"Location: {pack_dir}")
+                            logger.warning(f"Error: {audio_error}")
+                            logger.warning("")
+                            logger.warning("SOLUTION:")
+                            logger.warning(f"1. Delete folder: {pack_dir}")
+                            logger.warning("2. Restart the app")
+                            logger.warning("3. App will auto-download a fresh GPU Pack")
+                            logger.warning("=" * 80)
+
+                            # Don't try fallback - broken GPU Pack in sys.path will break everything
+                            return False
+                    else:
+                        logger.warning(f"GPU Pack CUDA validation failed: {cuda_error}")
+                        # Compose detailed diagnostic message
+                        diagnostic_info = _build_diagnostic_message(pack_dir, gpu_flavor, expected_cuda, cuda_error)
+                        config.gpu_last_error = diagnostic_info
+                        config.gpu_last_health = "failed"
+                        config.save_config()
+                        # GPU Pack failed - don't try CPU fallback with broken GPU Pack in sys.path
+                        # User needs to fix or remove GPU Pack
+                        return False
+                else:
+                    logger.debug(f"Could not enable GPU runtime from {pack_dir}, trying system CUDA...")
+
+        # STEP 3: If GPU Pack not available or failed, try system-wide CUDA/PyTorch (fallback)
         if gpu_opt_in is not False:  # None or True means try auto-detection
             logger.debug("Attempting to detect system-wide CUDA/PyTorch...")
             success, error_msg = validate_cuda_torch(expected_cuda="12")  # Accept CUDA 12.x
@@ -336,8 +692,11 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
             else:
                 logger.debug(f"System CUDA not available or validation failed: {error_msg}")
 
-        # No GPU available
-        logger.debug("GPU acceleration not available")
+        # No GPU available - final state
+        logger.info("GPU not available. Application will use CPU-only providers or FFmpeg fallback.")
+        config.gpu_last_health = "unavailable"
+        config.gpu_last_error = ""
+        config.save_config()
         return False
 
     except Exception as e:
@@ -350,6 +709,28 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
         except:
             pass
         return False
+
+
+def _build_diagnostic_message(pack_dir: Optional[Path], flavor: str, expected_cuda: str, error_msg: str) -> str:
+    """Build detailed diagnostic message for GPU bootstrap failure."""
+    lines = [f"GPU Pack validation failed: {error_msg}"]
+
+    if pack_dir:
+        lines.append(f"Pack path: {pack_dir}")
+    lines.append(f"Pack flavor: {flavor}")
+    lines.append(f"Expected CUDA: {expected_cuda}")
+
+    if ADDED_DLL_DIRS:
+        lines.append(f"DLL directories added: {', '.join(ADDED_DLL_DIRS)}")
+    else:
+        lines.append("No DLL directories were added")
+
+    env_pack_dir = os.environ.get('USDXFIXGAP_GPU_PACK_DIR', 'Not set')
+    lines.append(f"USDXFIXGAP_GPU_PACK_DIR: {env_pack_dir}")
+
+    lines.append("Run --gpu-diagnostics for detailed information")
+
+    return " | ".join(lines)
 
 
 def child_process_min_bootstrap():

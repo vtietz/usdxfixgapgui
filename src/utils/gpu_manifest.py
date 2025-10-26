@@ -49,17 +49,55 @@ class GpuPackManifest:
 # Platform detection: sys.platform to determine win_amd64 vs linux_x86_64
 # The app_version field is metadata only - GPU Pack is versioned by PyTorch/CUDA version.
 
-# Detect platform for wheel selection
+# Detect platform and Python version for wheel selection
 _PLATFORM_SUFFIX = 'win_amd64' if sys.platform == 'win32' else 'linux_x86_64'
+_PYTHON_VERSION = f"cp{sys.version_info.major}{sys.version_info.minor}"  # e.g., cp312 for Python 3.12
+
+# Python version specific wheel metadata
+# SHA256 and size vary by Python version, so we define them per version
+_WHEEL_METADATA = {
+    "cu121": {
+        "cp38": {
+            "sha256": "a48b991cd861266523cbed4705f89bef09669d5d2bbfa2524486156f74a222a8",
+            "size": 2444894201  # ~2.44GB
+        },
+        "cp312": {
+            "sha256": "TBD",  # Will be computed on first successful download
+            "size": 2444846875  # Actual size of torch-2.4.1+cu121-cp312-cp312-win_amd64.whl
+        }
+    },
+    "cu124": {
+        "cp38": {
+            "sha256": "TBD",
+            "size": 2444894201
+        },
+        "cp312": {
+            "sha256": "TBD",
+            "size": 2444894201  # Approximate, will be corrected on first download
+        }
+    }
+}
+
+# Get metadata for current Python version, fallback to cp38 if unavailable
+def _get_wheel_metadata(flavor: str) -> Dict:
+    """Get wheel metadata for current Python version."""
+    flavor_meta = _WHEEL_METADATA.get(flavor, {})
+    py_meta = flavor_meta.get(_PYTHON_VERSION)
+
+    if not py_meta:
+        # Fallback to cp38 if current Python version not explicitly defined
+        logger.warning(f"No wheel metadata for {_PYTHON_VERSION}, using cp38 metadata as fallback")
+        py_meta = flavor_meta.get("cp38", {"sha256": "TBD", "size": 2444894201})
+
+    return py_meta
 
 DEFAULT_MANIFESTS = {
     "cu121": {
         "app_version": "1.0.0",  # Metadata only
         "torch_version": "2.4.1+cu121",
         "cuda_version": "12.1",
-        "url": f"https://download.pytorch.org/whl/cu121/torch-2.4.1%2Bcu121-cp38-cp38-{_PLATFORM_SUFFIX}.whl",
-        "sha256": "a48b991cd861266523cbed4705f89bef09669d5d2bbfa2524486156f74a222a8",  # Windows cp38 wheel
-        "size": 2444894201,  # ~2.44GB (actual torch-2.4.1+cu121 cp38 win_amd64 wheel size)
+        "url": f"https://download.pytorch.org/whl/cu121/torch-2.4.1%2Bcu121-{_PYTHON_VERSION}-{_PYTHON_VERSION}-{_PLATFORM_SUFFIX}.whl",
+        **_get_wheel_metadata("cu121"),
         "min_driver": "531.00",
         "flavor": "cu121"
     },
@@ -67,9 +105,8 @@ DEFAULT_MANIFESTS = {
         "app_version": "1.0.0",  # Metadata only
         "torch_version": "2.4.1+cu124",
         "cuda_version": "12.4",
-        "url": f"https://download.pytorch.org/whl/cu124/torch-2.4.1%2Bcu124-cp38-cp38-{_PLATFORM_SUFFIX}.whl",
-        "sha256": "TBD",  # TODO: Download wheel and compute actual SHA-256
-        "size": 2444894201,  # Approximate size, update after download
+        "url": f"https://download.pytorch.org/whl/cu124/torch-2.4.1%2Bcu124-{_PYTHON_VERSION}-{_PYTHON_VERSION}-{_PLATFORM_SUFFIX}.whl",
+        **_get_wheel_metadata("cu124"),
         "min_driver": "550.00",
         "flavor": "cu124"
     }

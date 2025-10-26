@@ -1,8 +1,8 @@
 .tmp
+temp/
 samples
 __pycache__
 pretrained_models
-spleeter-env
 dist/
 build/
 *.spec
@@ -10,11 +10,20 @@ build/
 data/
 *.log*
 
+# Virtual environments
+.venv/
+venv/
+env/
+
 # Config files (user-specific, auto-generated from defaults)
 config.ini
 src/config.ini
 
+# Test custom configs (developer-specific experimentation)
+tests/custom_config.ini
+
 # Debug/development scripts
 check_cuda.py
 debug_*.py
-*.png
+
+analysis_output.txt

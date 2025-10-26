@@ -5,9 +5,11 @@ import logging
 from app.app_data import AppData
 from model.song import Song, SongStatus
 from model.songs import Songs
+from ui.songlist.columns import create_registry
 from utils import files
 
 logger = logging.getLogger(__name__)
+
 
 class SongTableModel(QAbstractTableModel):
     def __init__(self, songs_model: Songs, data: AppData, parent=None):
@@ -16,6 +18,10 @@ class SongTableModel(QAbstractTableModel):
         self.songs_model = songs_model
         self.songs: List[Song] = list(self.songs_model.songs)
         self.pending_songs = []
+
+        # Column strategy registry
+        base_dir = self.app_data.directory or self.app_data.config.default_directory or ""
+        self._column_registry = create_registry(base_dir)
 
         # Performance optimizations
         self._row_cache = {}  # Cache for expensive computations
@@ -31,6 +37,7 @@ class SongTableModel(QAbstractTableModel):
         self.songs_model.updated.connect(self.song_updated)
         self.songs_model.deleted.connect(self.song_deleted)
         self.songs_model.cleared.connect(self.songs_cleared)
+        self.songs_model.listChanged.connect(self.list_changed)  # Handle batch updates
 
         # Timer for adding pending songs - reduced for better responsiveness
         self.timer = QTimer()
@@ -42,9 +49,30 @@ class SongTableModel(QAbstractTableModel):
 
     def song_added(self, song: Song):
         self.pending_songs.append(song)
-        logger.info(f"Added: {song}")
+        logger.debug(f"Added: {song}")
         if not self.timer.isActive():
             self.timer.start()
+
+    def list_changed(self):
+        """Handle list structure changes (e.g., batch additions, bulk operations)."""
+        # Check if new songs were added (batch operation that didn't emit individual 'added' signals)
+        current_count = len(self.songs)
+        model_count = len(self.songs_model.songs)
+
+        if model_count > current_count:
+            # Songs were added in batch - add them all at once
+            new_songs = self.songs_model.songs[current_count:]
+            self.beginInsertRows(QModelIndex(), current_count, model_count - 1)
+            self.songs.extend(new_songs)
+            # Populate cache for newly added songs
+            for song in new_songs:
+                self._add_to_cache(song)
+            self.endInsertRows()
+            logger.debug(f"Batch added {len(new_songs)} songs via listChanged")
+        elif model_count < current_count:
+            # Songs were removed - full rebuild needed
+            self.songs_cleared()
+        # If equal, just a metadata update, no action needed
 
     def add_pending_songs(self):
         if self.pending_songs:
@@ -92,7 +120,9 @@ class SongTableModel(QAbstractTableModel):
         if not sorted_rows:
             return
 
-        logger.debug(f"Emitting dataChanged for {len(sorted_rows)} rows: {sorted_rows[:10]}{'...' if len(sorted_rows) > 10 else ''}")
+        ellipsis = '...' if len(sorted_rows) > 10 else ''
+        logger.debug(f"Emitting dataChanged for {len(sorted_rows)} rows: "
+                     f"{sorted_rows[:10]}{ellipsis}")
 
         # Emit contiguous ranges
         start_row = sorted_rows[0]
@@ -164,89 +194,53 @@ class SongTableModel(QAbstractTableModel):
     def columnCount(self, parent=QModelIndex()):
         return 12
 
+    def _format_column_display(self, song: Song, column: int, cache_entry) -> str:
+        """Format display text for a specific column via strategy pattern."""
+        return self._column_registry.format_display(song, column, cache_entry)
+
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self.songs)):
             return None
+
         song: Song = self.songs[index.row()]
         column = index.column()
+
         if role == Qt.ItemDataRole.UserRole:
             return song
         elif role == Qt.ItemDataRole.DisplayRole:
-            # Use cached values where available
             cache_entry = self._row_cache.get(song.path)
-
-            if column == 0:
-                # Use cached relative path
-                return cache_entry['relative_path'] if cache_entry else files.get_relative_path(self.app_data.directory, song.path)
-            elif column == 1:
-                return song.artist
-            elif column == 2:
-                return song.title
-            elif column == 3:
-                return song.duration_str
-            elif column == 4:
-                return str(song.bpm)
-            elif column == 5:
-                return str(song.gap)
-            elif column == 6:
-                return str(song.gap_info.detected_gap) if song.gap_info else ""
-            elif column == 7:
-                return str(song.gap_info.diff) if song.gap_info else ""
-            elif column == 8:
-                return str(song.gap_info.notes_overlap) if song.gap_info else ""
-            elif column == 9:
-                return song.gap_info.processed_time if song.gap_info else ""
-            elif column == 10:
-                return song.normalized_str
-            elif column == 11:
-                return f"ERROR: {song.error_message}" if song.status == SongStatus.ERROR else song.status.name
+            return self._format_column_display(song, column, cache_entry)
         elif role == Qt.ItemDataRole.TextAlignmentRole:
-            return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter if 3 <= column <= 8 or column == 10 else Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        elif role == Qt.ItemDataRole.BackgroundRole and song.status == SongStatus.ERROR:
-            return Qt.GlobalColor.red
+            if 3 <= column <= 8 or column == 10:
+                return (Qt.AlignmentFlag.AlignRight |
+                        Qt.AlignmentFlag.AlignVCenter)
+            return (Qt.AlignmentFlag.AlignLeft |
+                    Qt.AlignmentFlag.AlignVCenter)
+        elif role == Qt.ItemDataRole.BackgroundRole:
+            if song.status == SongStatus.ERROR:
+                return Qt.GlobalColor.red
         return None
 
-    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
-        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
-            return ["Path", "Artist", "Title", "Length", "BPM", "Gap", "Detected Gap", "Diff", "Notes", "Time", "Normalized", "Status"][section]
+    def headerData(self, section, orientation,
+                   role=Qt.ItemDataRole.DisplayRole):
+        if (orientation == Qt.Orientation.Horizontal and
+                role == Qt.ItemDataRole.DisplayRole):
+            headers = ["Path", "Artist", "Title", "Length", "BPM", "Gap",
+                       "Detected Gap", "Diff", "Notes", "Time",
+                       "Normalized", "Status"]
+            return headers[section]
         return None
+
+    def _get_sort_key(self, song: Song, column: int):
+        """Get sort key for a song based on column via strategy pattern."""
+        cache_entry = self._row_cache.get(song.path)
+        return self._column_registry.get_sort_key(song, column, cache_entry)
 
     def sort(self, column, order=Qt.SortOrder.AscendingOrder):
         """Optimized sort using direct attribute access instead of data() calls."""
         self.layoutAboutToBeChanged.emit()
 
-        # Define sort key function based on column
-        def get_sort_key(song: Song):
-            cache_entry = self._row_cache.get(song.path)
-
-            if column == 0:  # Path
-                return cache_entry['relative_path'] if cache_entry else files.get_relative_path(self.app_data.directory, song.path)
-            elif column == 1:  # Artist
-                return song.artist.lower()
-            elif column == 2:  # Title
-                return song.title.lower()
-            elif column == 3:  # Duration
-                return song.duration_ms if song.duration_ms else 0
-            elif column == 4:  # BPM
-                return song.bpm if song.bpm else 0
-            elif column == 5:  # Gap
-                return song.gap if song.gap else 0
-            elif column == 6:  # Detected Gap
-                return song.gap_info.detected_gap if song.gap_info and song.gap_info.detected_gap else 0
-            elif column == 7:  # Diff
-                return song.gap_info.diff if song.gap_info and song.gap_info.diff else 0
-            elif column == 8:  # Notes Overlap
-                return song.gap_info.notes_overlap if song.gap_info and song.gap_info.notes_overlap else 0
-            elif column == 9:  # Time
-                return song.gap_info.processed_time if song.gap_info and song.gap_info.processed_time else ""
-            elif column == 10:  # Normalized
-                return 1 if song.gap_info and song.gap_info.is_normalized else 0
-            elif column == 11:  # Status
-                return song.status.name
-            else:
-                return ""
-
-        self.songs.sort(key=get_sort_key)
+        self.songs.sort(key=lambda song: self._get_sort_key(song, column))
         if order == Qt.SortOrder.DescendingOrder:
             self.songs.reverse()
         self.layoutChanged.emit()

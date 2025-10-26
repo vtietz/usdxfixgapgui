@@ -7,7 +7,7 @@ Separated from main entry point for better code organization.
 
 import sys
 import logging
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QMessageBox
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
@@ -19,6 +19,7 @@ from common.utils.async_logging import shutdown_async_logging
 
 from utils.enable_darkmode import enable_dark_mode
 from utils.check_dependencies import check_dependencies
+from utils.run_async import shutdown_asyncio
 from utils.files import resource_path
 from utils.gpu_startup_logger import show_gpu_pack_dialog_if_needed
 
@@ -46,8 +47,34 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     """
 
     # Initialize database before creating AppData
-    db_path = initialize_song_cache()
+    db_path, cache_was_cleared = initialize_song_cache()
     logger.info(f"Song cache database initialized at: {db_path}")
+
+    # If cache was cleared due to version upgrade, show confirmation dialog
+    if cache_was_cleared:
+        logger.info("Displaying re-scan confirmation dialog to user")
+        # Create minimal QApplication for the dialog
+        temp_app = QApplication.instance()
+        if temp_app is None:
+            temp_app = QApplication(sys.argv)
+
+        msgBox = QMessageBox()
+        msgBox.setIcon(QMessageBox.Icon.Information)
+        msgBox.setWindowTitle("Re-scan Required")
+        msgBox.setText("Due to application upgrade, a complete re-scan of all songs is required.")
+        msgBox.setInformativeText("This will happen automatically on startup. Do you want to start now?")
+        msgBox.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+        msgBox.button(QMessageBox.StandardButton.Ok).setText("Start Re-scan")
+        msgBox.button(QMessageBox.StandardButton.Cancel).setText("Quit Application")
+        msgBox.setDefaultButton(QMessageBox.StandardButton.Ok)
+
+        result = msgBox.exec()
+
+        if result == QMessageBox.StandardButton.Cancel:
+            logger.info("User cancelled re-scan. Exiting application.")
+            return 0  # Clean exit
+
+        logger.info("User confirmed re-scan. Proceeding with application startup.")
 
     # Create app data and actions
     data = AppData()
@@ -71,10 +98,10 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Create main window
     window = QWidget()
-    window.setWindowTitle("USDX Gap Fix Gui")
+    window.setWindowTitle("USDX FixGap")
     # Store dialog reference to prevent garbage collection
     if gpu_dialog:
-        window._gpu_dialog_ref = gpu_dialog
+        app.setProperty("_gpu_dialog_ref", gpu_dialog)
 
     # Restore window geometry from config
     if config.window_x >= 0 and config.window_y >= 0:
@@ -111,17 +138,31 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Create UI components
     menuBar = MenuBar(actions, data)
-    songStatus = SongsStatusVisualizer(data.songs)
+    songStatus = SongsStatusVisualizer(data.songs, data)
     songListView = SongListWidget(data.songs, actions, data)
     mediaPlayerComponent = MediaPlayerComponent(data, actions)
     taskQueueViewer = TaskQueueViewer(actions.worker_queue)
     logViewer = LogViewerWidget(log_file_path, max_lines=1000)
 
+    # Connect loading state changes to status visualizer
+    def on_loading_state_changed():
+        songStatus.update_visualization()
+
+    # Monitor is_loading_songs changes (will be set in CoreActions)
+    # We'll update every time songs are added during loading
+    data.songs.listChanged.connect(on_loading_state_changed)
+
+    # Connect loading state to menu bar to enable/disable buttons during scan
+    data.is_loading_songs_changed.connect(menuBar.updateLoadButtonState)
+
     # Install event filter
-    app.installEventFilter(mediaPlayerComponent.globalEventFilter)
+    if mediaPlayerComponent.globalEventFilter is not None:
+        app.installEventFilter(mediaPlayerComponent.globalEventFilter)
 
     # Setup layout
     layout = QVBoxLayout()
+    layout.setContentsMargins(5, 5, 5, 5)
+    layout.setSpacing(2)
     layout.addWidget(menuBar)
     layout.addWidget(songStatus)
     layout.addWidget(songListView, 2)
@@ -133,7 +174,8 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Log runtime information
     try:
-        from PySide6.QtCore import __version__ as qt_version
+        import PySide6
+        qt_version = getattr(PySide6, "__version__", "unknown")
         logger.debug(f"Runtime PySide6 version: {qt_version}")
     except:
         logger.debug("Runtime PySide6 version: unknown")
@@ -142,7 +184,6 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Check dependencies
     dependencies = [
-        ('spleeter', '--version'),
         ('ffmpeg', '-version'),
     ]
     if not check_dependencies(dependencies):
@@ -157,10 +198,10 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Check multimedia backends
     try:
-        supported_mime_types = QMediaDevices.supportedMimeTypes()
+        supported_mime_types = getattr(QMediaDevices, "supportedMimeTypes", lambda: [])()
         logger.debug(f"Available multimedia backends: {supported_mime_types}")
     except AttributeError:
-        logger.warning("Unable to retrieve supported multimedia backends.")
+        logger.debug("Multimedia backend query not available (not critical - app uses its own audio processing)")
 
     # Show window
     window.show()
@@ -171,17 +212,20 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     # Enable dark mode
     enable_dark_mode(app)
 
-    # Setup proper shutdown
-    app.aboutToQuit.connect(shutdown_async_logging)
-    app.aboutToQuit.connect(lambda: data.worker_queue.shutdown())
-    app.aboutToQuit.connect(logViewer.cleanup)
+    # Setup proper shutdown sequence
+    # Order matters: stop taking new work, wait for workers, stop async loop, cleanup UI
+    app.aboutToQuit.connect(lambda: data.worker_queue.shutdown())  # Cancel tasks and wait
+    app.aboutToQuit.connect(shutdown_asyncio)  # Stop asyncio event loop and thread
+    app.aboutToQuit.connect(logViewer.cleanup)  # Cleanup UI components
+    app.aboutToQuit.connect(shutdown_async_logging)  # Final logging shutdown
 
     # Log completion and give async logger a moment to flush
     # This ensures initial logs appear in the log viewer
-    logger.info("=== GUI Initialized Successfully ===")
+    logger.info("GUI Initialized Successfully")
 
     # Use QTimer to allow event loop to process initial logs
     def delayed_start():
+        logger.info(f"Configuration file: {data.config.config_path}")
         logger.info("Application ready for user interaction")
 
     QTimer.singleShot(200, delayed_start)  # 200ms delay

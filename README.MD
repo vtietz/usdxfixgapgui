@@ -1,9 +1,9 @@
-<p align="center"> 
+<p align="center">
     <img width="150" src="./src/assets/usdxfixgap-icon.png" alt="Logo">
     <h3 align="center">Effortlessly synchronize your Ultrastar Deluxe songs with AI-powered GAP detection and correction for the ultimate karaoke experience!</h3>
     <br/>
 </p>
-<p align="center"> 
+<p align="center">
     <img style="width:80%;" src="./screenshot.png" alt="Screenshot">
     <br/>
 </p>
@@ -42,6 +42,7 @@ The app uses state-of-the-art AI vocal separation (Meta's Demucs) with smart chu
 - 🔄 **Batch Processing** - Fix hundreds of songs automatically
 - 🎵 **Preview Generation** - Listen to detected timing before applying changes
 - 💾 **Smart Caching** - Re-analyze only what changed, save time on re-runs
+- 👁️ **Watch Mode** - Automatically monitor your song directory for changes and keep cache up-to-date
 
 ### **Detection Methods**
 
@@ -91,6 +92,16 @@ Choose the detection method that fits your needs:
    - **Save Player Position** - Manually set GAP to current playback position
    - **Revert** - Undo changes, restore original GAP
 
+5. **(Optional) Enable Watch Mode**
+   - After loading songs, click the "Watch Mode" button
+   - The app will monitor your song directory for changes:
+     - New songs added → automatically scanned and added to the list
+     - Songs deleted → removed from cache and list
+     - Songs moved/renamed → cache updated with new paths
+     - .txt/.mp3/.wav modified → gap detection automatically queued
+   - Changes are debounced (500ms default) to avoid processing storms
+   - Watch mode persists until manually disabled or app is closed
+
 ### **Interface Overview**
 
 | Component | Description |
@@ -100,6 +111,7 @@ Choose the detection method that fits your needs:
 | **Media Player** | Preview audio and navigate to specific timestamps |
 | **Task Queue** | View ongoing/queued detection tasks |
 | **Log Viewer** | Troubleshoot issues and monitor processing |
+| **Watch Mode Button** | Toggle filesystem monitoring for automatic updates |
 
 ### **Understanding Results**
 
@@ -117,6 +129,47 @@ Choose the detection method that fits your needs:
 
 > 💡 **Tip**: Sort by "Diff" column to find songs with largest timing errors first!
 
+### **Watch Mode**
+
+Watch Mode provides real-time monitoring of your song directory, automatically keeping your cache and gap detections up-to-date as you add, modify, or remove songs.
+
+**Features**:
+- 🔍 **Automatic Discovery** - New songs are instantly scanned and added
+- 🔄 **Smart Updates** - Modified .txt or audio files trigger targeted gap detection
+- 🗑️ **Cache Sync** - Deleted or moved songs are removed from cache
+- ⚡ **Debouncing** - Rapid changes are coalesced to prevent processing storms
+- 🎯 **Targeted Scanning** - Only changed songs are processed, not the entire directory
+
+**How to Use**:
+1. Load your song directory normally
+2. Wait for initial scan to complete
+3. Click "Watch Mode" button to enable (button becomes checkable and highlighted)
+4. Make changes to your song directory (add/edit/delete songs)
+5. Changes are automatically detected and processed
+6. Click "Watch Mode" again to disable when done
+
+**What's Monitored**:
+- **Created** - New .txt files or folders → scheduled for scanning and cache update
+- **Modified** - .txt/.mp3/.wav files → gap detection automatically queued
+- **Deleted** - Songs removed → cache entries deleted, UI updated
+- **Moved/Renamed** - Songs relocated → treated as delete + create
+
+**Performance**:
+- Uses OS-native filesystem monitoring (Windows ReadDirectoryChangesW, macOS FSEvents, Linux inotify)
+- Default 500ms debounce prevents excessive processing during bulk operations
+- Ignored patterns (.tmp, ~, .crdownload, .part) filter out temporary files
+- At-most-one detection task per song prevents duplicates
+
+**Configuration** (`config.ini`):
+```ini
+[WatchMode]
+watch_mode_default = false         # Set to true to auto-enable on directory load
+watch_debounce_ms = 500            # Wait time after last change before processing
+watch_ignore_patterns = .tmp,~,.crdownload,.part  # Comma-separated patterns to ignore
+```
+
+> ⚠️ **Note**: Watch Mode requires the `watchdog` library. This is included in the standard installation and executables.
+
 ## 🚀 Quick Start
 
 ### **Option 1: Download Executable (Easiest)**
@@ -133,7 +186,7 @@ Choose the detection method that fits your needs:
 3. **Run the application** and start fixing gaps!
 
 4. **(Optional) Enable GPU Acceleration**:
-   - Have an NVIDIA GPU with driver ≥531? 
+   - Have an NVIDIA GPU with driver ≥531?
    - The app will automatically offer to download GPU Pack (~1GB) for 5-10x faster processing
    - [→ GPU Acceleration Guide](docs/gpu-acceleration.md)
 
@@ -156,22 +209,35 @@ The run script automatically handles environment setup and dependencies!
 <details>
 <summary>Click to expand manual installation steps</summary>
 
-1. **Create conda environment:**
+1. **Create virtual environment:**
    ```bash
-   conda create -n usdxfixgapgui python=3.8
-   conda activate usdxfixgapgui
+   # Windows (prefer py launcher)
+   py -3.10 -m venv .venv
+   # Or fallback to:
+   python -m venv .venv
+
+   # Linux/macOS
+   python3 -m venv .venv
    ```
 
 2. **Install dependencies:**
    ```bash
-   python -m pip install pip setuptools --upgrade
-   pip install -r requirements.txt
+   # Windows
+   .venv\Scripts\pip.exe install -r requirements.txt
+
+   # Linux/macOS
+   .venv/bin/pip install -r requirements.txt
    ```
 
 3. **Run the application:**
    ```bash
+   # Windows
    cd src
-   python usdxfixgap.py
+   .venv\Scripts\python.exe usdxfixgap.py
+
+   # Linux/macOS
+   cd src
+   .venv/bin/python usdxfixgap.py
    ```
 
 4. **(Optional) GPU Setup:**
@@ -230,6 +296,14 @@ gap_tolerance = 500    # Milliseconds - gaps larger than this are flagged as MIS
 GpuPackDialogDontShow = true
 ```
 
+**Watch Mode Settings**:
+```ini
+[WatchMode]
+watch_mode_default = false         # Auto-enable watch mode on directory load
+watch_debounce_ms = 500            # Milliseconds to wait after file changes before processing
+watch_ignore_patterns = .tmp,~,.crdownload,.part  # File patterns to ignore
+```
+
 See **[Configuration Reference](docs/configuration.md)** for all available settings and their valid values.
 
 ## 🛠️ For Developers
@@ -241,7 +315,6 @@ Want to contribute or understand how the code works?
 - **[Development Guide](docs/DEVELOPMENT.md)** - Setup, testing, code quality tools, building executables
 - **[Architecture Guide](docs/architecture.md)** - System design, component responsibilities, signal patterns
 - **[Coding Standards](docs/coding-standards.md)** - DRY principles, SOLID patterns, testing guidelines
-- **[Signal Usage Guide](docs/signals.md)** - Event communication patterns and best practices
 - **[Configuration Reference](docs/configuration.md)** - Complete config.ini settings documentation
 - **[GPU Acceleration](docs/gpu-acceleration.md)** - GPU Pack setup, troubleshooting, architecture
 - **[Performance Optimization](docs/performance-optimization.md)** - Qt TableView optimization patterns

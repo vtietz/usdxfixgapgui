@@ -6,7 +6,7 @@ class WaveformPathService:
     """Service for managing waveform file paths"""
 
     @staticmethod
-    def get_paths(song: Song, tmp_root: str = None):
+    def get_paths(song: Song, tmp_root: str | None = None):
         """
         Get all waveform-related paths for a song
 
@@ -31,25 +31,25 @@ class WaveformPathService:
         }
 
     @staticmethod
-    def get_audio_waveform_path(song: Song, tmp_root: str = None):
+    def get_audio_waveform_path(song: Song, tmp_root: str | None = None):
         """Get the audio waveform file path for a song"""
         paths = WaveformPathService.get_paths(song, tmp_root)
         return paths["audio_waveform_file"] if paths else None
 
     @staticmethod
-    def get_vocals_waveform_path(song: Song, tmp_root: str = None):
+    def get_vocals_waveform_path(song: Song, tmp_root: str | None = None):
         """Get the vocals waveform file path for a song"""
         paths = WaveformPathService.get_paths(song, tmp_root)
         return paths["vocals_waveform_file"] if paths else None
 
     @staticmethod
-    def get_vocals_file_path(song: Song, tmp_root: str = None):
+    def get_vocals_file_path(song: Song, tmp_root: str | None = None):
         """Get the vocals file path for a song"""
         paths = WaveformPathService.get_paths(song, tmp_root)
         return paths["vocals_file"] if paths else None
 
     @staticmethod
-    def waveforms_exists(song: Song, tmp_root: str = None):
+    def waveforms_exists(song: Song, tmp_root: str | None = None):
         """Check if waveforms exist for a song"""
         # First check if the song has an audio file before proceeding
         if not song or not hasattr(song, 'audio_file') or not song.audio_file:

@@ -20,10 +20,13 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
 
     os.makedirs(os.path.dirname(image_path), exist_ok=True)
 
-    # Create waveform image
+    # Create waveform image preserving original amplitude
+    # scale=sqrt provides better visibility while maintaining relative loudness differences
+    # No normalization: allows visual comparison between original and normalized songs
     command = [
         'ffmpeg', '-y', '-loglevel', 'quiet', '-i', audio_file,
-        '-filter_complex', f"showwavespic=s={width}x{height}:colors={color}:scale=lin:split_channels=1",
+        '-filter_complex',
+        f"showwavespic=s={width}x{height}:colors={color}:scale=sqrt:split_channels=1",
         '-frames:v', '1', image_path
     ]
 
@@ -89,7 +92,7 @@ def draw_title(image_path, songname, color="white"):
     font = ImageFont.load_default()
 
     # Draw the song name at the bottom
-    draw.text((100, 50), songname, fill=color, font=font)
+    draw.text((10, 50), songname, fill=color, font=font)
 
     # Save the annotated image
     image.save(image_path)
@@ -157,8 +160,9 @@ def draw_notes(
     image_width, image_height = image.size
 
     try:
-        min_pitch = min(n.Pitch for n in valid_notes)
-        max_pitch = max(n.Pitch for n in valid_notes)
+        pitches: List[int] = [n.Pitch for n in valid_notes if n.Pitch is not None]
+        min_pitch = min(pitches)
+        max_pitch = max(pitches)
     except ValueError:
         # If list is empty after filtering
         logger.warning("Pitch range computation failed due to empty note set")
@@ -170,7 +174,7 @@ def draw_notes(
             end_position_x = note_position(n.end_ms, duration_ms, image_width)
 
             vertical_position = map_pitch_to_vertical_position(n.Pitch, min_pitch, max_pitch, image_height / 2) + (image_height / 4)
-            draw.text((start_position_x, vertical_position + 12), n.Text, fill=color)
+            draw.text((start_position_x, vertical_position + 12), (n.Text or ""), fill=color)
 
             line_height = 5
             draw.rectangle([start_position_x, vertical_position - line_height / 2, end_position_x, vertical_position + line_height / 2], fill=color)

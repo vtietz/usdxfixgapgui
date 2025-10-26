@@ -56,11 +56,7 @@ def get_changed_files() -> List[Path]:
     try:
         # Get modified files (staged + unstaged)
         result = subprocess.run(
-            ["git", "diff", "--name-only", "HEAD"],
-            cwd=PROJECT_ROOT,
-            capture_output=True,
-            text=True,
-            check=True
+            ["git", "diff", "--name-only", "HEAD"], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True
         )
 
         # Also get untracked files
@@ -69,15 +65,16 @@ def get_changed_files() -> List[Path]:
             cwd=PROJECT_ROOT,
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
 
         all_files = result.stdout.strip().split("\n") + result_untracked.stdout.strip().split("\n")
 
         # Filter for Python files only
         python_files = [
-            PROJECT_ROOT / f for f in all_files
-            if f.endswith('.py') and f.strip() and not any(excl in f for excl in EXCLUDE_PATTERNS)
+            PROJECT_ROOT / f
+            for f in all_files
+            if f.endswith(".py") and f.strip() and not any(excl in f for excl in EXCLUDE_PATTERNS)
         ]
 
         return [f for f in python_files if f.exists()]
@@ -99,10 +96,7 @@ def get_all_python_files() -> List[Path]:
             python_files.extend(dir_path.rglob("*.py"))
 
     # Filter out excluded directories
-    return [
-        f for f in python_files
-        if not any(excl in str(f) for excl in EXCLUDE_PATTERNS)
-    ]
+    return [f for f in python_files if not any(excl in str(f) for excl in EXCLUDE_PATTERNS)]
 
 
 def clean_whitespace(file_path: Path, dry_run: bool = False) -> dict:
@@ -121,14 +115,14 @@ def clean_whitespace(file_path: Path, dry_run: bool = False) -> dict:
         Dict with counts of fixes made
     """
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             original_lines = f.readlines()
     except Exception as e:
         print(f"⚠️  Error reading {file_path}: {e}")
-        return {'trailing': 0, 'blank': 0, 'eof': 0}
+        return {"trailing": 0, "blank": 0, "eof": 0}
 
     if not original_lines:
-        return {'trailing': 0, 'blank': 0, 'eof': 0}
+        return {"trailing": 0, "blank": 0, "eof": 0}
 
     trailing_count = 0
     blank_whitespace_count = 0
@@ -138,10 +132,10 @@ def clean_whitespace(file_path: Path, dry_run: bool = False) -> dict:
         original_line = line
 
         # Remove trailing whitespace
-        line = line.rstrip() + '\n' if line.endswith('\n') else line.rstrip()
+        line = line.rstrip() + "\n" if line.endswith("\n") else line.rstrip()
 
         if original_line != line:
-            if original_line.strip() == '':
+            if original_line.strip() == "":
                 # This was a whitespace-only blank line
                 blank_whitespace_count += 1
             else:
@@ -152,24 +146,20 @@ def clean_whitespace(file_path: Path, dry_run: bool = False) -> dict:
 
     # Ensure file ends with newline
     eof_fix = 0
-    if cleaned_lines and not cleaned_lines[-1].endswith('\n'):
-        cleaned_lines[-1] += '\n'
+    if cleaned_lines and not cleaned_lines[-1].endswith("\n"):
+        cleaned_lines[-1] += "\n"
         eof_fix = 1
 
     # Write back if changes were made and not dry run
     if (trailing_count > 0 or blank_whitespace_count > 0 or eof_fix > 0) and not dry_run:
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 f.writelines(cleaned_lines)
         except Exception as e:
             print(f"⚠️  Error writing {file_path}: {e}")
-            return {'trailing': 0, 'blank': 0, 'eof': 0}
+            return {"trailing": 0, "blank": 0, "eof": 0}
 
-    return {
-        'trailing': trailing_count,
-        'blank': blank_whitespace_count,
-        'eof': eof_fix
-    }
+    return {"trailing": trailing_count, "blank": blank_whitespace_count, "eof": eof_fix}
 
 
 def remove_unused_imports(files: List[Path], dry_run: bool = False) -> int:
@@ -184,11 +174,7 @@ def remove_unused_imports(files: List[Path], dry_run: bool = False) -> int:
     """
     # Check if autoflake is available
     try:
-        subprocess.run(
-            [sys.executable, "-m", "autoflake", "--version"],
-            capture_output=True,
-            check=True
-        )
+        subprocess.run([sys.executable, "-m", "autoflake", "--version"], capture_output=True, check=True)
     except subprocess.CalledProcessError:
         print("ℹ️  autoflake not installed, skipping unused import removal")
         print("   Install with: pip install autoflake")
@@ -199,7 +185,9 @@ def remove_unused_imports(files: List[Path], dry_run: bool = False) -> int:
 
     # Build autoflake command
     cmd = [
-        sys.executable, "-m", "autoflake",
+        sys.executable,
+        "-m",
+        "autoflake",
         "--remove-all-unused-imports",
         "--remove-unused-variables",
     ]
@@ -211,19 +199,13 @@ def remove_unused_imports(files: List[Path], dry_run: bool = False) -> int:
     cmd.extend([str(f) for f in files])
 
     try:
-        result = subprocess.run(
-            cmd,
-            cwd=PROJECT_ROOT,
-            capture_output=True,
-            text=True,
-            check=False
-        )
+        result = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True, check=False)
 
         # Count files that would be/were modified
         output = result.stdout + result.stderr
         if dry_run:
             # In dry-run, autoflake prints diffs
-            modified_count = output.count('---')
+            modified_count = output.count("---")
         else:
             # Count files actually modified by checking if output mentions them
             modified_count = sum(1 for f in files if str(f.name) in output)
@@ -239,6 +221,63 @@ def remove_unused_imports(files: List[Path], dry_run: bool = False) -> int:
         return 0
 
 
+def format_with_black(files: List[Path], dry_run: bool = False) -> int:
+    """Format code with Black.
+
+    Args:
+        files: List of files to format
+        dry_run: If True, don't modify files
+
+    Returns:
+        Number of files formatted
+    """
+    # Check if Black is available
+    try:
+        subprocess.run([sys.executable, "-m", "black", "--version"], capture_output=True, check=True)
+    except subprocess.CalledProcessError:
+        print("ℹ️  Black not installed, skipping code formatting")
+        print("   Install with: pip install black")
+        return 0
+
+    if not files:
+        return 0
+
+    # Build Black command
+    cmd = [sys.executable, "-m", "black"]
+
+    if dry_run:
+        cmd.append("--check")
+        cmd.append("--diff")
+
+    # Black reads config from pyproject.toml automatically
+    cmd.extend([str(f) for f in files])
+
+    try:
+        result = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True, check=False)
+
+        output = result.stdout + result.stderr
+
+        # Count reformatted files
+        if dry_run:
+            # In check mode, Black prints "would be reformatted"
+            modified_count = output.count("would be reformatted")
+        else:
+            # In normal mode, Black prints "reformatted"
+            modified_count = output.count("reformatted")
+
+        if modified_count > 0 and not dry_run:
+            print(f"✅ Formatted {modified_count} file(s) with Black")
+        elif modified_count > 0 and dry_run:
+            print(f"ℹ️  Would format {modified_count} file(s) with Black")
+        else:
+            print("✅ All files already formatted!")
+
+        return modified_count
+    except Exception as e:
+        print(f"⚠️  Error running Black: {e}")
+        return 0
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -250,48 +289,29 @@ Examples:
   %(prog)s changed                 # Clean only git-modified files
   %(prog)s files src/config.py     # Clean specific files
   %(prog)s --dry-run all           # Preview changes without modifying
-  %(prog)s --skip-imports all      # Only clean whitespace, skip imports
-        """
+  %(prog)s --skip-format all       # Skip Black formatting
+        """,
     )
 
-    parser.add_argument(
-        'mode',
-        choices=['all', 'changed', 'files'],
-        help='Cleanup mode'
-    )
-    parser.add_argument(
-        'files',
-        nargs='*',
-        help='Specific files to clean (only for "files" mode)'
-    )
-    parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Preview changes without modifying files'
-    )
-    parser.add_argument(
-        '--skip-imports',
-        action='store_true',
-        help='Skip unused import removal'
-    )
-    parser.add_argument(
-        '--skip-whitespace',
-        action='store_true',
-        help='Skip whitespace cleanup'
-    )
+    parser.add_argument("mode", choices=["all", "changed", "files"], help="Cleanup mode")
+    parser.add_argument("files", nargs="*", help='Specific files to clean (only for "files" mode)')
+    parser.add_argument("--dry-run", action="store_true", help="Preview changes without modifying files")
+    parser.add_argument("--skip-imports", action="store_true", help="Skip unused import removal")
+    parser.add_argument("--skip-whitespace", action="store_true", help="Skip whitespace cleanup")
+    parser.add_argument("--skip-format", action="store_true", help="Skip Black code formatting")
 
     args = parser.parse_args()
 
     # Determine which files to clean
     files_to_clean = []
 
-    if args.mode == 'changed':
+    if args.mode == "changed":
         files_to_clean = get_changed_files()
         if not files_to_clean:
             print("✅ No changed Python files found")
             return 0
         print(f"📝 Cleaning {len(files_to_clean)} changed file(s)")
-    elif args.mode == 'files':
+    elif args.mode == "files":
         if not args.files:
             print("❌ Error: 'files' mode requires file arguments")
             return 1
@@ -317,19 +337,19 @@ Examples:
 
         for file_path in files_to_clean:
             stats = clean_whitespace(file_path, dry_run=args.dry_run)
-            if stats['trailing'] > 0 or stats['blank'] > 0 or stats['eof'] > 0:
+            if stats["trailing"] > 0 or stats["blank"] > 0 or stats["eof"] > 0:
                 files_modified += 1
-                total_trailing += stats['trailing']
-                total_blank += stats['blank']
-                total_eof += stats['eof']
+                total_trailing += stats["trailing"]
+                total_blank += stats["blank"]
+                total_eof += stats["eof"]
 
                 rel_path = file_path.relative_to(PROJECT_ROOT)
                 fixes = []
-                if stats['trailing'] > 0:
+                if stats["trailing"] > 0:
                     fixes.append(f"{stats['trailing']} trailing")
-                if stats['blank'] > 0:
+                if stats["blank"] > 0:
                     fixes.append(f"{stats['blank']} blank")
-                if stats['eof'] > 0:
+                if stats["eof"] > 0:
                     fixes.append("EOF newline")
                 print(f"  {rel_path}: {', '.join(fixes)}")
 
@@ -354,6 +374,14 @@ Examples:
         if removed_count == 0:
             print("✅ No unused imports found!")
 
+    # Format with Black
+    if not args.skip_format:
+        print(f"\n{'=' * 80}")
+        print("🎨 Formatting with Black")
+        print(f"{'=' * 80}")
+
+        format_with_black(files_to_clean, dry_run=args.dry_run)
+
     # Summary
     print(f"\n{'=' * 80}")
     print("📊 CLEANUP SUMMARY")
@@ -369,5 +397,5 @@ Examples:
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

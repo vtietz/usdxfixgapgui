@@ -6,9 +6,10 @@ from model.song import Song, SongStatus
 from workers.reload_song_worker import ReloadSongWorker
 from services.usdx_file_service import USDXFileService
 from services.song_service import SongService
+from services.gap_state import GapState
 from model.usdx_file import USDXFile
 from utils.audio import get_audio_duration
-from utils.run_async import run_sync
+from utils.run_async import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,21 @@ class SongActions(BaseActions):
     def set_selected_songs(self, songs: List[Song]):
         logger.debug(f"Setting selected songs: {[s.title for s in songs]}")
         self.data.selected_songs = songs
+
+        # Track B: Create GapState for single selection
+        if len(songs) == 1:
+            song = songs[0]
+            self.data.gap_state = GapState.from_song(
+                current_gap=song.gap_info.original_gap if song.gap_info else 0,
+                detected_gap=song.gap_info.detected_gap if song.gap_info else None
+            )
+            if self.data.gap_state:  # Add type guard
+                logger.debug(f"Created GapState for {song.title}: current={self.data.gap_state.current_gap_ms}, detected={self.data.gap_state.detected_gap_ms}")
+        else:
+            # Multi-selection or no selection
+            self.data.gap_state = None
+            logger.debug("Cleared GapState (multi/no selection)")
+
         # Removed waveform creation here - will be handled by MediaPlayerComponent
 
     def _mark_reload_started(self, song_path: str):
@@ -60,6 +76,12 @@ class SongActions(BaseActions):
 
             logger.info(f"Reloading song {song.path}")
             try:
+                # Reset ERROR or PROCESSING states before reloading
+                # This allows users to retry after errors or stuck processing states
+                if song.status in (SongStatus.ERROR, SongStatus.PROCESSING):
+                    logger.info(f"Resetting status from {song.status} to NOT_PROCESSED for reload")
+                    song.clear_error()  # Clears error message and resets to NOT_PROCESSED
+
                 # Mark as queued so viewport lazy loader does not re-queue it
                 song.status = SongStatus.QUEUED
                 self.data.songs.updated.emit(song)
@@ -103,9 +125,86 @@ class SongActions(BaseActions):
                 logger.exception(f"Error setting up song reload: {e}")
                 self.data.songs.updated.emit(song)
 
-    def load_notes_for_song(self, song: Song):
+    def reload_song_light(self, specific_song=None):
+        """
+        Light reload: loads only metadata (USDX tags and notes) without gap_info.
+        Does NOT change song.status, does NOT queue workers, does NOT create waveforms.
+        Used for viewport lazy-loading to avoid triggering heavy processing.
+
+        Now fully asynchronous - does NOT block GUI thread.
+
+        If specific_song is provided, only loads that song.
+        Otherwise loads all selected songs.
+        """
+        # Resolve target songs
+        songs_to_load = [specific_song] if specific_song else self.data.selected_songs
+
+        if not songs_to_load:
+            logger.debug("No songs to light-reload.")
+            return
+
+        logger.debug(f"Light-reloading {len(songs_to_load)} songs (metadata only).")
+
+        for song in songs_to_load:
+            # Skip if already has data loaded (title, artist, notes)
+            if song.title and song.artist and song.notes:
+                logger.debug(f"Skip light-reload for already loaded song: {song.title}")
+                continue
+
+            logger.debug(f"Light-reloading metadata for {song.txt_file}")
+
+            # Use run_async with callback to avoid blocking GUI thread
+            song_service = SongService()
+            run_async(
+                song_service.load_song_metadata_only(song.txt_file),
+                callback=lambda reloaded_song, s=song: self._apply_light_reload(s, reloaded_song)
+            )
+
+    def _apply_light_reload(self, song: Song, reloaded_song: Song):
+        """
+        Apply metadata from light reload to the song object.
+        Called asynchronously after metadata-only load completes.
+        Does NOT change Song.status for success path.
+        """
+        try:
+            if reloaded_song and reloaded_song.status != SongStatus.ERROR:
+                # Update the existing song object with metadata
+                song.title = reloaded_song.title
+                song.artist = reloaded_song.artist
+                song.audio = reloaded_song.audio
+                song.gap = reloaded_song.gap
+                song.bpm = reloaded_song.bpm
+                song.start = reloaded_song.start
+                song.is_relative = reloaded_song.is_relative
+                song.notes = reloaded_song.notes
+                song.audio_file = reloaded_song.audio_file
+                song.duration_ms = reloaded_song.duration_ms
+
+                # DO NOT set gap_info - keeps status unchanged
+                # DO NOT change status - remains NOT_PROCESSED
+
+                logger.debug(f"Light-reload complete for {song.title}, status unchanged: {song.status}")
+                self.data.songs.updated.emit(song)
+            else:
+                if reloaded_song and reloaded_song.status == SongStatus.ERROR:
+                    # Only set error if error_message is not None
+                    if reloaded_song.error_message:
+                        song.set_error(reloaded_song.error_message)
+                    else:
+                        song.set_error("Unknown error during reload")
+                    self.data.songs.updated.emit(song)
+
+        except Exception as e:
+            song.set_error(str(e))
+            logger.exception(f"Error applying light reload: {e}")
+            self.data.songs.updated.emit(song)
+
+    async def load_notes_for_song_async(self, song: Song):
         """Load just the notes for a song without fully reloading it.
         Also compute per-note start/end/duration in milliseconds so waveform rendering works.
+
+        NOTE: This is async and should be called via run_async, not run_sync.
+        Prefer using reload_song_light() for viewport operations.
         """
         if not song:
             logger.error("No song provided to load notes for")
@@ -116,7 +215,7 @@ class SongActions(BaseActions):
         try:
             # Use USDXFile and USDXFileService directly to load just the notes
             usdx_file = USDXFile(song.txt_file)
-            song.notes = run_sync(USDXFileService.load_notes_only(usdx_file))
+            song.notes = await USDXFileService.load_notes_only(usdx_file)
             logger.debug(f"Notes loaded for song: {song.title}, count: {len(song.notes) if song.notes else 0}")
 
             # Compute note timing (ms) required by waveform drawing if we have BPM information
@@ -156,12 +255,12 @@ class SongActions(BaseActions):
                 # This avoids 'Songs' object does not support item assignment error
                 self._update_song_attributes(song, reloaded_song)
 
-                # Only create waveforms if song loaded successfully (no error status)
-                if song.status != SongStatus.ERROR:
-                    # Recreate waveforms for the reloaded song
-                    from actions.audio_actions import AudioActions
-                    audio_actions = AudioActions(self.data)
-                    audio_actions._create_waveforms(song, True)
+                # Regenerate waveforms after reload
+                # This ensures waveforms reflect the current song data
+                from actions.audio_actions import AudioActions
+                audio_actions = AudioActions(self.data)
+                audio_actions._create_waveforms(song, overwrite=True, use_queue=True)
+                logger.info(f"Queued waveform regeneration after reload for {song.title}")
 
                 # Notify update after successful reload
                 self.data.songs.updated.emit(song)
@@ -217,13 +316,15 @@ class SongActions(BaseActions):
 
                     # Explicitly update duration from gap_info if available
                     if source_song.gap_info.duration:
-                        target_song.duration_ms = source_song.gap_info.duration
+                        target_song.duration_ms = int(source_song.gap_info.duration)  # Convert to int
 
         # Double-check duration after all other operations
         if target_song.duration_ms == 0 and target_song.audio_file and os.path.exists(target_song.audio_file):
             try:
-                target_song.duration_ms = get_audio_duration(target_song.audio_file)
-                logger.info(f"Fallback method: set duration to {target_song.duration_ms}ms from audio file")
+                duration = get_audio_duration(target_song.audio_file)
+                if duration is not None:
+                    target_song.duration_ms = int(duration)  # Convert float to int
+                    logger.info(f"Fallback method: set duration to {target_song.duration_ms}ms from audio file")
             except Exception as e:
                 logger.warning(f"Could not load duration from audio file: {e}")
 

@@ -184,21 +184,21 @@ MDX (Demucs-based) method settings for high-quality, GPU-accelerated vocal separ
 **Valid values**: Positive integer (recommended: 10-30)
 
 #### noise_floor_duration_ms
-**Default**: `800`  
-**Description**: Duration at start of audio used to estimate background noise level  
-**Valid values**: Positive integer (recommended: 500-2000)
+**Default**: `1000`  
+**Description**: Duration at start of audio used to estimate background noise level (increased for more stable baseline)  
+**Valid values**: Positive integer (recommended: 800-2000)
 
 ### Onset Detection
 
 #### onset_snr_threshold
-**Default**: `6.0`  
-**Description**: Signal-to-noise ratio threshold for detecting vocal onset (RMS must exceed noise + 6.0×sigma)  
-**Valid values**: Float (recommended: 4.0-10.0, higher = stricter)
+**Default**: `4.0`  
+**Description**: Signal-to-noise ratio threshold for detecting vocal onset (RMS must exceed noise + 4.0×sigma). Lowered from 6.0 for better sensitivity to soft vocals.  
+**Valid values**: Float (recommended: 3.5-10.0, higher = stricter)
 
 #### onset_abs_threshold
-**Default**: `0.02`  
-**Description**: Absolute minimum RMS threshold (2% amplitude) to prevent false positives in quiet sections  
-**Valid values**: Float 0.0-1.0 (recommended: 0.01-0.05)
+**Default**: `0.01`  
+**Description**: Absolute minimum RMS threshold (1% amplitude) to prevent false positives in quiet sections. Lowered from 0.02 for better detection of quiet starts.  
+**Valid values**: Float 0.0-1.0 (recommended: 0.005-0.05)
 
 #### min_voiced_duration_ms
 **Default**: `300`  
@@ -259,10 +259,14 @@ MDX (Demucs-based) method settings for high-quality, GPU-accelerated vocal separ
 
 ## [General]
 
-### DefaultOutputPath
-**Default**: `%LOCALAPPDATA%\output` (Windows) or `~/.local/share/output` (Linux)  
-**Description**: Default directory for saving processed audio files  
-**Valid values**: Any valid directory path
+### Runtime Artifacts and Cache
+
+**Runtime artifacts** (separated vocals, waveform images) are automatically cached under:
+- **Windows**: `%LOCALAPPDATA%\USDXFixGap\.tmp\<hash>\<song-basename>\`
+- **Linux**: `~/.local/share/USDXFixGap/.tmp\<hash>\<song-basename>\`
+- **macOS**: `~/Library/Application Support/USDXFixGap/.tmp\<hash>\<song-basename>\`
+
+These files are temporary and managed automatically by the application. They are not persisted outside the `.tmp` cache unless explicitly exported. The cache is automatically cleaned up based on usage patterns.
 
 ### LogLevel
 **Default**: `INFO`  
@@ -317,6 +321,37 @@ MDX (Demucs-based) method settings for high-quality, GPU-accelerated vocal separ
 **Default**: `False`  
 **Description**: Automatically start playback when loading audio  
 **Valid values**: `True`, `False`
+
+## [WatchMode]
+
+Watch Mode provides real-time filesystem monitoring to automatically update caches and schedule gap detection when songs are added, modified, or removed.
+
+### watch_mode_default
+**Default**: `false`  
+**Description**: Automatically enable watch mode when a directory is loaded  
+**Valid values**: `true`, `false`
+
+### watch_debounce_ms
+**Default**: `500`  
+**Description**: Milliseconds to wait after the last filesystem event before processing changes. This prevents processing storms during bulk file operations (e.g., copying multiple songs).  
+**Valid values**: Positive integer (recommended: 300-1000)
+
+### watch_ignore_patterns
+**Default**: `.tmp,~,.crdownload,.part`  
+**Description**: Comma-separated list of file extension patterns to ignore. These are typically temporary files created by editors, browsers, or download managers.  
+**Valid values**: Comma-separated string of patterns (e.g., `.tmp,.bak,~,.swp,.crdownload,.part`)
+
+**How Watch Mode Works**:
+- **Created**: New .txt files or folders are detected and scheduled for scanning
+- **Modified**: Changes to .txt, .mp3, or .wav files automatically queue gap detection
+- **Deleted**: Removed songs are deleted from cache and UI
+- **Moved/Renamed**: Treated as delete + create for cache consistency
+
+**Performance Notes**:
+- Uses OS-native filesystem watchers (Windows ReadDirectoryChangesW, macOS FSEvents, Linux inotify)
+- Debouncing prevents duplicate processing during rapid file changes
+- Only changed songs are processed, not the entire directory
+- At-most-one detection task per song prevents duplicates
 
 ## Editing Configuration
 

@@ -1,13 +1,13 @@
 """
 Model Path Configuration Module
 
-This module MUST be imported before any AI libraries (PyTorch, TensorFlow, Demucs, Spleeter)
+This module MUST be imported before any AI libraries (PyTorch, Demucs)
 to override their default cache locations and use our centralized model storage.
 
 Usage:
     from utils.model_paths import setup_model_paths
 
-    # Call this BEFORE importing torch, tensorflow, demucs, or spleeter
+    # Call this BEFORE importing torch or demucs
     setup_model_paths(config)
 
     # Now safe to import AI libraries
@@ -17,7 +17,7 @@ Usage:
 
 import os
 import logging
-from utils.files import get_demucs_models_dir, get_spleeter_models_dir
+from utils.files import get_demucs_models_dir
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +28,9 @@ def setup_model_paths(config=None):
 
     This function sets environment variables that AI libraries respect for model storage:
     - TORCH_HOME: PyTorch hub models (Demucs)
-    - MODEL_PATH: Spleeter models
     - XDG_CACHE_HOME: Fallback for other libraries
 
-    Must be called BEFORE importing PyTorch, TensorFlow, Demucs, or Spleeter.
+    Must be called BEFORE importing PyTorch or Demucs.
 
     Args:
         config: Optional Config object with custom models_directory setting.
@@ -41,7 +40,6 @@ def setup_model_paths(config=None):
         dict: Paths that were configured
             {
                 'demucs_dir': str,
-                'spleeter_dir': str,
                 'torch_home': str
             }
 
@@ -53,21 +51,14 @@ def setup_model_paths(config=None):
     """
     # Get model directories (respects config.models_directory if set)
     demucs_dir = get_demucs_models_dir(config)
-    spleeter_dir = get_spleeter_models_dir(config)
 
     # Create directories if they don't exist
     os.makedirs(demucs_dir, exist_ok=True)
-    os.makedirs(spleeter_dir, exist_ok=True)
 
     # Configure PyTorch Hub (used by Demucs)
     # This overrides the default ~/.cache/torch/hub/checkpoints/
     os.environ['TORCH_HOME'] = demucs_dir
     logger.info(f"Set TORCH_HOME={demucs_dir}")
-
-    # Configure Spleeter model path
-    # This overrides the default ~/.spleeter/
-    os.environ['MODEL_PATH'] = spleeter_dir
-    logger.info(f"Set MODEL_PATH={spleeter_dir}")
 
     # Set XDG_CACHE_HOME as fallback for other libraries
     # This is a standard Unix/Linux environment variable
@@ -78,7 +69,6 @@ def setup_model_paths(config=None):
 
     paths = {
         'demucs_dir': demucs_dir,
-        'spleeter_dir': spleeter_dir,
         'torch_home': os.environ['TORCH_HOME']
     }
 

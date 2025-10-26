@@ -5,6 +5,8 @@ Handles all GPU Pack CLI operations: setup, enable/disable, diagnostics
 """
 
 import json
+import os
+import sys
 from pathlib import Path
 from datetime import datetime
 from typing import Dict
@@ -33,30 +35,26 @@ def handle_gpu_enable(config):
     """Enable GPU acceleration"""
     config.gpu_opt_in = True
     config.save_config()
-    print("GPU acceleration enabled (GpuOptIn=true)")
+    print("GPU acceleration enabled (gpu_opt_in=true)")
 
 
 def handle_gpu_disable(config):
     """Disable GPU acceleration"""
     config.gpu_opt_in = False
     config.save_config()
-    print("GPU acceleration disabled (GpuOptIn=false)")
+    print("GPU acceleration disabled (gpu_opt_in=false)")
 
 
-def handle_gpu_diagnostics(config):
-    """Show GPU diagnostics and write to file"""
-    print("=== GPU Diagnostics ===")
-
-    # Probe GPU
-    cap = gpu_bootstrap.capability_probe()
+def _print_gpu_capability_info(cap):
+    """Print GPU capability information."""
     print(f"NVIDIA GPU detected: {cap['has_nvidia']}")
     if cap['has_nvidia']:
         print(f"Driver version: {cap['driver_version']}")
         print(f"GPU(s): {', '.join(cap['gpu_names'])}")
 
-    # Check installed pack using utility
-    get_app_version()
 
+def _print_gpu_pack_info(config):
+    """Print GPU Pack installation information."""
     if is_gpu_pack_installed(config):
         pack_info = get_gpu_pack_info(config)
         if pack_info:
@@ -64,7 +62,6 @@ def handle_gpu_diagnostics(config):
             print(f"GPU Pack installed: {version}")
             print(f"GPU Pack path: {path}")
 
-            # Validate installation details
             pack_dir = Path(path)
             install_json = pack_dir / "install.json"
             if install_json.exists():
@@ -78,13 +75,102 @@ def handle_gpu_diagnostics(config):
         if config.gpu_pack_path:
             print(f"WARNING: Config has GPU Pack path but it doesn't exist: {config.gpu_pack_path}")
 
+
+def _print_config_status(config):
+    """Print GPU configuration status."""
     print(f"GPU Opt-in: {config.gpu_opt_in}")
     print(f"GPU Flavor: {config.gpu_flavor}")
     print(f"Last health check: {config.gpu_last_health or 'Never'}")
     if config.gpu_last_error:
         print(f"Last error: {config.gpu_last_error}")
 
-    # Write to file
+
+def _print_dll_diagnostics():
+    """Print DLL path diagnostics."""
+    print("\n=== DLL Path Diagnostics ===")
+    from utils.gpu_bootstrap import ADDED_DLL_DIRS
+    if ADDED_DLL_DIRS:
+        print(f"DLL directories added to search path: {len(ADDED_DLL_DIRS)}")
+        for dll_dir in ADDED_DLL_DIRS:
+            exists = os.path.exists(dll_dir)
+            print(f"  - {dll_dir} {'[EXISTS]' if exists else '[MISSING]'}")
+    else:
+        print("No DLL directories added (GPU Pack not activated)")
+
+
+def _print_python_path_diagnostics():
+    """Print Python path diagnostics for torch-related paths."""
+    print("\n=== Python Path (torch-related) ===")
+    torch_paths = [p for p in sys.path if 'torch' in p.lower() or 'cuda' in p.lower()]
+    if torch_paths:
+        for p in torch_paths:
+            print(f"  - {p}")
+    else:
+        print("  No torch-related paths in sys.path")
+    return torch_paths
+
+
+def _print_environment_variables():
+    """Print relevant environment variables."""
+    print("\n=== Environment Variables ===")
+    env_vars = ['USDXFIXGAP_GPU_PACK_DIR', 'CUDA_PATH', 'PATH']
+    for var in env_vars:
+        value = os.environ.get(var, 'Not set')
+        if var == 'PATH':
+            path_entries = value.split(os.pathsep)
+            cuda_paths = [p for p in path_entries if 'cuda' in p.lower() or 'torch' in p.lower()]
+            if cuda_paths:
+                print(f"{var} (CUDA/torch entries):")
+                for p in cuda_paths[:5]:
+                    print(f"  - {p}")
+            else:
+                print(f"{var}: No CUDA/torch entries found")
+        else:
+            print(f"{var}: {value}")
+
+
+def _run_torch_smoke_test():
+    """Run PyTorch smoke tests for CPU and GPU."""
+    print("\n=== Torch Smoke Test ===")
+    try:
+        import torch
+        print(f"PyTorch version: {torch.__version__}")
+        print(f"CUDA available: {torch.cuda.is_available()}")
+        if torch.cuda.is_available():
+            print(f"CUDA version: {torch.version.cuda}")
+            print(f"cuDNN version: {torch.backends.cudnn.version()}")
+            print(f"Device count: {torch.cuda.device_count()}")
+            for i in range(torch.cuda.device_count()):
+                print(f"  Device {i}: {torch.cuda.get_device_name(i)}")
+
+        # Test CPU matmul
+        try:
+            a = torch.randn(10, 10)
+            b = torch.randn(10, 10)
+            torch.matmul(a, b)
+            print("CPU matmul: OK")
+        except Exception as e:
+            print(f"CPU matmul: FAILED - {e}")
+
+        # Test GPU matmul if available
+        if torch.cuda.is_available():
+            try:
+                a_gpu = torch.randn(10, 10).cuda()
+                b_gpu = torch.randn(10, 10).cuda()
+                torch.matmul(a_gpu, b_gpu)
+                print("GPU matmul: OK")
+            except Exception as e:
+                print(f"GPU matmul: FAILED - {e}")
+    except ImportError as e:
+        print(f"Failed to import torch: {e}")
+    except Exception as e:
+        print(f"Unexpected error during smoke test: {e}")
+
+
+def _write_diagnostics_file(config, cap, torch_paths):
+    """Write diagnostics information to file."""
+    from utils.gpu_bootstrap import ADDED_DLL_DIRS
+
     diag_file = Path(get_app_dir()) / "gpu_diagnostics.txt"
     with open(diag_file, 'w') as f:
         f.write("=== GPU Diagnostics ===\n")
@@ -100,7 +186,45 @@ def handle_gpu_diagnostics(config):
         if config.gpu_last_error:
             f.write(f"Last error: {config.gpu_last_error}\n")
 
+        f.write("\n=== DLL Path Diagnostics ===\n")
+        if ADDED_DLL_DIRS:
+            for dll_dir in ADDED_DLL_DIRS:
+                exists = os.path.exists(dll_dir)
+                f.write(f"{dll_dir} {'[EXISTS]' if exists else '[MISSING]'}\n")
+        else:
+            f.write("No DLL directories added\n")
+
+        f.write("\n=== Python Path (torch-related) ===\n")
+        if torch_paths:
+            for p in torch_paths:
+                f.write(f"{p}\n")
+        else:
+            f.write("No torch-related paths\n")
+
     print(f"\nDiagnostics written to: {diag_file}")
+
+
+def handle_gpu_diagnostics(config):
+    """Show GPU diagnostics and write to file."""
+    print("=== GPU Diagnostics ===")
+
+    # Probe GPU
+    cap = gpu_bootstrap.capability_probe()
+    _print_gpu_capability_info(cap)
+
+    # Check installed pack
+    get_app_version()
+    _print_gpu_pack_info(config)
+    _print_config_status(config)
+
+    # Enhanced diagnostics
+    _print_dll_diagnostics()
+    torch_paths = _print_python_path_diagnostics()
+    _print_environment_variables()
+    _run_torch_smoke_test()
+
+    # Write to file
+    _write_diagnostics_file(config, cap, torch_paths)
 
 
 def handle_setup_gpu(config):
@@ -173,7 +297,7 @@ def handle_setup_gpu(config):
         config.save_config()
 
         print(f"\nGPU Pack installed successfully to: {pack_dir}")
-        print("GPU acceleration enabled (GpuOptIn=true)")
+        print("GPU acceleration enabled (gpu_opt_in=true)")
 
         # Clean up zip
         if dest_zip.exists():
@@ -238,7 +362,7 @@ def handle_setup_gpu_zip(config, zip_path_str):
         config.save_config()
 
         print(f"\nGPU Pack installed successfully from ZIP")
-        print("GPU acceleration enabled (GpuOptIn=true)")
+        print("GPU acceleration enabled (gpu_opt_in=true)")
 
     except Exception as e:
         print(f"\nERROR: GPU Pack installation from ZIP failed: {e}")

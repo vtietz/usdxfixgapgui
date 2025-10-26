@@ -2,17 +2,13 @@
 
 Copy this template when creating a new release on GitHub.
 
----
-
 ## v[VERSION] - [RELEASE TITLE]
 
 ### ⚠️ Breaking Changes (if any)
 
 [Describe any breaking changes here]
 
----
-
-### ✨ What's New
+### What's New
 
 #### [Feature Category 1]
 - [Feature description]
@@ -24,23 +20,7 @@ Copy this template when creating a new release on GitHub.
 #### Bug Fixes
 - [Bug fix description]
 
----
-
-### 📥 Installation
-
-#### Windows
-1. Download `usdxfixgap-v[VERSION]-windows.zip`
-2. Extract to any folder
-3. Run `usdxfixgap.exe`
-
-#### Linux
-1. Download `usdxfixgap-v[VERSION]-linux.tar.gz`
-2. Extract: `tar -xzf usdxfixgap-v[VERSION]-linux.tar.gz`
-3. Run: `./usdxfixgap`
-
----
-
-### 🔄 Upgrading from Previous Version
+### Upgrading from Previous Version (if any)
 
 **Quick Steps:**
 1. Download new version
@@ -51,24 +31,7 @@ Copy this template when creating a new release on GitHub.
 - **Windows**: Press `Win+R`, type `%LOCALAPPDATA%\USDXFixGap`, press Enter
 - **Linux**: `~/.local/share/USDXFixGap/`
 
----
-
-### 📚 Documentation
-
-- [Full Changelog](CHANGELOG.md)
-- [Documentation Links]
-
----
-
-### 🐛 Known Issues
-
-[List any known issues or note "None currently"]
-
-Please report issues on [GitHub Issues](https://github.com/vtietz/usdxfixgapgui/issues).
-
----
-
-### 💬 Questions?
+### FAQs
 
 **[Common Question 1]**
 [Answer]
@@ -76,23 +39,9 @@ Please report issues on [GitHub Issues](https://github.com/vtietz/usdxfixgapgui/
 **[Common Question 2]**
 [Answer]
 
----
-
 ### 🙏 Thanks
 
 Thanks to all users for feedback and bug reports!
-
----
-
-### 📝 Checksums
-
-```
-SHA256:
-<hash>  usdxfixgap-v[VERSION]-windows.zip
-<hash>  usdxfixgap-v[VERSION]-linux.tar.gz
-```
-
----
 
 **Download links:**
 - [Windows (ZIP)](link)

@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMessageBox
 from PySide6.QtCore import QSortFilterProxyModel, QTimer
 from actions import Actions
 from app.app_data import AppData
@@ -50,6 +50,11 @@ class SongListWidget(QWidget):
         super().__init__(parent)
         # actions are passed to the view; no instance attribute to avoid clashing with QWidget.actions()
 
+        # Store actions and data for button handling
+        self._actions = actions
+        self._data = data
+        self._selected_songs: List[Song] = []
+
         # Create the table model and proxy model
         self.songs_model = songs_model
         self.tableModel = SongTableModel(songs_model, data)
@@ -64,12 +69,58 @@ class SongListWidget(QWidget):
         self.proxyModel.dataChanged.connect(lambda *args: self.tableView.reset_viewport_loading())
         self.tableModel.dataChanged.connect(lambda *args: self.tableView.reset_viewport_loading())
 
+        # Create action buttons (moved from MenuBar)
+        self.detectButton = QPushButton("Detect")
+        self.detectButton.clicked.connect(lambda: self._actions.detect_gap(overwrite=True))
+        self.detectButton.setToolTip("Run gap detection on selected songs")
+
+        self.openFolderButton = QPushButton("Open Folder")
+        self.openFolderButton.clicked.connect(lambda: self._actions.open_folder())
+        self.openFolderButton.setToolTip("Open song folder in file explorer")
+
+        self.open_usdx_button = QPushButton("Open in USDB")
+        self.open_usdx_button.clicked.connect(lambda: self._actions.open_usdx())
+        self.open_usdx_button.setToolTip("Open song page on UltraStar Database website")
+
+        self.reload_button = QPushButton("Reload")
+        self.reload_button.clicked.connect(lambda: self._actions.reload_song())
+        self.reload_button.setToolTip("Reload song data from file")
+
+        self.normalize_button = QPushButton("Normalize")
+        self.normalize_button.clicked.connect(lambda: self._actions.normalize_song())
+        self.normalize_button.setToolTip("Normalize audio volume of selected songs")
+
+        self.delete_button = QPushButton("Delete")
+        self.delete_button.clicked.connect(self.onDeleteButtonClicked)
+        self.delete_button.setToolTip("Delete selected song directories (permanently)")
+
         # Create song count label
         self.countLabel = QLabel()
 
+        # Create bottom bar layout with buttons on left and count on right
+        bottom_bar = QHBoxLayout()
+        bottom_bar.setContentsMargins(0, 5, 0, 0)
+        bottom_bar.setSpacing(2)
+
+        # Left side: action buttons
+        bottom_bar.addWidget(self.detectButton)
+        bottom_bar.addWidget(self.openFolderButton)
+        bottom_bar.addWidget(self.open_usdx_button)
+        bottom_bar.addWidget(self.reload_button)
+        bottom_bar.addWidget(self.normalize_button)
+        bottom_bar.addWidget(self.delete_button)
+
+        # Stretch to push count label to the right
+        bottom_bar.addStretch()
+
+        # Right side: song count
+        bottom_bar.addWidget(self.countLabel)
+
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         layout.addWidget(self.tableView)
-        layout.addWidget(self.countLabel)
+        layout.addLayout(bottom_bar)
         self.setLayout(layout)
 
         # Connect signals to update the filter and status label
@@ -83,14 +134,69 @@ class SongListWidget(QWidget):
         self.proxyModel.rowsRemoved.connect(self.updateCountLabel)
         self.proxyModel.modelReset.connect(self.updateCountLabel)
 
+        # Connect to selected songs changed signal
+        self._data.selected_songs_changed.connect(self.onSelectedSongsChanged)
+
         # Streaming state
         self._streaming_songs: List[Song] = []
         self._streaming_index = 0
         self._streaming_timer = QTimer()
         self._streaming_timer.timeout.connect(self._append_next_chunk)
 
-        # Initial update of the count label
+        # Initial update of the count label and button states
         self.updateCountLabel()
+        self.onSelectedSongsChanged([])  # Initial state
+
+    def onDeleteButtonClicked(self):
+        """Handle delete button click with confirmation dialog."""
+        if not self._selected_songs:
+            return
+
+        count = len(self._selected_songs)
+        if count == 1:
+            msg_text = f"Are you sure you want to delete the following directory?\r\n{self._selected_songs[0].path}?"
+        else:
+            msg_text = f"Are you sure you want to delete the {count} selected song directories?"
+
+        msgBox = QMessageBox()
+        msgBox.setIcon(QMessageBox.Icon.Warning)
+        msgBox.setText(msg_text)
+        msgBox.setWindowTitle("Delete Confirmation")
+        msgBox.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+
+        returnValue = msgBox.exec()
+        if returnValue == QMessageBox.StandardButton.Ok:
+            self._actions.delete_selected_song()
+
+    def onSelectedSongsChanged(self, songs: List[Song]):
+        """Update button states based on selected songs."""
+        self._selected_songs = songs
+        num_selected = len(songs)
+        first_song = songs[0] if num_selected > 0 else None
+
+        # Enable buttons if at least one song is selected
+        has_selection = num_selected > 0
+        self.openFolderButton.setEnabled(has_selection)
+        self.reload_button.setEnabled(has_selection)
+        self.delete_button.setEnabled(has_selection)
+
+        # Enable detect if at least one selected song has audio file
+        can_detect = has_selection and any(s.audio_file for s in songs)
+        self.detectButton.setEnabled(can_detect)
+
+        # Enable normalize if at least one selected song is suitable
+        can_normalize = has_selection and any(s.audio_file for s in songs)
+        self.normalize_button.setEnabled(can_normalize)
+
+        # Enable USDB only if exactly one song is selected and has a valid usdb_id
+        # usdb_id is Optional[int], so check for None and 0
+        can_open_usdb = bool(
+            (num_selected == 1)
+            and (first_song is not None)
+            and (first_song.usdb_id is not None)
+            and (first_song.usdb_id != 0)
+        )
+        self.open_usdx_button.setEnabled(can_open_usdb)
 
     def updateFilter(self):
         """Update filter with deferred invalidation to prevent UI freeze."""
@@ -181,4 +287,3 @@ class SongListWidget(QWidget):
         # Clear streaming state
         self._streaming_songs = []
         self._streaming_index = 0
-

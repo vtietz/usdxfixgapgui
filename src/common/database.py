@@ -3,6 +3,7 @@ import os
 import pickle
 import logging
 import datetime
+from typing import overload, Literal, Any
 
 from utils.files import get_localappdata_dir
 
@@ -11,17 +12,28 @@ logger = logging.getLogger(__name__)
 # Define the database path
 DB_PATH = os.path.join(get_localappdata_dir(), 'cache.db')
 _db_initialized = False
+_cache_was_cleared = False  # Track if cache was cleared due to version mismatch
+
+# Cache schema version - increment when cache structure changes
+# Version 1: Original cache (pre-multi-txt support)
+# Version 2: Multi-txt support (txt_file path is primary key)
+CACHE_VERSION = 2
 
 def get_connection():
     """Get a connection to the database."""
     return sqlite3.connect(DB_PATH)
 
 def init_database():
-    """Initialize the database if it doesn't exist."""
-    global _db_initialized
+    """
+    Initialize the database if it doesn't exist.
+
+    Returns:
+        bool: True if cache was cleared due to version upgrade, False otherwise
+    """
+    global _db_initialized, _cache_was_cleared
 
     if (_db_initialized):
-        return
+        return _cache_was_cleared
 
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
@@ -37,18 +49,73 @@ def init_database():
     )
     ''')
 
+    # Create metadata table for cache versioning
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS cache_metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )
+    ''')
+
+    # Check cache version
+    cursor.execute('SELECT value FROM cache_metadata WHERE key=?', ('version',))
+    result = cursor.fetchone()
+    current_version = int(result[0]) if result else None  # None for fresh/legacy database
+
+    # Only clear cache if upgrading from old version (not on fresh install)
+    if current_version is not None and current_version < CACHE_VERSION:
+        # Explicit version mismatch - needs migration
+        logger.warning(f"Cache version mismatch detected (current: {current_version}, required: {CACHE_VERSION}).")
+        logger.warning(f"A complete re-scan of all songs is required due to application upgrade.")
+        logger.info("Clearing outdated cache...")
+        cursor.execute('DELETE FROM song_cache')
+        cursor.execute('INSERT OR REPLACE INTO cache_metadata (key, value) VALUES (?, ?)',
+                      ('version', str(CACHE_VERSION)))
+        logger.info(f"Cache cleared and version updated to v{CACHE_VERSION}")
+        _cache_was_cleared = True
+    elif current_version is None:
+        # No version metadata - could be fresh or legacy
+        # Check if there are any cache entries to determine if legacy
+        cursor.execute('SELECT COUNT(*) FROM song_cache')
+        cache_entry_count = cursor.fetchone()[0]
+
+        if cache_entry_count > 0:
+            # Legacy database with cache entries - needs migration
+            logger.warning(f"Legacy cache detected (no version metadata, {cache_entry_count} entries).")
+            logger.warning(f"A complete re-scan of all songs is required due to application upgrade.")
+            logger.info("Clearing legacy cache...")
+            cursor.execute('DELETE FROM song_cache')
+            logger.info(f"Legacy cache cleared")
+            _cache_was_cleared = True
+        else:
+            # Fresh database - just set version, no need to clear
+            logger.debug("Fresh database detected, initializing with current version")
+            _cache_was_cleared = False
+
+        # Set version for both cases
+        cursor.execute('INSERT INTO cache_metadata (key, value) VALUES (?, ?)',
+                      ('version', str(CACHE_VERSION)))
+
     conn.commit()
     conn.close()
     _db_initialized = True
     logger.debug("Database initialized")
 
+    return _cache_was_cleared
+
 # Initialize the database when the module is loaded
 init_database()
 
 def initialize_song_cache():
-    """Initialize the song cache database and return its path."""
-    init_database()
-    return DB_PATH
+    """
+    Initialize the song cache database and return its path.
+
+    Returns:
+        tuple: (db_path, cache_was_cleared) where cache_was_cleared indicates
+               if a re-scan is required due to version upgrade
+    """
+    cache_cleared = init_database()
+    return DB_PATH, cache_cleared
 
 def get_cache_entry(key, modified_time=None):
     """
@@ -150,6 +217,12 @@ def clear_cache(key=None):
         logger.debug(f"Cleared {rows_affected} cache entries")
     except Exception as e:
         logger.error(f"Failed to clear cache: {e}")
+
+@overload
+def get_all_cache_entries(deserialize: Literal[False] = False) -> list[tuple[str, bytes]]: ...
+
+@overload
+def get_all_cache_entries(deserialize: Literal[True]) -> dict[str, Any]: ...
 
 def get_all_cache_entries(deserialize=False):
     """
