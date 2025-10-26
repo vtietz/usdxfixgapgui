@@ -192,7 +192,7 @@ Use this structure (from `.github/RELEASE_TEMPLATE.md`):
 ### In README.md (Optional)
 Add a banner at the top:
 ```markdown
-> **📢 Latest Release: v1.1.0** - [Download](https://github.com/vtietz/usdxfixgapgui/releases/latest) | [Changelog](CHANGELOG.md)
+> **📢 Latest Release: v1.1.0** - [Download](https://github.com/vtietz/usdxfixgapgui/releases/latest) | [Changelog](/CHANGELOG.md)
 ```
 
 ### Discord/Forum (If Applicable)

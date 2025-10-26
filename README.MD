@@ -35,7 +35,7 @@ The app uses state-of-the-art AI vocal separation (Meta's Demucs) with smart chu
 ## ✨ Key Features
 
 - 🎯 **AI-Powered Detection** - Uses Meta's Demucs for accurate vocal onset detection
-- ⚡ **GPU Acceleration** - Optional NVIDIA GPU support for 5-10x faster processing ([Setup Guide](docs/gpu-acceleration.md))
+- ⚡ **GPU Acceleration** - Optional NVIDIA GPU support for 5-10x faster processing ([Setup Guide](docs/configuration.md#gpu-acceleration-settings))
 - 📊 **Visual Waveforms** - See exactly where vocals start with clear visualizations
 - 🎚️ **Audio Normalization** - Automatic volume adjustment for consistent playback
 - 📈 **Confidence Scoring** - Know how reliable each detection is
@@ -62,7 +62,7 @@ Choose the detection method that fits your needs:
   - ⚠️ Deprecated (wrapper around unmaintained Spleeter)
   - ~15-25 seconds per song
 
-> 💡 **Tip**: Use MDX with GPU acceleration for best performance. See [GPU Acceleration Guide](docs/gpu-acceleration.md) for setup instructions.
+> 💡 **Tip**: Use MDX with GPU acceleration for best performance. See [GPU Acceleration Guide](docs/configuration.md#gpu-acceleration-settings) for setup instructions.
 
 ## 📖 User Guide
 
@@ -188,7 +188,7 @@ watch_ignore_patterns = .tmp,~,.crdownload,.part  # Comma-separated patterns to 
 4. **(Optional) Enable GPU Acceleration**:
    - Have an NVIDIA GPU with driver ≥531?
    - The app will automatically offer to download GPU Pack (~1GB) for 5-10x faster processing
-   - [→ GPU Acceleration Guide](docs/gpu-acceleration.md)
+   - [→ GPU Acceleration Guide](docs/configuration.md#gpu-acceleration-settings)
 
 ### **Option 2: Run from Source (For Developers)**
 
@@ -241,7 +241,7 @@ The run script automatically handles environment setup and dependencies!
    ```
 
 4. **(Optional) GPU Setup:**
-   - See [GPU Acceleration Guide](docs/gpu-acceleration.md) for CUDA installation
+   - See [GPU Acceleration Guide](docs/configuration.md#gpu-acceleration-settings) for CUDA installation
 
 </details>
 
@@ -315,8 +315,7 @@ Want to contribute or understand how the code works?
 - **[Development Guide](docs/DEVELOPMENT.md)** - Setup, testing, code quality tools, building executables
 - **[Architecture Guide](docs/architecture.md)** - System design, component responsibilities, signal patterns
 - **[Coding Standards](docs/coding-standards.md)** - DRY principles, SOLID patterns, testing guidelines
-- **[Configuration Reference](docs/configuration.md)** - Complete config.ini settings documentation
-- **[GPU Acceleration](docs/gpu-acceleration.md)** - GPU Pack setup, troubleshooting, architecture
+- **[Configuration Reference](docs/configuration.md)** - Complete config.ini settings documentation (includes GPU setup)
 - **[Performance Optimization](docs/performance-optimization.md)** - Qt TableView optimization patterns
 
 ### **Development Setup**

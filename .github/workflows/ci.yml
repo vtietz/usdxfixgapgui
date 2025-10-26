@@ -54,6 +54,10 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
 
+      - name: Documentation - Link Check
+        run: |
+          python scripts/check_links.py
+
       - name: Code Quality - Complexity Analysis
         run: |
           python -m lizard src/ tests/ scripts/ -l python -w -C 15 -L 100

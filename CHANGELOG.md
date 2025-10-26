@@ -23,12 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Now uses**: System Python 3.8+ with project-local `.venv`
   - **Setup**: Automatic on first `run.bat`/`run.sh` execution
   - **Benefits**: 6x faster bootstrap, simpler setup, better IDE integration
-  - **Migration**: See [VENV_MIGRATION.md](docs/VENV_MIGRATION.md)
 - **Spleeter Detection Method Removed**: Only MDX (Demucs) detection is now supported
   - **Removed**: `spleeter` and `hq_segment` detection methods
   - **Why**: Enable Python 3.12+ support, better performance, simpler codebase
   - **Impact**: Existing configs automatically use MDX with warning
-  - **Details**: See [SPLEETER_REMOVAL.md](docs/SPLEETER_REMOVAL.md)
 - **Storage Location Changed** (from v1.1.0): User data now stored in platform-standard locations instead of app directory
   - **Windows**: `%LOCALAPPDATA%\USDXFixGap\` (was: `<app_directory>\`)
   - **Linux**: `~/.local/share/USDXFixGap/` (follows XDG standard)
@@ -68,12 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Support for network shares (e.g., `\\server\shared\models\`)
   - Custom drive locations (e.g., `E:\AI_Models\`)
   - Environment variable expansion supported
-- **Comprehensive Migration Documentation**:
-  - [VENV_MIGRATION.md](docs/VENV_MIGRATION.md) - Complete migration guide
-  - [MIGRATION_QUICKSTART.md](docs/MIGRATION_QUICKSTART.md) - Quick reference
-  - [SPLEETER_REMOVAL.md](docs/SPLEETER_REMOVAL.md) - Spleeter removal details
-  - [PYTHON_VERSION_COMPATIBILITY.md](docs/PYTHON_VERSION_COMPATIBILITY.md) - Python 3.12+ support
-  - [IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md) - Technical details
 
 ### 🐛 Fixed
 - **Python 3.12+ Compatibility**: Removed spleeter dependency blocking modern Python versions

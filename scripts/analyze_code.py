@@ -20,7 +20,7 @@ import sys
 import subprocess
 import argparse
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from collections import defaultdict
 
 # Fix Windows cmd encoding for emojis
@@ -146,7 +146,7 @@ def get_changed_files() -> List[str]:
         return []
 
 
-def analyze_complexity(files: List[str] = None) -> tuple:
+def analyze_complexity(files: Optional[List[str]] = None) -> tuple:
     """Run Lizard complexity analysis.
 
     Args:
@@ -182,7 +182,7 @@ def analyze_complexity(files: List[str] = None) -> tuple:
         return 1, output
 
 
-def analyze_style(files: List[str] = None) -> tuple:
+def analyze_style(files: Optional[List[str]] = None) -> tuple:
     """Run flake8 style analysis.
 
     Args:
@@ -224,7 +224,7 @@ def analyze_style(files: List[str] = None) -> tuple:
         return 1, output
 
 
-def analyze_types(files: List[str] = None) -> tuple:
+def analyze_types(files: Optional[List[str]] = None) -> tuple:
     """Run mypy type checking (optional).
 
     Args:
@@ -263,7 +263,7 @@ def analyze_types(files: List[str] = None) -> tuple:
         return 0, output  # Don't fail on type issues
 
 
-def analyze_file_length(files: List[str] = None) -> tuple:
+def analyze_file_length(files: Optional[List[str]] = None) -> tuple:
     """Check file length to ensure AI-friendly file sizes.
 
     Args:
@@ -364,6 +364,31 @@ def analyze_file_length(files: List[str] = None) -> tuple:
             return 1, output
         else:
             return 0, output
+
+
+def analyze_links() -> int:
+    """Check all markdown links for validity.
+
+    Returns:
+        0 if all links valid, 1 otherwise
+    """
+    print(f"\n{'='*80}")
+    print("🔗 Markdown Link Validation")
+    print(f"{'='*80}\n")
+
+    # Import and run link checker
+    check_links_script = PROJECT_ROOT / 'scripts' / 'check_links.py'
+    if not check_links_script.exists():
+        print("⚠️  Warning: scripts/check_links.py not found, skipping link check")
+        return 0
+
+    result = subprocess.run(
+        [sys.executable, str(check_links_script)],
+        cwd=PROJECT_ROOT,
+        capture_output=False  # Let it print directly
+    )
+
+    return result.returncode
 
 
 def parse_style_output(output: str) -> dict:
@@ -559,6 +584,11 @@ Examples:
         action='store_true',
         help='Skip file length analysis'
     )
+    parser.add_argument(
+        '--skip-links',
+        action='store_true',
+        help='Skip markdown link validation'
+    )
 
     args = parser.parse_args()
 
@@ -606,6 +636,10 @@ Examples:
     if not args.skip_types:
         exit_code, output = analyze_types(files_to_analyze)
         results['Types'] = exit_code
+
+    if not args.skip_links:
+        exit_code = analyze_links()
+        results['Link Check'] = exit_code
 
     # Print summary with file breakdown
     return print_summary(results, complexity_output, style_output, length_output)
