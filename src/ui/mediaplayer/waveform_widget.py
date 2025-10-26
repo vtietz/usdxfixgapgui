@@ -81,10 +81,10 @@ class WaveformWidget(QLabel):
         self.placeholder_visible = False
         self.update()  # Trigger repaint
 
-    def paintEvent(self, event):
+    def paintEvent(self, arg__1):
         """Custom paint event to draw placeholder text when visible"""
         # Draw the pixmap first (standard QLabel behavior)
-        super().paintEvent(event)
+        super().paintEvent(arg__1)
 
         # Draw placeholder text if visible
         if self.placeholder_visible and self.placeholder_text:
@@ -130,7 +130,7 @@ class WaveformWidget(QLabel):
         self.detected_gap_ms = detected_gap_ms
         self.overlay.update()  # Trigger repaint to show markers
 
-    def load_waveform(self, file: str):
+    def load_waveform(self, file: str | None):
         if file and os.path.exists(file):
             self.setPixmap(QPixmap(file))
             self.clear_placeholder()  # Clear placeholder when waveform loads
@@ -138,13 +138,14 @@ class WaveformWidget(QLabel):
             self.setPixmap(QPixmap())
             # Don't clear placeholder here - let caller set appropriate message
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, ev):
         # Ensure parent gets focus
-        if self.parent():
-            self.parent().setFocus()
+        p = self.parent()
+        if isinstance(p, QWidget):
+            p.setFocus()
 
         # Calculate position based on click
-        click_position = event.position().x()
+        click_position = ev.position().x()
         widget_width = self.width()
 
         # Safeguard against division by zero
@@ -153,7 +154,7 @@ class WaveformWidget(QLabel):
             self.position_clicked.emit(relative_position)
 
         # Let the event continue processing
-        super().mousePressEvent(event)
+        super().mousePressEvent(ev)
 
     def eventFilter(self, watched, event):
         if watched == self and event.type() == QEvent.Type.Resize:

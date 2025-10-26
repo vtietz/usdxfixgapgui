@@ -96,7 +96,8 @@ def get_app_dir():
     Note: For user data storage, prefer get_localappdata_dir() instead.
     This function is mainly for resource loading and portable mode fallback.
     """
-    if hasattr(sys, '_MEIPASS'):
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
         # Running in a PyInstaller bundle
         return os.path.dirname(sys.executable)
     # Running as a script
@@ -141,9 +142,10 @@ def get_spleeter_models_dir(config=None):
 
 def resource_path(relative_path):
     """Get the absolute path to a resource, works for dev and PyInstaller."""
-    if hasattr(sys, '_MEIPASS'):
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
         # Running in a PyInstaller bundle
-        return os.path.join(sys._MEIPASS, relative_path)
+        return os.path.join(meipass, relative_path)
 
     # Check in the application directory first
     app_dir = os.path.abspath(os.path.dirname(sys.argv[0]))

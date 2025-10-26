@@ -11,6 +11,7 @@ from ui.mediaplayer.loader import MediaPlayerLoader
 logger = logging.getLogger(__name__)
 
 # Try to import torchaudio for validation, but make it optional
+torchaudio: object | None = None
 try:
     import torchaudio
     TORCHAUDIO_AVAILABLE = True
@@ -71,7 +72,7 @@ class PlayerController(QObject):
         self._audioFileStatus = AudioFileStatus.VOCALS
         self.audio_file_status_changed.emit(self._audioFileStatus)
 
-    def load_media(self, file: str):
+    def load_media(self, file: str | None):
         """Load a media file into the player with pre-validation"""
         old_source = self.media_player.source()
 
@@ -106,52 +107,52 @@ class PlayerController(QObject):
 
     def _validate_media_file(self, file: str) -> bool:
         """Validate media file before loading to prevent QMediaPlayer freezes
-        
+
         Args:
             file: Path to media file
-            
+
         Returns:
             True if file is valid and can be loaded safely, False otherwise
         """
         if not os.path.exists(file):
             logger.warning(f"Media file does not exist: {file}")
             return False
-        
+
         # Check file size - reject empty files
         file_size = os.path.getsize(file)
         if file_size == 0:
             logger.warning(f"Media file is empty: {file}")
             return False
-        
+
         # For vocals files (MP3), use torchaudio to validate IF available
         if "vocals" in file.lower() and file.lower().endswith('.mp3'):
-            if not TORCHAUDIO_AVAILABLE:
+            if not TORCHAUDIO_AVAILABLE or torchaudio is None:
                 logger.debug("torchaudio not available, using basic validation only")
                 return True  # Fall back to basic validation when torchaudio unavailable
-            
+
             try:
-                info = torchaudio.info(file)
-                
+                info = torchaudio.info(file)  # type: ignore[attr-defined]
+
                 logger.info(f"Vocals file validation - Format: {info.num_channels}ch @ {info.sample_rate}Hz, "
                            f"Frames: {info.num_frames}, Encoding: {getattr(info, 'encoding', 'N/A')}")
-                
+
                 # Check for reasonable audio properties
                 if info.num_channels == 0 or info.sample_rate == 0 or info.num_frames == 0:
                     logger.error("Invalid audio properties detected")
                     return False
-                
+
                 # Check for reasonable sample rate (8kHz - 192kHz)
                 if info.sample_rate < 8000 or info.sample_rate > 192000:
                     logger.warning(f"Unusual sample rate: {info.sample_rate}Hz")
                     return False
-                
+
                 logger.info("Vocals file validation passed")
                 return True
-                
+
             except Exception as e:
                 logger.error(f"torchaudio validation failed for {file}: {e}", exc_info=True)
                 return False
-        
+
         # For other files (audio.mp3), basic validation only
         logger.debug(f"Basic validation passed for {file}")
         return True
@@ -229,14 +230,14 @@ class PlayerController(QObject):
                 logger.info("Switching back to audio mode due to invalid vocals file")
                 self.audio_mode()
             return
-        
+
         if status == QMediaPlayer.MediaStatus.StalledMedia:
             logger.warning("Media player stalled - attempting recovery")
             self._media_is_loaded = False
             self.media_player.stop()
             self.media_status_changed.emit(False)
             return
-        
+
         # Normal status handling
         self._media_is_loaded = status == QMediaPlayer.MediaStatus.LoadedMedia
         logger.debug(f"Media status changed: {status}, loaded: {self._media_is_loaded}")
@@ -246,17 +247,17 @@ class PlayerController(QObject):
         """Internal handler for media player errors"""
         logger.error(f"QMediaPlayer error occurred: {error} - {error_string}")
         logger.error(f"Error code: {error.name if hasattr(error, 'name') else error}")
-        
+
         # Stop playback and clear source to prevent freeze
         self._media_is_loaded = False
         self._is_playing = False
         self.media_player.stop()
         self.media_player.setSource(QUrl())
-        
+
         # Emit signals to update UI
         self.media_status_changed.emit(False)
         self.is_playing_changed.emit(False)
-        
+
         # If vocals mode caused the error, switch back to audio mode
         if self._audioFileStatus == AudioFileStatus.VOCALS:
             logger.info("Switching back to audio mode due to vocals file error")

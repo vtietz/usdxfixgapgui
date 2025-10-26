@@ -12,10 +12,10 @@ class SongsStatusVisualizer(QWidget):
         super().__init__(parent)
         self.songs = songs
         self.data = data  # Optional AppData for loading state
-        self.layout = QHBoxLayout()
-        self.setLayout(self.layout)
-        self.layout.setSpacing(0)
-        self.layout.setContentsMargins(0, 0, 0, 0)
+        self._layout = QHBoxLayout()
+        self.setLayout(self._layout)
+        self._layout.setSpacing(0)
+        self._layout.setContentsMargins(0, 0, 0, 0)
         #self.setFixedHeight(5)
 
         # Optional: Store labels for updating without recreation
@@ -25,7 +25,7 @@ class SongsStatusVisualizer(QWidget):
         self.placeholder_label = QLabel()
         self.placeholder_label.setStyleSheet("background-color: #2E2E2E; color: rgba(255, 255, 255, 0.3);")
         self.placeholder_label.setFixedHeight(20)  # Same height as status bar
-        self.layout.addWidget(self.placeholder_label)
+        self._layout.addWidget(self.placeholder_label)
 
         # Initialize visualization
         self.update_visualization()
@@ -61,7 +61,7 @@ class SongsStatusVisualizer(QWidget):
                 label = QLabel(self)
                 label.setStyleSheet(f"background-color: {self.get_color_for_status(status).name()}; color: rgba(255, 255, 255, 0.5); font-size: 8px;")
                 self.status_labels[status] = label
-                self.layout.addWidget(label)
+                self._layout.addWidget(label)
             else:
                 label = self.status_labels[status]
 
@@ -79,8 +79,7 @@ class SongsStatusVisualizer(QWidget):
             else:
                 label.setVisible(False)  # Hide labels for statuses with 0 count
 
-        # Refresh layout and widget to reflect changes
-        self.layout.update()
+        # Refresh widget to reflect changes
         self.update()
 
 

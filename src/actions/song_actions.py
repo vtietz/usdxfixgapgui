@@ -34,7 +34,8 @@ class SongActions(BaseActions):
                 current_gap=song.gap_info.original_gap if song.gap_info else 0,
                 detected_gap=song.gap_info.detected_gap if song.gap_info else None
             )
-            logger.debug(f"Created GapState for {song.title}: current={self.data.gap_state.current_gap_ms}, detected={self.data.gap_state.detected_gap_ms}")
+            if self.data.gap_state:  # Add type guard
+                logger.debug(f"Created GapState for {song.title}: current={self.data.gap_state.current_gap_ms}, detected={self.data.gap_state.detected_gap_ms}")
         else:
             # Multi-selection or no selection
             self.data.gap_state = None
@@ -186,7 +187,11 @@ class SongActions(BaseActions):
                 self.data.songs.updated.emit(song)
             else:
                 if reloaded_song and reloaded_song.status == SongStatus.ERROR:
-                    song.set_error(reloaded_song.error_message)
+                    # Only set error if error_message is not None
+                    if reloaded_song.error_message:
+                        song.set_error(reloaded_song.error_message)
+                    else:
+                        song.set_error("Unknown error during reload")
                     self.data.songs.updated.emit(song)
 
         except Exception as e:
@@ -311,13 +316,15 @@ class SongActions(BaseActions):
 
                     # Explicitly update duration from gap_info if available
                     if source_song.gap_info.duration:
-                        target_song.duration_ms = source_song.gap_info.duration
+                        target_song.duration_ms = int(source_song.gap_info.duration)  # Convert to int
 
         # Double-check duration after all other operations
         if target_song.duration_ms == 0 and target_song.audio_file and os.path.exists(target_song.audio_file):
             try:
-                target_song.duration_ms = get_audio_duration(target_song.audio_file)
-                logger.info(f"Fallback method: set duration to {target_song.duration_ms}ms from audio file")
+                duration = get_audio_duration(target_song.audio_file)
+                if duration is not None:
+                    target_song.duration_ms = int(duration)  # Convert float to int
+                    logger.info(f"Fallback method: set duration to {target_song.duration_ms}ms from audio file")
             except Exception as e:
                 logger.warning(f"Could not load duration from audio file: {e}")
 

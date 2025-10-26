@@ -160,8 +160,9 @@ def draw_notes(
     image_width, image_height = image.size
 
     try:
-        min_pitch = min(n.Pitch for n in valid_notes)
-        max_pitch = max(n.Pitch for n in valid_notes)
+        pitches: List[int] = [n.Pitch for n in valid_notes if n.Pitch is not None]
+        min_pitch = min(pitches)
+        max_pitch = max(pitches)
     except ValueError:
         # If list is empty after filtering
         logger.warning("Pitch range computation failed due to empty note set")
@@ -173,7 +174,7 @@ def draw_notes(
             end_position_x = note_position(n.end_ms, duration_ms, image_width)
 
             vertical_position = map_pitch_to_vertical_position(n.Pitch, min_pitch, max_pitch, image_height / 2) + (image_height / 4)
-            draw.text((start_position_x, vertical_position + 12), n.Text, fill=color)
+            draw.text((start_position_x, vertical_position + 12), (n.Text or ""), fill=color)
 
             line_height = 5
             draw.rectangle([start_position_x, vertical_position - line_height / 2, end_position_x, vertical_position + line_height / 2], fill=color)

@@ -322,7 +322,7 @@ class MediaPlayerComponent(QWidget):
 
     def update_player_files(self):
         """Load the appropriate media files based on current state"""
-        song: Song = self._song
+        song: Song | None = self._song
         if not song:
             logger.debug("No song - not loading media")
             self.player.load_media(None)
@@ -440,4 +440,8 @@ class MediaPlayerComponent(QWidget):
         self._actions.keep_gap_value(self._song)
 
     def on_save_detected_gap_btn_clicked(self):
-        self._actions.update_gap_value(self._song, self._song.gap_info.detected_gap)
+        if not self._song:
+            return
+        gap_info = getattr(self._song, "gap_info", None)
+        if gap_info and hasattr(gap_info, "detected_gap") and gap_info.detected_gap is not None:
+            self._actions.update_gap_value(self._song, gap_info.detected_gap)

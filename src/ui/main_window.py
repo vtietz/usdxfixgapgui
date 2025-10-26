@@ -101,7 +101,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     window.setWindowTitle("USDX FixGap")
     # Store dialog reference to prevent garbage collection
     if gpu_dialog:
-        window._gpu_dialog_ref = gpu_dialog
+        app.setProperty("_gpu_dialog_ref", gpu_dialog)
 
     # Restore window geometry from config
     if config.window_x >= 0 and config.window_y >= 0:
@@ -156,7 +156,8 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     data.is_loading_songs_changed.connect(menuBar.updateLoadButtonState)
 
     # Install event filter
-    app.installEventFilter(mediaPlayerComponent.globalEventFilter)
+    if mediaPlayerComponent.globalEventFilter is not None:
+        app.installEventFilter(mediaPlayerComponent.globalEventFilter)
 
     # Setup layout
     layout = QVBoxLayout()
@@ -173,7 +174,8 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Log runtime information
     try:
-        from PySide6.QtCore import __version__ as qt_version
+        import PySide6
+        qt_version = getattr(PySide6, "__version__", "unknown")
         logger.debug(f"Runtime PySide6 version: {qt_version}")
     except:
         logger.debug("Runtime PySide6 version: unknown")
@@ -196,7 +198,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Check multimedia backends
     try:
-        supported_mime_types = QMediaDevices.supportedMimeTypes()
+        supported_mime_types = getattr(QMediaDevices, "supportedMimeTypes", lambda: [])()
         logger.debug(f"Available multimedia backends: {supported_mime_types}")
     except AttributeError:
         logger.debug("Multimedia backend query not available (not critical - app uses its own audio processing)")

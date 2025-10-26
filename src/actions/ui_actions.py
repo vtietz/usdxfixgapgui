@@ -14,7 +14,7 @@ class UiActions(BaseActions):
         if len(self.data.selected_songs) != 1:
             logger.error("Please select exactly one song to open in USDB.")
             return
-        song: Song = self.data.first_selected_song
+        song: Song | None = self.data.first_selected_song
         if not song:
             logger.error("No song selected")
             return
@@ -33,7 +33,7 @@ class UiActions(BaseActions):
 
     def open_folder(self):
         # Opens the folder of the first selected song
-        song: Song = self.data.first_selected_song
+        song: Song | None = self.data.first_selected_song
         if not song:
             logger.error("No song selected to open folder.")
             return

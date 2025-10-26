@@ -105,7 +105,9 @@ class MenuBar(QWidget):
         self.delete_button = self.deleteButton  # Alias for snake_case tests
 
         # Or use choose_directory
-        self.loadSongsClicked.connect(lambda: self._actions.set_directory(self.data.directory))
+        self.loadSongsClicked.connect(
+            lambda: self._actions.set_directory(self.data.directory) if self.data.directory else None
+        )
 
         # Connect to watch mode signals
         self._actions.initial_scan_completed.connect(self.onInitialScanCompleted)

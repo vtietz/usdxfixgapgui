@@ -64,7 +64,8 @@ class CoreActions(BaseActions):
         # Set original gap for all songs
         for song in songs:
             if song.status == SongStatus.NOT_PROCESSED and song.gap_info:
-                song.gap_info.original_gap = song.gap
+                if hasattr(song.gap_info, 'original_gap'):  # Type guard
+                    song.gap_info.original_gap = song.gap
 
         # Use bulk add for better performance
         self.data.songs.add_batch(songs)
@@ -72,14 +73,16 @@ class CoreActions(BaseActions):
     def _on_song_loaded(self, song: Song):
         """Handle individual song loaded (for single file reloads)."""
         self.data.songs.add(song)
-        if song.status == SongStatus.NOT_PROCESSED:
-            song.gap_info.original_gap = song.gap
-            # Only run auto-detection for single file loads, not bulk loads
-            # Auto-detection uses MDX (only supported method)
-            if hasattr(self, '_is_bulk_load') and not self._is_bulk_load:
-                from actions.gap_actions import GapActions
-                gap_actions = GapActions(self.data)
-                gap_actions._detect_gap(song)
+        if song.status == SongStatus.NOT_PROCESSED and song.gap_info:
+            if hasattr(song.gap_info, 'original_gap'):  # Type guard
+                song.gap_info.original_gap = song.gap
+        # Only run auto-detection for single file loads, not bulk loads
+        # Auto-detection uses MDX (only supported method)
+        is_bulk_load = getattr(self, '_is_bulk_load', False)  # Safe attribute access
+        if not is_bulk_load:
+            from actions.gap_actions import GapActions
+            gap_actions = GapActions(self.data)
+            gap_actions._detect_gap(song)
 
     def _on_loading_songs_finished(self):
         self.data.is_loading_songs = False

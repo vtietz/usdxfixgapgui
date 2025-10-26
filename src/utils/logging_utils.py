@@ -70,7 +70,7 @@ def flush_logs():
 def generate_selection_id() -> str:
     """
     Generate a unique selection ID for correlation across logs.
-    
+
     Returns:
         A short, unique identifier (8 characters)
     """
@@ -95,21 +95,21 @@ def clear_selection_context():
 def log_with_context(level: int, message: str, **kwargs):
     """
     Log a message with selection_id context if available.
-    
+
     Args:
         level: Logging level (e.g., logging.INFO)
         message: Log message
         **kwargs: Additional context to include in log
     """
     selection_id = get_selection_context()
-    
+
     if selection_id:
         # Build context string
         context_parts = [f"selection_id={selection_id}"]
         for key, value in kwargs.items():
             context_parts.append(f"{key}={value}")
         context_str = " ".join(context_parts)
-        
+
         # Log with context
         logger.log(level, f"[{context_str}] {message}")
     else:
@@ -145,37 +145,40 @@ def log_error(message: str, **kwargs):
 class TimingSpan:
     """
     Context manager for timing operations and logging duration.
-    
+
     Usage:
         with TimingSpan("load_vocals"):
             # ... expensive operation ...
             pass
     """
-    
+
     def __init__(self, operation: str, **extra_context):
         """
         Initialize timing span.
-        
+
         Args:
             operation: Name of the operation being timed
             **extra_context: Additional context to include in logs
         """
         self.operation = operation
         self.extra_context = extra_context
-        self.start_time = None
-        self.end_time = None
-    
+        self.start_time: float | None = None
+        self.end_time: float | None = None
+
     def __enter__(self):
         """Start timing."""
         self.start_time = time.time()
         log_info(f"{self.operation} - started", **self.extra_context)
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """End timing and log duration."""
         self.end_time = time.time()
-        duration_ms = (self.end_time - self.start_time) * 1000
-        
+        if self.start_time is not None:  # Type guard
+            duration_ms = (self.end_time - self.start_time) * 1000
+        else:
+            duration_ms = 0.0
+
         if exc_type is not None:
             log_error(
                 f"{self.operation} - failed after {duration_ms:.0f}ms",
@@ -188,9 +191,9 @@ class TimingSpan:
                 duration_ms=f"{duration_ms:.0f}",
                 **self.extra_context
             )
-        
+
         return False  # Don't suppress exceptions
-    
+
     def get_duration_ms(self) -> Optional[float]:
         """Get duration in milliseconds."""
         if self.start_time and self.end_time:
@@ -201,7 +204,7 @@ class TimingSpan:
 def with_selection_context(func):
     """
     Decorator to automatically set/clear selection context for a function.
-    
+
     The function must have a 'selection_id' parameter or accept **kwargs.
     """
     @wraps(func)
@@ -210,7 +213,7 @@ def with_selection_context(func):
         selection_id = kwargs.get('selection_id')
         if not selection_id and len(args) > 0 and hasattr(args[0], 'selection_id'):
             selection_id = args[0].selection_id
-        
+
         if selection_id:
             old_context = get_selection_context()
             try:
@@ -223,7 +226,7 @@ def with_selection_context(func):
                     clear_selection_context()
         else:
             return func(*args, **kwargs)
-    
+
     return wrapper
 
 

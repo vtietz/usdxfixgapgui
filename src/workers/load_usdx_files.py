@@ -41,7 +41,7 @@ class LoadUsdxFilesWorker(IWorker):
             self.signals.songsLoadedBatch.emit(self.current_batch.copy())
             self.current_batch.clear()
 
-    async def load(self, txt_file_path, force_reload=False) -> Song:
+    async def load(self, txt_file_path, force_reload=False) -> Song | None:
         """Load a song from file, optionally forcing reload."""
         self.description = f"Loading file {txt_file_path}"
 

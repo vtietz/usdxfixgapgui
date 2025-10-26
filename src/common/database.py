@@ -3,6 +3,7 @@ import os
 import pickle
 import logging
 import datetime
+from typing import overload, Literal, Any
 
 from utils.files import get_localappdata_dir
 
@@ -216,6 +217,12 @@ def clear_cache(key=None):
         logger.debug(f"Cleared {rows_affected} cache entries")
     except Exception as e:
         logger.error(f"Failed to clear cache: {e}")
+
+@overload
+def get_all_cache_entries(deserialize: Literal[False] = False) -> list[tuple[str, bytes]]: ...
+
+@overload
+def get_all_cache_entries(deserialize: Literal[True]) -> dict[str, Any]: ...
 
 def get_all_cache_entries(deserialize=False):
     """

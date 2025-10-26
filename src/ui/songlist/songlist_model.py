@@ -20,7 +20,8 @@ class SongTableModel(QAbstractTableModel):
         self.pending_songs = []
 
         # Column strategy registry
-        self._column_registry = create_registry(self.app_data.directory)
+        base_dir = self.app_data.directory or self.app_data.config.default_directory or ""
+        self._column_registry = create_registry(base_dir)
 
         # Performance optimizations
         self._row_cache = {}  # Cache for expensive computations
