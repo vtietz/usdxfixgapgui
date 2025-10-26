@@ -305,25 +305,18 @@ case "$1" in
             fi
         fi
 
-        # Build with PyInstaller
+        # Build with PyInstaller using spec file
         print_info "Building executable (this may take a few minutes)..."
         print_info "NOTE: Bundling CPU-only PyTorch. Users can upgrade to GPU via GPU Pack download."
-        "$VENV_PYTHON" -m PyInstaller --onefile \
-            --windowed \
-            --icon="$SCRIPT_DIR/src/assets/usdxfixgap-icon.ico" \
-            --add-data "$SCRIPT_DIR/src/assets:assets" \
-            --exclude-module pytest \
-            --exclude-module pytest-qt \
-            --exclude-module pytest-mock \
-            --exclude-module lizard \
-            --exclude-module flake8 \
-            --exclude-module mypy \
-            --exclude-module autoflake \
-            --exclude-module IPython \
-            --exclude-module jupyter \
-            --exclude-module notebook \
-            --name usdxfixgap \
-            "$SCRIPT_DIR/src/usdxfixgap.py"
+        
+        # Check if spec file exists
+        if [[ ! -f "$SCRIPT_DIR/usdxfixgap.spec" ]]; then
+            print_error "usdxfixgap.spec not found"
+            print_error "Please make sure the spec file exists in the project root"
+            exit 1
+        fi
+        
+        "$VENV_PYTHON" -m PyInstaller --clean --noconfirm "$SCRIPT_DIR/usdxfixgap.spec"
 
         if [[ $? -eq 0 ]]; then
             echo ""
