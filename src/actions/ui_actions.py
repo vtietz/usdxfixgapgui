@@ -19,8 +19,8 @@ class UiActions(BaseActions):
             logger.error("No song selected")
             return
 
-        # More robust check for usdb_id validity
-        if not song.usdb_id or song.usdb_id == "0" or song.usdb_id == "":
+        # More robust check for usdb_id validity (usdb_id is Optional[int])
+        if not song.usdb_id or song.usdb_id == 0:
             logger.error(f"Song '{song.title}' has no valid USDB ID.")
             return
 

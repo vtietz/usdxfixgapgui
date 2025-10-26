@@ -79,12 +79,15 @@ class MediaPlayerComponent(QWidget):
         # Create control buttons
         self.play_btn = QPushButton("Play")
         self.play_btn.setCheckable(True)
+        self.play_btn.setToolTip("Play/Pause audio (Space or Left/Right arrows)")
 
         self.audio_btn = QPushButton("Original Audio")
         self.audio_btn.setCheckable(True)
+        self.audio_btn.setToolTip("Play original audio file")
 
         self.vocals_btn = QPushButton("Extracted Vocals")
         self.vocals_btn.setCheckable(True)
+        # Tooltip is set dynamically based on vocals availability
 
         # Setup waveform
         self.waveform_widget = WaveformWidget(self)
@@ -96,26 +99,29 @@ class MediaPlayerComponent(QWidget):
         # Add colored dot icons matching waveform markers
         # "Keep current gap" - no color icon (just marks gap as solved without changing value)
         self.keep_original_gap_btn = QPushButton(" Keep current gap (0 ms)")
+        self.keep_original_gap_btn.setToolTip("Keep the current gap value and mark song as solved")
 
         # "Save play position" - red icon (matches playhead)
         self.save_current_play_position_btn = QPushButton(" Save play position (0 ms)")
         self.save_current_play_position_btn.setIcon(make_color_dot_icon(PLAYHEAD_HEX, diameter=8))
         self.save_current_play_position_btn.setIconSize(QSize(8, 8))
+        self.save_current_play_position_btn.setToolTip("Save current playback position as gap value (S)")
 
         # "Save detected gap" - green icon (matches AI detection)
         self.save_detected_gap_btn = QPushButton(" Save detected gap (0 ms)")
         self.save_detected_gap_btn.setIcon(make_color_dot_icon(DETECTED_GAP_HEX, diameter=8))
         self.save_detected_gap_btn.setIconSize(QSize(8, 8))
+        self.save_detected_gap_btn.setToolTip("Save AI-detected gap value (A)")
 
         # "Revert gap" - gray icon (dashed line on waveform)
         self.revert_btn = QPushButton("Revert")
+        self.revert_btn.setToolTip("Revert to previously saved gap value (R)")
 
         self.syllable_label = QLabel('')
         self.syllable_label.setStyleSheet(f"color: {self._config.playback_position_color};")
 
         # Create layouts
         play_and_waveform_layout = QHBoxLayout()
-        play_and_waveform_layout.addWidget(self.play_btn)
         play_and_waveform_layout.addWidget(self.audio_btn)
         play_and_waveform_layout.addWidget(self.vocals_btn)
 
@@ -124,6 +130,7 @@ class MediaPlayerComponent(QWidget):
         waveform_layout.addWidget(self.waveform_widget)
 
         labels = QHBoxLayout()
+        labels.addWidget(self.play_btn)  # Moved: Play button now left of position
         labels.addWidget(self.position_label)
         labels.addWidget(self.syllable_label)
         labels.addWidget(self.keep_original_gap_btn)
@@ -132,7 +139,7 @@ class MediaPlayerComponent(QWidget):
         labels.addWidget(self.revert_btn)
 
         main = QVBoxLayout()
-        main.setContentsMargins(0, 0, 0, 0)
+        main.setContentsMargins(0, 5, 0, 5)
         main.addLayout(play_and_waveform_layout)
         main.addLayout(waveform_layout)
         main.addLayout(labels)

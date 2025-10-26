@@ -25,7 +25,7 @@ def get_connection():
 def init_database():
     """
     Initialize the database if it doesn't exist.
-    
+
     Returns:
         bool: True if cache was cleared due to version upgrade, False otherwise
     """
@@ -68,7 +68,7 @@ def init_database():
         logger.warning(f"A complete re-scan of all songs is required due to application upgrade.")
         logger.info("Clearing outdated cache...")
         cursor.execute('DELETE FROM song_cache')
-        cursor.execute('INSERT OR REPLACE INTO cache_metadata (key, value) VALUES (?, ?)', 
+        cursor.execute('INSERT OR REPLACE INTO cache_metadata (key, value) VALUES (?, ?)',
                       ('version', str(CACHE_VERSION)))
         logger.info(f"Cache cleared and version updated to v{CACHE_VERSION}")
         _cache_was_cleared = True
@@ -77,7 +77,7 @@ def init_database():
         # Check if there are any cache entries to determine if legacy
         cursor.execute('SELECT COUNT(*) FROM song_cache')
         cache_entry_count = cursor.fetchone()[0]
-        
+
         if cache_entry_count > 0:
             # Legacy database with cache entries - needs migration
             logger.warning(f"Legacy cache detected (no version metadata, {cache_entry_count} entries).")
@@ -90,16 +90,16 @@ def init_database():
             # Fresh database - just set version, no need to clear
             logger.debug("Fresh database detected, initializing with current version")
             _cache_was_cleared = False
-        
+
         # Set version for both cases
-        cursor.execute('INSERT INTO cache_metadata (key, value) VALUES (?, ?)', 
+        cursor.execute('INSERT INTO cache_metadata (key, value) VALUES (?, ?)',
                       ('version', str(CACHE_VERSION)))
 
     conn.commit()
     conn.close()
     _db_initialized = True
     logger.debug("Database initialized")
-    
+
     return _cache_was_cleared
 
 # Initialize the database when the module is loaded
@@ -108,7 +108,7 @@ init_database()
 def initialize_song_cache():
     """
     Initialize the song cache database and return its path.
-    
+
     Returns:
         tuple: (db_path, cache_was_cleared) where cache_was_cleared indicates
                if a re-scan is required due to version upgrade

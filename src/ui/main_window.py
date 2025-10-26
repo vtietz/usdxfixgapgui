@@ -152,13 +152,16 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     # We'll update every time songs are added during loading
     data.songs.listChanged.connect(on_loading_state_changed)
 
+    # Connect loading state to menu bar to enable/disable buttons during scan
+    data.is_loading_songs_changed.connect(menuBar.updateLoadButtonState)
+
     # Install event filter
     app.installEventFilter(mediaPlayerComponent.globalEventFilter)
 
     # Setup layout
     layout = QVBoxLayout()
-    layout.setContentsMargins(10, 10, 10, 10)
-    layout.setSpacing(10)
+    layout.setContentsMargins(5, 5, 5, 5)
+    layout.setSpacing(2)
     layout.addWidget(menuBar)
     layout.addWidget(songStatus)
     layout.addWidget(songListView, 2)

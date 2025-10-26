@@ -72,21 +72,27 @@ class SongListWidget(QWidget):
         # Create action buttons (moved from MenuBar)
         self.detectButton = QPushButton("Detect")
         self.detectButton.clicked.connect(lambda: self._actions.detect_gap(overwrite=True))
+        self.detectButton.setToolTip("Run gap detection on selected songs")
 
         self.openFolderButton = QPushButton("Open Folder")
         self.openFolderButton.clicked.connect(lambda: self._actions.open_folder())
+        self.openFolderButton.setToolTip("Open song folder in file explorer")
 
         self.open_usdx_button = QPushButton("Open in USDB")
         self.open_usdx_button.clicked.connect(lambda: self._actions.open_usdx())
+        self.open_usdx_button.setToolTip("Open song page on UltraStar Database website")
 
         self.reload_button = QPushButton("Reload")
         self.reload_button.clicked.connect(lambda: self._actions.reload_song())
+        self.reload_button.setToolTip("Reload song data from file")
 
         self.normalize_button = QPushButton("Normalize")
         self.normalize_button.clicked.connect(lambda: self._actions.normalize_song())
+        self.normalize_button.setToolTip("Normalize audio volume of selected songs")
 
         self.delete_button = QPushButton("Delete")
         self.delete_button.clicked.connect(self.onDeleteButtonClicked)
+        self.delete_button.setToolTip("Delete selected song directories (permanently)")
 
         # Create song count label
         self.countLabel = QLabel()
@@ -94,7 +100,7 @@ class SongListWidget(QWidget):
         # Create bottom bar layout with buttons on left and count on right
         bottom_bar = QHBoxLayout()
         bottom_bar.setContentsMargins(0, 5, 0, 0)
-        bottom_bar.setSpacing(5)
+        bottom_bar.setSpacing(2)
 
         # Left side: action buttons
         bottom_bar.addWidget(self.detectButton)
@@ -183,12 +189,12 @@ class SongListWidget(QWidget):
         self.normalize_button.setEnabled(can_normalize)
 
         # Enable USDB only if exactly one song is selected and has a valid usdb_id
+        # usdb_id is Optional[int], so check for None and 0
         can_open_usdb = bool(
             (num_selected == 1)
             and (first_song is not None)
             and (first_song.usdb_id is not None)
-            and (first_song.usdb_id != "")
-            and (first_song.usdb_id != "0")
+            and (first_song.usdb_id != 0)
         )
         self.open_usdx_button.setEnabled(can_open_usdb)
 

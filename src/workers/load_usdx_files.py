@@ -103,15 +103,28 @@ class LoadUsdxFilesWorker(IWorker):
                 self._flush_batch()  # Flush any remaining songs
                 return
 
+            # First, check if this directory has a .usdb file to extract song_id
+            for file in files:
+                if file.endswith(".usdb") and root not in self.path_usdb_id_map:
+                    # Parse .usdb JSON file to extract song_id
+                    usdb_file_path = os.path.join(root, file)
+                    try:
+                        import json
+                        with open(usdb_file_path, 'r', encoding='utf-8') as f:
+                            usdb_data = json.load(f)
+                            if 'song_id' in usdb_data:
+                                self.path_usdb_id_map[root] = usdb_data['song_id']
+                                logger.debug(f"Found USDB ID {usdb_data['song_id']} in {root}")
+                    except Exception as e:
+                        logger.warning(f"Failed to parse .usdb file {usdb_file_path}: {e}")
+                    break  # Only process one .usdb file per directory
+
+            # Then, process .txt files
             for file in files:
                 # Check for cancellation on every file
                 if self.is_cancelled():
                     self._flush_batch()  # Flush any remaining songs
                     return
-
-                if file.endswith(".usdb"):
-                    usdb_id = os.path.splitext(file)[0]
-                    self.path_usdb_id_map[root] = usdb_id
 
                 if file.endswith(".txt"):
                     # Check for cancellation again before heavy operation
@@ -162,14 +175,17 @@ class LoadUsdxFilesWorker(IWorker):
             return
 
         # Regular operation - loading all songs
-        # First load from cache for immediate UI feedback
-        await self.load_from_cache()
-
-        # Then scan directory for changes and new files
+        # First scan directory (also populates usdb_id map incrementally)
         await self.scan_directory()
+
+        # Then load from cache for songs that were already scanned
+        await self.load_from_cache()
 
         # Finally clean up stale cache entries
         await self.cleanup_cache()
+
+        # Flush any remaining songs in batch (safety net)
+        self._flush_batch()
 
         # Always emit finished signal, even if cancelled
         self.signals.finished.emit()
