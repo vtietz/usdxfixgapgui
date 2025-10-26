@@ -1,7 +1,7 @@
 """
 Tests for GPU Bootstrap
 
-Tests staged runtime activation: layout detection, path calculation, 
+Tests staged runtime activation: layout detection, path calculation,
 installation, and validation phases.
 """
 
@@ -438,11 +438,11 @@ class TestAutoRecovery:
         """Test finding packs with valid folder structure."""
         runtime_root = tmp_path / 'USDXFixGap' / 'gpu_runtime'
         runtime_root.mkdir(parents=True)
-        
+
         # Create a valid pack directory
         pack_dir = runtime_root / 'v1.4.0-cu121'
         pack_dir.mkdir()
-        
+
         with patch.dict(os.environ, {'LOCALAPPDATA': str(tmp_path)}):
             candidates = find_installed_pack_dirs()
             assert len(candidates) == 1
@@ -455,10 +455,10 @@ class TestAutoRecovery:
         """Test finding packs with install.json."""
         runtime_root = tmp_path / 'USDXFixGap' / 'gpu_runtime'
         runtime_root.mkdir(parents=True)
-        
+
         pack_dir = runtime_root / 'v1.4.0-cu121'
         pack_dir.mkdir()
-        
+
         # Create install.json
         install_json = pack_dir / 'install.json'
         import json
@@ -469,7 +469,7 @@ class TestAutoRecovery:
                 'torch_version': '2.1.0',
                 'cuda_version': '12.1'
             }, f)
-        
+
         with patch.dict(os.environ, {'LOCALAPPDATA': str(tmp_path)}):
             candidates = find_installed_pack_dirs()
             assert len(candidates) == 1
@@ -483,7 +483,7 @@ class TestAutoRecovery:
             {'path': tmp_path / 'v1.4.0-cu121', 'app_version': '1.4.0', 'flavor': 'cu121', 'has_install_json': False},
             {'path': tmp_path / 'v1.4.0-cu124', 'app_version': '1.4.0', 'flavor': 'cu124', 'has_install_json': False},
         ]
-        
+
         best = select_best_existing_pack(candidates, config_flavor='cu124')
         assert best == tmp_path / 'v1.4.0-cu124'
 
@@ -493,7 +493,7 @@ class TestAutoRecovery:
             {'path': tmp_path / 'v1.4.0-cu121', 'app_version': '1.4.0', 'flavor': 'cu121', 'has_install_json': False},
             {'path': tmp_path / 'v1.3.0-cu121', 'app_version': '1.3.0', 'flavor': 'cu121', 'has_install_json': True},
         ]
-        
+
         best = select_best_existing_pack(candidates, config_flavor='cu121')
         assert best == tmp_path / 'v1.3.0-cu121'  # Prefers install.json
 
@@ -503,7 +503,7 @@ class TestAutoRecovery:
             {'path': tmp_path / 'v1.3.0-cu121', 'app_version': '1.3.0', 'flavor': 'cu121', 'has_install_json': True},
             {'path': tmp_path / 'v1.4.0-cu121', 'app_version': '1.4.0', 'flavor': 'cu121', 'has_install_json': True},
         ]
-        
+
         best = select_best_existing_pack(candidates, config_flavor='cu121')
         assert best == tmp_path / 'v1.4.0-cu121'  # Newer version
 
@@ -511,7 +511,7 @@ class TestAutoRecovery:
         """Test auto-recovery skips when pack path already set."""
         mock_config = Mock()
         mock_config.gpu_pack_path = '/existing/path'
-        
+
         recovered = auto_recover_gpu_pack_config(mock_config)
         assert recovered is False
 
@@ -519,10 +519,10 @@ class TestAutoRecovery:
         """Test successful auto-recovery updates config."""
         runtime_root = tmp_path / 'USDXFixGap' / 'gpu_runtime'
         runtime_root.mkdir(parents=True)
-        
+
         pack_dir = runtime_root / 'v1.4.0-cu121'
         pack_dir.mkdir()
-        
+
         # Create install.json
         install_json = pack_dir / 'install.json'
         import json
@@ -533,14 +533,14 @@ class TestAutoRecovery:
                 'torch_version': '2.1.0',
                 'cuda_version': '12.1'
             }, f)
-        
+
         mock_config = Mock()
         mock_config.gpu_pack_path = ''
         mock_config.gpu_flavor = 'cu121'
-        
+
         with patch.dict(os.environ, {'LOCALAPPDATA': str(tmp_path)}):
             recovered = auto_recover_gpu_pack_config(mock_config)
-        
+
         assert recovered is True
         assert mock_config.gpu_pack_path == str(pack_dir)
         assert mock_config.gpu_pack_installed_version == '1.4.0'

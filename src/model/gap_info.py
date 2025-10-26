@@ -20,7 +20,7 @@ class GapInfo:
     def __init__(self, file_path: str = "", txt_basename: str = ""):
         # File path where the gap info will be stored
         self.file_path = file_path
-        
+
         # Txt basename for multi-entry support (e.g., "SongA.txt")
         self.txt_basename = txt_basename
 
@@ -74,7 +74,7 @@ class GapInfo:
         elif not isinstance(value, GapInfoStatus):
             logger.warning(f"Invalid status type {type(value)}, defaulting to ERROR")
             value = GapInfoStatus.ERROR
-            
+
         self._status = value
         # Update owner's status when this status changes
         if hasattr(self, 'owner') and self.owner is not None:
@@ -92,4 +92,3 @@ class GapInfo:
 
     def __str__(self):
         return f"GapInfo({self.status.value}, orig={self.original_gap}, det={self.detected_gap})"
-

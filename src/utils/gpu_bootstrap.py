@@ -522,13 +522,13 @@ def validate_torchaudio() -> Tuple[bool, str]:
     """
     Validate that torchaudio can be imported and is functional.
     This is critical for gap detection with MDX provider.
-    
+
     Returns:
         Tuple of (success, error_message)
     """
     try:
         import torchaudio
-        
+
         # Try to access a simple torchaudio function
         try:
             # Just accessing torchaudio functionality is enough
@@ -538,7 +538,7 @@ def validate_torchaudio() -> Tuple[bool, str]:
             return (True, "")
         except Exception as e:
             return (False, f"torchaudio import succeeded but functionality broken: {str(e)}")
-            
+
     except (ImportError, OSError) as e:
         # OSError happens when DLLs are missing or broken (WinError 127)
         error_msg = str(e)
@@ -582,12 +582,12 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
         if prefer_system and gpu_opt_in is not False:
             logger.debug("Checking for system PyTorch with CUDA...")
             system_pytorch = detect_system_pytorch_cuda()
-            
+
             if system_pytorch:
                 logger.info(f"Found system PyTorch {system_pytorch['torch_version']} "
                            f"with CUDA {system_pytorch['cuda_version']} "
                            f"({system_pytorch['device_name']})")
-                
+
                 # Validate it works properly
                 try:
                     success, error_msg = validate_cuda_torch(expected_cuda="12")  # Accept CUDA 12.x
@@ -628,7 +628,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
                     if cuda_success:
                         # CUDA works - now validate torchaudio (critical for MDX gap detection)
                         audio_success, audio_error = validate_torchaudio()
-                        
+
                         if audio_success:
                             config.gpu_last_health = "healthy"
                             config.gpu_last_error = ""
@@ -638,7 +638,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
                         else:
                             # torchaudio broken - this breaks gap detection!
                             logger.error(f"GPU Pack torchaudio validation failed: {audio_error}")
-                            
+
                             # Provide clear guidance to user
                             diagnostic_info = (
                                 f"GPU Pack is broken (torchaudio DLL error).\n\n"
@@ -647,11 +647,11 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
                                 f"SOLUTION: Delete the GPU Pack folder and restart the app to download a fresh copy.\n"
                                 f"The app will automatically re-download and install a working GPU Pack."
                             )
-                            
+
                             config.gpu_last_error = diagnostic_info
                             config.gpu_last_health = "broken"
                             config.save_config()
-                            
+
                             logger.warning("=" * 80)
                             logger.warning("GPU Pack is BROKEN - Gap detection will NOT work!")
                             logger.warning(f"Location: {pack_dir}")
@@ -662,7 +662,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
                             logger.warning("2. Restart the app")
                             logger.warning("3. App will auto-download a fresh GPU Pack")
                             logger.warning("=" * 80)
-                            
+
                             # Don't try fallback - broken GPU Pack in sys.path will break everything
                             return False
                     else:

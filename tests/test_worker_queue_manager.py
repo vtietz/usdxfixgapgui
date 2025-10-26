@@ -376,7 +376,7 @@ class TestWorkerProperties:
         # Start a first task to block the queue
         blocking_worker = MockWorker("Blocking Task", is_instant=False)
         manager.add_task(blocking_worker, start_now=True)
-        
+
         # Now add a second task - it should be WAITING because blocking_worker is running
         worker = MockWorker("Task", is_instant=False)
         manager.add_task(worker, start_now=False)

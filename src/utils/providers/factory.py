@@ -67,4 +67,3 @@ def get_detection_provider(config: Config) -> IDetectionProvider:
         raise ProviderInitializationError(
             f"Failed to initialize MDX detection provider: {e}"
         ) from e
-

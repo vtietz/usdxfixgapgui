@@ -204,17 +204,17 @@ def detect_onset_in_vocal_chunk(
                             # This catches gradual fade-ins better than finding the steepest rise
                             mean_derivative = np.mean(np.abs(energy_derivative))
                             threshold_derivative = mean_derivative * 0.5  # 50% of mean change
-                            
+
                             # Find first frame where derivative exceeds threshold (consistent rise)
                             first_rise_idx = None
                             for idx, deriv in enumerate(energy_derivative):
                                 if deriv > threshold_derivative:
                                     first_rise_idx = idx
                                     break
-                            
+
                             if first_rise_idx is not None:
                                 refined_onset = window_start + first_rise_idx
-                                
+
                                 # Only use refined onset if it makes sense (earlier than or close to original)
                                 if refined_onset <= onset_frame:
                                     logger.debug(f"Refined onset from frame {onset_frame} to {refined_onset} "

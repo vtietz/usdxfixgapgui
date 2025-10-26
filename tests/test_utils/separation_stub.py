@@ -21,13 +21,13 @@ def stub_separate_vocals_chunk(
 ) -> np.ndarray:
     """
     Stub for separate_vocals_chunk that returns the right channel as vocals.
-    
+
     Test audio files have:
     - Left channel: mixture (vocals + instruments)
     - Right channel: isolated vocals (ground truth)
-    
+
     This stub simulates perfect separation by returning the right channel.
-    
+
     Args:
         model: Demucs model (unused in stub)
         waveform: Audio waveform tensor (channels, samples)
@@ -35,7 +35,7 @@ def stub_separate_vocals_chunk(
         device: Device (unused in stub)
         use_fp16: FP16 flag (unused in stub)
         check_cancellation: Cancellation callback (unused in stub)
-        
+
     Returns:
         Right channel as numpy array (channels, samples)
     """
@@ -44,7 +44,7 @@ def stub_separate_vocals_chunk(
         wave_np = waveform.cpu().numpy()
     else:
         wave_np = waveform
-    
+
     # Extract right channel (index 1)
     if wave_np.ndim == 2 and wave_np.shape[0] >= 2:
         # Stereo or more: return right channel as stereo (duplicate mono to stereo)

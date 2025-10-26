@@ -146,11 +146,11 @@ def test_02_gradual_fade_in(mdx_cfg_default, artifact_dir):
 def test_02b_very_gradual_fade_in(mdx_cfg_default, artifact_dir):
     """
     Scenario 2b: Very gradual fade-in (2 second slow rise).
-    
+
     This test validates the improved sensitivity settings that catch
     early vocals in songs with very slow fade-ins. Would fail with
     old conservative settings (snr=6.5, abs=0.020, hysteresis=300).
-    
+
     With new optimized settings (snr=5.0, abs=0.015, hysteresis=400),
     detection should be within ±300ms of actual onset.
     """
@@ -189,13 +189,13 @@ def test_03_breathy_start(mdx_cfg_default, artifact_dir):
     onset_ms = 1500
     breath_ms = 300
     vocal_start_ms = onset_ms - breath_ms  # Where breath+vocal energy actually starts
-    
+
     wave, meta = synth.build_vocal_onset(
         duration_ms=8000,
         onset_ms=onset_ms,
         fade_in_ms=200,
         breath_ms=breath_ms,
-        breath_db=-40.0,  # Quieter breath 
+        breath_db=-40.0,  # Quieter breath
         noise_floor_db=-60.0,
         f0_hz=220.0,
         harmonics=4,

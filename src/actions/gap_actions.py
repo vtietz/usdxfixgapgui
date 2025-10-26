@@ -150,7 +150,7 @@ class GapActions(BaseActions):
             song_to_process.gap_info = GapInfoServiceRef.create_for_song_path(song_to_process.path)
 
         song_to_process.gap_info.notes_overlap = notes_overlap
-        
+
         # Save gap info and update cache
         async def save_gap_and_cache():
             if song_to_process.gap_info:
@@ -186,11 +186,11 @@ class GapActions(BaseActions):
             await USDXFileServiceRef.load(usdx_file)
             await USDXFileServiceRef.write_gap_tag(usdx_file, gap)
             logger.debug(f"Gap tag written to {song_to_process.txt_file}")
-            
+
             # Save gap_info to .info file
             if song_to_process.gap_info:
                 await GapInfoServiceRef.save(song_to_process.gap_info)
-            
+
             # Update song_cache.db so status persists
             from services.song_service import SongService
             SongService().update_cache(song_to_process)
@@ -226,11 +226,11 @@ class GapActions(BaseActions):
             await USDXFileServiceRef.load(usdx_file)
             await USDXFileServiceRef.write_gap_tag(usdx_file, song_to_process.gap)
             logger.debug(f"Gap tag reverted in {song_to_process.txt_file}")
-            
+
             # Save gap_info to .info file
             if song_to_process.gap_info:
                 await GapInfoServiceRef.save(song_to_process.gap_info)
-            
+
             # Update song_cache.db so status persists
             from services.song_service import SongService
             SongService().update_cache(song_to_process)
@@ -256,7 +256,7 @@ class GapActions(BaseActions):
         if not song_to_process.gap_info:
             song_to_process.gap_info = GapInfoServiceRef.create_for_song_path(song_to_process.path)
         song_to_process.gap_info.status = GapInfoStatus.SOLVED
-        
+
         # Save gap info and update cache
         async def save_gap_and_cache():
             if song_to_process.gap_info:
@@ -296,4 +296,3 @@ class GapActions(BaseActions):
             note.duration_ms = float(note.end_ms) - float(note.start_ms)
 
         logger.debug(f"Note times recalculated for {song.txt_file}")
-

@@ -24,16 +24,16 @@ logger = logging.getLogger(__name__)
 class OnsetDetectorPipeline:
     """
     Per-chunk onset detection pipeline.
-    
+
     Responsibilities:
         1. Load audio chunk from file
         2. Separate vocals using Demucs (delegate to separator module)
         3. Detect onset in vocals (delegate to detection module)
         4. Cache vocals for potential reuse in confidence computation
-    
+
     This class acts as the I/O boundary - it handles file loading and
     coordinates between modules, but delegates actual processing.
-    
+
     Example:
         pipeline = OnsetDetectorPipeline(
             audio_file="song.mp3",
@@ -42,10 +42,10 @@ class OnsetDetectorPipeline:
             config=mdx_config,
             vocals_cache=cache
         )
-        
+
         onset_ms = pipeline.process_chunk(chunk_boundaries)
     """
-    
+
     def __init__(
         self,
         audio_file: str,
@@ -56,7 +56,7 @@ class OnsetDetectorPipeline:
     ):
         """
         Initialize onset detector pipeline.
-        
+
         Args:
             audio_file: Path to audio file
             model: Demucs model instance
@@ -69,12 +69,12 @@ class OnsetDetectorPipeline:
         self.device = device
         self.config = config
         self.vocals_cache = vocals_cache
-        
+
         # Get audio info once
         info = torchaudio.info(audio_file)
         self.sample_rate = info.sample_rate
         self.num_frames = info.num_frames
-    
+
     def process_chunk(
         self,
         chunk: ChunkBoundaries,
@@ -82,21 +82,21 @@ class OnsetDetectorPipeline:
     ) -> Optional[float]:
         """
         Process single chunk for onset detection.
-        
+
         Args:
             chunk: Chunk boundaries to process
             check_cancellation: Callback returning True if cancelled
-            
+
         Returns:
             Absolute onset timestamp in milliseconds, or None if not found
         """
         # Check cancellation
         if check_cancellation and check_cancellation():
             return None
-        
+
         # Load audio chunk
         waveform = self._load_chunk(chunk)
-        
+
         # Apply optional resampling for CPU speedup
         if self.config.resample_hz > 0 and self.sample_rate != self.config.resample_hz:
             waveform = torchaudio.functional.resample(
@@ -107,10 +107,10 @@ class OnsetDetectorPipeline:
             current_sample_rate = self.config.resample_hz
         else:
             current_sample_rate = self.sample_rate
-        
+
         # Separate vocals
         vocals = self._separate_vocals(waveform, current_sample_rate, check_cancellation)
-        
+
         # Cache vocals for potential reuse
         self.vocals_cache.put(
             self.audio_file,
@@ -118,19 +118,19 @@ class OnsetDetectorPipeline:
             chunk.end_ms,
             vocals
         )
-        
+
         # Detect onset in vocals
         onset_ms = self._detect_onset(vocals, current_sample_rate, chunk.start_ms)
-        
+
         return onset_ms
-    
+
     def _load_chunk(self, chunk: ChunkBoundaries) -> torch.Tensor:
         """
         Load audio chunk from file.
-        
+
         Args:
             chunk: Chunk boundaries
-            
+
         Returns:
             Stereo waveform tensor (2, samples)
         """
@@ -141,7 +141,7 @@ class OnsetDetectorPipeline:
             int(chunk_duration_s * self.sample_rate),
             self.num_frames - frame_offset
         )
-        
+
         # Load chunk (suppress MP3 warning)
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
@@ -150,13 +150,13 @@ class OnsetDetectorPipeline:
                 frame_offset=frame_offset,
                 num_frames=num_frames
             )
-        
+
         # Convert to stereo if needed
         if waveform.shape[0] == 1:
             waveform = waveform.repeat(2, 1)
-        
+
         return waveform
-    
+
     def _separate_vocals(
         self,
         waveform: torch.Tensor,
@@ -165,14 +165,14 @@ class OnsetDetectorPipeline:
     ) -> np.ndarray:
         """
         Separate vocals from waveform.
-        
+
         Delegates to separator module.
-        
+
         Args:
             waveform: Audio waveform tensor
             sample_rate: Sample rate
             check_cancellation: Cancellation callback
-            
+
         Returns:
             Vocals-only numpy array
         """
@@ -184,7 +184,7 @@ class OnsetDetectorPipeline:
             use_fp16=self.config.use_fp16,
             check_cancellation=check_cancellation
         )
-    
+
     def _detect_onset(
         self,
         vocal_audio: np.ndarray,
@@ -193,14 +193,14 @@ class OnsetDetectorPipeline:
     ) -> Optional[float]:
         """
         Detect onset in vocal audio.
-        
+
         Delegates to detection module.
-        
+
         Args:
             vocal_audio: Vocals numpy array
             sample_rate: Sample rate
             chunk_start_ms: Chunk start position
-            
+
         Returns:
             Absolute onset timestamp in milliseconds, or None
         """

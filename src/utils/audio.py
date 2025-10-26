@@ -170,4 +170,3 @@ def make_clearer_voice(audio_file, check_cancellation=None):
         ",".join(filters),]
     return run_ffmpeg(audio_file, command, check_cancellation)
 
-

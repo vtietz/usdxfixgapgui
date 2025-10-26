@@ -1,0 +1,44 @@
+# Auto detect text files and normalize line endings to LF in repository
+* text=auto
+
+# Python source files - always LF
+*.py text eol=lf
+*.pyw text eol=lf
+*.pyi text eol=lf
+
+# Configuration files - always LF
+*.ini text eol=lf
+*.cfg text eol=lf
+*.conf text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+
+# Shell scripts - always LF
+*.sh text eol=lf
+
+# Windows scripts - always CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Markdown and documentation - always LF
+*.md text eol=lf
+*.txt text eol=lf
+
+# Data files - treat as binary
+*.db binary
+*.pkl binary
+*.npy binary
+*.wav binary
+*.mp3 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary

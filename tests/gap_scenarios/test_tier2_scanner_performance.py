@@ -28,11 +28,11 @@ def test_11_vocals_cache_reuse(
 ):
     """
     Scenario 11: VocalsCache prevents redundant separation.
-    
+
     Validates that multiple scans with the same cache reuse separated vocals.
     """
     onset_ms = 5000.0
-    
+
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_cache.wav",
         duration_ms=30000,
@@ -41,10 +41,10 @@ def test_11_vocals_cache_reuse(
         ],
         instrument_bed=InstrumentBed(noise_floor_db=-60.0)
     )
-    
+
     # Shared cache
     cache = VocalsCache()
-    
+
     # First scan
     detected1 = scan_for_onset(
         audio_file=audio_result.path,
@@ -55,7 +55,7 @@ def test_11_vocals_cache_reuse(
         vocals_cache=cache,
         total_duration_ms=audio_result.duration_ms
     )
-    
+
     # Second scan with same cache
     detected2 = scan_for_onset(
         audio_file=audio_result.path,
@@ -66,13 +66,13 @@ def test_11_vocals_cache_reuse(
         vocals_cache=cache,
         total_duration_ms=audio_result.duration_ms
     )
-    
+
     # Both should detect onset
     assert detected1 is not None
     assert detected2 is not None
     assert abs(detected1 - onset_ms) <= 200
     assert abs(detected2 - onset_ms) <= 200
-    
+
     # Cache should have entries
     assert len(cache._cache) > 0, "11-cache: VocalsCache should have stored chunks"
 
@@ -85,13 +85,13 @@ def test_12_early_stop_optimization(
 ):
     """
     Scenario 12: Early stop when onset found within tolerance.
-    
+
     Tests that scanner stops searching when onset is close to expected.
     This is a behavioral test - we verify it doesn't scan unnecessarily far.
     """
     onset_ms = 5100.0  # Very close to expected
     expected_gap_ms = 5000.0
-    
+
     # Add another onset much later (should not be reached if early-stop works)
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_early_stop.wav",
@@ -102,7 +102,7 @@ def test_12_early_stop_optimization(
         ],
         instrument_bed=InstrumentBed(noise_floor_db=-60.0)
     )
-    
+
     cache = VocalsCache()
     detected = scan_for_onset(
         audio_file=audio_result.path,
@@ -113,11 +113,11 @@ def test_12_early_stop_optimization(
         vocals_cache=cache,
         total_duration_ms=audio_result.duration_ms
     )
-    
+
     # Should detect first onset
     assert detected is not None
     assert abs(detected - onset_ms) <= 200
-    
+
     # Check cache to see what regions were processed
     # If early-stop works, shouldn't have cached chunks past ~25s
     cached_regions = [key for key in cache._cache.keys()]
@@ -139,11 +139,11 @@ def test_13_resample_to_44100(
 ):
     """
     Scenario 13: Audio resampling to 44100Hz.
-    
+
     Validates that timestamps remain correct after resampling.
     """
     onset_ms = 5000.0
-    
+
     # Build audio at 48000Hz (non-standard)
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_resample.wav",
@@ -154,7 +154,7 @@ def test_13_resample_to_44100(
         ],
         instrument_bed=InstrumentBed(noise_floor_db=-60.0)
     )
-    
+
     detected = scan_for_onset(
         audio_file=audio_result.path,
         expected_gap_ms=5000.0,
@@ -164,7 +164,7 @@ def test_13_resample_to_44100(
         vocals_cache=VocalsCache(),
         total_duration_ms=audio_result.duration_ms
     )
-    
+
     # Should detect correctly despite resampling
     assert detected is not None
     assert abs(detected - onset_ms) <= 200, (

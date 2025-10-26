@@ -70,75 +70,75 @@ def songs_with_audio(song_factory, tmp_path):
 
 class TestNormalizeWorkflowFromGUI:
     """Test normalize workflow triggered from MenuBar."""
-    
+
     def test_normalize_button_click_triggers_actions_normalize_song(
         self, menu_bar, mock_actions, songs_with_audio
     ):
         """Clicking Normalize button calls Actions.normalize_song()."""
         # Set up selection
         menu_bar.onSelectedSongsChanged(songs_with_audio)
-        
+
         # Click Normalize button
         menu_bar.normalize_button.click()
-        
+
         # Verify Actions.normalize_song was called
         mock_actions.normalize_song.assert_called_once()
-    
+
     def test_normalize_workflow_not_triggered_without_audio(
         self, menu_bar, mock_actions, song_factory
     ):
         """Normalize button disabled when songs have no audio_file."""
         song_no_audio = song_factory(audio_file="")
         menu_bar.onSelectedSongsChanged([song_no_audio])
-        
+
         # Verify button is disabled
         assert not menu_bar.normalize_button.isEnabled()
-        
+
         # Attempting to click should do nothing
         menu_bar.normalize_button.click()
         mock_actions.normalize_song.assert_not_called()
-    
+
     def test_normalize_workflow_enabled_for_mixed_selection(
         self, menu_bar, mock_actions, songs_with_audio, song_factory
     ):
         """Normalize enabled when at least one song has audio_file."""
         song_no_audio = song_factory(audio_file="")
         mixed_selection = songs_with_audio + [song_no_audio]
-        
+
         menu_bar.onSelectedSongsChanged(mixed_selection)
-        
+
         # Verify button is enabled (at least one has audio)
         assert menu_bar.normalize_button.isEnabled()
-        
+
         # Click should trigger normalize
         menu_bar.normalize_button.click()
         mock_actions.normalize_song.assert_called_once()
-    
+
     def test_normalize_workflow_with_single_song(
         self, menu_bar, mock_actions, songs_with_audio
     ):
         """Normalize works with single song selection."""
         menu_bar.onSelectedSongsChanged([songs_with_audio[0]])
-        
+
         menu_bar.normalize_button.click()
-        
+
         mock_actions.normalize_song.assert_called_once()
-    
+
     def test_normalize_workflow_with_no_selection(
         self, menu_bar, mock_actions
     ):
         """Normalize button disabled with no selection."""
         menu_bar.onSelectedSongsChanged([])
-        
+
         assert not menu_bar.normalize_button.isEnabled()
-        
+
         menu_bar.normalize_button.click()
         mock_actions.normalize_song.assert_not_called()
 
 
 class TestNormalizeButtonStateTransitions:
     """Test Normalize button state changes based on selection."""
-    
+
     def test_normalize_button_enables_when_valid_selection_set(
         self, menu_bar, songs_with_audio
     ):
@@ -146,11 +146,11 @@ class TestNormalizeButtonStateTransitions:
         # Start with no selection
         menu_bar.onSelectedSongsChanged([])
         assert not menu_bar.normalize_button.isEnabled()
-        
+
         # Set valid selection
         menu_bar.onSelectedSongsChanged(songs_with_audio)
         assert menu_bar.normalize_button.isEnabled()
-    
+
     def test_normalize_button_disables_when_selection_cleared(
         self, menu_bar, songs_with_audio
     ):
@@ -158,11 +158,11 @@ class TestNormalizeButtonStateTransitions:
         # Start with valid selection
         menu_bar.onSelectedSongsChanged(songs_with_audio)
         assert menu_bar.normalize_button.isEnabled()
-        
+
         # Clear selection
         menu_bar.onSelectedSongsChanged([])
         assert not menu_bar.normalize_button.isEnabled()
-    
+
     def test_normalize_button_state_updated_on_each_selection_change(
         self, menu_bar, songs_with_audio, song_factory
     ):
@@ -170,12 +170,12 @@ class TestNormalizeButtonStateTransitions:
         # Valid selection
         menu_bar.onSelectedSongsChanged(songs_with_audio)
         assert menu_bar.normalize_button.isEnabled()
-        
+
         # Invalid selection (no audio)
         song_no_audio = song_factory(audio_file="")
         menu_bar.onSelectedSongsChanged([song_no_audio])
         assert not menu_bar.normalize_button.isEnabled()
-        
+
         # Valid again
         menu_bar.onSelectedSongsChanged(songs_with_audio)
         assert menu_bar.normalize_button.isEnabled()
@@ -183,36 +183,36 @@ class TestNormalizeButtonStateTransitions:
 
 class TestNormalizeAndDetectInteraction:
     """Test that Normalize and Detect buttons work independently."""
-    
+
     def test_normalize_and_detect_both_enabled_with_audio(
         self, menu_bar, songs_with_audio
     ):
         """Both Normalize and Detect enabled when songs have audio."""
         menu_bar.onSelectedSongsChanged(songs_with_audio)
-        
+
         assert menu_bar.normalize_button.isEnabled()
         assert menu_bar.detectButton.isEnabled()
-    
+
     def test_normalize_and_detect_both_disabled_without_audio(
         self, menu_bar, song_factory
     ):
         """Both Normalize and Detect disabled when songs have no audio."""
         song_no_audio = song_factory(audio_file="")
         menu_bar.onSelectedSongsChanged([song_no_audio])
-        
+
         assert not menu_bar.normalize_button.isEnabled()
         assert not menu_bar.detectButton.isEnabled()
-    
+
     def test_can_click_normalize_and_detect_independently(
         self, menu_bar, mock_actions, songs_with_audio
     ):
         """Can trigger Normalize and Detect independently."""
         menu_bar.onSelectedSongsChanged(songs_with_audio)
-        
+
         # Click Normalize first
         menu_bar.normalize_button.click()
         mock_actions.normalize_song.assert_called_once()
-        
+
         # Then click Detect
         menu_bar.detectButton.click()
         mock_actions.detect_gap.assert_called_once_with(overwrite=True)

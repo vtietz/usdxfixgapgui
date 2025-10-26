@@ -169,7 +169,7 @@ class LogViewerWidget(QWidget):
         if was_at_bottom or v_scrollbar.maximum() == 0:
             # Use QTimer to ensure scroll happens AFTER HTML is rendered
             QTimer.singleShot(0, lambda: self._scroll_to_bottom())
-        
+
         # ALWAYS restore horizontal scroll position to prevent jumping
         # (user controls horizontal scrolling, we only auto-scroll vertically)
         QTimer.singleShot(0, lambda: h_scrollbar.setValue(h_scroll_pos))

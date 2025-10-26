@@ -16,11 +16,11 @@ class GapInfoService:
     async def load(gap_info: GapInfo) -> GapInfo:
         """
         Load gap info from file with multi-entry support.
-        
+
         Supports both legacy (single entry) and new (multi-entry) formats:
         - Legacy: entire JSON is one gap info entry
         - New: {"entries": {"SongA.txt": {...}, "SongB.txt": {...}}, "default": {...}, "version": 2}
-        
+
         For multi-entry files:
         - Try to load entry matching gap_info.txt_basename
         - Fall back to "default" if present
@@ -43,7 +43,7 @@ class GapInfoService:
             if "entries" in data:
                 # New multi-entry format
                 entries = data["entries"]
-                
+
                 # Try exact match first
                 if gap_info.txt_basename and gap_info.txt_basename in entries:
                     entry_data = entries[gap_info.txt_basename]
@@ -75,7 +75,7 @@ class GapInfoService:
             logger.error(f"Error loading gap info: {e}")
 
         return gap_info
-    
+
     @staticmethod
     def _populate_from_dict(gap_info: GapInfo, data: dict):
         """Populate GapInfo fields from dictionary"""
@@ -109,7 +109,7 @@ class GapInfoService:
     async def save(gap_info: GapInfo) -> bool:
         """
         Save gap info to file with multi-entry support.
-        
+
         Uses read-modify-write to update the specific entry for this song:
         - Reads existing file if present
         - Converts legacy format to multi-entry on first save
@@ -121,7 +121,7 @@ class GapInfoService:
         if not gap_info.file_path:
             logger.error("Cannot save gap info: file path is not set")
             return False
-        
+
         if not gap_info.txt_basename:
             logger.error("Cannot save gap info: txt_basename is not set")
             return False
@@ -138,7 +138,7 @@ class GapInfoService:
                     gap_info.status = GapInfoStatus[gap_info.status]
                 except KeyError:
                     gap_info.status = GapInfoStatus.ERROR
-            
+
             # Handle None status gracefully (can occur when detection fails)
             status_value = gap_info.status.value if gap_info.status else "ERROR"
             entry_data = {
@@ -171,7 +171,7 @@ class GapInfoService:
                     async with aiofiles.open(gap_info.file_path, "r", encoding="utf-8") as file:
                         content = await file.read()
                         existing_data = json.loads(content)
-                    
+
                     # Check format
                     if "entries" in existing_data:
                         # Already multi-entry format
@@ -188,7 +188,7 @@ class GapInfoService:
                     logger.warning(f"Could not parse existing gap info file, will overwrite: {e}")
                 except Exception as e:
                     logger.warning(f"Error reading existing gap info file, will overwrite: {e}")
-            
+
             # Update the entry for this song
             document["entries"][gap_info.txt_basename] = entry_data
 
@@ -227,11 +227,11 @@ class GapInfoService:
     def create_for_song_path(song_path: str, txt_basename: str = "") -> GapInfo:
         """
         Create a new GapInfo instance for the given song path.
-        
+
         Args:
             song_path: Path to the song folder or txt file
             txt_basename: Basename of the txt file (e.g., "SongA.txt") for multi-entry support
-        
+
         Returns:
             GapInfo instance with file_path set to folder-level usdxfixgap.info
         """

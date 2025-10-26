@@ -247,7 +247,7 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
         runtime_root = Path.home() / ".local" / "share" / "USDXFixGap" / "gpu_runtime"
         if hasattr(config, 'data_dir'):
             runtime_root = Path(config.data_dir) / "gpu_runtime"
-        
+
         if gpu_pack_cleaner.should_clean_on_startup(runtime_root):
             logger.info("Detected GPU Pack with wrong Python version - cleaning up")
             cleaned_count = gpu_pack_cleaner.clean_mismatched_packs(runtime_root, dry_run=False)
@@ -262,7 +262,7 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     # Check if system PyTorch with CUDA is available
     prefer_system = getattr(config, 'prefer_system_pytorch', True)
     logger.info(f"GPU Pack dialog check starting (prefer_system_pytorch={prefer_system}, gpu_enabled={gpu_enabled})")
-    
+
     if prefer_system:
         system_pytorch = gpu_bootstrap.detect_system_pytorch_cuda()
         if system_pytorch:
@@ -280,12 +280,12 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     # Only show if NVIDIA GPU detected but GPU not working
     cap = gpu_bootstrap.capability_probe()
     logger.info(f"GPU dialog check: has_nvidia={cap['has_nvidia']}, gpu_enabled={gpu_enabled}")
-    
+
     if cap['has_nvidia'] and not gpu_enabled:
         # GPU detected but not working - check if GPU Pack is installed
         gpu_pack_installed = is_gpu_pack_installed(config)
         logger.debug(f"GPU Pack installed: {gpu_pack_installed}")
-        
+
         if not gpu_pack_installed:
             logger.info("NVIDIA GPU detected but no GPU acceleration available - showing download dialog")
             try:

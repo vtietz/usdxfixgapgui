@@ -11,10 +11,10 @@ from typing import Optional
 class ConfigStub:
     """
     Minimal Config object for testing pipeline/worker without full config system.
-    
+
     Provides defaults matching production MdxConfig while allowing test-specific overrides.
     """
-    
+
     def __init__(
         self,
         tmp_root: Optional[str] = None,
@@ -42,7 +42,7 @@ class ConfigStub:
     ):
         """
         Initialize config stub with sensible defaults.
-        
+
         Args:
             tmp_root: Temporary directory root (defaults to system temp)
             method: Detection method ("mdx")
@@ -60,7 +60,7 @@ class ConfigStub:
         self.vocal_start_window_sec = vocal_start_window_sec
         self.vocal_window_increment_sec = vocal_window_increment_sec
         self.vocal_window_max_sec = vocal_window_max_sec
-        
+
         # MDX settings
         self.mdx_chunk_duration_ms = mdx_chunk_duration_ms
         self.mdx_chunk_overlap_ms = mdx_chunk_overlap_ms
@@ -76,7 +76,7 @@ class ConfigStub:
         self.mdx_max_expansions = mdx_max_expansions
         self.mdx_early_stop_tolerance_ms = mdx_early_stop_tolerance_ms
         self.mdx_confidence_threshold = mdx_confidence_threshold
-        
+
         # Additional fields that might be accessed
         self.tf32 = True
         self.use_gpu = False

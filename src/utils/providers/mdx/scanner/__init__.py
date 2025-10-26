@@ -17,7 +17,7 @@ Complexity Reduction:
 
 Usage:
     from utils.providers.mdx.scanner import scan_for_onset
-    
+
     onset_ms = scan_for_onset(
         audio_file="song.mp3",
         expected_gap_ms=5000.0,

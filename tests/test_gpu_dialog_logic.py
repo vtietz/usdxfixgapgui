@@ -70,7 +70,7 @@ class TestGpuDialogLogic:
         mock_auto_recover.return_value = None
         mock_is_installed.return_value = False
         mock_should_clean.return_value = False
-        
+
         mock_dialog_instance = Mock()
         mock_dialog_class.return_value = mock_dialog_instance
 
@@ -298,7 +298,7 @@ class TestGpuDialogLogic:
         mock_auto_recover.return_value = None
         mock_is_installed.return_value = False
         mock_should_clean.return_value = False
-        
+
         mock_dialog_instance = Mock()
         mock_dialog_class.return_value = mock_dialog_instance
 

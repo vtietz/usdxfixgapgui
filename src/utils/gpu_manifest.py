@@ -83,12 +83,12 @@ def _get_wheel_metadata(flavor: str) -> Dict:
     """Get wheel metadata for current Python version."""
     flavor_meta = _WHEEL_METADATA.get(flavor, {})
     py_meta = flavor_meta.get(_PYTHON_VERSION)
-    
+
     if not py_meta:
         # Fallback to cp38 if current Python version not explicitly defined
         logger.warning(f"No wheel metadata for {_PYTHON_VERSION}, using cp38 metadata as fallback")
         py_meta = flavor_meta.get("cp38", {"sha256": "TBD", "size": 2444894201})
-    
+
     return py_meta
 
 DEFAULT_MANIFESTS = {

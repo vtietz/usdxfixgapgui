@@ -336,4 +336,3 @@ class SongListView(QTableView):
         # Trigger initial load
         QTimer.singleShot(100, self._load_visible_songs)
 
-

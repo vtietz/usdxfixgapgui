@@ -13,14 +13,14 @@ logger = logging.getLogger(__name__)
 
 class ConfigValidationError:
     """Represents a configuration validation issue."""
-    
+
     def __init__(self, key: str, current_value, recommended_value, reason: str, severity: str = "warning"):
         self.key = key
         self.current_value = current_value
         self.recommended_value = recommended_value
         self.reason = reason
         self.severity = severity  # "warning", "error", "info"
-    
+
     def __str__(self):
         return (f"[{self.severity.upper()}] {self.key}={self.current_value} "
                 f"(recommended: {self.recommended_value}) - {self.reason}")
@@ -29,20 +29,20 @@ class ConfigValidationError:
 def validate_mdx_config(config) -> List[ConfigValidationError]:
     """
     Validate MDX detection configuration.
-    
+
     Checks for:
     - FP16 compatibility issues
     - Invalid threshold ranges
     - Contradictory settings
-    
+
     Args:
         config: Config object to validate
-        
+
     Returns:
         List of ConfigValidationError objects (empty if all valid)
     """
     errors = []
-    
+
     # Check FP16 - known to cause type mismatch with Demucs
     if hasattr(config, 'mdx_use_fp16') and config.mdx_use_fp16:
         errors.append(ConfigValidationError(
@@ -53,7 +53,7 @@ def validate_mdx_config(config) -> List[ConfigValidationError]:
                    "Use TF32 for acceleration instead.",
             severity="error"
         ))
-    
+
     # Check threshold ranges
     if hasattr(config, 'mdx_onset_snr_threshold'):
         snr = config.mdx_onset_snr_threshold
@@ -73,7 +73,7 @@ def validate_mdx_config(config) -> List[ConfigValidationError]:
                 reason="SNR threshold too high - will miss quiet vocal starts",
                 severity="warning"
             ))
-    
+
     if hasattr(config, 'mdx_onset_abs_threshold'):
         abs_thresh = config.mdx_onset_abs_threshold
         if abs_thresh < 0.005:
@@ -92,7 +92,7 @@ def validate_mdx_config(config) -> List[ConfigValidationError]:
                 reason="Absolute threshold too high - will miss quiet vocals",
                 severity="warning"
             ))
-    
+
     # Check minimum duration
     if hasattr(config, 'mdx_min_voiced_duration_ms'):
         min_dur = config.mdx_min_voiced_duration_ms
@@ -112,7 +112,7 @@ def validate_mdx_config(config) -> List[ConfigValidationError]:
                 reason="Minimum duration too long - will miss short vocal phrases",
                 severity="warning"
             ))
-    
+
     # Check TF32 only used on CUDA
     if hasattr(config, 'mdx_tf32') and config.mdx_tf32:
         try:
@@ -127,102 +127,102 @@ def validate_mdx_config(config) -> List[ConfigValidationError]:
                 ))
         except ImportError:
             pass  # PyTorch not available yet
-    
+
     return errors
 
 
 def validate_config(config, auto_fix: bool = True) -> Tuple[bool, List[ConfigValidationError]]:
     """
     Validate configuration and optionally auto-fix errors.
-    
+
     Args:
         config: Config object to validate
         auto_fix: If True, automatically fix critical errors
-        
+
     Returns:
         Tuple of (is_valid, list_of_errors)
         is_valid is False only if there are unfixed errors
     """
     all_errors = []
-    
+
     # Validate MDX config
     mdx_errors = validate_mdx_config(config)
     all_errors.extend(mdx_errors)
-    
+
     # Auto-fix critical errors if requested
     fixed_any = False
     if auto_fix:
         for error in all_errors:
             if error.severity == "error":
                 logger.warning(f"Auto-fixing config: {error}")
-                
+
                 # Apply fix
                 if error.key == "mdx.use_fp16":
                     config.mdx_use_fp16 = False
                     config._config.set('mdx', 'use_fp16', 'false')
                     logger.info("✓ Disabled FP16 to prevent type mismatch errors")
                     fixed_any = True
-        
+
         # Save fixes to config file
         if fixed_any:
             try:
                 config.save()
                 logger.info("✓ Auto-fixes saved to config file")
-                
+
                 # Re-validate to get fresh error list after fixes
                 all_errors = []
                 mdx_errors = validate_mdx_config(config)
                 all_errors.extend(mdx_errors)
             except Exception as e:
                 logger.error(f"Failed to save auto-fixes: {e}")
-    
+
     # Check if any unfixed errors remain
     remaining_errors = [e for e in all_errors if e.severity == "error"]
     is_valid = len(remaining_errors) == 0
-    
+
     # Log warnings
     warnings = [e for e in all_errors if e.severity == "warning"]
     if warnings:
         logger.info(f"Configuration has {len(warnings)} warning(s):")
         for warning in warnings:
             logger.warning(f"  {warning}")
-    
+
     return is_valid, all_errors
 
 
 def print_validation_report(errors: List[ConfigValidationError]):
     """
     Print a human-readable validation report.
-    
+
     Args:
         errors: List of validation errors/warnings
     """
     if not errors:
         logger.info("✓ Configuration validation passed - no issues found")
         return
-    
+
     errors_by_severity = {"error": [], "warning": [], "info": []}
     for error in errors:
         errors_by_severity[error.severity].append(error)
-    
+
     print("\n" + "="*70)
     print("CONFIGURATION VALIDATION REPORT")
     print("="*70)
-    
+
     if errors_by_severity["error"]:
         print(f"\n❌ ERRORS ({len(errors_by_severity['error'])}):")
         for error in errors_by_severity["error"]:
             print(f"  • {error}")
-    
+
     if errors_by_severity["warning"]:
         print(f"\n⚠️  WARNINGS ({len(errors_by_severity['warning'])}):")
         for warning in errors_by_severity["warning"]:
             print(f"  • {warning}")
-    
+
     if errors_by_severity["info"]:
         print(f"\nℹ️  INFO ({len(errors_by_severity['info'])}):")
         for info in errors_by_severity["info"]:
             print(f"  • {info}")
-    
+
     print("\nSee docs/mdx-detection-tuning.md for parameter guidance")
     print("="*70 + "\n")

@@ -74,4 +74,3 @@ class TestLocaleDecimalParsing:
 
         # Assert: Integer BPM is correctly parsed
         assert tags.BPM == 120.0
-

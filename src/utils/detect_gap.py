@@ -4,7 +4,7 @@ import utils.files as files
 import utils.audio as audio
 from typing import List, Tuple, Optional
 from common.config import Config
-from utils.types import DetectGapResult
+from utils.result_types import DetectGapResult
 from utils.providers import get_detection_provider
 
 logger = logging.getLogger(__name__)
@@ -110,10 +110,10 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
     Now with extended metadata including confidence, preview, and waveform.
     """
     from utils.gap_detection import perform
-    
+
     if not options.config:
         raise ValueError("Config is required for gap detection")
-    
+
     logger.info("Using gap detection pipeline")
     return perform(
         audio_file=options.audio_file,
@@ -125,4 +125,3 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
         overwrite=options.overwrite,
         check_cancellation=check_cancellation
     )
-
