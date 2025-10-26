@@ -215,11 +215,15 @@ class MenuBar(QWidget):
 
     def onWatchModeToggled(self, checked: bool):
         """Handle watch mode toggle button click."""
+        logger.info(f"User toggled watch mode button: {'ON' if checked else 'OFF'}")
+
         if checked:
             # User wants to enable watch mode
+            logger.info("Attempting to start watch mode...")
             success = self._actions.start_watch_mode()
             if not success:
                 # Failed to start - uncheck the button
+                logger.warning("Failed to start watch mode")
                 self.watch_mode_button.setChecked(False)
                 QMessageBox.warning(
                     self,
@@ -228,6 +232,7 @@ class MenuBar(QWidget):
                 )
         else:
             # User wants to disable watch mode
+            logger.info("Attempting to stop watch mode...")
             self._actions.stop_watch_mode()
 
     def onInitialScanCompleted(self):
@@ -240,7 +245,16 @@ class MenuBar(QWidget):
         """Handle watch mode state change from actions."""
         # Update button state to match actual watch mode state
         self.watch_mode_button.setChecked(enabled)
-        logger.info(f"Watch mode {'enabled' if enabled else 'disabled'}")
+
+        # Update button styling - orange when active, default when inactive
+        if enabled:
+            self.watch_mode_button.setStyleSheet(
+                "QPushButton { background-color: #FF8C00; color: white; font-weight: bold; }"
+            )
+            logger.info("Watch mode ENABLED - monitoring directory for changes")
+        else:
+            self.watch_mode_button.setStyleSheet("")  # Reset to default style
+            logger.info("Watch mode DISABLED - stopped monitoring directory")
 
     # Compatibility method for old tests - action buttons moved to SongListWidget
     def onSelectedSongsChanged(self, songs: List[Song]):
