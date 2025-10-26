@@ -53,19 +53,35 @@ datas = [
 
 # Binaries to exclude (reduce size)
 # Exclude CUDA libraries (users can download GPU Pack separately)
+# Must cover all platforms: .dll (Windows), .so* (Linux), .dylib (macOS)
 exclude_binaries = [
-    'cudnn*.dll',
-    'cublas*.dll', 
-    'cufft*.dll',
-    'curand*.dll',
-    'cusolver*.dll',
-    'cusparse*.dll',
-    'nvrtc*.dll',
-    'cudart*.dll',
+    # CUDA Deep Neural Network library
+    'cudnn', 'libcudnn',
+    # CUDA Basic Linear Algebra Subprograms
+    'cublas', 'libcublas', 'cublasLt', 'libcublasLt',
+    # CUDA Fast Fourier Transform
+    'cufft', 'libcufft', 'cufftw', 'libcufftw',
+    # CUDA Random Number Generation
+    'curand', 'libcurand',
+    # CUDA Solver library
+    'cusolver', 'libcusolver', 'cusolverMg', 'libcusolverMg',
+    # CUDA Sparse Matrix library
+    'cusparse', 'libcusparse',
+    # CUDA Runtime Compilation
+    'nvrtc', 'libnvrtc', 'nvrtc-builtins',
+    # CUDA Runtime
+    'cudart', 'libcudart',
+    # NVIDIA Tools Extension
+    'nvToolsExt', 'libnvToolsExt',
+    # Additional CUDA components
+    'nvidia-', 'libnvidia-',
+    # MKL (Intel Math Kernel Library) - can be large
+    'mkl_', 'libmkl_',
 ]
 
 # Modules to exclude (dev/test dependencies)
 exclude_modules = [
+    # Development tools
     'pytest',
     'pytest_qt',
     'pytest_mock',
@@ -80,9 +96,19 @@ exclude_modules = [
     '_pytest',
     'py',
     'pluggy',
-    'matplotlib',  # Not needed
-    'tkinter',     # Not needed
-    'PIL',         # Not needed unless using images
+    
+    # CUDA-related modules (CPU-only build)
+    'torch.cuda',
+    'torch.backends.cuda',
+    'torch.backends.cudnn',
+    'nvidia',
+    'cuda',
+    'cudnn',
+    
+    # Unnecessary for our app
+    'matplotlib',
+    'tkinter',
+    'PIL',
 ]
 
 block_cipher = None
@@ -104,7 +130,11 @@ a = Analysis(
 )
 
 # Filter out excluded binaries to reduce size
-a.binaries = TOC([x for x in a.binaries if not any(pattern in x[0] for pattern in exclude_binaries)])
+# Use substring matching to catch all variants (.dll, .so, .so.*, .dylib)
+a.binaries = TOC([
+    x for x in a.binaries 
+    if not any(pattern in x[0].lower() for pattern in exclude_binaries)
+])
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
