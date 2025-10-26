@@ -8,9 +8,10 @@ from services.waveform_path_service import WaveformPathService
 from workers.detect_audio_length import DetectAudioLengthWorker
 from workers.normalize_audio import NormalizeAudioWorker
 from workers.create_waveform import CreateWaveform
-from utils.waveform import create_waveform_image, draw_silence_periods, draw_gap, draw_notes
+from utils.waveform import create_waveform_image, draw_silence_periods, draw_notes
 
 logger = logging.getLogger(__name__)
+
 
 class AudioActions(BaseActions):
     """Audio processing actions like normalization and waveform generation"""
@@ -61,10 +62,15 @@ class AudioActions(BaseActions):
                 if getattr(song, "status", None) != SongStatus.ERROR:
                     self._schedule_deferred_reload(song)
                 else:
-                    logger.debug(f"Skipping reload due to error status for song: {song}")
-            except Exception:
-                # Be resilient; avoid raising in signal handler
-                pass
+                    logger.debug(
+                        f"Skipping reload due to error status for song: {song}"
+                    )
+            except Exception as e:
+                # Log exceptions for debugging
+                logger.debug(
+                    f"Exception in reload guard for {song}: {e}",
+                    exc_info=True
+                )
         worker.signals.finished.connect(_reload_if_success)
 
         # Lock audio file to prevent UI from reloading it or instant waveform tasks from accessing it during normalization

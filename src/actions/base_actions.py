@@ -6,6 +6,7 @@ from model.song import Song
 
 logger = logging.getLogger(__name__)
 
+
 class BaseActions(QObject):
     """Base class for all action modules"""
 
@@ -63,4 +64,61 @@ class BaseActions(QObject):
         self.data.songs.updated.emit(song)
 
     def _on_song_worker_finished(self, song: Song):
+        """Default finish handler: restore status from gap_info and emit update.
+
+        This prevents status from staying stuck in PROCESSING after background
+        operations (normalization, waveform creation, etc.) that don't change
+        the detection result.
+
+        Workers that modify gap_info (gap detection) should NOT use this handler
+        as they set their own status.
+        """
+        self._restore_status_from_gap_info(song)
         self.data.songs.updated.emit(song)
+
+    def _restore_status_from_gap_info(self, song: Song):
+        """Restore song status from gap_info after background operation.
+
+        This method is called after workers finish to prevent status from
+        staying stuck in PROCESSING when the worker didn't change the
+        detection result.
+
+        Args:
+            song: The song to restore status for
+        """
+        try:
+            from model.song import SongStatus
+
+            # Skip restoration if song is in ERROR state
+            # (error handler already set it)
+            if getattr(song, "status", None) == SongStatus.ERROR:
+                logger.debug(
+                    f"Skipping status restoration for {song}: status is ERROR"
+                )
+                return
+
+            # Restore status based on gap_info
+            if hasattr(song, 'gap_info') and song.gap_info:
+                # Trigger owner mapping by re-assigning the current GapInfo
+                # status. This forces the GapInfo.status.setter to call
+                # song._gap_info_updated() which maps GapInfo.status to
+                # Song.status
+                current_status = song.gap_info.status
+                song.gap_info.status = current_status
+                logger.debug(
+                    f"Restored status for {song} from gap_info: "
+                    f"{current_status}"
+                )
+            else:
+                # No gap_info available, reset to NOT_PROCESSED
+                song.status = SongStatus.NOT_PROCESSED
+                logger.debug(
+                    f"Reset status for {song} to NOT_PROCESSED (no gap_info)"
+                )
+
+        except Exception as e:
+            # Log but don't crash; status will stay as-is
+            logger.warning(
+                f"Failed to restore status for {song}: {e}",
+                exc_info=True
+            )

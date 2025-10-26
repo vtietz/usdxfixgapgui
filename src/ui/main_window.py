@@ -98,7 +98,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
 
     # Create main window
     window = QWidget()
-    window.setWindowTitle("USDX Gap Fix Gui")
+    window.setWindowTitle("USDX FixGap")
     # Store dialog reference to prevent garbage collection
     if gpu_dialog:
         window._gpu_dialog_ref = gpu_dialog
