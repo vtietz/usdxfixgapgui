@@ -127,18 +127,23 @@ jobs:
       - name: Read VERSION file
         id: get_version
         run: |
-          # Read VERSION file and clean it thoroughly
+          # Read VERSION file (for release notes lookup only)
           VERSION=$(cat VERSION | tr -d '[:space:]' | tr -d '\r\n' | sed 's/^[.]*//g')
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "Release version: ${VERSION}"
+          echo "Release notes from: ${VERSION}"
+
+          # Use tag name for filenames and release title (includes -rc1, -beta, etc.)
+          TAG_NAME="${GITHUB_REF_NAME}"
+          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
+          echo "Release tag: ${TAG_NAME}"
 
           # Detect pre-release from tag name (rc, beta, alpha)
-          if [[ "${GITHUB_REF_NAME}" =~ -(rc|beta|alpha) ]]; then
+          if [[ "${TAG_NAME}" =~ -(rc|beta|alpha) ]]; then
             echo "IS_PRERELEASE=true" >> $GITHUB_ENV
-            echo "🔖 Pre-release detected from tag: ${GITHUB_REF_NAME}"
+            echo "🔖 Pre-release detected from tag: ${TAG_NAME}"
           else
             echo "IS_PRERELEASE=false" >> $GITHUB_ENV
-            echo "📦 Regular release: ${GITHUB_REF_NAME}"
+            echo "📦 Regular release: ${TAG_NAME}"
           fi
 
       - name: Check if release notes exist
@@ -177,36 +182,37 @@ jobs:
         run: |
           mkdir -p release
 
+          # Use TAG_NAME for filenames (includes -rc1, -beta, etc.)
           # Windows
-          cp artifacts/windows/usdxfixgap.exe release/usdxfixgap-${VERSION}-windows.exe
+          cp artifacts/windows/usdxfixgap.exe release/usdxfixgap-${TAG_NAME}-windows.exe
 
           # Linux - create tar.gz
           chmod +x artifacts/linux/usdxfixgap
-          tar -czf release/usdxfixgap-${VERSION}-linux.tar.gz -C artifacts/linux usdxfixgap
+          tar -czf release/usdxfixgap-${TAG_NAME}-linux.tar.gz -C artifacts/linux usdxfixgap
 
           # macOS - create tar.gz
           chmod +x artifacts/macos/usdxfixgap
-          tar -czf release/usdxfixgap-${VERSION}-macos.tar.gz -C artifacts/macos usdxfixgap
+          tar -czf release/usdxfixgap-${TAG_NAME}-macos.tar.gz -C artifacts/macos usdxfixgap
 
           ls -lh release/
 
       - name: Generate release notes
         run: |
           if [ "$NOTES_EXIST" = "true" ]; then
-            # Use existing release notes
+            # Use existing release notes (VERSION for lookup, TAG_NAME for display)
             echo "Using release notes from: $NOTES_FILE"
             cat "$NOTES_FILE" > release_notes.md
           else
-            # Generate default release notes
-            echo "Generating default release notes for version: $VERSION"
+            # Generate default release notes with TAG_NAME
+            echo "Generating default release notes for tag: $TAG_NAME"
             cat > release_notes.md << EOF
-          # Release ${VERSION}
+          # Release ${TAG_NAME}
 
           ## Downloads
 
-          - **Windows**: \`usdxfixgap-${VERSION}-windows.exe\`
-          - **Linux**: \`usdxfixgap-${VERSION}-linux.tar.gz\`
-          - **macOS**: \`usdxfixgap-${VERSION}-macos.tar.gz\`
+          - **Windows**: \`usdxfixgap-${TAG_NAME}-windows.exe\`
+          - **Linux**: \`usdxfixgap-${TAG_NAME}-linux.tar.gz\`
+          - **macOS**: \`usdxfixgap-${TAG_NAME}-macos.tar.gz\`
 
           ## Installation
 
@@ -215,14 +221,14 @@ jobs:
 
           ### Linux
           \`\`\`bash
-          tar -xzf usdxfixgap-${VERSION}-linux.tar.gz
+          tar -xzf usdxfixgap-${TAG_NAME}-linux.tar.gz
           chmod +x usdxfixgap
           ./usdxfixgap
           \`\`\`
 
           ### macOS
           \`\`\`bash
-          tar -xzf usdxfixgap-${VERSION}-macos.tar.gz
+          tar -xzf usdxfixgap-${TAG_NAME}-macos.tar.gz
           chmod +x usdxfixgap
           ./usdxfixgap
           \`\`\`
@@ -244,14 +250,14 @@ jobs:
           # Check if we're in a workflow_dispatch (manual trigger)
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # Manual trigger - create/update tag
-            if git rev-parse "${VERSION}" >/dev/null 2>&1; then
-              echo "Tag ${VERSION} already exists, updating..."
-              git tag -f -a "${VERSION}" -m "Release ${VERSION}"
-              git push -f origin "${VERSION}"
+            if git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
+              echo "Tag ${TAG_NAME} already exists, updating..."
+              git tag -f -a "${TAG_NAME}" -m "Release ${TAG_NAME}"
+              git push -f origin "${TAG_NAME}"
             else
-              echo "Creating new tag ${VERSION}..."
-              git tag -a "${VERSION}" -m "Release ${VERSION}"
-              git push origin "${VERSION}"
+              echo "Creating new tag ${TAG_NAME}..."
+              git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}"
+              git push origin "${TAG_NAME}"
             fi
           else
             echo "Triggered by tag push: ${GITHUB_REF_NAME}"
@@ -260,14 +266,14 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.VERSION }}
-          name: ${{ env.VERSION }}
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.TAG_NAME }}
           body_path: release_notes.md
           draft: false
           prerelease: ${{ env.IS_PRERELEASE == 'true' }}
           files: |
-            release/usdxfixgap-${{ env.VERSION }}-windows.exe
-            release/usdxfixgap-${{ env.VERSION }}-linux.tar.gz
-            release/usdxfixgap-${{ env.VERSION }}-macos.tar.gz
+            release/usdxfixgap-${{ env.TAG_NAME }}-windows.exe
+            release/usdxfixgap-${{ env.TAG_NAME }}-linux.tar.gz
+            release/usdxfixgap-${{ env.TAG_NAME }}-macos.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
