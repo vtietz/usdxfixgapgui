@@ -178,14 +178,16 @@ watch_ignore_patterns = .tmp,~,.crdownload,.part  # Comma-separated patterns to 
    - [Windows Release](https://github.com/vtietz/usdxfixgapgui/releases) (.exe)
    - [Linux Release](https://github.com/vtietz/usdxfixgapgui/releases) (AppImage)
 
-2. **Install FFmpeg** (required):
+2. **Windows Defender Notice**: The executable may trigger a false positive warning (common with PyInstaller applications). This is safe - the source code is open for inspection. If concerned, [scan the file on VirusTotal](https://www.virustotal.com/) or build from source yourself.
+
+3. **Install FFmpeg** (required):
    - Windows: Download from [ffmpeg.org](https://www.ffmpeg.org/download.html) and add to PATH
    - Linux: `sudo apt install ffmpeg` or `sudo pacman -S ffmpeg`
    - macOS: `brew install ffmpeg`
 
-3. **Run the application** and start fixing gaps!
+4. **Run the application** and start fixing gaps!
 
-4. **(Optional) Enable GPU Acceleration**:
+5. **(Optional) Enable GPU Acceleration**:
    - Have an NVIDIA GPU with driver ≥531?
    - The app will automatically offer to download GPU Pack (~1GB) for 5-10x faster processing
    - [→ GPU Acceleration Guide](docs/configuration.md#gpu-acceleration-settings)

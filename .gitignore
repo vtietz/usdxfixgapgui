@@ -5,7 +5,6 @@ __pycache__
 pretrained_models
 dist/
 build/
-*.spec
 *.db
 data/
 *.log*
