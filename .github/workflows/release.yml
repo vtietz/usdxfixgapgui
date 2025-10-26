@@ -127,7 +127,8 @@ jobs:
       - name: Read VERSION file
         id: get_version
         run: |
-          VERSION=$(cat VERSION | tr -d '[:space:]')
+          # Read VERSION file and clean it thoroughly
+          VERSION=$(cat VERSION | tr -d '[:space:]' | tr -d '\r\n' | sed 's/^[.]*//g')
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "Release version: ${VERSION}"
 
@@ -251,7 +252,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.VERSION }}
-          name: Release ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
           body_path: release_notes.md
           draft: false
           prerelease: false
