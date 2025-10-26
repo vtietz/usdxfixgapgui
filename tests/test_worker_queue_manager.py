@@ -373,15 +373,20 @@ class TestWorkerProperties:
         """Verify worker status is set to WAITING when queued behind another task"""
         manager = WorkerQueueManager()
 
-        # Start a first task to block the queue
+        # Block the queue with a fake running task to prevent auto-start
         blocking_worker = MockWorker("Blocking Task", is_instant=False)
-        manager.add_task(blocking_worker, start_now=True)
+        blocking_worker.id = "blocking-1"
+        blocking_worker.status = WorkerStatus.RUNNING
+        manager.running_tasks[blocking_worker.id] = blocking_worker
 
         # Now add a second task - it should be WAITING because blocking_worker is running
         worker = MockWorker("Task", is_instant=False)
         manager.add_task(worker, start_now=False)
 
+        # Verify it's queued and status is WAITING
         assert worker.status == WorkerStatus.WAITING
+        assert len(manager.queued_tasks) == 1
+        assert manager.queued_tasks[0] is worker
 
     def test_get_worker_finds_running_standard_task(self):
         """Verify get_worker finds running standard tasks"""
