@@ -184,36 +184,38 @@ jobs:
         run: |
           if [ "$NOTES_EXIST" = "true" ]; then
             # Use existing release notes
+            echo "Using release notes from: $NOTES_FILE"
             cat "$NOTES_FILE" > release_notes.md
           else
             # Generate default release notes
-            cat > release_notes.md << 'EOF'
-          # Release ${{ env.VERSION }}
+            echo "Generating default release notes for version: $VERSION"
+            cat > release_notes.md << EOF
+          # Release ${VERSION}
 
           ## Downloads
 
-          - **Windows**: `usdxfixgap-${{ env.VERSION }}-windows.exe`
-          - **Linux**: `usdxfixgap-${{ env.VERSION }}-linux.tar.gz`
-          - **macOS**: `usdxfixgap-${{ env.VERSION }}-macos.tar.gz`
+          - **Windows**: \`usdxfixgap-${VERSION}-windows.exe\`
+          - **Linux**: \`usdxfixgap-${VERSION}-linux.tar.gz\`
+          - **macOS**: \`usdxfixgap-${VERSION}-macos.tar.gz\`
 
           ## Installation
 
           ### Windows
-          Download and run the `.exe` file.
+          Download and run the \`.exe\` file.
 
           ### Linux
-          ```bash
-          tar -xzf usdxfixgap-${{ env.VERSION }}-linux.tar.gz
+          \`\`\`bash
+          tar -xzf usdxfixgap-${VERSION}-linux.tar.gz
           chmod +x usdxfixgap
           ./usdxfixgap
-          ```
+          \`\`\`
 
           ### macOS
-          ```bash
-          tar -xzf usdxfixgap-${{ env.VERSION }}-macos.tar.gz
+          \`\`\`bash
+          tar -xzf usdxfixgap-${VERSION}-macos.tar.gz
           chmod +x usdxfixgap
           ./usdxfixgap
-          ```
+          \`\`\`
 
           ## Notes
 
@@ -221,8 +223,8 @@ jobs:
           EOF
           fi
 
-          echo "📝 Release Notes:"
-          cat release_notes.md
+          echo "📝 Release Notes Preview:"
+          head -n 20 release_notes.md
 
       - name: Create or Update Tag
         run: |
