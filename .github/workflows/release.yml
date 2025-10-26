@@ -132,6 +132,15 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "Release version: ${VERSION}"
 
+          # Detect pre-release from tag name (rc, beta, alpha)
+          if [[ "${GITHUB_REF_NAME}" =~ -(rc|beta|alpha) ]]; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_ENV
+            echo "🔖 Pre-release detected from tag: ${GITHUB_REF_NAME}"
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_ENV
+            echo "📦 Regular release: ${GITHUB_REF_NAME}"
+          fi
+
       - name: Check if release notes exist
         id: check_notes
         run: |
@@ -255,7 +264,7 @@ jobs:
           name: ${{ env.VERSION }}
           body_path: release_notes.md
           draft: false
-          prerelease: false
+          prerelease: ${{ env.IS_PRERELEASE == 'true' }}
           files: |
             release/usdxfixgap-${{ env.VERSION }}-windows.exe
             release/usdxfixgap-${{ env.VERSION }}-linux.tar.gz
