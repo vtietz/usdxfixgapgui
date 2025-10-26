@@ -35,9 +35,15 @@ def pytest_collection_modifyitems(config, items):
         sys.platform != 'win32',
         reason="Windows-only test - requires Windows APIs (os.add_dll_directory, ctypes.WinDLL, os.startfile)"
     )
-    
-    windows_only_keywords = ['_windows', 'windll', 'startfile', 'dll_director']
-    
+
+    windows_only_keywords = [
+        '_windows', 'windll', 'startfile', 'dll_director',
+        'enable_gpu_runtime_wheel',  # Uses os.add_dll_directory
+        'feature_flag',  # GPU feature flags use Windows-specific code
+        'url_format_for_python',  # Tests expect Windows URLs
+        'open_config_file'  # Uses os.startfile
+    ]
+
     for item in items:
         # Skip tests with windows-specific names
         test_name = item.nodeid.lower()
@@ -48,26 +54,26 @@ def pytest_collection_modifyitems(config, items):
 def validate_detected_gap(detected_ms: Optional[float], test_name: str = "unknown") -> None:
     """
     Validate that a detected gap meets basic sanity checks.
-    
+
     This is a universal assertion that ALL gap detection tests should call
     to catch regression bugs like negative gaps.
-    
+
     Args:
         detected_ms: The detected gap value (or None if no detection)
         test_name: Name of the test for better error messages
-        
+
     Raises:
         AssertionError: If detected gap fails validation
     """
     if detected_ms is None:
         return  # None is valid (no vocals detected)
-    
+
     # CRITICAL: Gap must NEVER be negative
     assert detected_ms >= 0.0, (
         f"[{test_name}] Gap must be non-negative! Detected={detected_ms:.0f}ms. "
         f"Negative gaps indicate a bug (likely hysteresis lookback before chunk start)."
     )
-    
+
     # Sanity check: Gap shouldn't be absurdly large (> 10 minutes)
     MAX_REASONABLE_GAP_MS = 600000  # 10 minutes
     assert detected_ms <= MAX_REASONABLE_GAP_MS, (
@@ -225,7 +231,7 @@ def fake_run_async():
 def patch_separator(monkeypatch):
     """
     Fixture to patch separate_vocals_chunk with stub for Tier-2 tests.
-    
+
     The stub returns the right channel (ground-truth vocals) as separation result,
     simulating perfect separation without running Demucs.
     """
@@ -241,18 +247,18 @@ def patch_separator(monkeypatch):
 def mdx_config_tight():
     """
     Tight MDX configuration for fast scanner tests.
-    
+
     Automatically loads from tests/custom_config.ini if it exists,
     otherwise uses hard-coded test values for predictable results.
     """
     custom_config_path = os.path.join(os.path.dirname(__file__), "custom_config.ini")
-    
+
     if os.path.exists(custom_config_path):
         # Load from custom config for experimentation
         from common.config import Config
         cfg = Config(custom_config_path=custom_config_path)
         return MdxConfig.from_config(cfg)
-    
+
     # Default hard-coded test values
     return MdxConfig(
         chunk_duration_ms=12000,
@@ -271,18 +277,18 @@ def mdx_config_tight():
 def mdx_config_loose():
     """
     Loose MDX configuration for edge case tests.
-    
+
     Automatically loads from tests/custom_config.ini if it exists,
     otherwise uses hard-coded test values for predictable results.
     """
     custom_config_path = os.path.join(os.path.dirname(__file__), "custom_config.ini")
-    
+
     if os.path.exists(custom_config_path):
         # Load from custom config for experimentation
         from common.config import Config
         cfg = Config(custom_config_path=custom_config_path)
         return MdxConfig.from_config(cfg)
-    
+
     # Default hard-coded test values
     return MdxConfig(
         chunk_duration_ms=12000,
@@ -301,7 +307,7 @@ def mdx_config_loose():
 def model_placeholder():
     """
     Mock Demucs model for scanner tests.
-    
+
     Provides minimal attributes expected by scanner code.
     """
     model = Mock()
@@ -319,11 +325,11 @@ def model_placeholder():
 def audio_scenario(tmp_path):
     """
     Factory fixture for building test audio scenarios.
-    
+
     Returns a function that creates stereo test audio and returns metadata dict.
     """
     from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed
-    
+
     def _build_scenario(
         onset_ms: float = 5000.0,
         duration_ms: float = 30000,
@@ -334,7 +340,7 @@ def audio_scenario(tmp_path):
     ):
         """
         Build audio scenario with given parameters.
-        
+
         Returns:
             dict with keys: audio_path, sr, truth_onset_ms, duration_ms, tmp_root
         """
@@ -342,12 +348,12 @@ def audio_scenario(tmp_path):
             output_path=tmp_path / filename,
             duration_ms=duration_ms,
             vocal_events=[
-                VocalEvent(onset_ms=onset_ms, duration_ms=duration_ms - onset_ms - 1000, 
+                VocalEvent(onset_ms=onset_ms, duration_ms=duration_ms - onset_ms - 1000,
                           fade_in_ms=fade_in_ms, amp=amp)
             ],
             instrument_bed=InstrumentBed(noise_floor_db=noise_floor_db)
         )
-        
+
         return {
             "audio_path": str(audio_result.path),
             "sr": audio_result.sr,
@@ -355,7 +361,7 @@ def audio_scenario(tmp_path):
             "duration_ms": audio_result.duration_ms,
             "tmp_root": str(tmp_path)
         }
-    
+
     return _build_scenario
 
 
@@ -363,12 +369,12 @@ def audio_scenario(tmp_path):
 def stub_provider_factory():
     """
     Factory fixture for creating StubProvider instances.
-    
+
     Returns a function that creates configured StubProvider.
     """
     from test_utils.provider_stub import StubProvider
     from test_utils.config_stub import ConfigStub
-    
+
     def _create_provider(
         truth_onset_ms: Optional[float] = None,
         confidence_value: float = 0.95,
@@ -387,7 +393,7 @@ def stub_provider_factory():
             raise_on_detect_silence=raise_on_detect_silence,
             raise_on_confidence=raise_on_confidence
         )
-    
+
     return _create_provider
 
 
@@ -395,7 +401,7 @@ def stub_provider_factory():
 def patch_provider(monkeypatch, stub_provider_factory):
     """
     Fixture to patch get_detection_provider with StubProvider.
-    
+
     Returns a function that patches the provider factory to return
     a specific StubProvider instance.
     """
@@ -407,7 +413,7 @@ def patch_provider(monkeypatch, stub_provider_factory):
             lambda config: provider
         )
         return provider
-    
+
     return _patch_with_provider
 
 
@@ -417,7 +423,7 @@ def config_stub(tmp_path):
     Fixture providing minimal Config stub for pipeline tests.
     """
     from test_utils.config_stub import ConfigStub
-    
+
     return ConfigStub(tmp_root=str(tmp_path))
 
 
@@ -425,9 +431,8 @@ def config_stub(tmp_path):
 def write_tier3_docs():
     """
     Fixture to check if Tier-3 docs should be generated.
-    
+
     Returns True if GAP_TIER3_WRITE_DOCS=1 environment variable is set.
     """
     import os
     return os.environ.get('GAP_TIER3_WRITE_DOCS', '0') == '1'
-
