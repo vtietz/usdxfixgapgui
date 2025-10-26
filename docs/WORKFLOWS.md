@@ -31,8 +31,7 @@ Ensures code quality and all tests pass before merging changes.
 ### 2. Release - Multi-Platform Builds (`release.yml`)
 
 **Triggers:**
-- **Automatic:** When you push a version tag (e.g., `v2.0.0`)
-- **Manual:** Via GitHub Actions web interface
+- **Automatic:** When you push a version tag (e.g., `v2.0.0`, `v2.0.0-rc1`)
 
 **What it does:**
 1. 🪟 Builds Windows executable (`.exe`)
@@ -40,146 +39,85 @@ Ensures code quality and all tests pass before merging changes.
 3. 🍎 Builds macOS executable (`.tar.gz`)
 4. 📦 Creates GitHub Release with all binaries
 5. 📝 Uses release notes from `docs/releases/{VERSION}.md`
+6. 🔔 Auto-detects pre-release from tag pattern (`-rc`, `-beta`, `-alpha`)
 
-**Platforms:**
-- Windows: Python 3.11, PyInstaller
-- Linux: Python 3.11, Ubuntu latest, system dependencies
-- macOS: Python 3.11, macOS latest, Homebrew dependencies
+**Build Configuration:**
+- Uses `usdxfixgap.spec` (PyInstaller config)
+- CPU-only PyTorch (~250MB per executable)
+- Excludes CUDA libraries (prevents 3GB bloat)
+- Hidden imports: PySide6, torch, demucs, soundfile, librosa
 
 **Artifacts:**
 - `usdxfixgap-{VERSION}-windows.exe`
 - `usdxfixgap-{VERSION}-linux.tar.gz`
 - `usdxfixgap-{VERSION}-macos.tar.gz`
 
+**Pre-Release Detection:**
+| Tag | Pre-Release | Subscribers Notified |
+|-----|-------------|---------------------|
+| `v2.0.0-rc1` | Yes | No |
+| `v2.0.0-beta` | Yes | No |
+| `v2.0.0-alpha` | Yes | No |
+| `v2.0.0` | No | Yes |
+
 ---
 
 ## 🚀 How to Create a Release
 
-### Prerequisites
+**See:** `docs/RELEASE_PROCESS.md` for detailed instructions.
 
-1. **Update VERSION file:**
-   ```bash
-   echo "v2.0.0" > VERSION
-   ```
+**Quick version:**
 
-2. **Create release notes:**
-   ```bash
-   # Create/update docs/releases/v2.0.0.md with changelog
-   ```
-
-3. **Commit changes:**
-   ```bash
-   git add VERSION docs/releases/v2.0.0.md
-   git commit -m "Prepare release v2.0.0"
-   git push
-   ```
-
-### Method 1: Automatic (Recommended)
-
-**Create and push a tag:**
 ```bash
-# Make sure VERSION file contains "v2.0.0"
-git tag -a v2.0.0 -m "Release v2.0.0"
-git push origin v2.0.0
+# 1. Update files
+# Edit VERSION: v2.0.0
+# Create docs/releases/v2.0.0.md
+# Update CHANGELOG.md
+git commit -am "chore: Bump version to v2.0.0"
+git push
+
+# 2. Test with RC (recommended)
+git tag v2.0.0-rc1 && git push origin v2.0.0-rc1
+
+# 3. After verification, create final release
+git tag v2.0.0 && git push origin v2.0.0
 ```
 
-This will:
-- ✅ Automatically trigger the release workflow
-- ✅ Build all 3 platforms
-- ✅ Create GitHub release with tag `v2.0.0`
-- ✅ Use release notes from `docs/releases/v2.0.0.md`
-- ✅ Upload all binaries
-
-### Method 2: Manual Trigger
-
-1. Go to: **GitHub → Actions → Release - Multi-Platform Builds**
-2. Click **Run workflow**
-3. Select branch (usually `main`)
-4. Click **Run workflow** button
-
-This will:
-- ✅ Read version from `VERSION` file
-- ✅ Create/update tag automatically
-- ✅ Build and release as Method 1
+**Important:**
+- VERSION file must be UTF-8 without BOM
+- RC tags (`-rc`, `-beta`, `-alpha`) don't notify subscribers
+- Release notes loaded from `docs/releases/{VERSION}.md`
 
 ---
 
 ## 📝 Release Notes Format
 
-**Location:** `docs/releases/{VERSION}.md`
+**Location:** `docs/releases/{VERSION}.md` (VERSION from VERSION file, not tag name)
 
-**Example:** `docs/releases/v2.0.0.md`
+**Template:** See `.github/RELEASE_TEMPLATE.md`
 
-The release notes file should follow this structure:
+**Example:** If VERSION file contains `v2.0.0`, release notes should be at `docs/releases/v2.0.0.md`
 
-```markdown
-# v2.0.0 - Title Here
-
-### ⚠️ Breaking Changes
-- List breaking changes
-- Migration steps if needed
-
-### What's New
-
-#### Feature Category 1
-- New feature description
-- Implementation details
-
-#### Feature Category 2
-- More features
-
-### Bug Fixes
-- Fixed issue description
-- More fixes
-
-### Upgrading from v1.x.x
-1. Step-by-step upgrade instructions
-2. Configuration changes
-3. Data migration if needed
-```
-
-**If release notes file doesn't exist:**
-- Workflow generates default notes with download instructions
-- Still creates release successfully
+**Note:** RC tags (`v2.0.0-rc1`) still use `v2.0.0.md` for release notes.
 
 ---
 
 ## 🔧 Dependencies Management
 
-### Development Setup
-
+**Development:**
 ```bash
-# Install base + dev dependencies
-.\run.bat install-dev
-
-# Or manually:
-pip install -r requirements.txt          # Base runtime dependencies
-pip install -r requirements-dev.txt      # Dev tools (includes base)
+.\run.bat install    # Runtime + dev dependencies
 ```
 
-### Important Notes
+**Key Files:**
+- `requirements.txt` - Runtime dependencies
+- `requirements-dev.txt` - Dev tools (includes requirements.txt)
+- `requirements-build.txt` - CI/CD build dependencies (CPU-only PyTorch)
 
-1. **requirements.txt**
-   - Runtime dependencies only
-   - Flexible PyTorch version (torch>=2.0.0)
-   - Used for local development
-
-2. **requirements-build.txt**
-   - **CI/CD build dependencies**
-   - Locked CPU-only PyTorch (torch==2.4.1+cpu)
-   - Used by GitHub Actions to build small executables (~350-500 MB)
-   - Users can upgrade to GPU Pack (~2.8 GB) at runtime
-
-3. **requirements-dev.txt**
-   - Development tools (pytest, flake8, black, etc.)
-   - **Includes** `requirements.txt` via `-r requirements.txt`
-   - NOT included in executables
-   - Used by CI for testing/quality checks
-
-4. **Build Process**
-   - GitHub Actions uses `requirements-build.txt` (CPU-only PyTorch)
-   - Local builds use `requirements.txt` (flexible PyTorch)
-   - PyInstaller excludes dev packages explicitly
+**Build Process:**
+- GitHub Actions uses `usdxfixgap.spec` + `requirements-build.txt`
+- CPU-only PyTorch (~250MB executables)
+- CUDA libraries excluded via spec file
 
 ---
 
@@ -229,86 +167,33 @@ pip install -r requirements-dev.txt      # Dev tools (includes base)
 
 ### CI Failures
 
-**Tests failing:**
 ```bash
-# Run tests locally first
-.\run.bat test
-
-# Check specific test
-.\run.bat test tests/test_specific.py -v
-```
-
-**Code quality issues:**
-```bash
-# Run analysis locally
-.\run.bat analyze
-
-# Auto-fix style issues
-.\run.bat cleanup changed
+.\run.bat test      # Run tests locally
+.\run.bat analyze   # Code quality check
 ```
 
 ### Release Failures
 
-**Build fails on specific platform:**
-1. Check build logs in GitHub Actions
-2. Test build locally:
-   ```bash
-   # Windows
-   .\run.bat build
+**Common issues:**
+- VERSION file encoding (must be UTF-8 without BOM)
+- Missing release notes file (`docs/releases/vX.Y.Z.md`)
+- Build size issues (check `usdxfixgap.spec`)
 
-   # Linux/macOS
-   ./run.sh build
-   ```
-
-**Release notes not found:**
-- Create `docs/releases/{VERSION}.md`
-- Or workflow will generate default notes
-
-**Tag already exists:**
-```bash
-# Delete local tag
-git tag -d v2.0.0
-
-# Delete remote tag
-git push origin :refs/tags/v2.0.0
-
-# Create new tag
-git tag -a v2.0.0 -m "Release v2.0.0"
-git push origin v2.0.0
-```
-
-### Version Mismatch
-
-**Ensure VERSION file matches tag:**
-```bash
-# VERSION file should contain:
-v2.0.0
-
-# Not:
-2.0.0          # ❌ Missing 'v' prefix
-v2.0.0-beta    # ❌ Suffix not supported
-```
+**See:** `docs/RELEASE_PROCESS.md` for detailed troubleshooting.
 
 ---
 
 ## 📦 Release Checklist
 
-Before creating a release:
+**See `docs/RELEASE_PROCESS.md` for complete checklist.**
 
-- [ ] All tests passing locally (`.\run.bat test`)
-- [ ] Code quality checks passing (`.\run.bat analyze`)
-- [ ] VERSION file updated (e.g., `v2.0.0`)
-- [ ] Release notes created in `docs/releases/v2.0.0.md`
-- [ ] CHANGELOG.md updated (if maintained)
-- [ ] All changes committed and pushed
-- [ ] Tag created and pushed OR manual workflow triggered
-
-After release:
-
-- [ ] Verify all 3 binaries uploaded to GitHub Release
-- [ ] Test download and run each binary
-- [ ] Update documentation if needed
-- [ ] Announce release (if applicable)
+**Quick version:**
+- [ ] Tests pass (`.\run.bat test`)
+- [ ] Code quality passes (`.\run.bat analyze`)
+- [ ] VERSION file updated (UTF-8 without BOM)
+- [ ] Release notes created (`docs/releases/vX.Y.Z.md`)
+- [ ] Test with RC tag first (`v2.0.0-rc1`)
+- [ ] Create final tag (`v2.0.0`)
 
 ---
 
@@ -316,79 +201,47 @@ After release:
 
 ### Updating Python Version
 
-Edit workflow files:
+Edit `.github/workflows/ci.yml` and `.github/workflows/release.yml`:
 ```yaml
-- name: Set up Python
-  uses: actions/setup-python@v5
-  with:
-    python-version: '3.11'  # Change here
+python-version: '3.11'  # Change version here
 ```
 
-### Adding New Platforms
+### Modifying Build Configuration
 
-1. Add new job to `release.yml`:
-   ```yaml
-   build-freebsd:
-     name: Build FreeBSD Executable
-     runs-on: ubuntu-latest
-     # ... build steps
-   ```
-
-2. Add to `needs:` in release job:
-   ```yaml
-   release:
-     needs: [build-windows, build-linux, build-macos, build-freebsd]
-   ```
-
-3. Add artifact download and packaging
-
-### Modifying Code Quality Checks
-
-Edit `ci.yml` code quality steps:
-```yaml
-- name: Code Quality - Style Check
-  run: |
-    python -m flake8 src/ tests/ scripts/ \
-      --max-line-length=120 \
-      --extend-ignore=E203,E501  # Add/remove rules
-```
+Edit `usdxfixgap.spec` for PyInstaller settings:
+- `hiddenimports` - Add dynamic imports
+- `exclude_binaries` - Filter out unwanted libraries (e.g., CUDA)
+- `excludes` - Exclude Python modules
 
 ---
 
 ## 📚 Additional Resources
 
-- **GitHub Actions Documentation:** https://docs.github.com/en/actions
-- **PyInstaller Documentation:** https://pyinstaller.org/
-- **Project Coding Standards:** `docs/coding-standards.md`
+- **Release Process:** `docs/RELEASE_PROCESS.md`
+- **Coding Standards:** `docs/coding-standards.md`
 - **Development Guide:** `docs/DEVELOPMENT.md`
+- **GitHub Actions:** https://docs.github.com/en/actions
+- **PyInstaller:** https://pyinstaller.org/
 
 ---
 
 ## 🎯 Summary
 
-### Quick Commands
-
+**Quick Commands:**
 ```bash
-# Development
-.\run.bat install-dev    # Setup dev environment
 .\run.bat test           # Run tests
-.\run.bat analyze        # Code quality check
-.\run.bat cleanup        # Auto-fix style issues
+.\run.bat analyze        # Code quality
 
 # Release
-git tag -a v2.0.0 -m "Release v2.0.0"
-git push origin v2.0.0  # Triggers automatic release
-
-# Manual trigger
-# Go to GitHub → Actions → Release → Run workflow
+git tag v2.0.0-rc1 && git push origin v2.0.0-rc1  # Test
+git tag v2.0.0 && git push origin v2.0.0          # Final
 ```
 
-### Key Points
-
-1. ✅ **CI runs on every push/PR** - ensures code quality
-2. 🚀 **Releases are automatic** - just push a tag
-3. 📝 **Release notes are versioned** - stored in `docs/releases/`
-4. 🔢 **Version comes from VERSION file** - no date timestamps
-5. 🌍 **Multi-platform builds** - Windows, Linux, macOS
-6. 📦 **Dependencies are separate** - runtime vs dev
-7. 🔄 **Workflows are self-contained** - no manual steps needed
+**Key Points:**
+1. CI runs on every push/PR
+2. Releases triggered by Git tags
+3. RC tags (`-rc`, `-beta`, `-alpha`) = pre-release (no notifications)
+4. Final tags (`v2.0.0`) = production release (notifies subscribers)
+5. VERSION file must be UTF-8 without BOM
+6. Release notes from `docs/releases/{VERSION}.md`
+7. Builds use `usdxfixgap.spec` for consistent ~250MB executables
