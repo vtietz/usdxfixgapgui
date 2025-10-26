@@ -52,7 +52,17 @@ datas = [
 ]
 
 # Binaries to exclude (reduce size)
-exclude_binaries = []
+# Exclude CUDA libraries (users can download GPU Pack separately)
+exclude_binaries = [
+    'cudnn*.dll',
+    'cublas*.dll', 
+    'cufft*.dll',
+    'curand*.dll',
+    'cusolver*.dll',
+    'cusparse*.dll',
+    'nvrtc*.dll',
+    'cudart*.dll',
+]
 
 # Modules to exclude (dev/test dependencies)
 exclude_modules = [
@@ -70,6 +80,9 @@ exclude_modules = [
     '_pytest',
     'py',
     'pluggy',
+    'matplotlib',  # Not needed
+    'tkinter',     # Not needed
+    'PIL',         # Not needed unless using images
 ]
 
 block_cipher = None
@@ -89,6 +102,9 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+
+# Filter out excluded binaries to reduce size
+a.binaries = TOC([x for x in a.binaries if not any(pattern in x[0] for pattern in exclude_binaries)])
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
