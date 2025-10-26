@@ -149,6 +149,7 @@ class TestPathInstaller:
         finally:
             sys.path = original_path
 
+    @pytest.mark.skipif(sys.platform != 'win32', reason="Windows-only test")
     @patch('sys.platform', 'win32')
     @patch('os.add_dll_directory')
     def test_install_dll_directories_windows(self, mock_add_dll, tmp_path):

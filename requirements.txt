@@ -16,7 +16,7 @@ watchdog>=4.0.0
 # Bundled in executables for immediate CPU-based gap detection
 # For 10x faster GPU acceleration: Download GPU Pack via Settings or --setup-gpu
 # Development with GPU: run.bat install --gpu
-torch>=2.0.0
-torchaudio>=2.0.0
+torch>=2.0.0,<2.5.0
+torchaudio>=2.0.0,<2.5.0
 torchcodec>=0.1.0
 matplotlib>=3.5.0
