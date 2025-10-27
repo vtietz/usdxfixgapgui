@@ -298,15 +298,32 @@ if /i "%1"=="build" (
     echo.
     cd /d "%SCRIPT_DIR%"
 
+    :: Detect platform-specific requirements file (Windows uses standard requirements-build.txt)
+    set REQUIREMENTS_FILE=requirements-build.txt
+    if exist "%SCRIPT_DIR%requirements-build.txt" (
+        echo Using build requirements: requirements-build.txt
+    ) else (
+        echo WARNING: requirements-build.txt not found, using requirements.txt
+        set REQUIREMENTS_FILE=requirements.txt
+    )
+
     :: Check if PyInstaller is installed
     "%VENV_PIP%" show pyinstaller >nul 2>nul
     if !errorlevel! neq 0 (
         echo PyInstaller not found. Installing...
-        "%VENV_PIP%" install pyinstaller
+        "%VENV_PIP%" install pyinstaller==6.16.0
         if !errorlevel! neq 0 (
             echo ERROR: Failed to install PyInstaller
             exit /b 1
         )
+    )
+
+    :: Install build dependencies
+    echo Installing build dependencies from !REQUIREMENTS_FILE!...
+    "%VENV_PIP%" install --no-cache-dir -r "%SCRIPT_DIR%!REQUIREMENTS_FILE!"
+    if !errorlevel! neq 0 (
+        echo ERROR: Failed to install build dependencies
+        exit /b 1
     )
 
     :: Build with PyInstaller using spec file

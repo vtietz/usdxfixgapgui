@@ -138,7 +138,7 @@ pip install -r requirements-dev.txt
 
 ### Build Process
 
-All build scripts automatically **exclude development dependencies** to minimize executable size:
+Build scripts **automatically detect and use platform-specific requirements files** to ensure optimal executable sizes:
 
 ```bash
 # Windows
@@ -148,13 +148,20 @@ All build scripts automatically **exclude development dependencies** to minimize
 ./run.sh build
 ```
 
+**Platform-Specific Requirements:**
+- **Windows**: `requirements-build.txt` - CPU-only PyTorch (standard wheel)
+- **Linux**: `requirements-build-linux.txt` - CPU-only PyTorch with `+cpu` suffix (prevents CUDA bloat)
+- **macOS**: `requirements-build-macos.txt` - Standard PyTorch (macOS has no CUDA support)
+
+The build scripts detect the platform and automatically use the correct requirements file. This ensures consistent, minimal build sizes across platforms.
+
 **Excluded from builds:**
 - pytest, pytest-qt, pytest-mock
 - lizard, flake8, mypy, autoflake, black
 - IPython, jupyter, notebook
 
 **Included in builds:**
-- **CPU-only PyTorch** (~300-500 MB) - Works immediately, no extra downloads required
+- **CPU-only PyTorch** - Works immediately, no extra downloads required
 - All other runtime dependencies (PySide6, librosa, demucs, etc.)
 
 **GPU Pack Architecture:**
@@ -217,11 +224,15 @@ The project uses GitHub Actions for continuous integration:
 - Purpose: Test builds without creating releases
 
 **Release Workflow** (`.github/workflows/release.yml`):
-- Triggers: Git tags (e.g., `v2.0.0`)
+- Triggers: Git tags (e.g., `v1.2.0`, `v1.2.0-rc1`)
 - Builds: Windows (.exe), Linux (.tar.gz), macOS (.tar.gz)
-- Dependencies: Uses `requirements-build.txt` (CPU-only PyTorch)
+- Dependencies: 
+  - Windows: `requirements-build.txt` (CPU-only PyTorch)
+  - Linux: `requirements-build-linux.txt` (CPU-only PyTorch with `+cpu` suffix)
+  - macOS: `requirements-build-macos.txt` (standard PyTorch, no CUDA on macOS)
 - Publishes: GitHub release with artifacts and notes from `docs/releases/{VERSION}.md`
-- Executable size: ~350-500 MB (CPU-only PyTorch bundled)
+- Pre-release detection: Tags matching `-(rc|beta|alpha)` are marked as pre-release
+- Executable size: ~245 MB (Windows), ~250 MB (Linux), ~195 MB (macOS)
 
 ## Best Practices
 

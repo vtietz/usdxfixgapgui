@@ -289,20 +289,60 @@ case "$1" in
         # Detect OS for output message
         if [[ "$OSTYPE" == "darwin"* ]]; then
             OS_NAME="macOS"
+            REQUIREMENTS_FILE="requirements-build-macos.txt"
         else
             OS_NAME="Linux"
+            REQUIREMENTS_FILE="requirements-build-linux.txt"
         fi
 
         print_info "Building for $OS_NAME..."
 
+        # Detect platform-specific requirements file
+        if [[ -f "$SCRIPT_DIR/$REQUIREMENTS_FILE" ]]; then
+            print_info "Using platform-specific requirements: $REQUIREMENTS_FILE"
+        else
+            print_warning "Platform-specific requirements not found, using requirements-build.txt"
+            REQUIREMENTS_FILE="requirements-build.txt"
+        fi
+
         # Check if PyInstaller is installed
         if ! "$VENV_PIP" show pyinstaller &> /dev/null; then
             print_info "PyInstaller not found. Installing..."
-            "$VENV_PIP" install pyinstaller
+            "$VENV_PIP" install pyinstaller==6.16.0
             if [[ $? -ne 0 ]]; then
                 print_error "Failed to install PyInstaller"
                 exit 1
             fi
+        fi
+
+        # Install build dependencies (CPU-only PyTorch for smaller builds)
+        print_info "Installing build dependencies from $REQUIREMENTS_FILE..."
+        if [[ "$OS_NAME" == "Linux" ]] && [[ -f "$SCRIPT_DIR/requirements-build-linux.txt" ]]; then
+            # Linux: Use --extra-index-url to ensure +cpu wheels
+            "$VENV_PIP" install --no-cache-dir \
+                --extra-index-url https://download.pytorch.org/whl/cpu \
+                -r "$SCRIPT_DIR/$REQUIREMENTS_FILE"
+        else
+            # macOS/Windows: Standard installation
+            "$VENV_PIP" install --no-cache-dir -r "$SCRIPT_DIR/$REQUIREMENTS_FILE"
+        fi
+        
+        if [[ $? -ne 0 ]]; then
+            print_error "Failed to install build dependencies"
+            exit 1
+        fi
+
+        # Verify no CUDA dependencies on Linux
+        if [[ "$OS_NAME" == "Linux" ]]; then
+            print_info "Verifying no CUDA dependencies installed..."
+            BAD=$("$VENV_PIP" freeze | grep -E '^(nvidia-|pytorch-triton|triton==)' || true)
+            if [[ -n "$BAD" ]]; then
+                print_error "Unexpected CUDA-related packages found:"
+                echo "$BAD"
+                print_error "Build will be too large. Please check requirements-build-linux.txt"
+                exit 1
+            fi
+            print_success "No CUDA dependencies found - build will be CPU-only"
         fi
 
         # Build with PyInstaller using spec file
