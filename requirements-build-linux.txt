@@ -1,0 +1,24 @@
+# Build-time dependencies for Linux CI/CD
+# This file pins CPU-only PyTorch to ensure small executable sizes (~250 MB)
+#
+# CRITICAL: torch and torchaudio MUST have +cpu suffix on Linux
+# to avoid pulling 1GB+ of CUDA dependencies
+
+# ===== Runtime dependencies (same as requirements.txt) =====
+aiofiles==24.1.0
+pillow==10.4.0
+PySide6==6.6.3.1
+PySide6_Addons==6.6.3.1
+PySide6_Essentials==6.6.3.1
+shiboken6==6.6.3.1
+librosa==0.10.1
+demucs==4.0.1
+numpy>=1.24.0,<2.0.0
+scipy>=1.10.0
+soundfile>=0.12.1
+watchdog>=4.0.0
+matplotlib>=3.5.0
+
+# ===== PyTorch - CPU-only builds (MUST be pinned with +cpu suffix) =====
+torch==2.4.1+cpu
+torchaudio==2.4.1+cpu

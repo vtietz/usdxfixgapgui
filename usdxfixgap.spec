@@ -101,9 +101,12 @@ exclude_modules = [
     'torch.cuda',
     'torch.backends.cuda',
     'torch.backends.cudnn',
+    'torch.backends.mps',  # Metal Performance Shaders (macOS GPU)
     'nvidia',
+    'nvidia.*',  # All nvidia submodules
     'cuda',
     'cudnn',
+    'triton',  # PyTorch JIT compiler (CUDA-specific)
     
     # Unnecessary for our app
     'matplotlib',
