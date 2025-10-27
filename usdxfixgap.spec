@@ -19,28 +19,28 @@ hidden_imports = [
     'PySide6.QtWidgets',
     'PySide6.QtMultimedia',
     'PySide6.QtMultimediaWidgets',
-    
+
     # Audio processing
     'soundfile',
     'sounddevice',
     'librosa',
     'audioread',
     'resampy',
-    
+
     # PyTorch & Demucs
     'torch',
     'torchaudio',
     'demucs',
     'julius',
     'einops',
-    
+
     # Other dependencies
     'numpy',
     'scipy',
     'mutagen',
     'pytz',
     'chardet',
-    
+
     # Worker threads
     'concurrent.futures',
     'queue',
@@ -96,7 +96,7 @@ exclude_modules = [
     '_pytest',
     'py',
     'pluggy',
-    
+
     # CUDA-related modules (CPU-only build)
     'torch.cuda',
     'torch.backends.cuda',
@@ -107,7 +107,7 @@ exclude_modules = [
     'cuda',
     'cudnn',
     'triton',  # PyTorch JIT compiler (CUDA-specific)
-    
+
     # Unnecessary for our app
     'matplotlib',
     'tkinter',
@@ -135,7 +135,7 @@ a = Analysis(
 # Filter out excluded binaries to reduce size
 # Use substring matching to catch all variants (.dll, .so, .so.*, .dylib)
 a.binaries = TOC([
-    x for x in a.binaries 
+    x for x in a.binaries
     if not any(pattern in x[0].lower() for pattern in exclude_binaries)
 ])
 

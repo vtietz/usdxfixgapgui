@@ -226,7 +226,7 @@ The project uses GitHub Actions for continuous integration:
 **Release Workflow** (`.github/workflows/release.yml`):
 - Triggers: Git tags (e.g., `v1.2.0`, `v1.2.0-rc1`)
 - Builds: Windows (.exe), Linux (.tar.gz), macOS (.tar.gz)
-- Dependencies: 
+- Dependencies:
   - Windows: `requirements-build.txt` (CPU-only PyTorch)
   - Linux: `requirements-build-linux.txt` (CPU-only PyTorch with `+cpu` suffix)
   - macOS: `requirements-build-macos.txt` (standard PyTorch, no CUDA on macOS)

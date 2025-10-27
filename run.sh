@@ -326,7 +326,7 @@ case "$1" in
             # macOS/Windows: Standard installation
             "$VENV_PIP" install --no-cache-dir -r "$SCRIPT_DIR/$REQUIREMENTS_FILE"
         fi
-        
+
         if [[ $? -ne 0 ]]; then
             print_error "Failed to install build dependencies"
             exit 1
@@ -348,14 +348,14 @@ case "$1" in
         # Build with PyInstaller using spec file
         print_info "Building executable (this may take a few minutes)..."
         print_info "NOTE: Bundling CPU-only PyTorch. Users can upgrade to GPU via GPU Pack download."
-        
+
         # Check if spec file exists
         if [[ ! -f "$SCRIPT_DIR/usdxfixgap.spec" ]]; then
             print_error "usdxfixgap.spec not found"
             print_error "Please make sure the spec file exists in the project root"
             exit 1
         fi
-        
+
         "$VENV_PYTHON" -m PyInstaller --clean --noconfirm "$SCRIPT_DIR/usdxfixgap.spec"
 
         if [[ $? -eq 0 ]]; then

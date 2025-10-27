@@ -329,14 +329,14 @@ if /i "%1"=="build" (
     :: Build with PyInstaller using spec file
     echo Building executable ^(this may take a few minutes^)...
     echo NOTE: Bundling CPU-only PyTorch. Users can upgrade to GPU via GPU Pack download.
-    
+
     :: Check if spec file exists
     if not exist "%SCRIPT_DIR%usdxfixgap.spec" (
         echo ERROR: usdxfixgap.spec not found
         echo Please make sure the spec file exists in the project root
         exit /b 1
     )
-    
+
     "%VENV_PYTHON%" -m PyInstaller --clean --noconfirm "%SCRIPT_DIR%usdxfixgap.spec"
 
     if !errorlevel! equ 0 (
