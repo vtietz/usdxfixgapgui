@@ -94,11 +94,11 @@ jobs:
           fi
           echo "✅ No CUDA dependencies found - build will be CPU-only"
 
-      - name: Make build script executable
-        run: chmod +x run.sh
-
       - name: Build Linux Executable
-        run: ./run.sh build
+        run: |
+          # Use system Python directly - it already has CPU-only PyTorch installed
+          # Don't use ./run.sh build which would create a new venv with wrong packages
+          python -m PyInstaller --clean --noconfirm usdxfixgap.spec
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
