@@ -35,10 +35,10 @@ def artifact_dir(tmp_path):
     """
     Artifact directory for preview images.
 
-    If GAP_TIER1_WRITE_DOCS=1, writes to docs/gap-tests/tier1/
+    If GAP_WRITE_DOCS=1, writes to docs/gap-tests/tier1/
     Otherwise uses tmp_path for CI cleanliness.
     """
-    if os.environ.get('GAP_TIER1_WRITE_DOCS') == '1':
+    if os.environ.get('GAP_WRITE_DOCS') == '1':
         docs_path = Path(__file__).parent.parent.parent / 'docs' / 'gap-tests' / 'tier1'
         docs_path.mkdir(parents=True, exist_ok=True)
         return docs_path
@@ -69,8 +69,8 @@ def write_preview_if_enabled(
     scenario_name: str,
     artifact_dir: Path
 ):
-    """Write waveform preview if GAP_TIER1_WRITE_DOCS is enabled."""
-    if os.environ.get('GAP_TIER1_WRITE_DOCS') == '1':
+    """Write waveform preview if GAP_WRITE_DOCS is enabled."""
+    if os.environ.get('GAP_WRITE_DOCS') == '1':
         out_path = artifact_dir / f"{scenario_name}.png"
         error_str = f"Δ{detected_ms - truth_ms:+.1f}ms" if detected_ms else "NONE"
         title = f"{scenario_name.replace('-', ' ').title()} | Truth={truth_ms:.0f}ms, Detected={detected_ms:.0f}ms ({error_str})" if detected_ms else f"{scenario_name.replace('-', ' ').title()} | Truth={truth_ms:.0f}ms, NOT DETECTED"

@@ -131,8 +131,7 @@ case "$1" in
 
         # Set environment variables for doc generation
         if [[ -n "$TEST_DOCS" ]]; then
-            export GAP_TIER1_WRITE_DOCS=1
-            export GAP_TIER3_WRITE_DOCS=1
+            export GAP_WRITE_DOCS=1
             print_info "[Test Artifacts] Visual artifacts will be generated in docs/gap-tests/"
         fi
 

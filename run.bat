@@ -120,8 +120,7 @@ if /i "%1"=="test" (
 
     :: Set environment variables for doc generation
     if defined TEST_DOCS (
-        set GAP_TIER1_WRITE_DOCS=1
-        set GAP_TIER3_WRITE_DOCS=1
+        set GAP_WRITE_DOCS=1
         echo [Test Artifacts] Visual artifacts will be generated in docs/gap-tests/
     )
 

@@ -1,6 +1,6 @@
 # Gap Detection Tests
 
-**Status**: ✅ 51 tests passing  
+**Status**: ✅ 37 tests passing  
 **Coverage**: Energy detection, scanner orchestration, gap-focused search, pipeline integration  
 **Test Files**: `tests/gap_scenarios/test_tier*.py`
 
@@ -53,7 +53,7 @@ hysteresis_ms = 300
 
 ## Test Suite Structure
 
-### Level 1: Energy-Based Onset Detection (13 tests)
+### Level 1: Energy-Based Onset Detection (12 tests)
 **Target**: [`detect_onset_in_vocal_chunk()`](../../src/utils/providers/mdx/detection.py)  
 **Scope**: Pure energy-based detection logic on synthetic vocals  
 **Execution**: ~1-2 seconds
@@ -250,11 +250,6 @@ docs/gap-tests/
 
 **Image Format**: Blue waveform + RMS overlay (red), truth onset (green dashed), detected onset (blue solid), delta error in legend
 
-**Environment Variables**:
-- `GAP_TIER1_WRITE_DOCS=1` - Generate tier-1 energy detection images
-- `GAP_TIER2_WRITE_DOCS=1` - Generate tier-2 scanner orchestration images (v2.4+)
-- `GAP_TIER3_WRITE_DOCS=1` - Generate tier-3 pipeline integration images
-
 **Tier-2 Images** (Gap-Focused Search Validation):
 - Show early noise markers (ignored outside search window)
 - Display expected_gap_ms position (search center)
@@ -283,10 +278,9 @@ docs/gap-tests/
 
 ## Environment Variables
 
-- `GAP_TIER1_WRITE_DOCS=1` - Generate Level 1 waveform images
-- `GAP_TIER3_WRITE_DOCS=1` - Generate Level 3 pipeline plots
+- `GAP_WRITE_DOCS=1` - Generate all test artifacts (tier1, tier2, tier3 images)
 
-Both set automatically with `.\run.bat test --docs`
+Set automatically with `.\run.bat test --docs`
 
 ---
 

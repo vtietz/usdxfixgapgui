@@ -433,7 +433,7 @@ def write_tier3_docs():
     """
     Fixture to check if Tier-3 docs should be generated.
 
-    Returns True if GAP_TIER3_WRITE_DOCS=1 environment variable is set.
+    Returns True if GAP_WRITE_DOCS=1 environment variable is set.
     """
     import os
-    return os.environ.get('GAP_TIER3_WRITE_DOCS', '0') == '1'
+    return os.environ.get('GAP_WRITE_DOCS', '0') == '1'

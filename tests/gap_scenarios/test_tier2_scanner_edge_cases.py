@@ -26,29 +26,25 @@ from utils.providers.mdx.vocals_cache import VocalsCache
 
 @pytest.fixture
 def artifact_dir(tmp_path):
-    """Return docs directory if GAP_TIER2_WRITE_DOCS=1, else tmp_path."""
-    if os.environ.get('GAP_TIER2_WRITE_DOCS') == '1':
+    """Return docs directory if GAP_WRITE_DOCS=1, else tmp_path."""
+    if os.environ.get('GAP_WRITE_DOCS') == '1':
         docs_path = Path(__file__).parent.parent.parent / 'docs' / 'gap-tests' / 'tier2'
         docs_path.mkdir(parents=True, exist_ok=True)
         return docs_path
     return tmp_path
 
 
-def write_tier2_preview_if_enabled(
-    audio_path,
-    truth_ms: float,
-    detected_ms,
-    early_noise_ms,
-    expected_gap_ms: float,
-    test_name: str,
-    artifact_dir: Path
-):
-    """Write waveform preview if GAP_TIER2_WRITE_DOCS=1."""
-    if os.environ.get('GAP_TIER2_WRITE_DOCS') != '1':
+def write_tier2_preview_if_enabled(audio_path, truth_ms, detected_ms, early_noise_ms, expected_gap_ms, scenario_name, artifact_dir):
+    """Write waveform preview if GAP_WRITE_DOCS=1."""
+    if os.environ.get('GAP_WRITE_DOCS') != '1':
         return
 
-    # Load stereo audio
-    sr, audio = wavfile.read(str(audio_path))
+    import soundfile as sf
+    import numpy as np
+    from test_utils import visualize
+
+    # Read audio
+    audio, sr = sf.read(audio_path)
 
     # Extract vocals (right channel for stereo test files)
     if audio.ndim == 2:
@@ -66,7 +62,7 @@ def write_tier2_preview_if_enabled(
     title = " | ".join(title_parts)
 
     # Save visualization
-    output_path = artifact_dir / f"{test_name}.png"
+    output_path = artifact_dir / f"{scenario_name}.png"
     visualize.save_waveform_preview(
         wave=vocals,
         sr=sr,
