@@ -51,6 +51,36 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
+      - name: Smoke Test - Verify Entry Point
+        run: |
+          echo "Verifying usdxfixgap.py entry point..."
+          python -c "
+          import sys
+          sys.path.insert(0, 'src')
+
+          # Verify file is not empty
+          import os
+          file_size = os.path.getsize('src/usdxfixgap.py')
+          if file_size == 0:
+              print('❌ CRITICAL: src/usdxfixgap.py is empty!')
+              sys.exit(1)
+
+          # Verify it can be imported
+          try:
+              import usdxfixgap
+              print('✅ usdxfixgap.py can be imported')
+          except Exception as e:
+              print(f'❌ CRITICAL: Cannot import usdxfixgap.py: {e}')
+              sys.exit(1)
+
+          # Verify main() function exists
+          if not hasattr(usdxfixgap, 'main'):
+              print('❌ CRITICAL: main() function not found in usdxfixgap.py')
+              sys.exit(1)
+
+          print('✅ Entry point smoke test passed')
+          "
+
       - name: Run tests
         run: |
           python -m pytest tests/ -v --tb=short

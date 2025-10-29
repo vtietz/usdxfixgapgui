@@ -13,6 +13,7 @@ data/
 .venv/
 venv/
 env/
+.conda/
 
 # Config files (user-specific, auto-generated from defaults)
 config.ini
