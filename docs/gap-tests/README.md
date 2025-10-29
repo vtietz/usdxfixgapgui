@@ -1,7 +1,7 @@
 # Gap Detection Tests
 
-**Status**: ✅ 37 tests passing  
-**Coverage**: Energy detection, scanner orchestration, gap-focused search, pipeline integration  
+**Status**: ✅ 37 tests passing
+**Coverage**: Energy detection, scanner orchestration, gap-focused search, pipeline integration
 **Test Files**: `tests/gap_scenarios/test_tier*.py`
 
 ---
@@ -44,7 +44,7 @@ hysteresis_ms = 300
 
 **Use cases:**
 - Tune detection for very quiet intros
-- Test aggressive thresholds for gradual fade-ins  
+- Test aggressive thresholds for gradual fade-ins
 - Validate settings before applying to production config.ini
 
 **Note:** This is for **local experimentation only**. Standard tests (without custom_config.ini) use hard-coded values for consistency and CI/CD predictability.
@@ -54,8 +54,8 @@ hysteresis_ms = 300
 ## Test Suite Structure
 
 ### Level 1: Energy-Based Onset Detection (12 tests)
-**Target**: [`detect_onset_in_vocal_chunk()`](../../src/utils/providers/mdx/detection.py)  
-**Scope**: Pure energy-based detection logic on synthetic vocals  
+**Target**: [`detect_onset_in_vocal_chunk()`](../../src/utils/providers/mdx/detection.py)
+**Scope**: Pure energy-based detection logic on synthetic vocals
 **Execution**: ~1-2 seconds
 
 #### Detection Parameters
@@ -98,8 +98,8 @@ hysteresis_ms = 300
 ---
 
 ### Level 2: Scanner Orchestration (18 tests)
-**Target**: [`scan_for_onset()`](../../src/utils/providers/mdx/scanner/pipeline.py)  
-**Scope**: Integration with chunk iterator, expansion strategy, stubbed separation  
+**Target**: [`scan_for_onset()`](../../src/utils/providers/mdx/scanner/pipeline.py)
+**Scope**: Integration with chunk iterator, expansion strategy, stubbed separation
 **Execution**: ~3.5 seconds
 
 #### Test Infrastructure
@@ -174,8 +174,8 @@ This allows aggressive thresholds (5.0/0.015/150/400) to catch gradual fade-ins 
 ---
 
 ### Level 3: Pipeline Integration (7 tests)
-**Target**: [`perform()`](../../src/utils/gap_detection/pipeline.py)  
-**Scope**: End-to-end pipeline with stubbed provider  
+**Target**: [`perform()`](../../src/utils/gap_detection/pipeline.py)
+**Scope**: End-to-end pipeline with stubbed provider
 **Execution**: ~3.3 seconds
 
 #### Test Infrastructure
@@ -289,5 +289,5 @@ Set automatically with `.\run.bat test --docs`
 - [MDX Detection Code](../../src/utils/providers/mdx/detection.py)
 - [MDX Scanner Pipeline](../../src/utils/providers/mdx/scanner/pipeline.py)
 - [Gap Detection Pipeline](../../src/utils/gap_detection/pipeline.py)
-- [MDX Detection Tuning Guide](../mdx-detection-tuning.md)
+- [Configuration Reference - MDX Detection Tuning](../configuration.md#mdx-detection-tuning)
 - [Architecture Overview](../architecture.md)

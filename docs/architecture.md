@@ -1,5 +1,5 @@
 
-## **1. Target Architecture Overview** -- not yet achieved!
+## **1. Architecture Overview**
 
 > **📋 Related Documentation:**
 > - [Coding Standards](coding-standards.md) - DRY principle, clean code practices, and implementation guidelines
@@ -45,18 +45,18 @@
 
 #### **Managers**
 - **`SongManager`**:
-  - Manages the `SongList` and handles operations like selecting songs or clearing the list.
-  - Emits signals (e.g., `selected_songs_changed`, `song_added`) to notify other components about changes.
-  - Delegates low-level operations (e.g., adding/removing songs) to the `SongList`.
+  - Manages song loading, selection, and directory handling.
+  - Handles auto-loading from the last directory.
+  - Delegates song operations to the `Songs` collection.
 
-- **`WorkerManager`**:
+- **`WorkerQueueManager`**:
   - Manages worker tasks (e.g., queuing, running, canceling).
   - Emits signals to notify the UI about task progress or completion.
   - Encapsulates worker-related logic to keep it separate from the UI.
 
-- **`ConfigManager`**:
-  - Manages application configuration (e.g., directories, temporary paths).
-  - Provides a clean interface for accessing and updating configuration values.
+- **`WatchModeController`**:
+  - Manages file system watching for automatic song reloading.
+  - Handles watch mode activation and file change detection.
 
 #### **Services**
 - **`GapInfoService`**:
@@ -68,9 +68,10 @@
   - Provides utility methods for creating or validating paths.
 
 #### **Application State**
-- **`AppState`**:
-  - Manages global state (e.g., `selected_songs`, `is_loading_songs`).
-  - Forwards signals from managers to simplify access for the UI.
+- **`AppData`**:
+  - Manages global application state (e.g., `selected_songs`, `is_loading_songs`).
+  - Provides access to configuration via lazy-loaded `Config` instance.
+  - Forwards signals from the `Songs` collection to simplify access for the UI.
   - Acts as a dependency injection container for managers and services.
 
 #### **UI Components**
@@ -93,8 +94,8 @@
    - Managers handle the logic and update the models or state as needed.
 
 3. **From Services to Managers**:
-   - Services perform stateless operations (e.g., gap detection) and return results to managers.
-   - Managers update the models or emit signals based on the results.
+   - Services perform stateless operations (e.g., gap detection) and return results to actions.
+   - Actions update the models or emit signals based on the results.
 
 ---
 
@@ -122,26 +123,36 @@
 
 #### **Use Case: Reloading a Song**
 1. The user clicks "Reload Song" in the UI.
-2. The UI calls `SongManager.reload_song()`.
-3. `SongManager` delegates the reload operation to a service (e.g., `SongService`).
-4. The service reloads the song and returns the updated data to `SongManager`.
-5. `SongManager` updates the `SongList` and emits a `song_updated` signal.
-6. The UI listens to the `song_updated` signal and refreshes the displayed song.
+2. The UI calls an action method (e.g., `SongActions.reload_song()`).
+3. The action delegates the reload operation to a service (e.g., `SongService`).
+4. The service reloads the song and returns the updated data to the action.
+5. The action updates the song and emits `songs.updated` signal.
+6. The UI listens to the `songs.updated` signal and refreshes the displayed song.
 
-### **6. Folder Structure (Current Implementation)**
-
-**Note**: This structure reflects the current codebase. Items marked with `*` are aspirational components not yet implemented.
+### **6. Folder Structure**
 
 ```
 src/
   ├── app/
   │   ├── app_data.py        # Centralized application state and DI container
-  │   ├── app_state.py*      # (Future) Global state management
+  │
+  ├── actions/
+  │   ├── __init__.py
+  │   ├── base_actions.py    # Base class for all actions
+  │   ├── main_actions.py    # Main orchestration actions
+  │   ├── song_actions.py    # Song-related actions
+  │   ├── gap_actions.py     # Gap detection actions
+  │   ├── audio_actions.py   # Audio processing actions
+  │   ├── ui_actions.py      # UI-specific actions
+  │   ├── core_actions.py    # Core application actions
+  │   ├── watch_mode_actions.py # Watch mode actions
   │
   ├── managers/
   │   ├── __init__.py
+  │   ├── base_manager.py    # Base class for all managers
+  │   ├── song_manager.py    # Song loading and directory management
   │   ├── worker_queue_manager.py  # Manages worker tasks
-  │   ├── config_manager.py*       # (Future) Configuration management
+  │   ├── watch_mode_controller.py # File system watching
   │
   ├── model/
   │   ├── __init__.py
@@ -153,19 +164,22 @@ src/
   │   ├── __init__.py
   │   ├── gap_info_service.py    # Handles gap detection logic
   │   ├── waveform_path_service.py # Manages waveform paths
+  │   ├── song_service.py        # Song-related services
+  │   ├── usdx_file_service.py   # USDX file I/O operations
+  │   ├── audio_service.py       # Audio processing services
   │
   ├── ui/
   │   ├── __init__.py
   │   ├── task_queue_viewer.py   # Displays the task queue
-  │   ├── media_player.py        # Handles media playback
+  │   ├── mediaplayer/           # Media playback components
   │
   ├── workers/
   │   ├── __init__.py
-  │   ├── worker_queue_manager.py # Manages worker queues
   │   ├── worker_components.py    # Worker base classes and signals
+  │   # ... various worker implementations
 ```
 
-### **7. Benefits of the Target Architecture**
+### **7. Benefits of the Architecture**
 
 1. **Separation of Concerns**:
    - Each layer has a clear responsibility, reducing coupling and improving maintainability.
