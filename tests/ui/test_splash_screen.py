@@ -192,7 +192,7 @@ class TestStartupSplash:
 
     @patch('ui.splash_screen.check_system_capabilities')
     def test_use_cpu_button_disables_gpu_opt_in(self, mock_check, qtbot, mock_config):
-        """Use CPU button should disable gpu_opt_in in config."""
+        """Use CPU button should disable gpu_opt_in in config after confirming."""
         mock_config.gpu_opt_in = True
         mock_caps = SystemCapabilities(
             has_torch=True,
@@ -215,7 +215,14 @@ class TestStartupSplash:
         splash._run_checks()
         qtbot.wait(100)
 
-        # Click Use CPU button (don't wait for actual dialog to close)
+        # First click: Show GPU Pack offer
+        qtbot.mouseClick(splash.use_cpu_btn, Qt.MouseButton.LeftButton)
+        qtbot.wait(50)
+
+        # Button should now say "No, Use CPU Mode"
+        assert splash.use_cpu_btn.text() == "No, Use CPU Mode"
+
+        # Second click: Confirm CPU mode (this triggers finish)
         with qtbot.waitSignal(splash.finished, timeout=2000):
             qtbot.mouseClick(splash.use_cpu_btn, Qt.MouseButton.LeftButton)
 
