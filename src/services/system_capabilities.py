@@ -16,7 +16,23 @@ import os
 import subprocess
 from dataclasses import dataclass
 from typing import Optional
-from PySide6.QtCore import QObject, Signal
+
+# Conditionally import Qt - not needed for CLI mode
+try:
+    from PySide6.QtCore import QObject, Signal
+    HAS_QT = True
+except ImportError:
+    HAS_QT = False
+    # Dummy implementations for CLI mode
+    class QObject:
+        pass
+    
+    class Signal:
+        def __init__(self, *args):
+            pass
+        
+        def emit(self, *args):
+            pass
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +137,14 @@ class SystemCapabilitiesService(QObject):
         if self._initialized:
             return
 
-        super().__init__()
+        # Only call super().__init__() if we have real Qt
+        if HAS_QT and isinstance(QObject, type):
+            try:
+                super().__init__()
+            except RuntimeError:
+                # Qt not available (e.g., headless environment)
+                pass
+        
         self._capabilities: Optional[SystemCapabilities] = None
         self._initialized = True
         logger.debug("SystemCapabilitiesService initialized")
