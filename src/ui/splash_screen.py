@@ -32,8 +32,8 @@ class StartupSplash(QDialog):
     Workflow:
     1. Show splash immediately on app start
     2. Run system checks (log progress to UI)
-    3. If PyTorch missing → show error, allow continue
-    4. If GPU configured but CUDA missing → offer GPU Pack download
+    3. If PyTorch missing → show build error (GPU Pack won't fix this)
+    4. If PyTorch CPU available but CUDA missing + user wants GPU → offer GPU Pack download
     5. Emit checks_complete signal and close
 
     Signals:
@@ -247,26 +247,18 @@ class StartupSplash(QDialog):
             self.log("")
 
             if not self.capabilities.has_torch:
-                # PyTorch missing - Check if GPU Pack download would help
-                if self.config and self.config.gpu_opt_in:
-                    # PATH 2 (special case): PyTorch missing but GPU opted-in → GPU Pack might fix it
-                    self.log("❌ PyTorch not available")
-                    self.log(f"   Error: {self.capabilities.torch_error}")
-                    self.log("")
-                    self.log("💡 Tip: Download GPU Pack to install PyTorch with GPU support")
-                    self.log("")
-                    self.log("⚠️  Gap detection currently disabled")
-                    self.status_label.setText("⚡ Download GPU Pack to Fix")
-                    self._show_gpu_pack_prompt()
-                else:
-                    # PATH 3a: PyTorch missing, GPU not opted-in → permanent failure
-                    self.log("❌ PyTorch not available")
-                    self.log(f"   Error: {self.capabilities.torch_error}")
-                    self.log("")
-                    self.log("⚠️  Gap detection disabled")
-                    self.log("   → Application will start in view-only mode")
-                    self.status_label.setText("❌ Gap Detection Disabled")
-                    self._show_continue_button()
+                # PATH 3a: PyTorch missing → BUILD ERROR
+                # GPU Pack won't fix this - it supplements bundled PyTorch, doesn't install it
+                self.log("❌ PyTorch not available")
+                self.log(f"   Error: {self.capabilities.torch_error}")
+                self.log("")
+                self.log("⚠️  This is a build error - PyTorch should be bundled in the executable")
+                self.log("   → Gap detection disabled")
+                self.log("   → Application will start in view-only mode")
+                self.log("")
+                self.log("💡 Tip: Rebuild the executable or report this issue")
+                self.status_label.setText("❌ Build Error - PyTorch Missing")
+                self._show_continue_button()
 
             elif not self.capabilities.has_ffmpeg:
                 # PATH 3b: FFmpeg missing → permanent failure (download won't help)

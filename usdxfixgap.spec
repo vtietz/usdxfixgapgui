@@ -83,7 +83,10 @@ exclude_binaries = [
     'mkl_', 'libmkl_',
 ]
 
-# Modules to exclude (dev/test dependencies)
+# Modules to exclude (dev/test dependencies only)
+# NOTE: Do NOT exclude torch submodules (torch.cuda, etc.) here!
+# PyInstaller will skip torch entirely if it sees dependencies are excluded.
+# Instead, exclude CUDA binaries via exclude_binaries below.
 exclude_modules = [
     # Development tools
     'pytest',
@@ -100,17 +103,6 @@ exclude_modules = [
     '_pytest',
     'py',
     'pluggy',
-
-    # CUDA-related modules (CPU-only build)
-    'torch.cuda',
-    'torch.backends.cuda',
-    'torch.backends.cudnn',
-    'torch.backends.mps',  # Metal Performance Shaders (macOS GPU)
-    'nvidia',
-    'nvidia.*',  # All nvidia submodules
-    'cuda',
-    'cudnn',
-    'triton',  # PyTorch JIT compiler (CUDA-specific)
 
     # Unnecessary for our app
     'matplotlib',
