@@ -44,6 +44,26 @@ def find_txt_file(path):
         return path
 
 
+def is_portable_mode():
+    """
+    Detect if running in portable mode (directory build vs one-file exe).
+
+    Portable mode = PyInstaller directory build with _internal folder alongside exe.
+    One-file mode = PyInstaller one-file exe that extracts to temp.
+
+    Returns:
+        bool: True if portable mode, False otherwise
+    """
+    if not getattr(sys, 'frozen', False):
+        # Not frozen = running as script = use system directories
+        return False
+
+    app_dir = os.path.dirname(sys.executable)
+    # Check for _internal directory (PyInstaller directory build marker)
+    internal_dir = os.path.join(app_dir, '_internal')
+    return os.path.isdir(internal_dir)
+
+
 def get_localappdata_dir():
     """
     Get platform-appropriate application data directory for USDXFixGap.
@@ -58,8 +78,14 @@ def get_localappdata_dir():
         Windows: %LOCALAPPDATA%/USDXFixGap/
         Linux:   ~/.local/share/USDXFixGap/ (respects XDG_DATA_HOME)
         macOS:   ~/Library/Application Support/USDXFixGap/
-        Portable: <app_directory>/
+        Portable: <app_directory>/ (when _internal folder detected)
     """
+    # Portable mode: Store data alongside executable
+    if is_portable_mode():
+        app_dir = get_app_dir()
+        logger.info(f"Portable mode detected, using app directory: {app_dir}")
+        return app_dir
+
     # Windows: Use LOCALAPPDATA
     if sys.platform == 'win32':
         local_app_data = os.getenv('LOCALAPPDATA')
