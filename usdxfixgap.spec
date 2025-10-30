@@ -59,6 +59,9 @@ datas = [
 # Exclude CUDA libraries (users can download GPU Pack separately)
 # Must cover all platforms: .dll (Windows), .so* (Linux), .dylib (macOS)
 exclude_binaries = [
+    # CUDA Core Libraries - c10, c10_cuda, etc.
+    'c10_cuda', 'libc10_cuda',
+    '_C_cuda', 'lib_C_cuda',
     # CUDA Deep Neural Network library
     'cudnn', 'libcudnn',
     # CUDA Basic Linear Algebra Subprograms
@@ -79,6 +82,8 @@ exclude_binaries = [
     'nvToolsExt', 'libnvToolsExt',
     # Additional CUDA components
     'nvidia-', 'libnvidia-',
+    # Triton (CUDA JIT compiler)
+    'triton',
     # MKL (Intel Math Kernel Library) - can be large
     'mkl_', 'libmkl_',
 ]

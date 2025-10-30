@@ -252,12 +252,25 @@ class StartupSplash(QDialog):
                 self.log("❌ PyTorch not available")
                 self.log(f"   Error: {self.capabilities.torch_error}")
                 self.log("")
-                self.log("⚠️  This is a build error - PyTorch should be bundled in the executable")
-                self.log("   → Gap detection disabled")
-                self.log("   → Application will start in view-only mode")
-                self.log("")
-                self.log("💡 Tip: Rebuild the executable or report this issue")
-                self.status_label.setText("❌ Build Error - PyTorch Missing")
+                
+                # Detect specific error: CUDA DLLs bundled in CPU-only exe
+                if self.capabilities.torch_error and ('c10_cuda' in self.capabilities.torch_error or 
+                                                      'cuda.dll' in self.capabilities.torch_error.lower()):
+                    self.log("⚠️  This is a build error - CUDA DLLs were incorrectly bundled")
+                    self.log("   → Executable should be CPU-only (~450MB)")
+                    self.log("   → Current build has CUDA DLLs that can't load without NVIDIA drivers")
+                    self.log("   → Gap detection disabled")
+                    self.log("")
+                    self.log("💡 Fix: Rebuild with CPU-only PyTorch (see requirements-build.txt)")
+                    self.status_label.setText("❌ Build Error - CUDA in CPU Build")
+                else:
+                    self.log("⚠️  This is a build error - PyTorch should be bundled in the executable")
+                    self.log("   → Gap detection disabled")
+                    self.log("   → Application will start in view-only mode")
+                    self.log("")
+                    self.log("💡 Tip: Rebuild the executable or report this issue")
+                    self.status_label.setText("❌ Build Error - PyTorch Missing")
+                    
                 self._show_continue_button()
 
             elif not self.capabilities.has_ffmpeg:

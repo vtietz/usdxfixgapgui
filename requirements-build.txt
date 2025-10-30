@@ -22,5 +22,6 @@ matplotlib>=3.5.0
 # ===== PyTorch - CPU-only for builds =====
 # Using CPU-only versions to minimize executable size
 # GPU Pack system provides optional CUDA acceleration at runtime
-# NOTE: Install PyTorch separately with --index-url in the workflow
-# to ensure CPU-only wheels are downloaded (see .github/workflows/release.yml)
+# NOTE: Workflow installs these with --index-url https://download.pytorch.org/whl/cpu
+torch==2.4.1
+torchaudio==2.4.1
