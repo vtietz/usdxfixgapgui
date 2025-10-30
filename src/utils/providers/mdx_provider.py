@@ -25,8 +25,6 @@ import logging
 import os
 import warnings
 import numpy as np
-import torch
-import torchaudio
 from typing import List, Tuple, Optional, Callable
 
 from demucs.apply import apply_model
@@ -137,6 +135,10 @@ class MdxProvider(IDetectionProvider):
                 # Check cancellation
                 if check_cancellation and check_cancellation():
                     raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
+
+                # Lazy imports to avoid loading torch until needed
+                import torch
+                import torchaudio
 
                 # Load audio
                 logger.info("Loading audio file...")
@@ -369,6 +371,9 @@ class MdxProvider(IDetectionProvider):
         Returns:
             Absolute timestamp in milliseconds of first vocal onset, or None
         """
+        # Lazy import to avoid loading torch until needed
+        import torchaudio
+
         from utils.providers.mdx.scanner import scan_for_onset
 
         # Get audio duration
@@ -389,7 +394,7 @@ class MdxProvider(IDetectionProvider):
 
     def _separate_vocals_chunk(
         self,
-        waveform: torch.Tensor,
+        waveform: 'torch.Tensor',
         sample_rate: int,
         check_cancellation: Optional[Callable[[], bool]] = None
     ) -> np.ndarray:

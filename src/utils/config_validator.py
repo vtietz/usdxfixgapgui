@@ -125,8 +125,10 @@ def validate_mdx_config(config) -> List[ConfigValidationError]:
                     reason="TF32 only works on CUDA - no GPU detected",
                     severity="info"
                 ))
-        except ImportError:
-            pass  # PyTorch not available yet
+        except (ImportError, OSError):
+            # ImportError: PyTorch not available yet
+            # OSError: PyInstaller frozen exe trying to load excluded CUDA DLLs
+            pass
 
     return errors
 

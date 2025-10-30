@@ -32,6 +32,18 @@ jobs:
         shell: cmd
         run: run.bat build
 
+      - name: Verify Windows Executable
+        shell: cmd
+        run: |
+          echo "Testing executable health check..."
+          dist\usdxfixgap.exe --version
+          dist\usdxfixgap.exe --health-check
+          if %errorlevel% neq 0 (
+            echo "❌ Health check failed!"
+            exit /b 1
+          )
+          echo "✅ Windows executable verified"
+
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -85,6 +97,14 @@ jobs:
           # Don't use ./run.sh build which would create a new venv with wrong packages
           python -m PyInstaller --clean --noconfirm usdxfixgap.spec
 
+      - name: Verify Linux Executable
+        run: |
+          echo "Testing executable health check..."
+          chmod +x dist/usdxfixgap
+          dist/usdxfixgap --version
+          dist/usdxfixgap --health-check || exit 1
+          echo "✅ Linux executable verified"
+
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -121,6 +141,14 @@ jobs:
 
       - name: Build macOS Executable
         run: ./run.sh build
+
+      - name: Verify macOS Executable
+        run: |
+          echo "Testing executable health check..."
+          chmod +x dist/usdxfixgap
+          dist/usdxfixgap --version
+          dist/usdxfixgap --health-check || exit 1
+          echo "✅ macOS executable verified"
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4

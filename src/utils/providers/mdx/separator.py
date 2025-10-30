@@ -9,7 +9,6 @@ import time
 from typing import Optional, Callable
 
 import numpy as np
-import torch
 from demucs.apply import apply_model
 
 from utils.providers.exceptions import DetectionFailedError
@@ -23,7 +22,7 @@ VOCALS_INDEX = 3
 
 def separate_vocals_chunk(
     model,
-    waveform: torch.Tensor,
+    waveform: 'torch.Tensor',
     sample_rate: int,
     device: str,
     use_fp16: bool,
@@ -50,6 +49,9 @@ def separate_vocals_chunk(
     Raises:
         DetectionFailedError: If cancelled or separation fails
     """
+    # Lazy import to avoid loading torch until needed
+    import torch
+
     # Check cancellation
     if check_cancellation and check_cancellation():
         raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")

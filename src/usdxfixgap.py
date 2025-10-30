@@ -42,6 +42,14 @@ def show_error_dialog(title, message, details=None):
 def parse_arguments():
     """Parse command-line arguments"""
     parser = argparse.ArgumentParser(description='USDXFixGap - UltraStar Deluxe Gap Detection')
+
+    # Version info
+    parser.add_argument('--version', action='store_true',
+                       help='Show version information and exit')
+    parser.add_argument('--health-check', action='store_true',
+                       help='Verify application can start (for CI/testing)')
+
+    # GPU management
     parser.add_argument('--setup-gpu', action='store_true',
                        help='Download and install GPU Pack for CUDA acceleration')
     parser.add_argument('--setup-gpu-zip', type=str, metavar='PATH',
@@ -56,6 +64,104 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def get_version():
+    """Read version from VERSION file"""
+    try:
+        from utils.files import resource_path
+        version_file = resource_path('VERSION')
+        if os.path.exists(version_file):
+            with open(version_file, 'r') as f:
+                return f.read().strip()
+    except Exception:
+        pass
+    return "unknown"
+
+
+def print_version_info():
+    """Print version and dependency information"""
+    version = get_version()
+    print(f"USDXFixGap {version}")  # VERSION file already contains 'v' prefix
+    print(f"Python: {sys.version.split()[0]}")
+
+    try:
+        from PySide6 import __version__ as pyside_version
+        print(f"PySide6: {pyside_version}")
+    except Exception:
+        print("PySide6: not available")
+
+    try:
+        import torch
+        print(f"PyTorch: {torch.__version__}")
+    except Exception:
+        print("PyTorch: not available")
+
+    try:
+        import librosa
+        print(f"librosa: {librosa.__version__}")
+    except Exception:
+        print("librosa: not available")
+
+
+def health_check():
+    """
+    Perform basic health check to verify app can start.
+    Returns exit code: 0 = success, 1 = failure
+    """
+    print("USDXFixGap Health Check")
+    print("=" * 50)
+
+    errors = []
+
+    # Check critical modules can be imported
+    critical_modules = [
+        ('PySide6.QtCore', 'Qt Framework'),
+        ('torch', 'PyTorch'),
+        ('librosa', 'Audio Processing'),
+        ('soundfile', 'Audio I/O'),
+    ]
+
+    for module_name, description in critical_modules:
+        try:
+            __import__(module_name)
+            print(f"✓ {description:20} ({module_name})")
+        except Exception as e:
+            print(f"✗ {description:20} ({module_name}): {str(e)}")
+            errors.append(f"{description} ({module_name})")
+
+    # Check VERSION file exists
+    try:
+        version = get_version()
+        if version != "unknown":
+            print(f"✓ {'Version File':20} ({version})")  # Already has 'v' prefix
+        else:
+            print(f"⚠ {'Version File':20} (not found, using 'unknown')")
+    except Exception as e:
+        print(f"✗ {'Version File':20} {str(e)}")
+        errors.append("VERSION file")
+
+    # Check assets directory
+    try:
+        from utils.files import resource_path
+        assets_dir = resource_path('assets')
+        if os.path.exists(assets_dir):
+            print(f"✓ {'Assets Directory':20} ({assets_dir})")
+        else:
+            print(f"⚠ {'Assets Directory':20} (not found)")
+    except Exception as e:
+        print(f"⚠ {'Assets Directory':20} {str(e)}")
+
+    print("=" * 50)
+
+    if errors:
+        print(f"\n❌ Health check FAILED - {len(errors)} critical issue(s)")
+        for error in errors:
+            print(f"   - {error}")
+        return 1
+    else:
+        print("\n✅ Health check PASSED - Application ready")
+        return 0
+
+
 def main():
     """Main entry point for USDXFixGap application"""
     log_file_path = None
@@ -63,6 +169,16 @@ def main():
     try:
         # Parse CLI arguments
         args = parse_arguments()
+
+        # Handle --version flag (exit early)
+        if args.version:
+            print_version_info()
+            sys.exit(0)
+
+        # Handle --health-check flag (exit early)
+        if args.health_check:
+            exit_code = health_check()
+            sys.exit(exit_code)
 
         # Create config
         config = Config()

@@ -25,7 +25,6 @@ hidden_imports = [
     'sounddevice',
     'librosa',
     'audioread',
-    'resampy',
 
     # PyTorch & Demucs
     'torch',
@@ -37,9 +36,13 @@ hidden_imports = [
     # Other dependencies
     'numpy',
     'scipy',
-    'mutagen',
-    'pytz',
     'chardet',
+
+    # Image processing (for waveforms)
+    'PIL',
+    'PIL.Image',
+    'PIL.ImageDraw',
+    'PIL.ImageFont',
 
     # Worker threads
     'concurrent.futures',
@@ -49,6 +52,7 @@ hidden_imports = [
 # Data files to include
 datas = [
     (str(assets_dir), 'assets'),
+    (str(project_root / 'VERSION'), '.'),  # Include VERSION file at root
 ]
 
 # Binaries to exclude (reduce size)
@@ -111,7 +115,6 @@ exclude_modules = [
     # Unnecessary for our app
     'matplotlib',
     'tkinter',
-    'PIL',
 ]
 
 block_cipher = None
