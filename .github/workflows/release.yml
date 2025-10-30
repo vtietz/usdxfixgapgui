@@ -28,25 +28,52 @@ jobs:
           pip install --index-url https://download.pytorch.org/whl/cpu torch==2.4.1+cpu torchaudio==2.4.1+cpu
           pip install -r requirements-build.txt
 
-      - name: Build Windows EXE
+      - name: Build Windows EXE (One-File)
         run: python -m PyInstaller --clean --noconfirm usdxfixgap.spec
 
-      - name: Verify Windows Executable
+      - name: Verify Windows One-File Executable
         run: |
-          echo "Testing executable..."
+          echo "Testing one-file executable..."
           dist\usdxfixgap.exe --version
           dist\usdxfixgap.exe --health-check
           if ($LASTEXITCODE -ne 0) {
             echo "❌ Health check failed!"
             exit 1
           }
-          echo "✅ Windows executable verified"
+          echo "✅ Windows one-file executable verified"
 
-      - name: Upload Windows Artifact
+      - name: Build Windows Portable (Directory)
+        run: python -m PyInstaller --clean --noconfirm usdxfixgap-portable.spec
+
+      - name: Verify Windows Portable Executable
+        run: |
+          echo "Testing portable executable..."
+          dist\usdxfixgap-portable\usdxfixgap.exe --version
+          dist\usdxfixgap-portable\usdxfixgap.exe --health-check
+          if ($LASTEXITCODE -ne 0) {
+            echo "❌ Portable health check failed!"
+            exit 1
+          }
+          echo "✅ Windows portable executable verified"
+
+      - name: Package Windows Portable
+        run: |
+          cd dist
+          Compress-Archive -Path usdxfixgap-portable -DestinationPath usdxfixgap-portable-windows.zip
+          cd ..
+
+      - name: Upload Windows One-File Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
           path: dist/usdxfixgap.exe
+          retention-days: 7
+
+      - name: Upload Windows Portable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable
+          path: dist/usdxfixgap-portable-windows.zip
           retention-days: 7
 
   build-linux:
@@ -227,6 +254,12 @@ jobs:
           name: windows-exe
           path: ./artifacts/windows
 
+      - name: Download Windows Portable Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-portable
+          path: ./artifacts/windows-portable
+
       - name: Download Linux Artifact
         uses: actions/download-artifact@v4
         with:
@@ -244,8 +277,11 @@ jobs:
           mkdir -p release
 
           # Use TAG_NAME for filenames (includes -rc1, -beta, etc.)
-          # Windows
+          # Windows (one-file)
           cp artifacts/windows/usdxfixgap.exe release/usdxfixgap-${TAG_NAME}-windows.exe
+
+          # Windows (portable)
+          cp artifacts/windows-portable/usdxfixgap-portable-windows.zip release/usdxfixgap-${TAG_NAME}-windows-portable.zip
 
           # Linux - create tar.gz
           chmod +x artifacts/linux/usdxfixgap
@@ -271,14 +307,23 @@ jobs:
 
           ## Downloads
 
-          - **Windows**: \`usdxfixgap-${TAG_NAME}-windows.exe\`
+          ### Windows
+          - **One-File**: \`usdxfixgap-${TAG_NAME}-windows.exe\` (~450MB, ~10s first launch)
+          - **Portable**: \`usdxfixgap-${TAG_NAME}-windows-portable.zip\` (instant startup)
+          
+          ### Linux & macOS
           - **Linux**: \`usdxfixgap-${TAG_NAME}-linux.tar.gz\`
           - **macOS**: \`usdxfixgap-${TAG_NAME}-macos.tar.gz\`
 
           ## Installation
 
-          ### Windows
-          Download and run the \`.exe\` file.
+          ### Windows (One-File)
+          Download and run the \`.exe\` file. First launch extracts to temp (~10 seconds).
+
+          ### Windows (Portable)
+          1. Extract \`usdxfixgap-${TAG_NAME}-windows-portable.zip\`
+          2. Run \`usdxfixgap.exe\` from the extracted folder
+          3. Instant startup, no extraction delay
 
           ### Linux
           \`\`\`bash
@@ -293,6 +338,11 @@ jobs:
           chmod +x usdxfixgap
           ./usdxfixgap
           \`\`\`
+
+          ## Distribution Formats
+
+          **One-File Executable**: Convenient single file, but extracts on every launch (~10s first time).
+          **Portable ZIP**: Extract once, instant startup forever. Recommended for power users.
 
           ## Notes
 
@@ -334,6 +384,7 @@ jobs:
           prerelease: ${{ env.IS_PRERELEASE == 'true' }}
           files: |
             release/usdxfixgap-${{ env.TAG_NAME }}-windows.exe
+            release/usdxfixgap-${{ env.TAG_NAME }}-windows-portable.zip
             release/usdxfixgap-${{ env.TAG_NAME }}-linux.tar.gz
             release/usdxfixgap-${{ env.TAG_NAME }}-macos.tar.gz
         env:

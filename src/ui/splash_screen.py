@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QTextEdit, QPushButton, QProgressBar, QWidget
 )
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QFont, QPixmap
+from PySide6.QtGui import QFont
 
 from services.system_capabilities import SystemCapabilities, check_system_capabilities
 
@@ -97,7 +97,7 @@ class StartupSplash(QDialog):
         try:
             from usdxfixgap import get_version
             version = get_version()
-        except:
+        except Exception:
             version = "v1.2.0"
 
         version_label = QLabel(f"Version {version}")
@@ -254,8 +254,9 @@ class StartupSplash(QDialog):
                 self.log("")
 
                 # Detect specific error: CUDA DLLs bundled in CPU-only exe
-                if self.capabilities.torch_error and ('c10_cuda' in self.capabilities.torch_error or
-                                                      'cuda.dll' in self.capabilities.torch_error.lower()):
+                if (self.capabilities.torch_error and
+                    ('c10_cuda' in self.capabilities.torch_error or
+                     'cuda.dll' in self.capabilities.torch_error.lower())):
                     self.log("⚠️  This is a build error - CUDA DLLs were incorrectly bundled")
                     self.log("   → Executable should be CPU-only (~450MB)")
                     self.log("   → Current build has CUDA DLLs that can't load without NVIDIA drivers")
@@ -329,10 +330,10 @@ class StartupSplash(QDialog):
         self.log("📦 GPU Pack available for 10x faster detection!")
         self.log("   Download now or continue in CPU mode?")
         self.log("   (You can also download later from Settings)")
-        
+
         # Update UI to show GPU Pack offer
         self.status_label.setText("GPU Pack Available")
-        
+
         # Update buttons: Show "Download GPU Pack" and "No, Use CPU"
         self.gpu_pack_btn.setVisible(True)
         self.gpu_pack_btn.setText("Download GPU Pack")
