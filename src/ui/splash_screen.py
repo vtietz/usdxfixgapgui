@@ -252,9 +252,9 @@ class StartupSplash(QDialog):
                 self.log("❌ PyTorch not available")
                 self.log(f"   Error: {self.capabilities.torch_error}")
                 self.log("")
-                
+
                 # Detect specific error: CUDA DLLs bundled in CPU-only exe
-                if self.capabilities.torch_error and ('c10_cuda' in self.capabilities.torch_error or 
+                if self.capabilities.torch_error and ('c10_cuda' in self.capabilities.torch_error or
                                                       'cuda.dll' in self.capabilities.torch_error.lower()):
                     self.log("⚠️  This is a build error - CUDA DLLs were incorrectly bundled")
                     self.log("   → Executable should be CPU-only (~450MB)")
@@ -270,7 +270,7 @@ class StartupSplash(QDialog):
                     self.log("")
                     self.log("💡 Tip: Rebuild the executable or report this issue")
                     self.status_label.setText("❌ Build Error - PyTorch Missing")
-                    
+
                 self._show_continue_button()
 
             elif not self.capabilities.has_ffmpeg:
@@ -324,8 +324,26 @@ class StartupSplash(QDialog):
         # Don't close - let parent handle GPU Pack dialog
 
     def _on_use_cpu(self):
-        """Handle use CPU mode button."""
-        self.log("Switching to CPU mode...")
+        """Handle use CPU mode button - offer GPU Pack download first."""
+        self.log("")
+        self.log("📦 GPU Pack available for 10x faster detection!")
+        self.log("   Download now or continue in CPU mode?")
+        self.log("   (You can also download later from Settings)")
+        
+        # Update UI to show GPU Pack offer
+        self.status_label.setText("GPU Pack Available")
+        
+        # Update buttons: Show "Download GPU Pack" and "No, Use CPU"
+        self.gpu_pack_btn.setVisible(True)
+        self.gpu_pack_btn.setText("Download GPU Pack")
+        self.use_cpu_btn.setText("No, Use CPU Mode")
+        self.use_cpu_btn.clicked.disconnect()  # Disconnect old handler
+        self.use_cpu_btn.clicked.connect(self._on_confirm_cpu_mode)  # Connect to confirmation
+        self.continue_btn.setVisible(False)
+
+    def _on_confirm_cpu_mode(self):
+        """Confirm CPU mode without GPU Pack."""
+        self.log("Continuing in CPU mode...")
 
         # Update config to disable GPU opt-in
         if self.config:

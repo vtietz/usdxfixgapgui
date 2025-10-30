@@ -26,11 +26,11 @@ except ImportError:
     # Dummy implementations for CLI mode
     class QObject:
         pass
-    
+
     class Signal:
         def __init__(self, *args):
             pass
-        
+
         def emit(self, *args):
             pass
 
@@ -144,7 +144,7 @@ class SystemCapabilitiesService(QObject):
             except RuntimeError:
                 # Qt not available (e.g., headless environment)
                 pass
-        
+
         self._capabilities: Optional[SystemCapabilities] = None
         self._initialized = True
         logger.debug("SystemCapabilitiesService initialized")
