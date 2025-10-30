@@ -9,6 +9,7 @@ import time
 from typing import Optional, Callable
 
 import numpy as np
+import torch
 from demucs.apply import apply_model
 
 from utils.providers.exceptions import DetectionFailedError
@@ -49,9 +50,6 @@ def separate_vocals_chunk(
     Raises:
         DetectionFailedError: If cancelled or separation fails
     """
-    # Lazy import to avoid loading torch until needed
-    import torch
-
     # Check cancellation
     if check_cancellation and check_cancellation():
         raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")

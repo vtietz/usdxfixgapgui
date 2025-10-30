@@ -7,7 +7,7 @@ Separated from main entry point for better code organization.
 
 import sys
 import logging
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QMessageBox
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMessageBox
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
@@ -33,7 +33,7 @@ from ui.log_viewer import LogViewerWidget
 logger = logging.getLogger(__name__)
 
 
-def create_and_run_gui(config, gpu_enabled, log_file_path):
+def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
     """
     Create and run the main GUI application.
 
@@ -41,6 +41,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
         config: Application config object
         gpu_enabled: Boolean indicating if GPU bootstrap succeeded
         log_file_path: Path to log file for log viewer
+        capabilities: SystemCapabilities object from startup checks
 
     Returns:
         Exit code for the application
@@ -79,12 +80,17 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     # Create app data and actions
     data = AppData()
     data.config = config
+    data.capabilities = capabilities  # Store system capabilities from startup checks
     actions = Actions(data)
 
-    # Create QApplication
-    app = QApplication(sys.argv)
+    # QApplication already created in main() for splash screen
+    app = QApplication.instance()
+    if app is None:
+        logger.warning("QApplication not found, creating new instance")
+        app = QApplication(sys.argv)
 
     # Show GPU Pack download dialog if needed (non-modal, so keep reference)
+    # NOTE: This may be redundant if splash already handled it, but kept for backward compat
     gpu_dialog = show_gpu_pack_dialog_if_needed(config, gpu_enabled)
 
     # Set application icon
@@ -164,7 +170,36 @@ def create_and_run_gui(config, gpu_enabled, log_file_path):
     layout.setContentsMargins(5, 5, 5, 5)
     layout.setSpacing(2)
     layout.addWidget(menuBar)
-    layout.addWidget(songStatus)
+
+    # Status row: song status + detection mode indicator
+    status_row = QHBoxLayout()
+    status_row.setSpacing(5)
+    status_row.addWidget(songStatus, 1)  # Song status takes most space
+
+    # Detection mode indicator
+    detection_label = QLabel()
+    detection_label.setFixedHeight(20)
+    detection_label.setStyleSheet("padding: 2px 8px; font-size: 8px; background-color: #2E2E2E; color: rgba(255, 255, 255, 0.7);")
+
+    if capabilities and capabilities.can_detect:
+        if capabilities.has_cuda:
+            detection_label.setText("Detection: GPU")
+            detection_label.setToolTip(f"Gap detection using GPU acceleration\nGPU: {capabilities.gpu_name or 'CUDA available'}")
+        else:
+            detection_label.setText("Detection: CPU")
+            detection_label.setToolTip("Gap detection using CPU (slower)\nTip: Install GPU Pack for faster detection")
+    else:
+        detection_label.setText("Detection: Disabled")
+        if capabilities and not capabilities.has_torch:
+            detection_label.setToolTip(f"PyTorch not available: {capabilities.torch_error or 'Not installed'}")
+        elif capabilities and not capabilities.has_ffmpeg:
+            detection_label.setToolTip("FFmpeg not available\nInstall FFmpeg to enable gap detection")
+        else:
+            detection_label.setToolTip("Gap detection disabled: System requirements not met")
+
+    status_row.addWidget(detection_label)
+
+    layout.addLayout(status_row)
     layout.addWidget(songListView, 2)
     layout.addWidget(mediaPlayerComponent, 1)
     layout.addWidget(taskQueueViewer, 1)

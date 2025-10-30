@@ -26,6 +26,8 @@ import os
 import warnings
 import numpy as np
 from typing import List, Tuple, Optional, Callable
+import torch
+import torchaudio
 
 from demucs.apply import apply_model
 from utils.providers.base import IDetectionProvider
@@ -135,10 +137,6 @@ class MdxProvider(IDetectionProvider):
                 # Check cancellation
                 if check_cancellation and check_cancellation():
                     raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
-
-                # Lazy imports to avoid loading torch until needed
-                import torch
-                import torchaudio
 
                 # Load audio
                 logger.info("Loading audio file...")
@@ -371,9 +369,6 @@ class MdxProvider(IDetectionProvider):
         Returns:
             Absolute timestamp in milliseconds of first vocal onset, or None
         """
-        # Lazy import to avoid loading torch until needed
-        import torchaudio
-
         from utils.providers.mdx.scanner import scan_for_onset
 
         # Get audio duration

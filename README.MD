@@ -185,7 +185,15 @@ watch_ignore_patterns = .tmp,~,.crdownload,.part  # Comma-separated patterns to 
    - Linux: `sudo apt install ffmpeg` or `sudo pacman -S ffmpeg`
    - macOS: `brew install ffmpeg`
 
-4. **Run the application** and start fixing gaps!
+4. **Run the application**:
+   - On first launch, you'll see a startup check verifying system requirements
+   - The splash screen shows:
+     - ✓ PyTorch availability (bundled with exe)
+     - ✓ CUDA/GPU detection
+     - ✓ FFmpeg availability
+     - Detection mode (GPU/CPU/Disabled)
+   - If requirements are missing, you'll see clear instructions
+   - The app will start automatically when ready
 
 5. **(Optional) Enable GPU Acceleration**:
    - Have an NVIDIA GPU with driver ≥531?

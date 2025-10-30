@@ -59,6 +59,29 @@
   - Handles watch mode activation and file change detection.
 
 #### **Services**
+- **`SystemCapabilitiesService`**:
+  - **Single source of truth for system capabilities** (PyTorch, CUDA, FFmpeg availability).
+  - Initialized once at startup via `check()` method with results cached.
+  - Provides `SystemCapabilities` dataclass with:
+    - `has_torch`, `torch_version`, `torch_error` - PyTorch availability
+    - `has_cuda`, `cuda_version`, `gpu_name` - CUDA/GPU detection
+    - `has_ffmpeg`, `has_ffprobe`, `ffmpeg_version` - FFmpeg availability
+    - `can_detect` - Whether gap detection is possible (requires torch + ffmpeg)
+  - Emits `capabilities_changed` signal when refreshed (e.g., after GPU Pack install).
+  - Singleton pattern ensures consistent state across application.
+  - Usage:
+    ```python
+    from services.system_capabilities import check_system_capabilities, get_capabilities
+
+    # At startup (with optional progress callback)
+    caps = check_system_capabilities(log_callback=splash.log)
+
+    # Later in application
+    caps = get_capabilities()  # Returns cached result
+    if caps and caps.can_detect:
+        # Proceed with detection
+    ```
+
 - **`GapInfoService`**:
   - Handles gap detection logic for songs.
   - Stateless and reusable across the application.
@@ -96,6 +119,43 @@
 3. **From Services to Managers**:
    - Services perform stateless operations (e.g., gap detection) and return results to actions.
    - Actions update the models or emit signals based on the results.
+
+4. **Capability Checking Flow** (System Requirements):
+   - **Startup**: `SystemCapabilitiesService.check()` called from `StartupSplash`
+     - Checks PyTorch availability and version
+     - Detects CUDA/GPU if PyTorch available
+     - Checks FFmpeg/FFprobe in PATH
+     - Computes `can_detect` flag (requires torch + ffmpeg)
+     - Results cached in singleton service
+     - Splash displays real-time progress with log callbacks
+
+   - **Dependency Injection**: Capabilities stored in `AppData.capabilities`
+     - Passed from splash to `create_and_run_gui()`
+     - Available throughout application lifetime
+     - Single source of truth for all components
+
+   - **UI Integration**: Components check `AppData.capabilities`
+     - `SongListWidget`: Disable Detect button if `can_detect = False`
+     - `MainWindow`: Show detection mode (GPU/CPU/Disabled) in status bar
+     - Tooltips explain missing dependencies with actionable guidance
+     - Early validation prevents user confusion
+
+   - **Factory Guard**: `ProviderFactory.get_detection_provider(capabilities)`
+     - Final safety check before provider creation
+     - Raises `ProviderInitializationError` if `can_detect = False`
+     - Defense in depth (UI already prevents this)
+
+   - **Health Check**: CLI `--health-check` uses capabilities service
+     - Shows same info as startup splash
+     - Validates exe build integrity
+     - Used by CI/CD to verify builds
+
+   **Benefits**:
+   - ✅ Centralized detection (no scattered torch imports)
+   - ✅ User sees status immediately at startup
+   - ✅ Clear error messages before attempting detection
+   - ✅ Clean separation (UI doesn't import torch/ffmpeg)
+   - ✅ Testable (mock capabilities in tests)
 
 ---
 

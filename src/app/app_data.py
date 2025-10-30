@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, List, Optional
 if TYPE_CHECKING:
     from services.gap_state import GapState
     from services.audio_service import AudioService
+    from services.system_capabilities import SystemCapabilities
 from common.config import Config  # This was from config import Config
 from model.song import Song
 from model.songs import Songs
@@ -30,6 +31,9 @@ class AppData(QObject):
     # Track B: State facades for selected song
     gap_state: Optional['GapState'] = None  # Forward ref to avoid circular import
     audio_service: Optional['AudioService'] = None
+
+    # System capabilities (initialized at startup)
+    capabilities: Optional['SystemCapabilities'] = None
 
     # Add these new signals to support manager communication
     gap_detection_finished = Signal(object)  # Emits the song when gap detection is finished

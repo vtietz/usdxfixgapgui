@@ -8,6 +8,7 @@ Uses cached vocals from detection phase when available to avoid redundant Demucs
 import logging
 import numpy as np
 from typing import Optional, Callable, OrderedDict
+import torchaudio
 
 from utils.providers.exceptions import DetectionFailedError
 
@@ -48,9 +49,6 @@ def compute_confidence_score(
         Confidence score in range [0.0, 1.0]
     """
     try:
-        # Lazy import to avoid loading torch until needed
-        import torchaudio
-
         logger.debug(f"Computing confidence at gap={detected_gap_ms}ms")
 
         # Get audio info

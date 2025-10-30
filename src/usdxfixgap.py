@@ -105,6 +105,7 @@ def print_version_info():
 def health_check():
     """
     Perform basic health check to verify app can start.
+    Uses SystemCapabilities service for consistent capability detection.
     Returns exit code: 0 = success, 1 = failure
     """
     print("USDXFixGap Health Check")
@@ -112,15 +113,63 @@ def health_check():
 
     errors = []
 
-    # Check critical modules can be imported
-    critical_modules = [
-        ('PySide6.QtCore', 'Qt Framework'),
-        ('torch', 'PyTorch'),
+    # Check Qt Framework
+    try:
+        __import__('PySide6.QtCore')
+        print(f"✓ {'Qt Framework':20} (PySide6.QtCore)")
+    except Exception as e:
+        print(f"✗ {'Qt Framework':20} (PySide6.QtCore): {str(e)}")
+        errors.append("Qt Framework (PySide6.QtCore)")
+
+    # Check system capabilities using centralized service
+    try:
+        from services.system_capabilities import check_system_capabilities
+        caps = check_system_capabilities()
+
+        # PyTorch
+        if caps.has_torch:
+            print(f"✓ {'PyTorch':20} ({caps.torch_version})")
+            # CUDA/GPU
+            if caps.has_cuda:
+                print(f"✓ {'CUDA':20} ({caps.cuda_version} - {caps.gpu_name})")
+            else:
+                print(f"⚠ {'CUDA':20} (not available, CPU mode)")
+        else:
+            print(f"✗ {'PyTorch':20} {caps.torch_error}")
+            errors.append("PyTorch")
+
+        # FFmpeg
+        if caps.has_ffmpeg:
+            print(f"✓ {'FFmpeg':20} ({caps.ffmpeg_version})")
+        else:
+            print(f"✗ {'FFmpeg':20} (not found in PATH)")
+            errors.append("FFmpeg")
+
+        # FFprobe
+        if caps.has_ffprobe:
+            print(f"✓ {'FFprobe':20} (found)")
+        else:
+            print(f"⚠ {'FFprobe':20} (not found)")
+
+        # Detection capability
+        if caps.can_detect:
+            mode = "GPU" if caps.has_cuda else "CPU"
+            print(f"✓ {'Gap Detection':20} (available - {mode} mode)")
+        else:
+            print(f"✗ {'Gap Detection':20} (unavailable)")
+            errors.append("Gap Detection")
+
+    except Exception as e:
+        print(f"✗ {'System Capabilities':20} {str(e)}")
+        errors.append("System Capabilities Check")
+
+    # Check other critical modules
+    other_modules = [
         ('librosa', 'Audio Processing'),
         ('soundfile', 'Audio I/O'),
     ]
 
-    for module_name, description in critical_modules:
+    for module_name, description in other_modules:
         try:
             __import__(module_name)
             print(f"✓ {description:20} ({module_name})")
@@ -204,10 +253,7 @@ def main():
             if should_exit:
                 sys.exit(0)
 
-        # Bootstrap GPU Pack BEFORE any provider imports
-        gpu_enabled = gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
-
-        # Setup async logging
+        # Setup async logging BEFORE splash screen
         log_file_path = os.path.join(get_localappdata_dir(), 'usdxfixgap.log')
         setup_async_logging(
             log_level=config.log_level,
@@ -222,12 +268,57 @@ def main():
         # Log configuration file location now that logging is ready
         config.log_config_location()
 
-        # GPU Status Logging (Console Only - dialog shown later)
+        # Create QApplication BEFORE splash (needed for Qt dialogs)
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)
+
+        # Show startup splash screen and run system capability checks
+        from ui.splash_screen import StartupSplash
+        splash = StartupSplash(parent=None, config=config)
+
+        # Handle GPU Pack download request from splash
+        def on_gpu_pack_requested():
+            """User clicked Download GPU Pack button in splash"""
+            logger.info("GPU Pack download requested from splash screen")
+            # Close splash temporarily to show download dialog
+            splash.hide()
+            # Trigger download (will handle download dialog)
+            from utils.gpu_startup_logger import show_gpu_pack_dialog_if_needed
+            gpu_dialog = show_gpu_pack_dialog_if_needed(config, gpu_enabled=False)
+            if gpu_dialog:
+                # Wait for dialog to close, then refresh capabilities
+                gpu_dialog.finished.connect(lambda: splash._run_checks())
+                gpu_dialog.show()
+            else:
+                # No dialog shown, just refresh and show splash again
+                splash.show()
+                splash._run_checks()
+
+        splash.gpu_pack_requested.connect(on_gpu_pack_requested)
+
+        # Run splash screen and get capabilities
+        capabilities = splash.run()
+
+        # If splash was closed without capabilities, exit
+        if capabilities is None:
+            logger.warning("Splash screen closed without completing checks")
+            sys.exit(0)
+
+        logger.info(f"System capabilities: torch={capabilities.has_torch}, "
+                   f"cuda={capabilities.has_cuda}, ffmpeg={capabilities.has_ffmpeg}, "
+                   f"can_detect={capabilities.can_detect}")
+
+        # Bootstrap GPU Pack if needed (based on capabilities and config)
+        gpu_enabled = gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
+
+        # GPU Status Logging (Console Only)
         log_gpu_status(config, gpu_enabled, show_gui_dialog=False)
 
-        # Import and start GUI
+        # Import and start GUI (pass capabilities)
         from ui.main_window import create_and_run_gui
-        exit_code = create_and_run_gui(config, gpu_enabled, log_file_path)
+        exit_code = create_and_run_gui(config, gpu_enabled, log_file_path, capabilities)
 
         sys.exit(exit_code)
 

@@ -298,7 +298,8 @@ def probe_nvidia_smi() -> Optional[Tuple[List[str], str]]:
             ['nvidia-smi', '--query-gpu=name,driver_version', '--format=csv,noheader'],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         )
 
         if result.returncode != 0:

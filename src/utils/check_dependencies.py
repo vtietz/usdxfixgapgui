@@ -1,4 +1,5 @@
 import logging
+import os
 import subprocess
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,13 @@ def check_dependency(command, version_flag='--version'):
     """
     try:
         # Execute the command with the version flag, capture the output.
-        result = subprocess.run([command, version_flag], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(
+            [command, version_flag],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+        )
         if result.returncode == 0:
             logger.debug(f"{command} found: {result.stdout.splitlines()[0]}")
             return True

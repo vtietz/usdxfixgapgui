@@ -5,6 +5,7 @@ Provides NVIDIA GPU detection and driver version probing without requiring PyTor
 Works in both development and PyInstaller frozen executable contexts.
 """
 
+import os
 import subprocess
 import logging
 from typing import Optional, Tuple, List, Dict, Any
@@ -62,7 +63,8 @@ def probe_nvidia_smi() -> Optional[Tuple[List[str], str]]:
             capture_output=True,
             text=True,
             timeout=5,
-            check=True
+            check=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         )
         driver_version = driver_result.stdout.strip().split('\n')[0].strip()
 
@@ -72,7 +74,8 @@ def probe_nvidia_smi() -> Optional[Tuple[List[str], str]]:
             capture_output=True,
             text=True,
             timeout=5,
-            check=True
+            check=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         )
         gpu_names = [name.strip() for name in gpu_result.stdout.strip().split('\n') if name.strip()]
 

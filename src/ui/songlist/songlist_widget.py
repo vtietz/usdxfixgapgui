@@ -72,6 +72,7 @@ class SongListWidget(QWidget):
         # Create action buttons (moved from MenuBar)
         self.detectButton = QPushButton("Detect")
         self.detectButton.clicked.connect(lambda: self._actions.detect_gap(overwrite=True))
+        # Initial tooltip (will be updated based on capabilities in updateButtonStates)
         self.detectButton.setToolTip("Run gap detection on selected songs")
 
         self.openFolderButton = QPushButton("Open Folder")
@@ -180,9 +181,35 @@ class SongListWidget(QWidget):
         self.reload_button.setEnabled(has_selection)
         self.delete_button.setEnabled(has_selection)
 
-        # Enable detect if at least one selected song has audio file
-        can_detect = has_selection and any(s.audio_file for s in songs)
+        # Enable detect if at least one selected song has audio file AND system can detect
+        can_detect_songs = has_selection and any(s.audio_file for s in songs)
+        system_can_detect = self._data.capabilities and self._data.capabilities.can_detect
+        can_detect = can_detect_songs and system_can_detect
         self.detectButton.setEnabled(can_detect)
+
+        # Update tooltip based on capability status
+        if not system_can_detect:
+            if self._data.capabilities and not self._data.capabilities.has_torch:
+                self.detectButton.setToolTip(
+                    "Gap detection disabled: PyTorch not available\n"
+                    "→ Reinstall the application or install PyTorch manually"
+                )
+            elif self._data.capabilities and not self._data.capabilities.has_ffmpeg:
+                self.detectButton.setToolTip(
+                    "Gap detection disabled: FFmpeg not available\n"
+                    "→ Install FFmpeg and add to system PATH"
+                )
+            else:
+                self.detectButton.setToolTip("Gap detection disabled: System requirements not met")
+        elif not can_detect_songs:
+            self.detectButton.setToolTip("Select songs with audio files to detect gap")
+        else:
+            # Show current detection mode in tooltip
+            if self._data.capabilities and self._data.capabilities.has_cuda:
+                mode = "GPU"
+            else:
+                mode = "CPU"
+            self.detectButton.setToolTip(f"Run gap detection on selected songs (Mode: {mode})")
 
         # Enable normalize if at least one selected song is suitable
         can_normalize = has_selection and any(s.audio_file for s in songs)
