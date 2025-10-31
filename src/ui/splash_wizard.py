@@ -11,6 +11,7 @@ This is the main controller that coordinates page transitions and user navigatio
 
 import logging
 import sys
+import os
 from typing import List, Optional, Dict, Any, Type
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget
@@ -24,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 def _is_running_tests() -> bool:
-    """Check if we're running in a test environment."""
-    return 'pytest' in sys.modules or 'unittest' in sys.modules
+    """Check if we're running in a test environment (pytest only, not false positives from unittest imports)."""
+    return ('pytest' in sys.modules) or (os.getenv('USDX_TEST_MODE') == '1')
 
 
 class WizardSplash(QDialog):
@@ -100,15 +101,6 @@ class WizardSplash(QDialog):
 
         nav_layout.addStretch()
 
-        # Close button (always visible) - exits app immediately
-        self._close_btn = QPushButton("✕ Close & Exit")
-        self._close_btn.setToolTip("Exit application immediately")
-        self._close_btn.clicked.connect(self._on_close_clicked)
-        nav_layout.addWidget(self._close_btn)
-
-        # Separator
-        nav_layout.addSpacing(10)
-
         # Navigation buttons (right side)
         self._back_btn = QPushButton("← Back")
         self._back_btn.clicked.connect(self._on_back_clicked)
@@ -123,6 +115,15 @@ class WizardSplash(QDialog):
         self._next_btn.clicked.connect(self._on_next_clicked)
         self._next_btn.setDefault(True)
         nav_layout.addWidget(self._next_btn)
+
+        # Separator
+        nav_layout.addSpacing(10)
+
+        # Close button (always visible, far right) - exits app immediately
+        self._close_btn = QPushButton("✕ Close App")
+        self._close_btn.setToolTip("Exit application")
+        self._close_btn.clicked.connect(self._on_close_clicked)
+        nav_layout.addWidget(self._close_btn)
 
         return nav_layout
 
@@ -291,14 +292,14 @@ class WizardSplash(QDialog):
     def _on_close_clicked(self):
         """Handle Close button click - immediately exit application."""
         logger.info("User clicked Close & Exit - terminating application")
-        
+
         # Cleanup all pages first
         for page in self._pages:
             page.cleanup()
-        
+
         # Emit cancellation signal (allows main app to handle exit gracefully)
         self.wizard_cancelled.emit()
-        
+
         # Close the dialog
         self.reject()
 

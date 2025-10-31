@@ -277,19 +277,19 @@ def main():
         if app is None:
             app = QApplication(sys.argv)
 
+        # Enable dark mode BEFORE showing splash
+        from utils.enable_darkmode import enable_dark_mode
+        enable_dark_mode(app)
+
         # Show startup splash wizard and run system capability checks
         from ui.splash_screen import StartupSplash
         capabilities = StartupSplash.run(parent=None, config=config)
 
-        # If splash was closed without capabilities, exit
+        # If splash returned no capabilities, fall back to auto-detection
         if capabilities is None:
-            logger.warning("Splash screen closed without completing checks")
-            # Cleanup threads in proper order: asyncio first, then logging
-            from utils.run_async import shutdown_asyncio
-            from common.utils.async_logging import shutdown_async_logging
-            shutdown_asyncio()
-            shutdown_async_logging()
-            sys.exit(0)
+            logger.warning("Splash returned no capabilities; proceeding with auto-detected capabilities")
+            from services.system_capabilities import check_system_capabilities
+            capabilities = check_system_capabilities()
 
         logger.info(f"System capabilities: torch={capabilities.has_torch}, "
                    f"cuda={capabilities.has_cuda}, ffmpeg={capabilities.has_ffmpeg}, "
@@ -326,7 +326,7 @@ def main():
                 pass
 
         show_error_dialog("Critical Startup Error", error_msg, error_details)
-        
+
         # Cleanup threads before exit
         try:
             from utils.run_async import shutdown_asyncio
@@ -335,7 +335,7 @@ def main():
             shutdown_async_logging()
         except Exception:
             pass  # Best effort cleanup
-        
+
         sys.exit(1)
 
 

@@ -26,7 +26,7 @@ class StartupSplash:
         wizard.add_page(GpuPackOfferPage())
         wizard.add_page(DownloadProgressPage())
         wizard.set_page_flow([0, 1])
-        _setup_gpu_navigation(wizard)
+        # No monkeypatching - pages manage their own buttons
         return wizard
 
     @staticmethod
@@ -43,34 +43,3 @@ class StartupSplash:
         wizard._page_data = {"config": config}
         wizard.start()
         return capabilities
-
-
-def _setup_gpu_navigation(wizard):
-    """Setup custom navigation for GPU offer page."""
-    original_show = wizard._show_current_page
-
-    def custom_show():
-        original_show()
-        current_page = wizard._get_current_page()
-        if isinstance(current_page, GpuPackOfferPage):
-            wizard._skip_btn.setText("Skip (Use CPU)")
-            wizard._next_btn.setText("Download GPU Pack")
-            try:
-                wizard._next_btn.clicked.disconnect()
-            except:
-                pass
-
-            def on_download():
-                if 2 not in wizard._page_indices_to_show:
-                    wizard._page_indices_to_show.append(2)
-                wizard._page_data["download_requested"] = True
-                wizard._page_data.update(current_page.get_page_data())
-                wizard._current_page_index += 1
-                wizard._show_current_page()
-
-            wizard._next_btn.clicked.connect(on_download)
-        else:
-            wizard._skip_btn.setText("Skip")
-            wizard._next_btn.setText("Next")
-
-    wizard._show_current_page = custom_show
