@@ -415,6 +415,10 @@ class StartupDialog(QDialog):
             torch_version_normalized = chosen_manifest.torch_version.replace("+", "-")
             dest_zip = pack_dir.parent / f"gpu_pack_{torch_version_normalized}.zip"
 
+            # CRITICAL: Clean up any corrupt/partial files from previous failed downloads
+            # This prevents "Bad magic number" errors from corrupt ZIP files
+            self._cleanup_download_files(dest_zip)
+
             # Log download destination (both to file and UI)
             logger.info(f"GPU Pack download destination: {pack_dir}")
             logger.info(f"Download ZIP location: {dest_zip}")
@@ -499,22 +503,29 @@ class StartupDialog(QDialog):
                 # Clean up any partial/corrupted download files before retry
                 try:
                     from pathlib import Path
-                    from utils.files import get_localappdata_dir
 
-                    if self.config and hasattr(self.config, "data_dir") and self.config.data_dir:
-                        pack_dir = Path(self.config.data_dir) / "gpu_runtime"
+                    # Use the same path logic as in _on_download_clicked
+                    if self._download_worker and hasattr(self._download_worker, "dest_zip"):
+                        dest_zip = self._download_worker.dest_zip
+                        self._cleanup_download_files(dest_zip)
                     else:
-                        localappdata = get_localappdata_dir()
-                        pack_dir = Path(localappdata) / "gpu_runtime"
+                        # Fallback: clean up all .zip files in gpu_runtime
+                        from utils.files import get_localappdata_dir
 
-                    # Delete all .zip files in pack_dir to ensure fresh download
-                    if pack_dir.exists():
-                        for zip_file in pack_dir.glob("*.zip"):
-                            try:
-                                zip_file.unlink()
-                                logger.info(f"Deleted corrupted download file: {zip_file}")
-                            except Exception as e:
-                                logger.warning(f"Failed to delete {zip_file}: {e}")
+                        if self.config and hasattr(self.config, "data_dir") and self.config.data_dir:
+                            pack_dir = Path(self.config.data_dir) / "gpu_runtime"
+                        else:
+                            localappdata = get_localappdata_dir()
+                            pack_dir = Path(localappdata) / "gpu_runtime"
+
+                        if pack_dir.exists():
+                            for pattern in ["*.zip", "*.part", "*.meta"]:
+                                for file_path in pack_dir.glob(pattern):
+                                    try:
+                                        file_path.unlink()
+                                        logger.info(f"Deleted corrupted download file: {file_path}")
+                                    except Exception as e:
+                                        logger.warning(f"Failed to delete {file_path}: {e}")
                 except Exception as e:
                     logger.warning(f"Failed to clean up download files: {e}")
 
@@ -527,6 +538,35 @@ class StartupDialog(QDialog):
                 return  # Don't reset UI yet, retry is starting
 
         self._reset_download_ui()
+
+    def _cleanup_download_files(self, dest_zip):
+        """
+        Clean up corrupt/partial download files.
+        
+        Removes:
+        - .zip file (corrupt/incomplete download)
+        - .part file (partial download)
+        - .meta file (download metadata)
+        
+        Args:
+            dest_zip: Path to the destination ZIP file
+        """
+        from pathlib import Path
+        
+        files_to_clean = [
+            dest_zip,  # Final ZIP file
+            dest_zip.with_suffix(".part"),  # Partial download
+            dest_zip.with_suffix(".meta"),  # Download metadata
+        ]
+        
+        for file_path in files_to_clean:
+            if file_path.exists():
+                try:
+                    file_path.unlink()
+                    logger.info(f"Cleaned up old download file: {file_path}")
+                    self.log(f"Cleaned up old download file: {file_path.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete {file_path}: {e}")
 
     def _reset_download_ui(self):
         """Reset download UI elements."""
