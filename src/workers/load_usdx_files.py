@@ -178,11 +178,12 @@ class LoadUsdxFilesWorker(IWorker):
             return
 
         # Regular operation - loading all songs
-        # First scan directory (also populates usdb_id map incrementally)
-        await self.scan_directory()
-
-        # Then load from cache for songs that were already scanned
+        # IMPORTANT: Load cache FIRST for fast UI population,
+        # then scan directory for new/changed files
         await self.load_from_cache()
+
+        # Then scan directory for new or changed songs
+        await self.scan_directory()
 
         # Finally clean up stale cache entries
         await self.cleanup_cache()
