@@ -47,16 +47,26 @@ def flush_logs():
     for logger_name in logging.Logger.manager.loggerDict:
         module_logger = logging.getLogger(logger_name)
         for handler in module_logger.handlers:
-            handler.flush()
+            if handler is not None:  # Guard against None handlers
+                try:
+                    handler.flush()
+                except Exception:
+                    # Ignore flush errors (handler might be closed/broken)
+                    pass
 
     # Flush root logger handlers (includes async queue handler)
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
-        handler.flush()
-        # If it's a QueueHandler, yield to let queue process
-        if isinstance(handler, logging.handlers.QueueHandler):
-            # 1ms delay to allow queue to drain
-            time.sleep(0.001)
+        if handler is not None:  # Guard against None handlers
+            try:
+                handler.flush()
+                # If it's a QueueHandler, yield to let queue process
+                if isinstance(handler, logging.handlers.QueueHandler):
+                    # 1ms delay to allow queue to drain
+                    time.sleep(0.001)
+            except Exception:
+                # Ignore flush errors (handler might be closed/broken)
+                pass
 
     # Force stdout/stderr flush for good measure
     sys.stdout.flush()

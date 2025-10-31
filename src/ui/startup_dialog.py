@@ -88,7 +88,8 @@ class GpuDownloadWorker(QThread):
             )
 
             if self.cancel_token.is_cancelled():
-                self.finished.emit(False, "Download cancelled by user. You can resume the download later.")
+                # Note: Partial files will be cleaned up by closeEvent handler
+                self.finished.emit(False, "Download cancelled by user.")
                 return
 
             if not download_success:
@@ -223,8 +224,8 @@ class StartupDialog(QDialog):
                 background-color: #1E1E1E;
                 color: #E0E0E0;
                 border: 1px solid #3a3a3a;
-                border-radius: 4px;
-                padding: 8px;
+                border-radius: 0px;
+                padding: 4px;
                 font-family: 'Consolas', 'Courier New', monospace;
                 font-size: 9pt;
             }
@@ -599,7 +600,9 @@ class StartupDialog(QDialog):
             reply = QMessageBox.question(
                 self,
                 "Download in Progress",
-                "GPU Pack download is in progress.\n\n" "Are you sure you want to cancel?",
+                "GPU Pack download is in progress.\n\n"
+                "Do you want to abort the download?\n\n"
+                "Note: Partial download will be deleted. You'll need to restart the download from the beginning.",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -608,10 +611,38 @@ class StartupDialog(QDialog):
                 event.ignore()
                 return
 
-            # Cancel download
+            # Cancel download - it will NOT continue in background
             if self._download_worker.cancel_token:
                 self._download_worker.cancel_token.cancel()
+                self.log("Download cancelled by user")
             self._download_worker.wait(2000)  # Wait up to 2 seconds
+
+            # Clean up partial/corrupted download files
+            # This is CRITICAL: cancelled downloads leave corrupt .part files
+            # that cause "invalid block type" errors on extraction
+            if self._download_worker:
+                try:
+                    dest_zip = self._download_worker.dest_zip
+                    part_file = dest_zip.with_suffix(".part")
+                    meta_file = dest_zip.with_suffix(".meta")
+
+                    # Delete all partial download artifacts
+                    if part_file.exists():
+                        part_file.unlink()
+                        logger.info(f"Deleted partial download: {part_file}")
+                        self.log("Partial download deleted")
+                    if meta_file.exists():
+                        meta_file.unlink()
+                        logger.info(f"Deleted download metadata: {meta_file}")
+
+                    # Also delete the final ZIP if it exists (might be corrupt)
+                    if dest_zip.exists():
+                        dest_zip.unlink()
+                        logger.info(f"Deleted potentially corrupt download: {dest_zip}")
+
+                except Exception as e:
+                    logger.warning(f"Failed to clean up download files: {e}")
+                    # Non-critical, continue with close
 
         # In startup mode, exit application when closing with X
         if self.startup_mode:

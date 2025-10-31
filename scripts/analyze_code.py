@@ -23,35 +23,23 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 from collections import defaultdict
 
-# Fix Windows cmd encoding for emojis
+# Platform-specific symbols (Windows-safe ASCII)
 if sys.platform == "win32":
-    import io
-    import os
-
-    # Force UTF-8 encoding for Windows console
-    os.system("chcp 65001 >nul 2>&1")  # Set console to UTF-8 code page
-
-    # Reconfigure stdout/stderr
-    if isinstance(sys.stdout, io.TextIOWrapper):
-        try:
-            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        except AttributeError:
-            pass
-    if isinstance(sys.stderr, io.TextIOWrapper):
-        try:
-            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-        except AttributeError:
-            pass
-
-
-def safe_print(text: str):
-    """Print text with fallback for Windows cmd encoding issues."""
-    try:
-        print(text)
-    except UnicodeEncodeError:
-        # Fallback: remove emojis and special chars
-        ascii_text = text.encode("ascii", errors="replace").decode("ascii")
-        print(ascii_text)
+    # Use ASCII-safe symbols for Windows console compatibility
+    SYMBOL_SEARCH = "[~]"
+    SYMBOL_SUCCESS = "[OK]"
+    SYMBOL_WARNING = "[!]"
+    SYMBOL_ERROR = "[X]"
+    SYMBOL_INFO = "[i]"
+    SYMBOL_REPORT = "[#]"
+else:
+    # Use emojis on Unix-like systems
+    SYMBOL_SEARCH = "🔍"
+    SYMBOL_SUCCESS = "✅"
+    SYMBOL_WARNING = "⚠️ "
+    SYMBOL_ERROR = "❌"
+    SYMBOL_INFO = "💡"
+    SYMBOL_REPORT = "📊"
 
 
 # Configuration
@@ -96,7 +84,7 @@ def run_command(cmd: List[str], description: str) -> Tuple[int, str]:
         Tuple of (exit_code, output)
     """
     print(f"\n{' = '*80}")
-    print(f"🔍 {description}")
+    print(f"{SYMBOL_SEARCH} {description}")
     print(f"{' = '*80}")
 
     try:
@@ -107,7 +95,7 @@ def run_command(cmd: List[str], description: str) -> Tuple[int, str]:
 
         return result.returncode, output
     except Exception as e:
-        error_msg = f"❌ Error running {description}: {e}"
+        error_msg = f"{SYMBOL_ERROR} Error running {description}: {e}"
         print(error_msg)
         return 1, error_msg
 
@@ -142,7 +130,7 @@ def get_changed_files() -> List[str]:
 
         return python_files
     except subprocess.CalledProcessError:
-        print("⚠️  Warning: Not a git repository or git not available")
+        print(f"{SYMBOL_WARNING} Warning: Not a git repository or git not available")
         return []
 
 
@@ -183,10 +171,10 @@ def analyze_complexity(files: Optional[List[str]] = None) -> tuple:
 
     # Lizard returns 0 if no issues, parse output for summary
     if "No thresholds exceeded" in output or exit_code == 0:
-        print("✅ No complexity issues found!")
+        print(f"{SYMBOL_SUCCESS} No complexity issues found!")
         return 0, output
     else:
-        print(f"⚠️  Found complexity issues (CCN > {MAX_COMPLEXITY} or NLOC > {MAX_NLOC})")
+        print(f"{SYMBOL_WARNING} Found complexity issues (CCN > {MAX_COMPLEXITY} or NLOC > {MAX_NLOC})")
         return 1, output
 
 
@@ -203,7 +191,7 @@ def analyze_style(files: Optional[List[str]] = None) -> tuple:
     try:
         subprocess.run([sys.executable, "-m", "flake8", "--version"], capture_output=True, check=True)
     except subprocess.CalledProcessError:
-        print("⚠️  flake8 not installed, skipping style analysis")
+        print(f"{SYMBOL_WARNING} flake8 not installed, skipping style analysis")
         print("   Install with: pip install flake8")
         return 0, ""
 
@@ -229,10 +217,10 @@ def analyze_style(files: Optional[List[str]] = None) -> tuple:
     exit_code, output = run_command(cmd, "Style Analysis (flake8)")
 
     if exit_code == 0:
-        print("✅ No style issues found!")
+        print(f"{SYMBOL_SUCCESS} No style issues found!")
         return 0, output
     else:
-        print("⚠️  Found style issues")
+        print(f"{SYMBOL_WARNING} Found style issues")
         return 1, output
 
 
@@ -249,7 +237,7 @@ def analyze_types(files: Optional[List[str]] = None) -> tuple:
     try:
         subprocess.run([sys.executable, "-m", "mypy", "--version"], capture_output=True, check=True)
     except subprocess.CalledProcessError:
-        print("ℹ️  mypy not installed, skipping type analysis (optional)")
+        print(f"{SYMBOL_INFO} mypy not installed, skipping type analysis (optional)")
         return 0, ""
 
     cmd = [
@@ -269,10 +257,10 @@ def analyze_types(files: Optional[List[str]] = None) -> tuple:
     exit_code, output = run_command(cmd, "Type Analysis (mypy - optional)")
 
     if exit_code == 0:
-        print("✅ No type issues found!")
+        print(f"{SYMBOL_SUCCESS} No type issues found!")
         return 0, output
     else:
-        print("ℹ️  Found type issues (informational only)")
+        print(f"{SYMBOL_INFO} Found type issues (informational only)")
         return 0, output  # Don't fail on type issues
 
 
@@ -286,7 +274,7 @@ def analyze_file_length(files: Optional[List[str]] = None) -> tuple:
         Tuple of (exit_code, output_text)
     """
     print(f"\n{'='*80}")
-    print("🔍 File Length Analysis")
+    print(f"{SYMBOL_SEARCH} File Length Analysis")
     print(f"{'='*80}")
 
     # Collect all Python files to analyze
@@ -320,7 +308,7 @@ def analyze_file_length(files: Optional[List[str]] = None) -> tuple:
                 line_count = len(f.readlines())
             file_lengths.append((file_path, line_count))
         except Exception as e:
-            print(f"⚠️  Warning: Could not read {file_path}: {e}")
+            print(f"{SYMBOL_WARNING} Warning: Could not read {file_path}: {e}")
 
     # Sort by line count (descending)
     file_lengths.sort(key=lambda x: x[1], reverse=True)
@@ -334,43 +322,43 @@ def analyze_file_length(files: Optional[List[str]] = None) -> tuple:
     output_lines = []
 
     if fail_files:
-        output_lines.append(f"\n🔴 CRITICAL: Files exceeding {FILE_LENGTH_FAIL} lines (must be split):")
+        output_lines.append(f"\n{SYMBOL_ERROR} CRITICAL: Files exceeding {FILE_LENGTH_FAIL} lines (must be split):")
         for file_path, line_count in fail_files:
             rel_path = file_path.relative_to(PROJECT_ROOT)
             output_lines.append(f"  {rel_path}: {line_count} lines")
-            print(f"  🔴 {rel_path}: {line_count} lines (CRITICAL - split required)")
+            print(f"  {SYMBOL_ERROR} {rel_path}: {line_count} lines (CRITICAL - split required)")
 
     if error_files:
-        output_lines.append(f"\n⚠️  ERROR: Files exceeding {FILE_LENGTH_ERROR} lines (should be split):")
+        output_lines.append(f"\n{SYMBOL_WARNING} ERROR: Files exceeding {FILE_LENGTH_ERROR} lines (should be split):")
         for file_path, line_count in error_files:
             rel_path = file_path.relative_to(PROJECT_ROOT)
             output_lines.append(f"  {rel_path}: {line_count} lines")
-            print(f"  ⚠️  {rel_path}: {line_count} lines")
+            print(f"  {SYMBOL_WARNING} {rel_path}: {line_count} lines")
 
     if warn_files:
-        output_lines.append(f"\nℹ️  WARNING: Files exceeding {FILE_LENGTH_WARN} lines (consider splitting):")
+        output_lines.append(f"\n{SYMBOL_INFO} WARNING: Files exceeding {FILE_LENGTH_WARN} lines (consider splitting):")
         for file_path, line_count in warn_files:
             rel_path = file_path.relative_to(PROJECT_ROOT)
             output_lines.append(f"  {rel_path}: {line_count} lines")
-            print(f"  ℹ️  {rel_path}: {line_count} lines")
+            print(f"  {SYMBOL_INFO} {rel_path}: {line_count} lines")
 
     # Print summary
     total_issues = len(fail_files) + len(error_files) + len(warn_files)
     if total_issues == 0:
-        print(f"✅ All files under {FILE_LENGTH_WARN} lines (AI-friendly)")
+        print(f"{SYMBOL_SUCCESS} All files under {FILE_LENGTH_WARN} lines (AI-friendly)")
         return 0, ""
     else:
         print("\nSummary:")
         print(f"  Critical (>{FILE_LENGTH_FAIL}): {len(fail_files)}")
         print(f"  Error (>{FILE_LENGTH_ERROR}): {len(error_files)}")
         print(f"  Warning (>{FILE_LENGTH_WARN}): {len(warn_files)}")
-        print("\n💡 Tip: Split large files into smaller modules for better AI assistance")
+        print(f"\n{SYMBOL_INFO} Tip: Split large files into smaller modules for better AI assistance")
 
         output = "\n".join(output_lines)
 
         # Fail only if we have critical files (>1000 lines)
         if fail_files:
-            print(f"⚠️  Found {len(fail_files)} file(s) requiring immediate refactoring")
+            print(f"{SYMBOL_WARNING} Found {len(fail_files)} file(s) requiring immediate refactoring")
             return 1, output
         else:
             return 0, output
@@ -383,13 +371,13 @@ def analyze_links() -> int:
         0 if all links valid, 1 otherwise
     """
     print(f"\n{'='*80}")
-    print("🔗 Markdown Link Validation")
+    print(f"{SYMBOL_SEARCH} Markdown Link Validation")
     print(f"{'='*80}\n")
 
     # Import and run link checker
     check_links_script = PROJECT_ROOT / "scripts" / "check_links.py"
     if not check_links_script.exists():
-        print("⚠️  Warning: scripts/check_links.py not found, skipping link check")
+        print(f"{SYMBOL_WARNING} Warning: scripts/check_links.py not found, skipping link check")
         return 0
 
     result = subprocess.run(
@@ -528,12 +516,12 @@ def print_summary(results: dict, complexity_output: str = "", style_output: str 
         print_file_summary(complexity_output, style_output, length_output)
 
     print(f"\n{'='*80}")
-    print("📊 ANALYSIS SUMMARY")
+    print(f"{SYMBOL_REPORT} ANALYSIS SUMMARY")
     print(f"{'='*80}")
 
     total_issues = 0
     for check, exit_code in results.items():
-        status = "✅ PASS" if exit_code == 0 else "⚠️  ISSUES"
+        status = f"{SYMBOL_SUCCESS} PASS" if exit_code == 0 else f"{SYMBOL_WARNING} ISSUES"
         print(f"{check:20s}: {status}")
         if exit_code != 0:
             total_issues += 1
@@ -541,10 +529,10 @@ def print_summary(results: dict, complexity_output: str = "", style_output: str 
     print(f"{'='*80}")
 
     if total_issues == 0:
-        print("✅ All checks passed!")
+        print(f"{SYMBOL_SUCCESS} All checks passed!")
         return 0
     else:
-        print(f"⚠️  {total_issues} check(s) found issues")
+        print(f"{SYMBOL_WARNING} {total_issues} check(s) found issues")
         return 1
 
 
@@ -578,19 +566,19 @@ Examples:
     if args.mode == "changed":
         files_to_analyze = get_changed_files()
         if not files_to_analyze:
-            print("✅ No changed Python files found")
+            print(f"{SYMBOL_SUCCESS} No changed Python files found")
             return 0
-        print(f"📝 Analyzing {len(files_to_analyze)} changed file(s):")
+        print(f"{SYMBOL_SEARCH} Analyzing {len(files_to_analyze)} changed file(s):")
         for f in files_to_analyze:
             print(f"  - {f}")
     elif args.mode == "files":
         if not args.files:
-            print("❌ Error: 'files' mode requires file arguments")
+            print(f"{SYMBOL_ERROR} Error: 'files' mode requires file arguments")
             return 1
         files_to_analyze = args.files
-        print(f"📝 Analyzing {len(files_to_analyze)} specified file(s)")
+        print(f"{SYMBOL_SEARCH} Analyzing {len(files_to_analyze)} specified file(s)")
     else:  # all
-        print(f"📝 Analyzing entire project: {', '.join(PYTHON_DIRS)}")
+        print(f"{SYMBOL_SEARCH} Analyzing entire project: {', '.join(PYTHON_DIRS)}")
 
     # Run analyses
     results = {}

@@ -18,6 +18,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Set
 
+# Platform-specific symbols (Windows-safe ASCII)
+if sys.platform == "win32":
+    SYMBOL_SEARCH = "[~]"
+    SYMBOL_SUCCESS = "[OK]"
+    SYMBOL_WARNING = "[!]"
+    SYMBOL_ERROR = "[X]"
+else:
+    SYMBOL_SEARCH = "🔍"
+    SYMBOL_SUCCESS = "✅"
+    SYMBOL_WARNING = "⚠️ "
+    SYMBOL_ERROR = "❌"
+
 
 @dataclass
 class Link:
@@ -53,7 +65,7 @@ class MarkdownLinkChecker:
         """Check all markdown files for broken links."""
         md_files = self._find_markdown_files()
 
-        print(f"🔍 Checking links in {len(md_files)} markdown files...")
+        print(f"{SYMBOL_SEARCH} Checking links in {len(md_files)} markdown files...")
         print()
 
         for md_file in md_files:
@@ -190,7 +202,7 @@ class MarkdownLinkChecker:
     def _print_summary(self):
         """Print summary of link check results."""
         if not self.issues:
-            print("✅ All links are valid!")
+            print(f"{SYMBOL_SUCCESS} All links are valid!")
             return
 
         # Group by file
@@ -204,11 +216,11 @@ class MarkdownLinkChecker:
         # Print grouped issues
         for file_path, file_issues in sorted(issues_by_file.items()):
             rel_path = file_path.relative_to(self.root_dir)
-            print(f"\n📄 {rel_path}")
+            print(f"\n[FILE] {rel_path}")
             print("─" * 80)
 
             for issue in file_issues:
-                icon = "❌" if issue.severity == "error" else "⚠️"
+                icon = SYMBOL_ERROR if issue.severity == "error" else SYMBOL_WARNING
                 print(f"  {icon} Line {issue.link.line_num}: {issue.reason}")
                 print(f"     Link: [{issue.link.text}]({issue.link.url})")
 
@@ -218,10 +230,10 @@ class MarkdownLinkChecker:
 
         print("\n" + "=" * 80)
         if errors > 0:
-            print(f"❌ Found {errors} error(s) and {warnings} warning(s)")
+            print(f"{SYMBOL_ERROR} Found {errors} error(s) and {warnings} warning(s)")
             print("   Fix errors before committing.")
         else:
-            print(f"⚠️  Found {warnings} warning(s) (non-blocking)")
+            print(f"{SYMBOL_WARNING} Found {warnings} warning(s) (non-blocking)")
         print("=" * 80)
 
 
@@ -234,7 +246,7 @@ def main():
             break
         current = current.parent
     else:
-        print("❌ Not in a git repository", file=sys.stderr)
+        print(f"{SYMBOL_ERROR} Not in a git repository", file=sys.stderr)
         return 1
 
     checker = MarkdownLinkChecker(current)
