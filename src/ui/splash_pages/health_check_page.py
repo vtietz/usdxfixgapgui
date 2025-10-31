@@ -5,10 +5,11 @@ Runs system capability checks and displays results.
 Auto-advances when all checks pass (unless user wants to review).
 """
 
+import os
 import logging
 from typing import Optional, Dict, Any
 from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QProgressBar, QCheckBox
+    QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QCheckBox
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
@@ -48,14 +49,29 @@ class HealthCheckPage(WizardPage):
         layout.setSpacing(15)
         layout.setContentsMargins(30, 30, 30, 20)
 
-        # Page title
-        title_label = QLabel("System Health Check")
+        # App title and version
+        from utils.files import resource_path
+        version = "unknown"
+        try:
+            version_file = resource_path('VERSION')
+            if os.path.exists(version_file):
+                with open(version_file, 'r') as f:
+                    version = f.read().strip()
+        except Exception:
+            pass
+        
+        title_label = QLabel(f"USDXFixGap {version}")
         title_font = QFont()
         title_font.setPointSize(16)
         title_font.setBold(True)
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title_label)
+        
+        subtitle_label = QLabel("System Health Check")
+        subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        subtitle_label.setStyleSheet("color: #999; font-size: 11pt;")
+        layout.addWidget(subtitle_label)
 
         # Status label
         self.status_label = QLabel("Checking system requirements...")
@@ -63,20 +79,10 @@ class HealthCheckPage(WizardPage):
         self.status_label.setStyleSheet("color: #999;")
         layout.addWidget(self.status_label)
 
-        # Progress bar
-        self.progress = QProgressBar()
-        self.progress.setRange(0, 0)  # Indeterminate
-        self.progress.setTextVisible(False)
-        layout.addWidget(self.progress)
-
-        # Log output area
-        log_label = QLabel("Details:")
-        log_label.setStyleSheet("color: #999; font-size: 10pt;")
-        layout.addWidget(log_label)
-
+        # Log output area (no "Details:" label, no progress bar)
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setMaximumHeight(200)
+        self.log_text.setMaximumHeight(250)
         self.log_text.setStyleSheet("""
             QTextEdit {
                 background-color: #1E1E1E;
@@ -135,10 +141,6 @@ class HealthCheckPage(WizardPage):
         if not self.capabilities:
             logger.error("No capabilities detected")
             return
-
-        # Stop progress bar
-        self.progress.setRange(0, 1)
-        self.progress.setValue(1)
 
         # Determine overall status
         if self.capabilities.can_detect:

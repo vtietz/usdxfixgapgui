@@ -291,17 +291,21 @@ class WizardSplash(QDialog):
 
     def _on_close_clicked(self):
         """Handle Close button click - immediately exit application."""
-        logger.info("User clicked Close & Exit - terminating application")
-
+        logger.info("User clicked Close App - terminating application")
+        
         # Cleanup all pages first
         for page in self._pages:
             page.cleanup()
-
-        # Emit cancellation signal (allows main app to handle exit gracefully)
+        
+        # Emit cancellation signal - but DON'T continue to main window
         self.wizard_cancelled.emit()
-
+        
         # Close the dialog
         self.reject()
+        
+        # Exit the application immediately
+        from PySide6.QtWidgets import QApplication
+        QApplication.quit()
 
     def _on_page_complete(self, data: Dict[str, Any]):
         """
