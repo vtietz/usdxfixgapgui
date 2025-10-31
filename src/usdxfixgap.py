@@ -251,6 +251,9 @@ def main():
         if any([args.setup_gpu, args.setup_gpu_zip, args.gpu_enable, args.gpu_disable, args.gpu_diagnostics]):
             should_exit = handle_gpu_cli_flags(args, config)
             if should_exit:
+                # Cleanup asyncio if it was started
+                from utils.run_async import shutdown_asyncio
+                shutdown_asyncio()
                 sys.exit(0)
 
         # Setup async logging BEFORE splash screen
@@ -281,6 +284,11 @@ def main():
         # If splash was closed without capabilities, exit
         if capabilities is None:
             logger.warning("Splash screen closed without completing checks")
+            # Cleanup threads in proper order: asyncio first, then logging
+            from utils.run_async import shutdown_asyncio
+            from common.utils.async_logging import shutdown_async_logging
+            shutdown_asyncio()
+            shutdown_async_logging()
             sys.exit(0)
 
         logger.info(f"System capabilities: torch={capabilities.has_torch}, "
@@ -318,6 +326,16 @@ def main():
                 pass
 
         show_error_dialog("Critical Startup Error", error_msg, error_details)
+        
+        # Cleanup threads before exit
+        try:
+            from utils.run_async import shutdown_asyncio
+            from common.utils.async_logging import shutdown_async_logging
+            shutdown_asyncio()
+            shutdown_async_logging()
+        except Exception:
+            pass  # Best effort cleanup
+        
         sys.exit(1)
 
 

@@ -14,15 +14,34 @@ class AsyncioThread(QThread):
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
-# Singleton-like management of the asyncio loop
-_loop = asyncio.new_event_loop()
-_thread = AsyncioThread(_loop)
-_thread.start()
+# Lazy-start state management
+_loop = None
+_thread = None
+_semaphore = None
+_started = False
 
-# Create a semaphore with a specific limit, e.g., 10 concurrent tasks
-_semaphore = asyncio.Semaphore(10)
+def _ensure_started():
+    """Ensure asyncio runtime is started (lazy initialization)."""
+    global _loop, _thread, _semaphore, _started
+    if _started:
+        return
+    
+    logger.debug("Initializing asyncio runtime")
+    _loop = asyncio.new_event_loop()
+    _thread = AsyncioThread(_loop)
+    _thread.start()
+    _semaphore = asyncio.Semaphore(10)
+    _started = True
+    logger.info("Asyncio runtime started")
+
+def is_started():
+    """Check if asyncio runtime is active."""
+    return _started
 
 def run_async(coro, callback=None):
+    """Run coroutine in background asyncio thread."""
+    _ensure_started()  # Lazy start
+    
     async def task_wrapper():
         async with _semaphore:
             return await coro  # Execute the coroutine within the semaphore context
@@ -33,6 +52,9 @@ def run_async(coro, callback=None):
         future.add_done_callback(lambda f: callback(f.result()))
 
 def run_sync(coro):
+    """Run coroutine synchronously and return result."""
+    _ensure_started()  # Lazy start
+    
     # Since run_sync is designed to block, ensure the semaphore is used here as well
     async def sync_wrapper():
         async with _semaphore:
@@ -42,10 +64,18 @@ def run_sync(coro):
     return future.result()
 
 def shutdown_asyncio():
-    """Properly shutdown the asyncio event loop and thread"""
+    """Properly shutdown the asyncio event loop and thread (idempotent)."""
+    global _loop, _thread, _started
+    
+    if not _started:
+        logger.debug("Asyncio runtime not started, skipping shutdown")
+        return
+    
     logger.info("Shutting down asyncio loop")
+    
     # Stop the event loop (will exit run_forever())
     _loop.call_soon_threadsafe(_loop.stop)
+    
     # Wait for thread to finish (with timeout)
     if _thread.isRunning():
         _thread.quit()
@@ -53,3 +83,5 @@ def shutdown_asyncio():
             logger.warning("Asyncio thread did not stop within timeout")
         else:
             logger.info("Asyncio thread stopped cleanly")
+    
+    _started = False
