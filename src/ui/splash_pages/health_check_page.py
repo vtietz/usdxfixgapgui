@@ -37,6 +37,8 @@ class HealthCheckPage(WizardPage):
         self.capabilities: Optional[SystemCapabilities] = None
         self._config = None
         self._checks_complete = False
+        self._auto_advance_timer = None  # Store timer reference for cleanup
+        self._init_timer = None  # Store init timer reference for cleanup
 
         self._setup_ui()
 
@@ -106,7 +108,10 @@ class HealthCheckPage(WizardPage):
         self._config = data.get('config') if data else None
 
         # Start health checks after a short delay (let page render)
-        QTimer.singleShot(100, self._run_checks)
+        self._init_timer = QTimer(self)
+        self._init_timer.setSingleShot(True)
+        self._init_timer.timeout.connect(self._run_checks)
+        self._init_timer.start(100)
 
     def _run_checks(self):
         """Run system capability checks."""
@@ -165,7 +170,11 @@ class HealthCheckPage(WizardPage):
         if self.capabilities.can_detect:
             self.log("")
             self.log("Auto-advancing in 2 seconds...")
-            QTimer.singleShot(2000, self._auto_advance)
+            # Store timer reference so we can kill it in cleanup
+            self._auto_advance_timer = QTimer(self)
+            self._auto_advance_timer.setSingleShot(True)
+            self._auto_advance_timer.timeout.connect(self._auto_advance)
+            self._auto_advance_timer.start(2000)
 
     def _auto_advance(self):
         """Auto-advance to next page."""
@@ -225,5 +234,14 @@ class HealthCheckPage(WizardPage):
 
     def cleanup(self):
         """Cleanup when leaving page."""
-        # Nothing to cleanup for this page
-        pass
+        # Stop init timer if it's running
+        if self._init_timer and self._init_timer.isActive():
+            self._init_timer.stop()
+            self._init_timer = None
+            logger.debug("Stopped health check init timer")
+        
+        # Stop auto-advance timer if it's running
+        if self._auto_advance_timer and self._auto_advance_timer.isActive():
+            self._auto_advance_timer.stop()
+            self._auto_advance_timer = None
+            logger.debug("Stopped health check auto-advance timer")
