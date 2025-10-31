@@ -490,11 +490,27 @@ These files are temporary and managed automatically by the application. They are
 
 **Valid values**: Positive integer (recommended: 1000-2000)
 
+#### splash_dont_show_health
+
+**Default**: `false`
+
+**Description**: Skip health check page in startup wizard (system capabilities will still be checked in background)
+
+**Valid values**: `true`, `false`
+
+#### gpu_pack_dont_ask
+
+**Default**: `false`
+
+**Description**: Skip GPU Pack offer page in startup wizard (you can still install via Tools menu)
+
+**Valid values**: `true`, `false`
+
 #### gpu_pack_dialog_dont_show
 
 **Default**: `false`  ### Advanced: Per-Song Manual Adjustment
 
-**Description**: Suppress GPU Pack download dialog at startup
+**Description**: Suppress GPU Pack download dialog at startup (legacy - use gpu_pack_dont_ask instead)
 
 **Valid values**: `true`, `false`### Onset Detection
 

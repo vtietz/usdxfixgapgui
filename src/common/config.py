@@ -119,6 +119,8 @@ class Config(QObject):
                 "gpu_last_health": "",
                 "gpu_last_error": "",
                 "gpu_pack_dialog_dont_show": False,
+                "gpu_pack_dont_ask": False,
+                "splash_dont_show_health": False,
                 "prefer_system_pytorch": True,
             },
             "Audio": {"default_volume": 0.5, "auto_play": False},
@@ -283,6 +285,12 @@ class Config(QObject):
         self.gpu_pack_dialog_dont_show = self._config.getboolean(
             "General", "gpu_pack_dialog_dont_show", fallback=general_defaults["gpu_pack_dialog_dont_show"]
         )
+        self.gpu_pack_dont_ask = self._config.getboolean(
+            "General", "gpu_pack_dont_ask", fallback=general_defaults["gpu_pack_dont_ask"]
+        )
+        self.splash_dont_show_health = self._config.getboolean(
+            "General", "splash_dont_show_health", fallback=general_defaults["splash_dont_show_health"]
+        )
         self.prefer_system_pytorch = self._config.getboolean(
             "General", "prefer_system_pytorch", fallback=general_defaults["prefer_system_pytorch"]
         )
@@ -375,6 +383,8 @@ class Config(QObject):
         current["General"]["gpu_last_health"] = self.gpu_last_health
         current["General"]["gpu_last_error"] = self.gpu_last_error
         current["General"]["gpu_pack_dialog_dont_show"] = "true" if self.gpu_pack_dialog_dont_show else "false"
+        current["General"]["gpu_pack_dont_ask"] = "true" if self.gpu_pack_dont_ask else "false"
+        current["General"]["splash_dont_show_health"] = "true" if self.splash_dont_show_health else "false"
         current["General"]["prefer_system_pytorch"] = "true" if self.prefer_system_pytorch else "false"
 
         # 3. Window section - geometry

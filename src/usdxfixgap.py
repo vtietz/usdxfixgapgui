@@ -274,32 +274,9 @@ def main():
         if app is None:
             app = QApplication(sys.argv)
 
-        # Show startup splash screen and run system capability checks
+        # Show startup splash wizard and run system capability checks
         from ui.splash_screen import StartupSplash
-        splash = StartupSplash(parent=None, config=config)
-
-        # Handle GPU Pack download request from splash
-        def on_gpu_pack_requested():
-            """User clicked Download GPU Pack button in splash"""
-            logger.info("GPU Pack download requested from splash screen")
-            # Close splash temporarily to show download dialog
-            splash.hide()
-            # Trigger download (will handle download dialog)
-            from utils.gpu_startup_logger import show_gpu_pack_dialog_if_needed
-            gpu_dialog = show_gpu_pack_dialog_if_needed(config, gpu_enabled=False)
-            if gpu_dialog:
-                # Wait for dialog to close, then refresh capabilities
-                gpu_dialog.finished.connect(lambda: splash._run_checks())
-                gpu_dialog.show()
-            else:
-                # No dialog shown, just refresh and show splash again
-                splash.show()
-                splash._run_checks()
-
-        splash.gpu_pack_requested.connect(on_gpu_pack_requested)
-
-        # Run splash screen and get capabilities
-        capabilities = splash.run()
+        capabilities = StartupSplash.run(parent=None, config=config)
 
         # If splash was closed without capabilities, exit
         if capabilities is None:

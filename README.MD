@@ -36,6 +36,7 @@ The app uses state-of-the-art AI vocal separation (Meta's Demucs) with smart chu
 
 - 🎯 **AI-Powered Detection** - Uses Meta's Demucs for accurate vocal onset detection
 - ⚡ **GPU Acceleration** - Optional NVIDIA GPU support for 5-10x faster processing ([Setup Guide](docs/configuration.md#gpu-acceleration-settings))
+- 🧙 **Smart Startup Wizard** - Guided startup experience with automatic system health checks and GPU Pack offers
 - 📊 **Visual Waveforms** - See exactly where vocals start with clear visualizations
 - 🎚️ **Audio Normalization** - Automatic volume adjustment for consistent playback
 - 📈 **Confidence Scoring** - Know how reliable each detection is

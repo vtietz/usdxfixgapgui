@@ -310,7 +310,7 @@ jobs:
           ### Windows
           - **One-File**: \`usdxfixgap-${TAG_NAME}-windows.exe\` (~450MB, ~10s first launch)
           - **Portable**: \`usdxfixgap-${TAG_NAME}-windows-portable.zip\` (instant startup)
-          
+
           ### Linux & macOS
           - **Linux**: \`usdxfixgap-${TAG_NAME}-linux.tar.gz\`
           - **macOS**: \`usdxfixgap-${TAG_NAME}-macos.tar.gz\`

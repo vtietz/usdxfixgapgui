@@ -88,10 +88,10 @@ class TestPortableModeIntegration:
         with patch('utils.files.is_portable_mode', return_value=True), \
              patch('utils.files.get_app_dir', return_value='/portable/usdxfixgap'), \
              patch('os.makedirs'):
-            
+
             data_dir = get_localappdata_dir()
             models_dir = get_models_dir()
-            
+
             # Both should be under /portable/usdxfixgap
             assert data_dir == '/portable/usdxfixgap'
             assert models_dir.startswith('/portable/usdxfixgap')
@@ -104,10 +104,10 @@ class TestPortableModeIntegration:
              patch('sys.platform', 'win32'), \
              patch.dict(os.environ, {'LOCALAPPDATA': r'C:\Users\Test\AppData\Local'}), \
              patch('os.makedirs'):
-            
+
             data_dir = get_localappdata_dir()
             models_dir = get_models_dir()
-            
+
             # Should use LOCALAPPDATA, not exe directory
             assert 'AppData' in data_dir
             assert 'AppData' in models_dir

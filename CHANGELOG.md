@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Wizard-Based Startup Splash**: Modern multi-page startup experience with smart navigation
+  - **Health Check Page**: Auto-detects PyTorch, CUDA, FFmpeg availability with visual feedback
+  - **GPU Pack Offer Page**: Smart GPU Pack installation prompt (auto-skips if CUDA detected)
+  - **Download Progress Page**: Real-time GPU Pack download with progress tracking
+  - **Smart Page Flow**: Auto-skips pages based on system state and user preferences
+  - **Test Detection**: Splash automatically skips UI when running unit tests
+  - **Close & Exit Button**: Always-visible button to immediately exit during startup
+  - **Config Persistence**: "Don't show again" preferences saved to config
+  - **Pure Palette Styling**: Uses app's global Fusion dark theme for perfect consistency
+
 ### Removed
 - **DefaultOutputPath Configuration**: Removed unused 'DefaultOutputPath' configuration option and automatic 'output' directory creation
   - Runtime artifacts (vocals, waveforms) continue to be cached under `%LOCALAPPDATA%\USDXFixGap\.tmp\`
