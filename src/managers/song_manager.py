@@ -50,7 +50,7 @@ class SongManager(BaseManager):
 
     def _load_songs(self):
         logger.info(f"Loading songs from directory: {self.data.directory}")
-        worker = LoadUsdxFilesWorker(self.data.directory, self.data.tmp_path)
+        worker = LoadUsdxFilesWorker(self.data.directory, self.data.tmp_path, self.data.config)
         worker.signals.songLoaded.connect(self._on_song_loaded)
         worker.signals.finished.connect(self._on_loading_songs_finished)
         self.worker_queue.add_task(worker, True)

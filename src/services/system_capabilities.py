@@ -190,7 +190,26 @@ class SystemCapabilitiesService(QObject):
                 if has_cuda:
                     log_callback(f"✓ CUDA {cuda_version} available ({gpu_name})")
                 else:
-                    log_callback("⚠ CUDA not available (CPU mode)")
+                    # Don't show CUDA warning yet - will show unified GPU info later
+                    pass
+
+        # Even if CUDA not available, check for physical NVIDIA GPU hardware
+        # This allows us to offer GPU Pack download
+        if not gpu_name:
+            gpu_name = self._check_physical_gpu()
+
+        # Show GPU status in a unified way
+        if log_callback and gpu_name:
+            if has_cuda:
+                # Already logged above with CUDA version
+                pass
+            else:
+                # GPU detected but no CUDA - indicate GPU Pack available
+                log_callback(f"⚠ GPU detected but not enabled: {gpu_name}")
+                log_callback("  (GPU Pack required for acceleration)")
+        elif log_callback and not has_cuda:
+            # No GPU at all
+            log_callback("ℹ No NVIDIA GPU detected (CPU mode)")
 
         # Check FFmpeg
         if log_callback:
@@ -296,6 +315,26 @@ class SystemCapabilitiesService(QObject):
         except Exception as e:
             logger.debug(f"CUDA check failed: {e}")
             return False, None, None
+
+    def _check_physical_gpu(self) -> Optional[str]:
+        """
+        Check for physical NVIDIA GPU hardware using nvidia-smi or NVML.
+        This is separate from CUDA availability - detects GPU even without GPU Pack.
+
+        Returns:
+            GPU name if found, None otherwise
+        """
+        try:
+            from utils.gpu_bootstrap import capability_probe
+            cap = capability_probe()
+            if cap and 'gpu_names' in cap and cap['gpu_names']:
+                gpu_name = cap['gpu_names'][0] if isinstance(cap['gpu_names'], list) else cap['gpu_names']
+                logger.debug(f"Physical GPU detected: {gpu_name}")
+                return gpu_name
+        except Exception as e:
+            logger.debug(f"Physical GPU detection failed: {e}")
+
+        return None
 
     def _check_ffmpeg(self) -> tuple[bool, Optional[str]]:
         """

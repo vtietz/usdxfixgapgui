@@ -68,7 +68,7 @@ if "%1"=="" (
     echo Usage: %0 [command] [args...]
     echo.
     echo Available shortcuts:
-    echo   start       - Start the USDXFixGap application
+    echo   start       - Start the USDX FixGap application
     echo   test        - Run all tests with pytest
     echo   test --docs - Run tests and generate Tier-1/Tier-3 visual artifacts
     echo   install     - Install/update requirements ^(auto-detects GPU^)
@@ -93,7 +93,7 @@ if "%1"=="" (
 )
 
 if /i "%1"=="start" (
-    echo Starting USDXFixGap application...
+    echo Starting USDX FixGap application...
     cd /d "%SCRIPT_DIR%src"
     "%VENV_PYTHON%" usdxfixgap.py
     goto :end
@@ -292,7 +292,7 @@ if /i "%1"=="cleanup" (
 
 if /i "%1"=="build" (
     echo ==========================================
-    echo Building USDXFixGap Executable
+    echo Building USDX FixGap Executable
     echo ==========================================
     echo.
     cd /d "%SCRIPT_DIR%"

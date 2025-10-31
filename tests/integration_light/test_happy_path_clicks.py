@@ -132,7 +132,8 @@ class TestDirectorySelectionToLoad:
         # Verify worker was created
         mock_worker_class.assert_called_once_with(
             str(songs_directory),
-            mock_app_data.tmp_path
+            mock_app_data.tmp_path,
+            mock_app_data.config
         )
 
         # Verify worker was enqueued

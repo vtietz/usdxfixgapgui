@@ -25,7 +25,7 @@ def _ensure_started():
     global _loop, _thread, _semaphore, _started
     if _started:
         return
-    
+
     logger.debug("Initializing asyncio runtime")
     _loop = asyncio.new_event_loop()
     _thread = AsyncioThread(_loop)
@@ -41,7 +41,7 @@ def is_started():
 def run_async(coro, callback=None):
     """Run coroutine in background asyncio thread."""
     _ensure_started()  # Lazy start
-    
+
     async def task_wrapper():
         async with _semaphore:
             return await coro  # Execute the coroutine within the semaphore context
@@ -54,7 +54,7 @@ def run_async(coro, callback=None):
 def run_sync(coro):
     """Run coroutine synchronously and return result."""
     _ensure_started()  # Lazy start
-    
+
     # Since run_sync is designed to block, ensure the semaphore is used here as well
     async def sync_wrapper():
         async with _semaphore:
@@ -66,16 +66,16 @@ def run_sync(coro):
 def shutdown_asyncio():
     """Properly shutdown the asyncio event loop and thread (idempotent)."""
     global _loop, _thread, _started
-    
+
     if not _started:
         logger.debug("Asyncio runtime not started, skipping shutdown")
         return
-    
+
     logger.info("Shutting down asyncio loop")
-    
+
     # Stop the event loop (will exit run_forever())
     _loop.call_soon_threadsafe(_loop.stop)
-    
+
     # Wait for thread to finish (with timeout)
     if _thread.isRunning():
         _thread.quit()
@@ -83,5 +83,5 @@ def shutdown_asyncio():
             logger.warning("Asyncio thread did not stop within timeout")
         else:
             logger.info("Asyncio thread stopped cleanly")
-    
+
     _started = False

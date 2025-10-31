@@ -49,23 +49,32 @@ def _check_vcruntime() -> None:
         logger.debug(f"Could not check VC++ runtime: {e}")
 
 
-def resolve_pack_dir(app_version: str, flavor: str = "cu121") -> Path:
+def resolve_pack_dir(torch_version: str, flavor: str = "cu121", config=None) -> Path:
     """
     Resolve the GPU Pack installation directory.
 
     Args:
-        app_version: Application version (e.g., "1.4.0")
-        flavor: CUDA flavor (cu121 or cu124)
+        torch_version: PyTorch version (e.g., "2.4.1+cu121" or "2.4.1-cu121")
+        flavor: CUDA flavor (cu121 or cu124) - used as fallback if not in torch_version
+        config: Optional Config object (uses config.get_gpu_pack_dir if available)
 
     Returns:
-        Path to GPU Pack directory
+        Path to GPU Pack directory (e.g., %LOCALAPPDATA%/USDXFixGap/gpu_runtime/torch-2.4.1-cu121/)
     """
-    local_app_data = os.getenv('LOCALAPPDATA')
-    if not local_app_data:
-        # Fallback for non-Windows or missing env var
-        local_app_data = os.path.expanduser('~/.local/share')
+    # Prefer config method if available (centralized path management)
+    if config and hasattr(config, 'get_gpu_pack_dir'):
+        return Path(config.get_gpu_pack_dir(torch_version))
 
-    pack_dir = Path(local_app_data) / 'USDXFixGap' / 'gpu_runtime' / f'v{app_version}-{flavor}'
+    # Fallback: manual path construction (for backward compatibility)
+    from utils.files import get_localappdata_dir
+    data_dir = get_localappdata_dir()
+
+    # Normalize torch version to use dashes (torch-2.4.1-cu121)
+    torch_dir = torch_version.replace('+', '-')
+    if not torch_dir.startswith('torch-'):
+        torch_dir = f'torch-{torch_dir}'
+
+    pack_dir = Path(data_dir) / 'gpu_runtime' / torch_dir
     return pack_dir
 
 
@@ -74,37 +83,44 @@ def find_installed_pack_dirs() -> List[Dict[str, Any]]:
     Scan GPU runtime root for existing GPU Pack installations.
 
     Returns:
-        List of dictionaries with keys: path, app_version, flavor, has_install_json
+        List of dictionaries with keys: path, torch_version, flavor, has_install_json
     """
     import json
     import re
+    from utils.files import get_localappdata_dir
 
-    local_app_data = os.getenv('LOCALAPPDATA')
-    if not local_app_data:
-        local_app_data = os.path.expanduser('~/.local/share')
-
-    runtime_root = Path(local_app_data) / 'USDXFixGap' / 'gpu_runtime'
+    # Use centralized path function
+    data_dir = get_localappdata_dir()
+    runtime_root = Path(data_dir) / 'gpu_runtime'
 
     if not runtime_root.exists():
         return []
 
     candidates = []
-    version_pattern = re.compile(r'^v([\d.]+)-(cu\d+)$')
+    # Match both old format (v1.4.0-cu121) and new format (torch-2.4.1-cu121)
+    old_pattern = re.compile(r'^v([\d.]+)-(cu\d+)$')
+    new_pattern = re.compile(r'^torch-([\d.]+)-(cu\d+)$')
 
     try:
         for item in runtime_root.iterdir():
             if not item.is_dir():
                 continue
 
-            # Try to parse folder name (e.g., v1.4.0-cu121)
-            match = version_pattern.match(item.name)
-            app_version = None
+            torch_version = None
             flavor = None
             has_install_json = False
 
+            # Try new format first (torch-2.4.1-cu121)
+            match = new_pattern.match(item.name)
             if match:
-                app_version = match.group(1)
-                flavor = match.group(2)
+                torch_version = f"{match.group(1)}+{match.group(2)}"  # 2.4.1+cu121
+                flavor = match.group(2)  # cu121
+            else:
+                # Fallback to old format (v1.4.0-cu121) for backward compatibility
+                match = old_pattern.match(item.name)
+                if match:
+                    # Old format - we don't have torch version, just flavor
+                    flavor = match.group(2)
 
             # Check for install.json
             install_json_path = item / 'install.json'
@@ -114,18 +130,18 @@ def find_installed_pack_dirs() -> List[Dict[str, Any]]:
                     with open(install_json_path, 'r') as f:
                         install_data = json.load(f)
                         # Override with install.json data if available
-                        if 'app_version' in install_data:
-                            app_version = install_data['app_version']
+                        if 'torch_version' in install_data:
+                            torch_version = install_data['torch_version']
                         if 'flavor' in install_data:
                             flavor = install_data['flavor']
                 except Exception as e:
                     logger.debug(f"Could not parse install.json in {item}: {e}")
 
-            # Add candidate if we have at least a version or install.json
-            if app_version or has_install_json:
+            # Add candidate if we have at least a flavor or install.json
+            if flavor or has_install_json:
                 candidates.append({
                     'path': item,
-                    'app_version': app_version,
+                    'torch_version': torch_version,
                     'flavor': flavor,
                     'has_install_json': has_install_json
                 })

@@ -3,8 +3,10 @@ import os
 import sys
 import logging
 
-IGNORE_FILE = "usdxfixgap.ignore"
-INFO_FILE = "usdxfixgap.info"
+from common.constants import APP_IGNORE_FILENAME, APP_INFO_FILENAME
+
+IGNORE_FILE = APP_IGNORE_FILENAME
+INFO_FILE = APP_INFO_FILENAME
 WAVEFORM_FILE = "waveform.png"
 
 
@@ -66,7 +68,7 @@ def is_portable_mode():
 
 def get_localappdata_dir():
     """
-    Get platform-appropriate application data directory for USDXFixGap.
+    Get platform-appropriate application data directory for USDX FixGap.
 
     This is the recommended location for all user data (config, cache, models, etc.).
     Follows platform conventions and respects XDG Base Directory Specification on Linux.
@@ -86,11 +88,13 @@ def get_localappdata_dir():
         logger.info(f"Portable mode detected, using app directory: {app_dir}")
         return app_dir
 
+    from common.constants import APP_FOLDER_NAME
+
     # Windows: Use LOCALAPPDATA
     if sys.platform == 'win32':
         local_app_data = os.getenv('LOCALAPPDATA')
         if local_app_data:
-            app_data_dir = os.path.join(local_app_data, 'USDXFixGap')
+            app_data_dir = os.path.join(local_app_data, APP_FOLDER_NAME)
             os.makedirs(app_data_dir, exist_ok=True)
             return app_data_dir
         # Windows portable mode fallback
@@ -99,7 +103,7 @@ def get_localappdata_dir():
 
     # macOS: Use Application Support
     elif sys.platform == 'darwin':
-        app_support = os.path.expanduser('~/Library/Application Support/USDXFixGap')
+        app_support = os.path.expanduser(f'~/Library/Application Support/{APP_FOLDER_NAME}')
         os.makedirs(app_support, exist_ok=True)
         return app_support
 
@@ -108,9 +112,9 @@ def get_localappdata_dir():
         # Respect XDG_DATA_HOME if set, otherwise use default ~/.local/share
         xdg_data = os.getenv('XDG_DATA_HOME')
         if xdg_data:
-            app_data_dir = os.path.join(xdg_data, 'USDXFixGap')
+            app_data_dir = os.path.join(xdg_data, APP_FOLDER_NAME)
         else:
-            app_data_dir = os.path.expanduser('~/.local/share/USDXFixGap')
+            app_data_dir = os.path.expanduser(f'~/.local/share/{APP_FOLDER_NAME}')
         os.makedirs(app_data_dir, exist_ok=True)
         return app_data_dir
 

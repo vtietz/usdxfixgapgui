@@ -6,7 +6,11 @@ Separated from main entry point for better code organization.
 """
 
 import sys
+import os
 import logging
+from pathlib import Path
+
+from common.constants import APP_NAME
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMessageBox
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
@@ -21,7 +25,6 @@ from utils.enable_darkmode import enable_dark_mode
 from utils.check_dependencies import check_dependencies
 from utils.run_async import shutdown_asyncio
 from utils.files import resource_path
-from utils.gpu_startup_logger import show_gpu_pack_dialog_if_needed
 
 from ui.menu_bar import MenuBar
 from ui.song_status import SongsStatusVisualizer
@@ -89,9 +92,9 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
         logger.warning("QApplication not found, creating new instance")
         app = QApplication(sys.argv)
 
-    # Show GPU Pack download dialog if needed (non-modal, so keep reference)
-    # NOTE: This may be redundant if splash already handled it, but kept for backward compat
-    gpu_dialog = show_gpu_pack_dialog_if_needed(config, gpu_enabled)
+    # GPU Pack download dialog is now handled by the startup wizard (splash screen)
+    # Legacy dialog disabled to avoid duplicate prompts
+    gpu_dialog = None  # show_gpu_pack_dialog_if_needed(config, gpu_enabled)
 
     # Set application icon
     icon_path = resource_path("assets/usdxfixgap-icon.ico")
@@ -183,13 +186,13 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
 
     if capabilities and capabilities.can_detect:
         if capabilities.has_cuda:
-            detection_label.setText("Detection: GPU")
+            detection_label.setText("GPU")
             detection_label.setToolTip(f"Gap detection using GPU acceleration\nGPU: {capabilities.gpu_name or 'CUDA available'}")
         else:
-            detection_label.setText("Detection: CPU")
+            detection_label.setText("CPU")
             detection_label.setToolTip("Gap detection using CPU (slower)\nTip: Install GPU Pack for faster detection")
     else:
-        detection_label.setText("Detection: Disabled")
+        detection_label.setText("No Detection")
         if capabilities and not capabilities.has_torch:
             detection_label.setToolTip(f"PyTorch not available: {capabilities.torch_error or 'Not installed'}")
         elif capabilities and not capabilities.has_ffmpeg:

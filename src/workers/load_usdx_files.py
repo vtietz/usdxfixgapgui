@@ -14,7 +14,7 @@ class WorkerSignals(IWorkerSignals):
     cacheCleanup = Signal(int)  # Signal to report stale cache entries cleaned up
 
 class LoadUsdxFilesWorker(IWorker):
-    def __init__(self, directory, tmp_root):
+    def __init__(self, directory, tmp_root, config=None):
         super().__init__()
         self.signals = WorkerSignals()
         self.directory = directory
@@ -25,8 +25,8 @@ class LoadUsdxFilesWorker(IWorker):
         self.reload_single_file = None  # Path to single file to reload (when used for reload)
         self.song_service = SongService()  # Create song service
 
-        # Batching for performance
-        self.batch_size = 50  # Emit songs in batches of 50
+        # Batching for performance - use config or default to 50
+        self.batch_size = config.song_list_batch_size if config else 50
         self.current_batch = []
 
     def _add_to_batch(self, song: Song):

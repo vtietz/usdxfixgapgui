@@ -70,7 +70,7 @@ class TestLoadSongsWorkerEnqueue:
 
         core_actions._load_songs()
 
-        mock_worker_class.assert_called_once_with(str(test_dir), tmp_path)
+        mock_worker_class.assert_called_once_with(str(test_dir), tmp_path, mock_app_data.config)
 
     @patch('actions.core_actions.LoadUsdxFilesWorker')
     def test_load_songs_enqueues_worker_with_start_now_true(

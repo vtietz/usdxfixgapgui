@@ -66,21 +66,21 @@ def setup_async_logging(log_level=logging.INFO, log_file_path: Optional[str] = N
 def shutdown_async_logging():
     """Stop the queue listener thread and wait for it to finish (idempotent)."""
     global _queue_listener
-    
+
     if _queue_listener is None:
         # Already shut down or never started
         return
-    
+
     # Stop the listener (signals thread to stop)
     _queue_listener.stop()
-    
+
     # Wait for the listener thread to actually stop (with timeout)
     if hasattr(_queue_listener, '_thread') and _queue_listener._thread:
         _queue_listener._thread.join(timeout=2.0)
         if _queue_listener._thread.is_alive():
             logging.warning("Logging thread did not stop within timeout")
-    
+
     _queue_listener = None
-    
+
     # Flush and close all handlers
     logging.shutdown()

@@ -4,6 +4,7 @@ import logging
 import argparse
 import traceback
 
+from common.constants import APP_NAME, APP_DESCRIPTION, APP_LOG_FILENAME
 from app.app_data import Config
 from cli.gpu_cli_handler import handle_gpu_cli_flags
 from utils import gpu_bootstrap
@@ -41,7 +42,7 @@ def show_error_dialog(title, message, details=None):
 
 def parse_arguments():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description='USDXFixGap - UltraStar Deluxe Gap Detection')
+    parser = argparse.ArgumentParser(description=f'{APP_NAME} - {APP_DESCRIPTION}')
 
     # Version info
     parser.add_argument('--version', action='store_true',
@@ -80,7 +81,7 @@ def get_version():
 def print_version_info():
     """Print version and dependency information"""
     version = get_version()
-    print(f"USDXFixGap {version}")  # VERSION file already contains 'v' prefix
+    print(f"{APP_NAME} {version}")  # VERSION file already contains 'v' prefix
     print(f"Python: {sys.version.split()[0]}")
 
     try:
@@ -108,7 +109,7 @@ def health_check():
     Uses SystemCapabilities service for consistent capability detection.
     Returns exit code: 0 = success, 1 = failure
     """
-    print("USDXFixGap Health Check")
+    print(f"{APP_NAME} Health Check")
     print("=" * 50)
 
     errors = []
@@ -257,7 +258,7 @@ def main():
                 sys.exit(0)
 
         # Setup async logging BEFORE splash screen
-        log_file_path = os.path.join(get_localappdata_dir(), 'usdxfixgap.log')
+        log_file_path = os.path.join(get_localappdata_dir(), APP_LOG_FILENAME)
         setup_async_logging(
             log_level=config.log_level,
             log_file_path=log_file_path,
@@ -281,13 +282,13 @@ def main():
         from utils.enable_darkmode import enable_dark_mode
         enable_dark_mode(app)
 
-        # Show startup splash wizard and run system capability checks
-        from ui.splash_screen import StartupSplash
-        capabilities = StartupSplash.run(parent=None, config=config)
+        # Show startup dialog and run system capability checks
+        from ui.startup_dialog import StartupDialog
+        capabilities = StartupDialog.show_startup(parent=None, config=config)
 
-        # If splash returned no capabilities, fall back to auto-detection
+        # If dialog returned no capabilities, fall back to auto-detection
         if capabilities is None:
-            logger.warning("Splash returned no capabilities; proceeding with auto-detected capabilities")
+            logger.warning("Startup dialog returned no capabilities; proceeding with auto-detected capabilities")
             from services.system_capabilities import check_system_capabilities
             capabilities = check_system_capabilities()
 

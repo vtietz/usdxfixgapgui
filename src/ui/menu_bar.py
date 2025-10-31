@@ -4,6 +4,7 @@ from PySide6.QtCore import Signal
 from typing import List  # Import List
 from actions import Actions
 from app.app_data import AppData
+from common.constants import APP_NAME
 import logging
 import os  # Import os for path checks
 import sys
@@ -58,6 +59,12 @@ class MenuBar(QWidget):
         self.config_button.setToolTip("Open config.ini in text editor")
         self.config_button.clicked.connect(self.open_config_file)
         self._layout.addWidget(self.config_button)
+
+        # About button - Shows startup dialog in about mode
+        self.about_button = QPushButton("About")
+        self.about_button.setToolTip(f"About {APP_NAME}")
+        self.about_button.clicked.connect(self.show_about_dialog)
+        self._layout.addWidget(self.about_button)
 
         self.searchBox = QLineEdit()
         self.searchBox.setPlaceholderText("Search")
@@ -172,6 +179,13 @@ class MenuBar(QWidget):
                 "Cannot Open Config",
                 f"Failed to open configuration file:\n{str(e)}\n\nPath: {config_path}"
             )
+
+    def show_about_dialog(self):
+        """Show About dialog (reuses startup dialog in about mode)."""
+        from ui.startup_dialog import StartupDialog
+        # Store reference to prevent garbage collection (dialog is non-modal)
+        self._about_dialog = StartupDialog.show_about(parent=self, config=self.config)
+        logger.info("Showed About dialog")
 
     def choose_directory(self):
         # Use the last directory from config if available, otherwise use the current directory

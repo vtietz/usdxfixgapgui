@@ -122,6 +122,7 @@ class Config(QObject):
                 "gpu_pack_dont_ask": False,
                 "splash_dont_show_health": False,
                 "prefer_system_pytorch": True,
+                "song_list_batch_size": 25,
             },
             "Audio": {"default_volume": 0.5, "auto_play": False},
             "Window": {"width": 1024, "height": 768, "x": -1, "y": -1, "maximized": False},
@@ -294,6 +295,9 @@ class Config(QObject):
         self.prefer_system_pytorch = self._config.getboolean(
             "General", "prefer_system_pytorch", fallback=general_defaults["prefer_system_pytorch"]
         )
+        self.song_list_batch_size = self._config.getint(
+            "General", "song_list_batch_size", fallback=general_defaults["song_list_batch_size"]
+        )
 
         # Audio
         audio_defaults = defaults["Audio"]
@@ -323,6 +327,71 @@ class Config(QObject):
         )
 
         logger.debug(f"Configuration loaded: {self.config_path}")
+
+    # Path Helper Properties
+    # These provide centralized, consistent path resolution with proper fallbacks
+
+    @property
+    def data_dir(self) -> str:
+        """
+        Get the base application data directory.
+
+        Returns:
+            str: Path to %LOCALAPPDATA%/USDXFixGap/ (Windows) or equivalent on other platforms
+        """
+        return get_localappdata_dir()
+
+    @property
+    def gpu_runtime_root(self) -> str:
+        """
+        Get the GPU Pack runtime root directory.
+
+        Returns:
+            str: Path to {data_dir}/gpu_runtime/
+        """
+        return os.path.join(self.data_dir, "gpu_runtime")
+
+    def get_gpu_pack_dir(self, torch_version: str) -> str:
+        """
+        Get the GPU Pack installation directory for a specific PyTorch version.
+
+        Args:
+            torch_version: PyTorch version (e.g., "2.4.1+cu121" or "2.4.1-cu121")
+
+        Returns:
+            str: Path to {data_dir}/gpu_runtime/torch-{version}/
+
+        Example:
+            >>> config.get_gpu_pack_dir("2.4.1+cu121")
+            'C:/Users/user/AppData/Local/USDXFixGap/gpu_runtime/torch-2.4.1-cu121'
+        """
+        # Normalize version to use dashes
+        normalized = torch_version.replace('+', '-')
+        if not normalized.startswith('torch-'):
+            normalized = f'torch-{normalized}'
+        return os.path.join(self.gpu_runtime_root, normalized)
+
+    @property
+    def effective_models_directory(self) -> str:
+        """
+        Get the effective models directory (respects user config or uses default).
+
+        Returns:
+            str: User-configured path or default {data_dir}/models/
+        """
+        if self.models_directory:
+            return self.models_directory
+        return os.path.join(self.data_dir, "models")
+
+    @property
+    def effective_gpu_pack_path(self) -> str:
+        """
+        Get the effective GPU Pack path (respects user config or empty string if not set).
+
+        Returns:
+            str: User-configured GPU Pack path or empty string
+        """
+        return self.gpu_pack_path or ""
 
     def _get_log_level(self, level_str):
         """Convert string log level to logging level constant"""
@@ -386,6 +455,7 @@ class Config(QObject):
         current["General"]["gpu_pack_dont_ask"] = "true" if self.gpu_pack_dont_ask else "false"
         current["General"]["splash_dont_show_health"] = "true" if self.splash_dont_show_health else "false"
         current["General"]["prefer_system_pytorch"] = "true" if self.prefer_system_pytorch else "false"
+        current["General"]["song_list_batch_size"] = str(self.song_list_batch_size)
 
         # 3. Window section - geometry
         if not current.has_section("Window"):

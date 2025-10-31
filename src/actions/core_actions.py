@@ -51,7 +51,7 @@ class CoreActions(BaseActions):
     def _load_songs(self):
         logger.info(f"Loading songs from directory: {self.data.directory}")
         self.data.is_loading_songs = True  # Set loading flag immediately
-        worker = LoadUsdxFilesWorker(self.data.directory, self.data.tmp_path)
+        worker = LoadUsdxFilesWorker(self.data.directory, self.data.tmp_path, self.data.config)
         worker.signals.songLoaded.connect(self._on_song_loaded)
         worker.signals.songsLoadedBatch.connect(self._on_songs_batch_loaded)  # Connect batch handler
         worker.signals.error.connect(lambda e: logger.error(f"Error loading songs: {e}"))
