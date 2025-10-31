@@ -52,6 +52,6 @@ def enable_runtime(pack_dir: Path) -> tuple[bool, List[str]]:
     RuntimeValidator.check_vcruntime()
 
     # Set environment variable for child processes
-    os.environ['USDXFIXGAP_GPU_PACK_DIR'] = str(pack_dir)
+    os.environ["USDXFIXGAP_GPU_PACK_DIR"] = str(pack_dir)
 
     return True, result.added_dll_dirs

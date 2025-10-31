@@ -2,6 +2,7 @@ import os
 from model.song import Song
 from utils import files
 
+
 class WaveformPathService:
     """Service for managing waveform file paths"""
 
@@ -27,7 +28,7 @@ class WaveformPathService:
             "audio_file": song.audio_file,
             "vocals_file": files.get_vocals_path(tmp_path),
             "audio_waveform_file": files.get_waveform_path(tmp_path, "audio"),
-            "vocals_waveform_file": files.get_waveform_path(tmp_path, "vocals")
+            "vocals_waveform_file": files.get_waveform_path(tmp_path, "vocals"),
         }
 
     @staticmethod
@@ -52,7 +53,7 @@ class WaveformPathService:
     def waveforms_exists(song: Song, tmp_root: str | None = None):
         """Check if waveforms exist for a song"""
         # First check if the song has an audio file before proceeding
-        if not song or not hasattr(song, 'audio_file') or not song.audio_file:
+        if not song or not hasattr(song, "audio_file") or not song.audio_file:
             return False
 
         paths = WaveformPathService.get_paths(song, tmp_root)

@@ -6,7 +6,6 @@ Eliminates global mutable state and provides clear phase separation.
 """
 
 import os
-import sys
 import logging
 from pathlib import Path
 from .types import BootstrapResult, ValidationResult
@@ -44,12 +43,7 @@ def enable(pack_dir: Path, expected_cuda: str = "12.1") -> BootstrapResult:
 
     if layout == "unknown":
         diagnostics.append(f"Unknown pack layout at {pack_dir}")
-        return BootstrapResult(
-            success=False,
-            mode="none",
-            diagnostics=diagnostics,
-            pack_dir=pack_dir
-        )
+        return BootstrapResult(success=False, mode="none", diagnostics=diagnostics, pack_dir=pack_dir)
 
     diagnostics.append(f"Detected layout: {layout}")
 
@@ -59,36 +53,28 @@ def enable(pack_dir: Path, expected_cuda: str = "12.1") -> BootstrapResult:
 
     if not path_config.sys_path_entries and not path_config.dll_directories and not path_config.ld_library_paths:
         diagnostics.append("No paths to install")
-        return BootstrapResult(
-            success=False,
-            mode="none",
-            diagnostics=diagnostics,
-            pack_dir=pack_dir
-        )
+        return BootstrapResult(success=False, mode="none", diagnostics=diagnostics, pack_dir=pack_dir)
 
     # Phase 3: Install paths
     manager = LibPathManager()
     installation = manager.install_paths(
         dll_dirs=path_config.dll_directories,
         sys_paths=path_config.sys_path_entries,
-        ld_paths=path_config.ld_library_paths
+        ld_paths=path_config.ld_library_paths,
     )
 
     if not installation.success:
         diagnostics.append(f"Path installation failed: {installation.error_message}")
         return BootstrapResult(
-            success=False,
-            mode="none",
-            installation=installation,
-            diagnostics=diagnostics,
-            pack_dir=pack_dir
+            success=False, mode="none", installation=installation, diagnostics=diagnostics, pack_dir=pack_dir
         )
 
     diagnostics.extend(installation.messages)
 
     # Check VC++ runtime on Windows
     import sys
-    if sys.platform == 'win32':
+
+    if sys.platform == "win32":
         _check_vcruntime()
 
     # Phase 4: Validate CUDA
@@ -98,21 +84,17 @@ def enable(pack_dir: Path, expected_cuda: str = "12.1") -> BootstrapResult:
         # CUDA validation successful
         try:
             import torch
+
             torch_version = torch.__version__
             cuda_version = torch.version.cuda
         except ImportError:
             torch_version = None
             cuda_version = None
 
-        validation = ValidationResult(
-            success=True,
-            mode="cuda",
-            torch_version=torch_version,
-            cuda_version=cuda_version
-        )
+        validation = ValidationResult(success=True, mode="cuda", torch_version=torch_version, cuda_version=cuda_version)
 
         # Set environment variable for child processes
-        os.environ['USDXFIXGAP_GPU_PACK_DIR'] = str(pack_dir)
+        os.environ["USDXFIXGAP_GPU_PACK_DIR"] = str(pack_dir)
 
         return BootstrapResult(
             success=True,
@@ -120,7 +102,7 @@ def enable(pack_dir: Path, expected_cuda: str = "12.1") -> BootstrapResult:
             installation=installation,
             validation=validation,
             diagnostics=diagnostics,
-            pack_dir=pack_dir
+            pack_dir=pack_dir,
         )
 
     # CUDA failed - try CPU fallback
@@ -131,19 +113,17 @@ def enable(pack_dir: Path, expected_cuda: str = "12.1") -> BootstrapResult:
         # CPU validation successful
         try:
             import torch
+
             torch_version = torch.__version__
         except ImportError:
             torch_version = None
 
         validation = ValidationResult(
-            success=True,
-            mode="cpu",
-            torch_version=torch_version,
-            error_message=f"CUDA unavailable: {cuda_error}"
+            success=True, mode="cpu", torch_version=torch_version, error_message=f"CUDA unavailable: {cuda_error}"
         )
 
         # Set environment variable for child processes
-        os.environ['USDXFIXGAP_GPU_PACK_DIR'] = str(pack_dir)
+        os.environ["USDXFIXGAP_GPU_PACK_DIR"] = str(pack_dir)
 
         return BootstrapResult(
             success=True,
@@ -151,7 +131,7 @@ def enable(pack_dir: Path, expected_cuda: str = "12.1") -> BootstrapResult:
             installation=installation,
             validation=validation,
             diagnostics=diagnostics,
-            pack_dir=pack_dir
+            pack_dir=pack_dir,
         )
 
     # Both CUDA and CPU failed
@@ -161,7 +141,7 @@ def enable(pack_dir: Path, expected_cuda: str = "12.1") -> BootstrapResult:
         success=False,
         mode="none",
         error_message=f"CUDA: {cuda_error} | CPU: {cpu_error}",
-        diagnostics=[cuda_error, cpu_error]
+        diagnostics=[cuda_error, cpu_error],
     )
 
     return BootstrapResult(
@@ -170,7 +150,7 @@ def enable(pack_dir: Path, expected_cuda: str = "12.1") -> BootstrapResult:
         installation=installation,
         validation=validation,
         diagnostics=diagnostics,
-        pack_dir=pack_dir
+        pack_dir=pack_dir,
     )
 
 
@@ -186,6 +166,7 @@ def enable_legacy(pack_dir: Path, config=None) -> bool:
         True if successful, False otherwise
     """
     from .legacy import enable_gpu_runtime
+
     return enable_gpu_runtime(pack_dir, config)
 
 
@@ -200,4 +181,5 @@ def bootstrap_and_maybe_enable_gpu_legacy(config) -> bool:
         True if GPU is enabled and validated, False otherwise
     """
     from .legacy import bootstrap_and_maybe_enable_gpu
+
     return bootstrap_and_maybe_enable_gpu(config)

@@ -53,5 +53,5 @@ class TagRegistry:
                 return
 
         # If not a tag and we have a note handler, try note parsing
-        if self._note_handler and not line.startswith('#'):
+        if self._note_handler and not line.startswith("#"):
             self._note_handler.parse(line, tags, notes)

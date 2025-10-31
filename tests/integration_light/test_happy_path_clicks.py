@@ -4,10 +4,10 @@ Integration-light happy path smoke tests.
 Validates high-level workflows from GUI interaction to action orchestration
 without heavy Qt event simulation or OS dependencies.
 """
+
 import pytest
 import sys
-import os
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from PySide6.QtWidgets import QApplication
 
 
@@ -56,6 +56,7 @@ def mock_app_data(tmp_path):
 def menu_bar(mock_actions, mock_app_data):
     """Create MenuBar."""
     from ui.menu_bar import MenuBar
+
     return MenuBar(mock_actions, mock_app_data)
 
 
@@ -63,6 +64,7 @@ def menu_bar(mock_actions, mock_app_data):
 def core_actions(mock_app_data):
     """Create CoreActions."""
     from actions.core_actions import CoreActions
+
     return CoreActions(mock_app_data)
 
 
@@ -82,10 +84,8 @@ def songs_directory(tmp_path):
 class TestDirectorySelectionToLoad:
     """Test directory selection workflow leading to song loading."""
 
-    @patch('ui.menu_bar.QFileDialog.getExistingDirectory')
-    def test_choose_directory_calls_set_directory_action(
-        self, mock_dialog, menu_bar, mock_actions, songs_directory
-    ):
+    @patch("ui.menu_bar.QFileDialog.getExistingDirectory")
+    def test_choose_directory_calls_set_directory_action(self, mock_dialog, menu_bar, mock_actions, songs_directory):
         """Choosing directory via dialog calls Actions.set_directory."""
         mock_dialog.return_value = str(songs_directory)
 
@@ -93,8 +93,8 @@ class TestDirectorySelectionToLoad:
 
         mock_actions.set_directory.assert_called_once_with(str(songs_directory))
 
-    @patch('actions.core_actions.CoreActions._load_songs')
-    @patch('actions.core_actions.CoreActions._clear_songs')
+    @patch("actions.core_actions.CoreActions._load_songs")
+    @patch("actions.core_actions.CoreActions._clear_songs")
     def test_set_directory_triggers_clear_and_load(
         self, mock_clear, mock_load, core_actions, mock_app_data, songs_directory
     ):
@@ -108,10 +108,8 @@ class TestDirectorySelectionToLoad:
         mock_clear.assert_called_once()
         mock_load.assert_called_once()
 
-    @patch('actions.core_actions.LoadUsdxFilesWorker')
-    def test_load_songs_enqueues_worker(
-        self, mock_worker_class, core_actions, mock_app_data, songs_directory
-    ):
+    @patch("actions.core_actions.LoadUsdxFilesWorker")
+    def test_load_songs_enqueues_worker(self, mock_worker_class, core_actions, mock_app_data, songs_directory):
         """_load_songs creates and enqueues LoadUsdxFilesWorker."""
         mock_worker = Mock()
         mock_worker.signals = Mock()
@@ -130,22 +128,16 @@ class TestDirectorySelectionToLoad:
         core_actions._load_songs()
 
         # Verify worker was created
-        mock_worker_class.assert_called_once_with(
-            str(songs_directory),
-            mock_app_data.tmp_path,
-            mock_app_data.config
-        )
+        mock_worker_class.assert_called_once_with(str(songs_directory), mock_app_data.tmp_path, mock_app_data.config)
 
         # Verify worker was enqueued
-        mock_app_data.worker_queue.add_task.assert_called_once_with(
-            mock_worker, True
-        )
+        mock_app_data.worker_queue.add_task.assert_called_once_with(mock_worker, True)
 
 
 class TestLoadThenDetectWorkflow:
     """Test workflow: load songs → select → detect."""
 
-    @patch('ui.menu_bar.QFileDialog.getExistingDirectory')
+    @patch("ui.menu_bar.QFileDialog.getExistingDirectory")
     def test_directory_load_then_detect_workflow(
         self, mock_dialog, menu_bar, mock_actions, songs_directory, song_factory, tmp_path
     ):
@@ -173,9 +165,7 @@ class TestLoadThenDetectWorkflow:
         # Verify detect_gap was called
         mock_actions.detect_gap.assert_called_once_with(overwrite=True)
 
-    def test_select_songs_then_multiple_operations(
-        self, menu_bar, mock_actions, song_factory, tmp_path
-    ):
+    def test_select_songs_then_multiple_operations(self, menu_bar, mock_actions, song_factory, tmp_path):
         """Test multiple operations on selected songs."""
         audio_path = tmp_path / "test.mp3"
         audio_path.touch()
@@ -209,8 +199,8 @@ class TestLoadThenDetectWorkflow:
 class TestAutoLoadOnStartup:
     """Test auto-load from last directory on startup."""
 
-    @patch('actions.core_actions.CoreActions._load_songs')
-    @patch('actions.core_actions.CoreActions._clear_songs')
+    @patch("actions.core_actions.CoreActions._load_songs")
+    @patch("actions.core_actions.CoreActions._clear_songs")
     def test_auto_load_last_directory_on_startup(
         self, mock_clear, mock_load, core_actions, mock_app_data, songs_directory
     ):
@@ -224,9 +214,7 @@ class TestAutoLoadOnStartup:
         mock_clear.assert_called_once()
         mock_load.assert_called_once()
 
-    def test_auto_load_skipped_when_no_last_directory(
-        self, core_actions, mock_app_data
-    ):
+    def test_auto_load_skipped_when_no_last_directory(self, core_actions, mock_app_data):
         """auto_load_last_directory returns False when no last directory."""
         mock_app_data.config.last_directory = ""
 
@@ -239,9 +227,7 @@ class TestAutoLoadOnStartup:
 class TestButtonStateCascade:
     """Test button state updates cascade correctly through selection changes."""
 
-    def test_button_states_update_through_multiple_selections(
-        self, menu_bar, song_factory, tmp_path
-    ):
+    def test_button_states_update_through_multiple_selections(self, menu_bar, song_factory, tmp_path):
         """Button states update correctly through selection lifecycle."""
         # No selection - all disabled
         menu_bar.onSelectedSongsChanged([])
@@ -271,17 +257,15 @@ class TestButtonStateCascade:
 class TestDirectoryPersistence:
     """Test directory persistence to config."""
 
-    def test_set_directory_persists_to_config(
-        self, core_actions, mock_app_data, songs_directory
-    ):
+    def test_set_directory_persists_to_config(self, core_actions, mock_app_data, songs_directory):
         """set_directory saves directory to config.last_directory."""
         core_actions.set_directory(str(songs_directory))
 
         assert mock_app_data.config.last_directory == str(songs_directory)
         mock_app_data.config.save.assert_called_once()
 
-    @patch('actions.core_actions.CoreActions._load_songs')
-    @patch('actions.core_actions.CoreActions._clear_songs')
+    @patch("actions.core_actions.CoreActions._load_songs")
+    @patch("actions.core_actions.CoreActions._clear_songs")
     def test_auto_load_uses_persisted_directory(
         self, mock_clear, mock_load, core_actions, mock_app_data, songs_directory
     ):

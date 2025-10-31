@@ -121,21 +121,14 @@ def test_set_enabled_true_reenables_shortcuts(shortcuts):
 
 def test_all_shortcuts_disabled_together(shortcuts):
     """Test disabling affects all shortcuts."""
-    callbacks = {
-        'space': Mock(),
-        'g': Mock(),
-        'd': Mock(),
-        'a': Mock(),
-        'r': Mock(),
-        's': Mock()
-    }
+    callbacks = {"space": Mock(), "g": Mock(), "d": Mock(), "a": Mock(), "r": Mock(), "s": Mock()}
 
-    shortcuts.play_pause_requested.connect(callbacks['space'])
-    shortcuts.jump_to_current_requested.connect(callbacks['g'])
-    shortcuts.jump_to_detected_requested.connect(callbacks['d'])
-    shortcuts.apply_detected_requested.connect(callbacks['a'])
-    shortcuts.revert_requested.connect(callbacks['r'])
-    shortcuts.save_requested.connect(callbacks['s'])
+    shortcuts.play_pause_requested.connect(callbacks["space"])
+    shortcuts.jump_to_current_requested.connect(callbacks["g"])
+    shortcuts.jump_to_detected_requested.connect(callbacks["d"])
+    shortcuts.apply_detected_requested.connect(callbacks["a"])
+    shortcuts.revert_requested.connect(callbacks["r"])
+    shortcuts.save_requested.connect(callbacks["s"])
 
     shortcuts.set_enabled(False)
 

@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 # Global registry of in-flight reloads across all SongActions instances to prevent duplicate reload tasks
 _GLOBAL_INFLIGHT_RELOADS: Set[str] = set()
 
+
 class SongActions(BaseActions):
     """Song selection and management actions"""
 
@@ -32,10 +33,12 @@ class SongActions(BaseActions):
             song = songs[0]
             self.data.gap_state = GapState.from_song(
                 current_gap=song.gap_info.original_gap if song.gap_info else 0,
-                detected_gap=song.gap_info.detected_gap if song.gap_info else None
+                detected_gap=song.gap_info.detected_gap if song.gap_info else None,
             )
             if self.data.gap_state:  # Add type guard
-                logger.debug(f"Created GapState for {song.title}: current={self.data.gap_state.current_gap_ms}, detected={self.data.gap_state.detected_gap_ms}")
+                logger.debug(
+                    f"Created GapState for {song.title}: current={self.data.gap_state.current_gap_ms}, detected={self.data.gap_state.detected_gap_ms}"
+                )
         else:
             # Multi-selection or no selection
             self.data.gap_state = None
@@ -50,7 +53,6 @@ class SongActions(BaseActions):
     def _mark_reload_finished(self, song_path: str):
         """Clear the in-flight flag when a reload worker finishes, errors, or is canceled."""
         _GLOBAL_INFLIGHT_RELOADS.discard(song_path)
-
 
     def reload_song(self, specific_song=None):
         """
@@ -96,22 +98,22 @@ class SongActions(BaseActions):
                 self._mark_reload_started(song.path)
 
                 # Update song status to PROCESSING on start
-                worker.signals.started.connect(lambda s=song: (
-                    setattr(s, 'status', SongStatus.PROCESSING),
-                    self.data.songs.updated.emit(s)
-                ))
+                worker.signals.started.connect(
+                    lambda s=song: (setattr(s, "status", SongStatus.PROCESSING), self.data.songs.updated.emit(s))
+                )
 
                 # When the worker reloads the song, clear inflight and update model
-                worker.signals.songReloaded.connect(lambda reloaded_song, p=song.path: (
-                    self._mark_reload_finished(p),
-                    self._on_song_loaded(reloaded_song)
-                ))
+                worker.signals.songReloaded.connect(
+                    lambda reloaded_song, p=song.path: (
+                        self._mark_reload_finished(p),
+                        self._on_song_loaded(reloaded_song),
+                    )
+                )
 
                 # Clear inflight on error/cancel/finish to avoid stuck state
-                worker.signals.error.connect(lambda e, s=song, p=song.path: (
-                    self._mark_reload_finished(p),
-                    self._on_song_worker_error(s, e)
-                ))
+                worker.signals.error.connect(
+                    lambda e, s=song, p=song.path: (self._mark_reload_finished(p), self._on_song_worker_error(s, e))
+                )
                 worker.signals.canceled.connect(lambda p=song.path: self._mark_reload_finished(p))
                 worker.signals.finished.connect(lambda p=song.path: self._mark_reload_finished(p))
 
@@ -157,7 +159,7 @@ class SongActions(BaseActions):
             song_service = SongService()
             run_async(
                 song_service.load_song_metadata_only(song.txt_file),
-                callback=lambda reloaded_song, s=song: self._apply_light_reload(s, reloaded_song)
+                callback=lambda reloaded_song, s=song: self._apply_light_reload(s, reloaded_song),
             )
 
     def _apply_light_reload(self, song: Song, reloaded_song: Song):
@@ -234,7 +236,9 @@ class SongActions(BaseActions):
                             note.start_ms = song.gap + (note.StartBeat / beats_per_ms)
                             note.end_ms = song.gap + ((note.StartBeat + note.Length) / beats_per_ms)
                         note.duration_ms = note.end_ms - note.start_ms
-                    logger.debug(f"Computed note timings for {song.title} using bpm={song.bpm}, gap={song.gap}, relative={song.is_relative}")
+                    logger.debug(
+                        f"Computed note timings for {song.title} using bpm={song.bpm}, gap={song.gap}, relative={song.is_relative}"
+                    )
                 except Exception as timing_err:
                     logger.warning(f"Failed computing note timings for {song.title}: {timing_err}")
 
@@ -258,6 +262,7 @@ class SongActions(BaseActions):
                 # Regenerate waveforms after reload
                 # This ensures waveforms reflect the current song data
                 from actions.audio_actions import AudioActions
+
                 audio_actions = AudioActions(self.data)
                 audio_actions._create_waveforms(song, overwrite=True, use_queue=True)
                 logger.info(f"Queued waveform regeneration after reload for {song.title}")
@@ -278,8 +283,18 @@ class SongActions(BaseActions):
         """Transfer all relevant attributes from source_song to target_song"""
         # Copy all attributes from source to target song object
         attributes_to_copy = [
-            'title', 'artist', 'audio', 'gap', 'bpm', 'start', 'is_relative',
-            'txt_file', 'audio_file', 'relative_path', 'usdb_id', 'notes'
+            "title",
+            "artist",
+            "audio",
+            "gap",
+            "bpm",
+            "start",
+            "is_relative",
+            "txt_file",
+            "audio_file",
+            "relative_path",
+            "usdb_id",
+            "notes",
         ]
 
         for attr in attributes_to_copy:
@@ -292,25 +307,24 @@ class SongActions(BaseActions):
                     logger.warning(f"Could not set attribute {attr} on song {target_song.title}")
 
         # Copy status and error_message after other attributes to ensure they're properly set
-        if hasattr(source_song, 'status'):
+        if hasattr(source_song, "status"):
             target_song.status = source_song.status
-        if hasattr(source_song, 'error_message'):
+        if hasattr(source_song, "error_message"):
             target_song.error_message = source_song.error_message
 
         # Handle special objects like gap_info
-        if hasattr(source_song, 'gap_info') and source_song.gap_info:
+        if hasattr(source_song, "gap_info") and source_song.gap_info:
             try:
                 target_song.gap_info = source_song.gap_info
             except AttributeError:
                 # If gap_info is a property with no setter, try to update its contents
                 logger.warning(f"Could not set gap_info directly, attempting to update contents")
-                if hasattr(target_song, 'gap_info') and target_song.gap_info is not None:
+                if hasattr(target_song, "gap_info") and target_song.gap_info is not None:
                     # Copy attributes from source gap_info to target gap_info
                     for gap_attr in dir(source_song.gap_info):
-                        if not gap_attr.startswith('_') and gap_attr != 'owner':  # Skip private attributes and owner
+                        if not gap_attr.startswith("_") and gap_attr != "owner":  # Skip private attributes and owner
                             try:
-                                setattr(target_song.gap_info, gap_attr,
-                                        getattr(source_song.gap_info, gap_attr))
+                                setattr(target_song.gap_info, gap_attr, getattr(source_song.gap_info, gap_attr))
                             except AttributeError:
                                 pass
 
@@ -343,7 +357,7 @@ class SongActions(BaseActions):
 
         logger.info(f"Attempting to delete {len(selected_songs)} songs.")
         # Confirmation should happen in the UI layer (MenuBar) before calling this
-        songs_to_remove = list(selected_songs) # Copy list as we modify the source
+        songs_to_remove = list(selected_songs)  # Copy list as we modify the source
         successfully_deleted = []
 
         # Use service for deletion logic

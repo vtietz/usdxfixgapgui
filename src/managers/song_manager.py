@@ -8,6 +8,7 @@ from utils.run_async import run_sync
 
 logger = logging.getLogger(__name__)
 
+
 class SongManager(BaseManager):
     """Manages song loading, selection, and manipulation"""
 
@@ -23,7 +24,9 @@ class SongManager(BaseManager):
             return True
         else:
             if self.config.last_directory:
-                logger.warning(f"Last directory in config is invalid or no longer exists: '{self.config.last_directory}'")
+                logger.warning(
+                    f"Last directory in config is invalid or no longer exists: '{self.config.last_directory}'"
+                )
             else:
                 logger.info("No previous directory found in configuration")
             return False
@@ -69,7 +72,7 @@ class SongManager(BaseManager):
         self.data.selected_songs = songs
 
         # Notify other components of selection change
-        if hasattr(self.data, 'selection_changed'):
+        if hasattr(self.data, "selection_changed"):
             self.data.selection_changed.emit()
 
     def reload_song(self):
@@ -88,13 +91,13 @@ class SongManager(BaseManager):
                 self.data.songs.updated.emit(song)
 
                 # Ensure UI gets refreshed
-                if hasattr(self.data.songs, 'list_changed'):
+                if hasattr(self.data.songs, "list_changed"):
                     self.data.songs.list_changed()
 
             except Exception as e:
                 song.error_message = str(e)
                 logger.exception(e)
-                self.data.songs.updated.emit(song) # Notify update even on error
+                self.data.songs.updated.emit(song)  # Notify update even on error
 
     def delete_selected_song(self):
         selected_songs = self.data.selected_songs
@@ -103,16 +106,16 @@ class SongManager(BaseManager):
             return
         logger.info(f"Attempting to delete {len(selected_songs)} songs.")
         # Confirmation should happen in the UI layer (MenuBar) before calling this
-        songs_to_remove = list(selected_songs) # Copy list as we modify the source
+        songs_to_remove = list(selected_songs)  # Copy list as we modify the source
         for song in songs_to_remove:
             logger.info(f"Deleting song {song}")
             try:
-                song.delete() # Assuming song.delete() handles file/folder removal
-                self.data.songs.remove(song) # Remove from the model's list
+                song.delete()  # Assuming song.delete() handles file/folder removal
+                self.data.songs.remove(song)  # Remove from the model's list
             except Exception as e:
                 logger.error(f"Failed to delete song {song}: {e}")
 
         # After attempting deletion, clear the selection
         self.set_selected_songs([])
         # Explicitly trigger a list change signal if model doesn't auto-signal on remove
-        self.data.songs.list_changed() # Assuming Songs model has such a signal or method
+        self.data.songs.list_changed()  # Assuming Songs model has such a signal or method

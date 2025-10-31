@@ -4,10 +4,8 @@ Tests each pipeline step independently to ensure correctness,
 then validates end-to-end integration.
 """
 
-import os
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from dataclasses import dataclass
+from unittest.mock import Mock, patch
 
 from utils.gap_detection.pipeline import (
     GapDetectionContext,
@@ -16,7 +14,6 @@ from utils.gap_detection.pipeline import (
     normalize_context,
     detect_gap_from_silence,
     should_retry_detection,
-    compute_confidence_score,
     perform,
 )
 from utils.result_types import DetectGapResult
@@ -123,38 +120,22 @@ class TestShouldRetryDetection:
 
     def test_no_retry_when_gap_within_window(self):
         """Don't retry if gap is within detection window."""
-        result = should_retry_detection(
-            detected_gap_ms=30000,
-            detection_time_sec=60,
-            audio_length_ms=120000
-        )
+        result = should_retry_detection(detected_gap_ms=30000, detection_time_sec=60, audio_length_ms=120000)
         assert result is False
 
     def test_no_retry_when_window_covers_full_audio(self):
         """Don't retry if detection window already covers full audio."""
-        result = should_retry_detection(
-            detected_gap_ms=70000,
-            detection_time_sec=120,
-            audio_length_ms=100000
-        )
+        result = should_retry_detection(detected_gap_ms=70000, detection_time_sec=120, audio_length_ms=100000)
         assert result is False
 
     def test_retry_when_gap_beyond_window(self):
         """Retry if gap is beyond window and room to expand."""
-        result = should_retry_detection(
-            detected_gap_ms=70000,
-            detection_time_sec=60,
-            audio_length_ms=120000
-        )
+        result = should_retry_detection(detected_gap_ms=70000, detection_time_sec=60, audio_length_ms=120000)
         assert result is True
 
     def test_handles_no_audio_length(self):
         """Handles case when audio length is unknown."""
-        result = should_retry_detection(
-            detected_gap_ms=70000,
-            detection_time_sec=60,
-            audio_length_ms=None
-        )
+        result = should_retry_detection(detected_gap_ms=70000, detection_time_sec=60, audio_length_ms=None)
         assert result is True
 
 
@@ -174,7 +155,7 @@ class TestGapDetectionContext:
                 overwrite=False,
                 start_window_sec=30,
                 window_increment_sec=15,
-                window_max_sec=90
+                window_max_sec=90,
             )
 
     def test_accepts_valid_context(self):
@@ -189,7 +170,7 @@ class TestGapDetectionContext:
             overwrite=False,
             start_window_sec=30,
             window_increment_sec=15,
-            window_max_sec=90
+            window_max_sec=90,
         )
         assert ctx.audio_file == __file__
         assert ctx.original_gap_ms == 5000
@@ -198,7 +179,7 @@ class TestGapDetectionContext:
 class TestNormalizeContext:
     """Test context normalization."""
 
-    @patch('utils.gap_detection.pipeline.audio')
+    @patch("utils.gap_detection.pipeline.audio")
     def test_detects_audio_length_when_missing(self, mock_audio):
         """Normalizer detects audio length if not provided."""
         mock_audio.get_audio_duration.return_value = 120.5
@@ -215,7 +196,7 @@ class TestNormalizeContext:
             audio_length=None,
             default_detection_time=60,
             config=mock_config,
-            overwrite=False
+            overwrite=False,
         )
 
         assert ctx.audio_length_ms == 120500  # 120.5s * 1000
@@ -235,7 +216,7 @@ class TestNormalizeContext:
             audio_length=100000,
             default_detection_time=60,
             config=mock_config,
-            overwrite=False
+            overwrite=False,
         )
 
         assert ctx.audio_length_ms == 100000
@@ -249,7 +230,7 @@ class TestNormalizeContext:
             audio_length=120000,
             default_detection_time=60,
             config=Mock(),
-            overwrite=False
+            overwrite=False,
         )
 
         # 60s * 1.5 = 90s
@@ -259,9 +240,9 @@ class TestNormalizeContext:
 class TestPerform:
     """Test end-to-end refactored pipeline."""
 
-    @patch('utils.gap_detection.pipeline.get_detection_provider')
-    @patch('utils.gap_detection.pipeline.files')
-    @patch('utils.gap_detection.pipeline.audio')
+    @patch("utils.gap_detection.pipeline.get_detection_provider")
+    @patch("utils.gap_detection.pipeline.files")
+    @patch("utils.gap_detection.pipeline.audio")
     def test_successful_detection(self, mock_audio, mock_files, mock_get_provider):
         """Complete detection pipeline succeeds."""
         # Setup mocks
@@ -285,7 +266,7 @@ class TestPerform:
             audio_length=None,
             default_detection_time=60,
             config=Mock(),
-            overwrite=False
+            overwrite=False,
         )
 
         # Verify
@@ -295,9 +276,9 @@ class TestPerform:
         assert result.confidence == 0.95
         assert len(result.silence_periods) == 1
 
-    @patch('utils.gap_detection.pipeline.get_detection_provider')
-    @patch('utils.gap_detection.pipeline.files')
-    @patch('utils.gap_detection.pipeline.audio')
+    @patch("utils.gap_detection.pipeline.get_detection_provider")
+    @patch("utils.gap_detection.pipeline.files")
+    @patch("utils.gap_detection.pipeline.audio")
     def test_handles_no_silence_periods(self, mock_audio, mock_files, mock_get_provider):
         """Handles case with no silence periods (vocals start immediately)."""
         mock_audio.get_audio_duration.return_value = 120.0
@@ -318,7 +299,7 @@ class TestPerform:
             audio_length=120000,
             default_detection_time=60,
             config=Mock(),
-            overwrite=False
+            overwrite=False,
         )
 
         assert result.detected_gap == 0
@@ -333,5 +314,5 @@ class TestPerform:
                 audio_length=120000,
                 default_detection_time=60,
                 config=Mock(),
-                overwrite=False
+                overwrite=False,
             )

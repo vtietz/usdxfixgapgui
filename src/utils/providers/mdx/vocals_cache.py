@@ -40,11 +40,7 @@ class VocalsCache:
         self._max_size = max_size
         logger.debug(f"VocalsCache initialized with max_size={max_size}")
 
-    def get(
-        self,
-        audio_file: str,
-        position_ms: float
-    ) -> Optional[Tuple[np.ndarray, float, float]]:
+    def get(self, audio_file: str, position_ms: float) -> Optional[Tuple[np.ndarray, float, float]]:
         """
         Get cached vocals that cover the specified position.
 
@@ -57,20 +53,16 @@ class VocalsCache:
         """
         for (cached_file, start_ms, end_ms), cached_vocals in self._cache.items():
             if cached_file == audio_file and start_ms <= position_ms <= end_ms:
-                logger.debug(f"Cache HIT: Found vocals covering {position_ms:.0f}ms "
-                             f"in chunk [{start_ms:.0f}ms-{end_ms:.0f}ms]")
+                logger.debug(
+                    f"Cache HIT: Found vocals covering {position_ms:.0f}ms "
+                    f"in chunk [{start_ms:.0f}ms-{end_ms:.0f}ms]"
+                )
                 return (cached_vocals, start_ms, end_ms)
 
         logger.debug(f"Cache MISS: No vocals found covering {position_ms:.0f}ms")
         return None
 
-    def put(
-        self,
-        audio_file: str,
-        start_ms: float,
-        end_ms: float,
-        vocals: np.ndarray
-    ):
+    def put(self, audio_file: str, start_ms: float, end_ms: float, vocals: np.ndarray):
         """
         Store vocals in cache with LRU eviction if needed.
 
@@ -85,14 +77,18 @@ class VocalsCache:
         # Evict oldest entry if cache is full
         if len(self._cache) >= self._max_size:
             oldest_key = next(iter(self._cache))
-            logger.debug(f"Cache FULL ({self._max_size} entries), evicting oldest: "
-                         f"[{oldest_key[1]:.0f}ms-{oldest_key[2]:.0f}ms]")
+            logger.debug(
+                f"Cache FULL ({self._max_size} entries), evicting oldest: "
+                f"[{oldest_key[1]:.0f}ms-{oldest_key[2]:.0f}ms]"
+            )
             self._cache.pop(oldest_key)
 
         # Add new entry (OrderedDict maintains insertion order for LRU)
         self._cache[cache_key] = vocals
-        logger.debug(f"Cache PUT: Stored vocals chunk [{start_ms:.0f}ms-{end_ms:.0f}ms] "
-                     f"({len(self._cache)}/{self._max_size} entries)")
+        logger.debug(
+            f"Cache PUT: Stored vocals chunk [{start_ms:.0f}ms-{end_ms:.0f}ms] "
+            f"({len(self._cache)}/{self._max_size} entries)"
+        )
 
     def clear(self):
         """Clear all cached vocals."""

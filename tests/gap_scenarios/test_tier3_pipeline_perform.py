@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from utils.gap_detection.pipeline import perform
 from test_utils.visualize import save_pipeline_overview
@@ -20,14 +20,8 @@ from test_utils.visualize import save_pipeline_overview
 # Pipeline Tests - Success Paths
 # ============================================================================
 
-def test_01_exact_match(
-    audio_scenario,
-    stub_provider_factory,
-    patch_provider,
-    config_stub,
-    write_tier3_docs,
-    tmp_path
-):
+
+def test_01_exact_match(audio_scenario, stub_provider_factory, patch_provider, config_stub, write_tier3_docs, tmp_path):
     """
     Scenario 1: Exact match - onset at expected gap position.
 
@@ -42,9 +36,7 @@ def test_01_exact_match(
 
     # Create and patch provider
     provider = stub_provider_factory(
-        truth_onset_ms=scenario["truth_onset_ms"],
-        confidence_value=0.95,
-        tmp_root=scenario["tmp_root"]
+        truth_onset_ms=scenario["truth_onset_ms"], confidence_value=0.95, tmp_root=scenario["tmp_root"]
     )
     patch_provider(provider)
 
@@ -60,7 +52,7 @@ def test_01_exact_match(
         default_detection_time=30,
         config=config_stub,
         overwrite=False,
-        check_cancellation=None
+        check_cancellation=None,
     )
 
     # Assertions
@@ -69,9 +61,9 @@ def test_01_exact_match(
 
     # Check detection accuracy (within 50ms for exact match)
     detected_ms = result.detected_gap if result.detected_gap < 1000 else result.detected_gap
-    assert abs(detected_ms - scenario["truth_onset_ms"]) <= 50, (
-        f"01-exact-match: Expected {scenario['truth_onset_ms']}ms, got {detected_ms}ms"
-    )
+    assert (
+        abs(detected_ms - scenario["truth_onset_ms"]) <= 50
+    ), f"01-exact-match: Expected {scenario['truth_onset_ms']}ms, got {detected_ms}ms"
 
     # Check confidence
     assert result.confidence == 0.95, f"Confidence should be 0.95, got {result.confidence}"
@@ -89,17 +81,11 @@ def test_01_exact_match(
             truth_ms=scenario["truth_onset_ms"],
             detected_ms=detected_ms,
             out_path=str(docs_dir / "01-exact-match.png"),
-            confidence=result.confidence
+            confidence=result.confidence,
         )
 
 
-def test_02_no_silence_periods(
-    audio_scenario,
-    stub_provider_factory,
-    patch_provider,
-    config_stub,
-    write_tier3_docs
-):
+def test_02_no_silence_periods(audio_scenario, stub_provider_factory, patch_provider, config_stub, write_tier3_docs):
     """
     Scenario 2: No silence periods (vocals at start).
 
@@ -112,9 +98,7 @@ def test_02_no_silence_periods(
 
     # Create provider with no silence periods
     provider = stub_provider_factory(
-        truth_onset_ms=None,  # No silence periods
-        confidence_value=0.80,
-        tmp_root=scenario["tmp_root"]
+        truth_onset_ms=None, confidence_value=0.80, tmp_root=scenario["tmp_root"]  # No silence periods
     )
     patch_provider(provider)
 
@@ -129,7 +113,7 @@ def test_02_no_silence_periods(
         default_detection_time=30,
         config=config_stub,
         overwrite=False,
-        check_cancellation=None
+        check_cancellation=None,
     )
 
     # Assertions
@@ -146,16 +130,11 @@ def test_02_no_silence_periods(
             truth_ms=scenario["truth_onset_ms"],
             detected_ms=0.0,
             out_path=str(docs_dir / "02-no-silence-periods.png"),
-            confidence=result.confidence
+            confidence=result.confidence,
         )
 
 
-def test_03_confidence_propagation(
-    audio_scenario,
-    stub_provider_factory,
-    patch_provider,
-    config_stub
-):
+def test_03_confidence_propagation(audio_scenario, stub_provider_factory, patch_provider, config_stub):
     """
     Scenario 3: Confidence propagation.
 
@@ -169,7 +148,7 @@ def test_03_confidence_propagation(
     provider = stub_provider_factory(
         truth_onset_ms=scenario["truth_onset_ms"],
         confidence_value=0.35,  # Low confidence
-        tmp_root=scenario["tmp_root"]
+        tmp_root=scenario["tmp_root"],
     )
     patch_provider(provider)
     config_stub.tmp_root = scenario["tmp_root"]
@@ -182,20 +161,14 @@ def test_03_confidence_propagation(
         audio_length=None,
         default_detection_time=30,
         config=config_stub,
-        overwrite=False
+        overwrite=False,
     )
 
     # Assertions
     assert result.confidence == 0.35, f"Expected confidence 0.35, got {result.confidence}"
 
 
-def test_04_existing_vocals_respected(
-    audio_scenario,
-    stub_provider_factory,
-    patch_provider,
-    config_stub,
-    tmp_path
-):
+def test_04_existing_vocals_respected(audio_scenario, stub_provider_factory, patch_provider, config_stub, tmp_path):
     """
     Scenario 4: Pre-existing vocals file respected (overwrite=False).
 
@@ -212,13 +185,12 @@ def test_04_existing_vocals_respected(
 
     # Copy audio to vocals location (simulating pre-existing)
     import shutil
+
     shutil.copy(scenario["audio_path"], vocals_file)
 
     # Create provider
     provider = stub_provider_factory(
-        truth_onset_ms=scenario["truth_onset_ms"],
-        confidence_value=0.90,
-        tmp_root=scenario["tmp_root"]
+        truth_onset_ms=scenario["truth_onset_ms"], confidence_value=0.90, tmp_root=scenario["tmp_root"]
     )
     patch_provider(provider)
     config_stub.tmp_root = scenario["tmp_root"]
@@ -231,7 +203,7 @@ def test_04_existing_vocals_respected(
         audio_length=None,
         default_detection_time=30,
         config=config_stub,
-        overwrite=False  # Should use existing file
+        overwrite=False,  # Should use existing file
     )
 
     # Provider get_vocals_file should not create new file
@@ -240,13 +212,7 @@ def test_04_existing_vocals_respected(
     assert result.detected_gap is not None
 
 
-def test_05_provider_reuse(
-    audio_scenario,
-    stub_provider_factory,
-    patch_provider,
-    config_stub,
-    monkeypatch
-):
+def test_05_provider_reuse(audio_scenario, stub_provider_factory, patch_provider, config_stub, monkeypatch):
     """
     Scenario 5: Provider reuse across pipeline steps.
 
@@ -259,9 +225,7 @@ def test_05_provider_reuse(
     # Track provider instances
     provider_calls = []
     original_provider = stub_provider_factory(
-        truth_onset_ms=scenario["truth_onset_ms"],
-        confidence_value=0.95,
-        tmp_root=scenario["tmp_root"]
+        truth_onset_ms=scenario["truth_onset_ms"], confidence_value=0.95, tmp_root=scenario["tmp_root"]
     )
 
     def mock_get_provider(config):
@@ -269,10 +233,7 @@ def test_05_provider_reuse(
         return original_provider
 
     # Patch with tracking function
-    monkeypatch.setattr(
-        'utils.gap_detection.pipeline.get_detection_provider',
-        mock_get_provider
-    )
+    monkeypatch.setattr("utils.gap_detection.pipeline.get_detection_provider", mock_get_provider)
 
     config_stub.tmp_root = scenario["tmp_root"]
 
@@ -284,16 +245,14 @@ def test_05_provider_reuse(
         audio_length=None,
         default_detection_time=30,
         config=config_stub,
-        overwrite=False
+        overwrite=False,
     )
 
     # Assert provider was created (called at least once)
     assert len(provider_calls) >= 1, "Provider factory should be called"
 
     # All calls should return same instance ID
-    assert all(pid == provider_calls[0] for pid in provider_calls), (
-        "All provider calls should return same instance"
-    )
+    assert all(pid == provider_calls[0] for pid in provider_calls), "All provider calls should return same instance"
 
     # Verify provider methods were called
     assert original_provider.get_vocals_call_count >= 1
@@ -301,13 +260,7 @@ def test_05_provider_reuse(
     assert original_provider.compute_confidence_call_count >= 1
 
 
-def test_06_large_offset_detection(
-    audio_scenario,
-    stub_provider_factory,
-    patch_provider,
-    config_stub,
-    caplog
-):
+def test_06_large_offset_detection(audio_scenario, stub_provider_factory, patch_provider, config_stub, caplog):
     """
     Scenario 6: Gap at 20s within 30s window.
 
@@ -320,9 +273,7 @@ def test_06_large_offset_detection(
 
     # Provider returns the offset
     provider = stub_provider_factory(
-        truth_onset_ms=scenario["truth_onset_ms"],
-        confidence_value=0.85,
-        tmp_root=scenario["tmp_root"]
+        truth_onset_ms=scenario["truth_onset_ms"], confidence_value=0.85, tmp_root=scenario["tmp_root"]
     )
     patch_provider(provider)
     config_stub.tmp_root = scenario["tmp_root"]
@@ -335,23 +286,18 @@ def test_06_large_offset_detection(
         audio_length=None,
         default_detection_time=30,  # 30s window
         config=config_stub,
-        overwrite=False
+        overwrite=False,
     )
 
     # Should detect correctly
     assert result.detected_gap is not None
     detected_ms = result.detected_gap if result.detected_gap < 1000 else result.detected_gap
-    assert abs(detected_ms - scenario["truth_onset_ms"]) <= 100, (
-        f"Expected ~{scenario['truth_onset_ms']}ms, got {detected_ms}ms"
-    )
+    assert (
+        abs(detected_ms - scenario["truth_onset_ms"]) <= 100
+    ), f"Expected ~{scenario['truth_onset_ms']}ms, got {detected_ms}ms"
 
 
-def test_07_failure_path_handling(
-    audio_scenario,
-    stub_provider_factory,
-    patch_provider,
-    config_stub
-):
+def test_07_failure_path_handling(audio_scenario, stub_provider_factory, patch_provider, config_stub):
     """
     Scenario 7: Provider failure handling.
 
@@ -359,7 +305,6 @@ def test_07_failure_path_handling(
     - Pipeline propagates provider exceptions
     - DetectionFailedError raised when provider fails
     """
-    from utils.providers.exceptions import DetectionFailedError
 
     scenario = audio_scenario(onset_ms=5000.0, duration_ms=20000)
 
@@ -368,7 +313,7 @@ def test_07_failure_path_handling(
         truth_onset_ms=scenario["truth_onset_ms"],
         confidence_value=0.95,
         tmp_root=scenario["tmp_root"],
-        raise_on_detect_silence=True  # Configured to fail
+        raise_on_detect_silence=True,  # Configured to fail
     )
     patch_provider(provider)
     config_stub.tmp_root = scenario["tmp_root"]
@@ -382,5 +327,5 @@ def test_07_failure_path_handling(
             audio_length=None,
             default_detection_time=30,
             config=config_stub,
-            overwrite=False
+            overwrite=False,
         )

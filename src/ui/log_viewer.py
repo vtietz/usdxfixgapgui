@@ -58,7 +58,7 @@ class LogViewerWidget(QWidget):
         # Text edit for log display
         self.text_edit = QTextEdit()
         self.text_edit.setReadOnly(True)
-        self.text_edit.setMinimumHeight(80)   # Minimum height for visibility
+        self.text_edit.setMinimumHeight(80)  # Minimum height for visibility
         self.text_edit.setMaximumHeight(150)  # Allow more space for scrolling
         self.text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -74,7 +74,8 @@ class LogViewerWidget(QWidget):
         self.text_edit.setFont(font)
 
         # Style the text edit with dark theme matching VS Code
-        self.text_edit.setStyleSheet("""
+        self.text_edit.setStyleSheet(
+            """
             QTextEdit {
                 background-color: #1E1E1E;
                 color: #D4D4D4;
@@ -82,7 +83,8 @@ class LogViewerWidget(QWidget):
                 border-radius: 3px;
                 padding: 4px;
             }
-        """)
+        """
+        )
 
         layout.addWidget(self.text_edit)
 
@@ -101,7 +103,7 @@ class LogViewerWidget(QWidget):
             return
 
         try:
-            with open(self.log_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(self.log_file_path, "r", encoding="utf-8", errors="ignore") as f:
                 # Seek to last known position
                 f.seek(self.last_position)
 
@@ -113,7 +115,7 @@ class LogViewerWidget(QWidget):
 
                 # Add new lines to buffer
                 for line in new_lines:
-                    line = line.rstrip('\n')
+                    line = line.rstrip("\n")
                     if line:  # Skip empty lines
                         self.log_lines.append(line)
 
@@ -140,16 +142,16 @@ class LogViewerWidget(QWidget):
         for line in self.log_lines:
             # Enhanced color coding based on log level with better formatting
             # Match VS Code-like log colors from the screenshot
-            if ' ERROR ' in line or ' CRITICAL ' in line:
+            if " ERROR " in line or " CRITICAL " in line:
                 # Red for errors
                 colored_line = f'<span style="color: #F48771; font-weight: 500;">{self._html_escape(line)}</span>'
-            elif ' WARNING ' in line:
+            elif " WARNING " in line:
                 # Yellow/orange for warnings
                 colored_line = f'<span style="color: #D7BA7D;">{self._html_escape(line)}</span>'
-            elif ' INFO ' in line:
+            elif " INFO " in line:
                 # Bright cyan/blue for info (like in screenshot)
                 colored_line = f'<span style="color: #4EC9B0;">{self._html_escape(line)}</span>'
-            elif ' DEBUG ' in line:
+            elif " DEBUG " in line:
                 # Green for debug messages
                 colored_line = f'<span style="color: #6A9955;">{self._html_escape(line)}</span>'
             else:
@@ -160,7 +162,9 @@ class LogViewerWidget(QWidget):
 
         # Update text edit with proper HTML formatting
         # Use <pre> tag to preserve spacing and enable horizontal scroll
-        html_content = '<pre style="margin: 0; padding: 0; font-family: inherit;">' + '<br>'.join(display_text) + '</pre>'
+        html_content = (
+            '<pre style="margin: 0; padding: 0; font-family: inherit;">' + "<br>".join(display_text) + "</pre>"
+        )
         self.text_edit.setHtml(html_content)
 
         # Auto-scroll to bottom only if we were already at bottom
@@ -186,14 +190,15 @@ class LogViewerWidget(QWidget):
     @staticmethod
     def _html_escape(text: str) -> str:
         """Escape HTML special characters."""
-        return (text
-                .replace('&', '&amp;')
-                .replace('<', '&lt;')
-                .replace('>', '&gt;')
-                .replace('"', '&quot;')
-                .replace("'", '&#39;'))
+        return (
+            text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&#39;")
+        )
 
     def cleanup(self):
         """Stop the update timer."""
-        if hasattr(self, 'update_timer'):
+        if hasattr(self, "update_timer"):
             self.update_timer.stop()

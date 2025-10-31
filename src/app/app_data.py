@@ -1,6 +1,7 @@
 import os
 from PySide6.QtCore import QObject, Signal
 from typing import TYPE_CHECKING, List, Optional
+
 if TYPE_CHECKING:
     from services.gap_state import GapState
     from services.audio_service import AudioService
@@ -10,6 +11,7 @@ from model.song import Song
 from model.songs import Songs
 from utils import files
 from managers.worker_queue_manager import WorkerQueueManager
+
 
 class AppData(QObject):
 
@@ -22,24 +24,24 @@ class AppData(QObject):
 
     songs: Songs = Songs()
 
-    _selected_songs: List[Song] = [] # Use List[Song] for type hint
+    _selected_songs: List[Song] = []  # Use List[Song] for type hint
     _is_loading_songs: bool = False
 
     selected_songs_changed = Signal(list)  # Signal still uses list
     is_loading_songs_changed = Signal(bool)
 
     # Track B: State facades for selected song
-    gap_state: Optional['GapState'] = None  # Forward ref to avoid circular import
-    audio_service: Optional['AudioService'] = None
+    gap_state: Optional["GapState"] = None  # Forward ref to avoid circular import
+    audio_service: Optional["AudioService"] = None
 
     # System capabilities (initialized at startup)
-    capabilities: Optional['SystemCapabilities'] = None
+    capabilities: Optional["SystemCapabilities"] = None
 
     # Add these new signals to support manager communication
     gap_detection_finished = Signal(object)  # Emits the song when gap detection is finished
-    gap_updated = Signal(object)             # Emits the song when gap value is updated
-    gap_reverted = Signal(object)            # Emits the song when gap value is reverted
-    selection_changed = Signal()             # Emits when song selection changes
+    gap_updated = Signal(object)  # Emits the song when gap value is updated
+    gap_reverted = Signal(object)  # Emits the song when gap value is reverted
+    selection_changed = Signal()  # Emits when song selection changes
 
     # Add this signal
     media_files_refreshed = Signal()
@@ -47,7 +49,7 @@ class AppData(QObject):
     media_unload_requested = Signal()
 
     _directory: str | None = None  # Will be set in __init__ after config is loaded
-    _tmp_path: str | None = None   # Will be set in __init__ after config is loaded
+    _tmp_path: str | None = None  # Will be set in __init__ after config is loaded
 
     @property
     def config(self) -> Config:

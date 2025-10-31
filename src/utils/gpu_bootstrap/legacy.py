@@ -23,14 +23,14 @@ def _check_vcruntime() -> None:
     Check for Microsoft Visual C++ Redistributable DLLs on Windows.
     Logs a warning with download URL if they're missing.
     """
-    if sys.platform != 'win32':
+    if sys.platform != "win32":
         return
 
     try:
         import ctypes
 
         # Try to load critical VC++ runtime DLLs
-        required_dlls = ['vcruntime140_1.dll', 'msvcp140.dll']
+        required_dlls = ["vcruntime140_1.dll", "msvcp140.dll"]
         missing_dlls = []
 
         for dll_name in required_dlls:
@@ -65,6 +65,7 @@ def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
 
     # Use staged GPU bootstrap
     from utils.gpu_bootstrap.orchestrator import enable_runtime
+
     logger.debug("Using GPU bootstrap")
     success, added_dirs = enable_runtime(pack_dir)
     if success:
@@ -95,8 +96,8 @@ def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
             return (False, "torch.version.cuda is None")
 
         # Compare versions
-        expected_parts = expected_cuda.split('.')
-        actual_parts = torch_cuda_version.split('.')
+        expected_parts = expected_cuda.split(".")
+        actual_parts = torch_cuda_version.split(".")
 
         # If only major version specified (e.g., "12"), accept any minor version
         compare_parts = len(expected_parts)
@@ -105,7 +106,7 @@ def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
 
         # Smoke test: create tensor on GPU and perform operation
         try:
-            device = torch.device('cuda:0')
+            device = torch.device("cuda:0")
             x = torch.randn(100, 100, device=device)
             y = torch.randn(100, 100, device=device)
             z = torch.matmul(x, y)
@@ -113,7 +114,7 @@ def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
             # Ensure computation completed
             torch.cuda.synchronize()
 
-            if z.device.type != 'cuda':
+            if z.device.type != "cuda":
                 return (False, "Smoke test failed: result not on GPU")
 
         except Exception as e:
@@ -159,8 +160,7 @@ def validate_torch_cpu() -> Tuple[bool, str]:
         return (False, f"Unexpected error during CPU validation: {str(e)}")
 
 
-def _build_diagnostic_message(pack_dir: Optional[Path], flavor: str,
-                              expected_cuda: str, error_msg: str) -> str:
+def _build_diagnostic_message(pack_dir: Optional[Path], flavor: str, expected_cuda: str, error_msg: str) -> str:
     """Build detailed diagnostic message for GPU bootstrap failure."""
     lines = [f"GPU Pack validation failed: {error_msg}"]
 
@@ -174,7 +174,7 @@ def _build_diagnostic_message(pack_dir: Optional[Path], flavor: str,
     else:
         lines.append("No DLL directories were added")
 
-    env_pack_dir = os.environ.get('USDXFIXGAP_GPU_PACK_DIR', 'Not set')
+    env_pack_dir = os.environ.get("USDXFIXGAP_GPU_PACK_DIR", "Not set")
     lines.append(f"USDXFIXGAP_GPU_PACK_DIR: {env_pack_dir}")
 
     lines.append("Run --gpu-diagnostics for detailed information")
@@ -201,15 +201,15 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
     """
     try:
         # Check if user has explicitly disabled GPU
-        gpu_opt_in = getattr(config, 'gpu_opt_in', None)
+        gpu_opt_in = getattr(config, "gpu_opt_in", None)
         if gpu_opt_in is False:
             logger.debug("GPU acceleration explicitly disabled (gpu_opt_in=false)")
             return False
 
         # Try GPU Pack first if configured
-        pack_path = getattr(config, 'gpu_pack_path', '')
+        pack_path = getattr(config, "gpu_pack_path", "")
         pack_dir = None
-        gpu_flavor = getattr(config, 'gpu_flavor', 'cu121')
+        gpu_flavor = getattr(config, "gpu_flavor", "cu121")
         expected_cuda = "12.1" if gpu_flavor == "cu121" else "12.4"
 
         if pack_path:
@@ -234,9 +234,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
                     else:
                         logger.warning(f"GPU Pack validation failed: {error_msg}")
                         # Compose detailed diagnostic message
-                        diagnostic_info = _build_diagnostic_message(
-                            pack_dir, gpu_flavor, expected_cuda, error_msg
-                        )
+                        diagnostic_info = _build_diagnostic_message(pack_dir, gpu_flavor, expected_cuda, error_msg)
                         config.gpu_last_error = diagnostic_info
                         config.gpu_last_health = "failed"
                         config.save_config()
@@ -283,7 +281,7 @@ def child_process_min_bootstrap():
     Minimal bootstrap for child processes.
     Replicates GPU Pack activation using environment variable.
     """
-    pack_dir_str = os.environ.get('USDXFIXGAP_GPU_PACK_DIR')
+    pack_dir_str = os.environ.get("USDXFIXGAP_GPU_PACK_DIR")
     if pack_dir_str:
         pack_dir = Path(pack_dir_str)
         if pack_dir.exists():

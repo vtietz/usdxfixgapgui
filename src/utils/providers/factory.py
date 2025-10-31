@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Optional
 
 from common.config import Config
 from utils.providers.base import IDetectionProvider
+
 # DO NOT import provider classes here - they import torch which must happen
 # AFTER GPU Pack bootstrap. Import them lazily in get_detection_provider().
 # from utils.providers.mdx_provider import MdxProvider
@@ -24,10 +25,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_detection_provider(
-    config: Config,
-    capabilities: Optional['SystemCapabilities'] = None
-) -> IDetectionProvider:
+def get_detection_provider(config: Config, capabilities: Optional["SystemCapabilities"] = None) -> IDetectionProvider:
     """
     Factory function to get the MDX detection provider.
 
@@ -81,12 +79,11 @@ def get_detection_provider(
         logger.debug("Selecting MDX detection provider")
         # Lazy import to prevent early torch import
         from utils.providers.mdx_provider import MdxProvider
+
         return MdxProvider(config)
 
     except ProviderInitializationError:
         # Re-raise capability errors as-is
         raise
     except Exception as e:
-        raise ProviderInitializationError(
-            f"Failed to initialize MDX detection provider: {e}"
-        ) from e
+        raise ProviderInitializationError(f"Failed to initialize MDX detection provider: {e}") from e

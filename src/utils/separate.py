@@ -6,13 +6,8 @@ from utils.cancellable_process import run_cancellable_process
 
 logger = logging.getLogger(__name__)
 
-def separate_audio(
-        audio_file,
-        duration,
-        output_path,
-        overvrite=False,
-        check_cancellation=None
-    ):
+
+def separate_audio(audio_file, duration, output_path, overvrite=False, check_cancellation=None):
 
     if audio_file is None or os.path.exists(audio_file) is False:
         raise Exception(f"Audio file not found: {audio_file}")
@@ -33,14 +28,18 @@ def separate_audio(
 
     command = [
         sys.executable,
-        "-m", "spleeter",
+        "-m",
+        "spleeter",
         "separate",
-        "-o", output_path,
-        "-p", "spleeter:2stems",
-        "-d", str(duration),
+        "-o",
+        output_path,
+        "-p",
+        "spleeter:2stems",
+        "-d",
+        str(duration),
         audio_file,
     ]
-    logger.debug("Spleeter command: %s", ' '.join(command))
+    logger.debug("Spleeter command: %s", " ".join(command))
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
 
     if not os.path.exists(vocals_filepath) or not os.path.exists(accompaniment_filepath):

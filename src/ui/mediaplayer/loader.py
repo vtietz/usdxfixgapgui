@@ -2,6 +2,7 @@ import os
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtMultimedia import QMediaPlayer
 
+
 class MediaPlayerLoader:
     def __init__(self, media_player: QMediaPlayer):
         self.media_player = media_player

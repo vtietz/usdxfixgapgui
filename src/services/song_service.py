@@ -12,6 +12,7 @@ from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class SongService:
     """Service class for operations on Song objects"""
 
@@ -20,7 +21,9 @@ class SongService:
 
     async def load_song(self, txt_file: str, force_reload=False, cancel_check: Optional[Callable] = None) -> Song:
         """Load a song from a text file, using cache if available"""
-        logger.debug(f"Loading '{txt_file}', force_reload={force_reload}, cancel_check={'provided' if cancel_check else 'None'}")
+        logger.debug(
+            f"Loading '{txt_file}', force_reload={force_reload}, cancel_check={'provided' if cancel_check else 'None'}"
+        )
 
         song = Song(txt_file)
 
@@ -80,11 +83,10 @@ class SongService:
 
         return song
 
-
     async def _initialize_song_from_usdx(self, song: Song, usdx_file: USDXFile):
         """Initialize song data from a USDX file"""
         if not os.path.exists(song.txt_file):
-           raise FileNotFoundError(f"File not found: {song.txt_file}")
+            raise FileNotFoundError(f"File not found: {song.txt_file}")
 
         # Access usdx_file properties
         logger.debug(f"Accessing USDX tags for {song.txt_file}")

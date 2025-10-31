@@ -7,8 +7,10 @@ from services.gap_info_service import GapInfoService
 
 logger = logging.getLogger(__name__)
 
+
 class WorkerSignals(IWorkerSignals):
     lengthDetected = pyqtSignal(Song)
+
 
 class DetectAudioLengthWorker(IWorker):
     def __init__(self, song: Song):

@@ -13,12 +13,13 @@ logger = logging.getLogger(__name__)
 try:
     import librosa
     import numpy as np
+
     LIBROSA_AVAILABLE = True
 except ImportError:
     LIBROSA_AVAILABLE = False
     # Bind names to avoid 'possibly unbound' type checker diagnostics
     librosa = None  # type: ignore
-    np = None       # type: ignore
+    np = None  # type: ignore
     logger.warning("librosa not available. Waveform JSON generation will be limited.")
 
 
@@ -26,7 +27,7 @@ def build_waveform_json(
     audio_file: str,
     output_file: Optional[str] = None,
     bins: int = 2048,
-    check_cancellation: Optional[Callable[[], bool]] = None
+    check_cancellation: Optional[Callable[[], bool]] = None,
 ) -> str:
     """
     Generate waveform JSON with min/max bins for UI visualization.
@@ -49,6 +50,7 @@ def build_waveform_json(
     # Load audio via librosa with type-narrowing to satisfy static analysis
     assert LIBROSA_AVAILABLE and librosa is not None and np is not None
     from typing import cast, Any
+
     lib = cast(Any, librosa)
     np_mod = cast(Any, np)
     y, sr = lib.load(audio_file, sr=None, mono=True)
@@ -84,10 +86,7 @@ def build_waveform_json(
             min_val = 0.0
             max_val = 0.0
 
-        waveform_data.append({
-            "min": min_val,
-            "max": max_val
-        })
+        waveform_data.append({"min": min_val, "max": max_val})
 
     # Prepare output data
     output_data = {
@@ -95,7 +94,7 @@ def build_waveform_json(
         "duration_seconds": float(total_samples / sr),
         "bins": bins,
         "samples_per_bin": samples_per_bin,
-        "data": waveform_data
+        "data": waveform_data,
     }
 
     # Determine output file
@@ -105,7 +104,7 @@ def build_waveform_json(
 
     # Save JSON
     logger.debug(f"Saving waveform JSON to {output_file}")
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(output_data, f, indent=2)
 
     logger.info(f"Waveform JSON created: {output_file}")
@@ -116,7 +115,7 @@ def _build_waveform_json_ffmpeg(
     audio_file: str,
     output_file: Optional[str] = None,
     bins: int = 2048,
-    check_cancellation: Optional[Callable[[], bool]] = None
+    check_cancellation: Optional[Callable[[], bool]] = None,
 ) -> str:
     """
     Fallback waveform generation using ffmpeg (when librosa unavailable).
@@ -137,16 +136,22 @@ def _build_waveform_json_ffmpeg(
 
     # Convert to raw PCM samples
     temp_dir = os.path.dirname(audio_file)
-    raw_file = tempfile.NamedTemporaryFile(delete=False, suffix='.raw', dir=temp_dir).name
+    raw_file = tempfile.NamedTemporaryFile(delete=False, suffix=".raw", dir=temp_dir).name
 
     try:
         # Extract raw PCM data
         command = [
-            'ffmpeg', '-y', '-i', audio_file,
-            '-f', 's16le',  # 16-bit signed little-endian PCM
-            '-ac', '1',      # Mono
-            '-ar', '44100',  # 44.1kHz
-            raw_file
+            "ffmpeg",
+            "-y",
+            "-i",
+            audio_file,
+            "-f",
+            "s16le",  # 16-bit signed little-endian PCM
+            "-ac",
+            "1",  # Mono
+            "-ar",
+            "44100",  # 44.1kHz
+            raw_file,
         ]
 
         returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
@@ -156,12 +161,13 @@ def _build_waveform_json_ffmpeg(
 
         # Read raw PCM data
         import struct
-        with open(raw_file, 'rb') as f:
+
+        with open(raw_file, "rb") as f:
             raw_data = f.read()
 
         # Unpack 16-bit signed integers
         num_samples = len(raw_data) // 2
-        samples = struct.unpack(f'{num_samples}h', raw_data)
+        samples = struct.unpack(f"{num_samples}h", raw_data)
 
         # Normalize to -1.0 to 1.0
         samples = [s / 32768.0 for s in samples]
@@ -191,10 +197,7 @@ def _build_waveform_json_ffmpeg(
                 min_val = 0.0
                 max_val = 0.0
 
-            waveform_data.append({
-                "min": min_val,
-                "max": max_val
-            })
+            waveform_data.append({"min": min_val, "max": max_val})
 
         # Prepare output data
         output_data = {
@@ -202,7 +205,7 @@ def _build_waveform_json_ffmpeg(
             "duration_seconds": num_samples / 44100.0,
             "bins": bins,
             "samples_per_bin": samples_per_bin,
-            "data": waveform_data
+            "data": waveform_data,
         }
 
         # Determine output file
@@ -211,7 +214,7 @@ def _build_waveform_json_ffmpeg(
             output_file = f"{base_name}_waveform.json"
 
         # Save JSON
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             json.dump(output_data, f, indent=2)
 
         logger.info(f"Waveform JSON created (ffmpeg): {output_file}")

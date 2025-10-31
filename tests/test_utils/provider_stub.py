@@ -9,8 +9,6 @@ import logging
 from pathlib import Path
 from typing import List, Tuple, Optional, Callable
 
-import numpy as np
-import torch
 import torchaudio
 
 from common.config import Config
@@ -41,7 +39,7 @@ class StubProvider(IDetectionProvider):
         confidence_value: float = 0.95,
         raise_on_get_vocals: bool = False,
         raise_on_detect_silence: bool = False,
-        raise_on_confidence: bool = False
+        raise_on_confidence: bool = False,
     ):
         """
         Initialize stub provider with configurable behavior.
@@ -74,7 +72,7 @@ class StubProvider(IDetectionProvider):
         destination_vocals_filepath: str,
         duration: int = 60,
         overwrite: bool = False,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        check_cancellation: Optional[Callable[[], bool]] = None,
     ) -> str:
         """
         Extract right channel from stereo audio as vocals.
@@ -85,10 +83,7 @@ class StubProvider(IDetectionProvider):
         self.get_vocals_call_count += 1
 
         if self.raise_on_get_vocals:
-            raise DetectionFailedError(
-                "Stub configured to fail on get_vocals_file",
-                provider_name="mdx"
-            )
+            raise DetectionFailedError("Stub configured to fail on get_vocals_file", provider_name="mdx")
 
         # Check if destination exists and overwrite=False
         dest_path = Path(destination_vocals_filepath)
@@ -122,7 +117,7 @@ class StubProvider(IDetectionProvider):
         audio_file: str,
         vocals_file: str,
         original_gap_ms: Optional[float] = None,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        check_cancellation: Optional[Callable[[], bool]] = None,
     ) -> List[Tuple[float, float]]:
         """
         Return configurable silence periods.
@@ -133,10 +128,7 @@ class StubProvider(IDetectionProvider):
         self.detect_silence_call_count += 1
 
         if self.raise_on_detect_silence:
-            raise DetectionFailedError(
-                "Stub configured to fail on detect_silence_periods",
-                provider_name="mdx"
-            )
+            raise DetectionFailedError("Stub configured to fail on detect_silence_periods", provider_name="mdx")
 
         if self.truth_onset_ms is not None:
             # Return silence period from 0 to onset (MDX-style)
@@ -149,10 +141,7 @@ class StubProvider(IDetectionProvider):
             return []
 
     def compute_confidence(
-        self,
-        audio_file: str,
-        detected_gap_ms: float,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        self, audio_file: str, detected_gap_ms: float, check_cancellation: Optional[Callable[[], bool]] = None
     ) -> float:
         """
         Return fixed confidence value.
@@ -163,10 +152,7 @@ class StubProvider(IDetectionProvider):
         self.compute_confidence_call_count += 1
 
         if self.raise_on_confidence:
-            raise DetectionFailedError(
-                "Stub configured to fail on compute_confidence",
-                provider_name="mdx"
-            )
+            raise DetectionFailedError("Stub configured to fail on compute_confidence", provider_name="mdx")
 
         logger.info(f"StubProvider: Returning confidence: {self.confidence_value}")
         return self.confidence_value

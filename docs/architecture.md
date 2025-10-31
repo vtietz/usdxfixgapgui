@@ -74,7 +74,7 @@
     from services.system_capabilities import check_system_capabilities, get_capabilities
 
     # At startup (with optional progress callback)
-    caps = check_system_capabilities(log_callback=splash.log)
+    caps = check_system_capabilities(log_callback=dialog.log)
 
     # Later in application
     caps = get_capabilities()  # Returns cached result
@@ -121,16 +121,17 @@
    - Actions update the models or emit signals based on the results.
 
 4. **Capability Checking Flow** (System Requirements):
-   - **Startup**: `SystemCapabilitiesService.check()` called from `StartupSplash`
+   - **Startup**: `SystemCapabilitiesService.check()` called from `StartupDialog`
      - Checks PyTorch availability and version
      - Detects CUDA/GPU if PyTorch available
      - Checks FFmpeg/FFprobe in PATH
      - Computes `can_detect` flag (requires torch + ffmpeg)
      - Results cached in singleton service
-     - Splash displays real-time progress with log callbacks
+     - Dialog displays real-time progress with log callbacks
+     - Offers GPU Pack download if GPU detected but CUDA unavailable
 
    - **Dependency Injection**: Capabilities stored in `AppData.capabilities`
-     - Passed from splash to `create_and_run_gui()`
+     - Passed from StartupDialog to `create_and_run_gui()`
      - Available throughout application lifetime
      - Single source of truth for all components
 

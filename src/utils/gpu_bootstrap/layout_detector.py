@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class PackLayout(Enum):
     """GPU Pack installation layout types."""
+
     WHEEL_EXTRACTION = "wheel"  # torch/ at root
     SITE_PACKAGES = "site_packages"  # site-packages/ subdirectory
     UNKNOWN = "unknown"
@@ -36,8 +37,8 @@ class LayoutDetector:
             logger.debug(f"Pack directory does not exist: {pack_dir}")
             return PackLayout.UNKNOWN
 
-        torch_dir = pack_dir / 'torch'
-        site_packages = pack_dir / 'site-packages'
+        torch_dir = pack_dir / "torch"
+        site_packages = pack_dir / "site-packages"
 
         if torch_dir.exists():
             logger.debug("Detected wheel extraction layout (torch/ at root)")

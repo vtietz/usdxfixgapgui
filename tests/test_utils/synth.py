@@ -9,13 +9,7 @@ from typing import Tuple
 import numpy as np
 
 
-def harmonic_tone(
-    f0_hz: float,
-    duration_ms: int,
-    sr: int = 44100,
-    harmonics: int = 4,
-    amp: float = 0.8
-) -> np.ndarray:
+def harmonic_tone(f0_hz: float, duration_ms: int, sr: int = 44100, harmonics: int = 4, amp: float = 0.8) -> np.ndarray:
     """
     Generate harmonic tone with fundamental and harmonics.
 
@@ -45,11 +39,7 @@ def harmonic_tone(
     return signal
 
 
-def envelope_fade_in(
-    signal: np.ndarray,
-    fade_in_ms: int,
-    sr: int = 44100
-) -> np.ndarray:
+def envelope_fade_in(signal: np.ndarray, fade_in_ms: int, sr: int = 44100) -> np.ndarray:
     """
     Apply fade-in envelope to signal.
 
@@ -74,12 +64,7 @@ def envelope_fade_in(
     return signal * envelope
 
 
-def add_breath_preroll(
-    signal: np.ndarray,
-    breath_ms: int,
-    level_db: float,
-    sr: int = 44100
-) -> np.ndarray:
+def add_breath_preroll(signal: np.ndarray, breath_ms: int, level_db: float, sr: int = 44100) -> np.ndarray:
     """
     Add breath noise before the signal.
 
@@ -108,12 +93,7 @@ def add_breath_preroll(
     return np.concatenate([breath, signal])
 
 
-def add_noise_floor(
-    signal: np.ndarray,
-    level_db: float,
-    sr: int = 44100,
-    color: str = "white"
-) -> np.ndarray:
+def add_noise_floor(signal: np.ndarray, level_db: float, sr: int = 44100, color: str = "white") -> np.ndarray:
     """
     Add noise floor to signal.
 
@@ -140,7 +120,7 @@ def add_noise_floor(
         white = rng.normal(0, 1, len(signal))
         # Apply simple low-pass effect (rolling average)
         b = np.ones(5) / 5
-        noise = np.convolve(white, b, mode='same')
+        noise = np.convolve(white, b, mode="same")
     else:
         noise = rng.normal(0, 1, len(signal))
 
@@ -205,7 +185,7 @@ def build_vocal_onset(
     f0_hz: float = 220.0,
     harmonics: int = 4,
     noise_floor_db: float = -60.0,
-    sr: int = 44100
+    sr: int = 44100,
 ) -> Tuple[np.ndarray, dict]:
     """
     Build synthetic vocal onset scenario.

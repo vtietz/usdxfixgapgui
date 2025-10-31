@@ -19,6 +19,7 @@ import torchaudio
 @dataclass
 class VocalEvent:
     """Single vocal event parameters."""
+
     onset_ms: float
     duration_ms: float
     fade_in_ms: float = 100
@@ -30,6 +31,7 @@ class VocalEvent:
 @dataclass
 class InstrumentBed:
     """Instrument bed parameters."""
+
     noise_floor_db: float = -60.0
     color: str = "white"
     transients: Optional[List[Dict[str, float]]] = None  # [{t_ms, level_db, dur_ms}]
@@ -42,6 +44,7 @@ class InstrumentBed:
 @dataclass
 class AudioBuildResult:
     """Result of stereo test audio build."""
+
     path: str
     sr: int
     truth_onsets_ms: List[float]
@@ -56,7 +59,7 @@ def build_stereo_test(
     duration_ms: float = 60000,
     vocal_events: Optional[List[VocalEvent]] = None,
     instrument_bed: Optional[InstrumentBed] = None,
-    mix_snr_db: Optional[float] = None
+    mix_snr_db: Optional[float] = None,
 ) -> AudioBuildResult:
     """
     Build deterministic stereo test audio file.
@@ -123,13 +126,14 @@ def build_stereo_test(
 
     # Convert to torch tensor
     import torch
+
     stereo_tensor = torch.from_numpy(stereo).float()
 
     # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Save as WAV
-    torchaudio.save(str(output_path), stereo_tensor, sr, encoding='PCM_S', bits_per_sample=16)
+    torchaudio.save(str(output_path), stereo_tensor, sr, encoding="PCM_S", bits_per_sample=16)
 
     return AudioBuildResult(
         path=str(output_path),
@@ -137,15 +141,11 @@ def build_stereo_test(
         truth_onsets_ms=truth_onsets_ms,
         duration_ms=duration_ms,
         vocal_events=vocal_events,
-        instrument_bed=instrument_bed
+        instrument_bed=instrument_bed,
     )
 
 
-def _add_vocal_event(
-    signal: np.ndarray,
-    event: VocalEvent,
-    sr: int
-) -> np.ndarray:
+def _add_vocal_event(signal: np.ndarray, event: VocalEvent, sr: int) -> np.ndarray:
     """Add a vocal event to the signal."""
     onset_samples = int(event.onset_ms / 1000.0 * sr)
     duration_samples = int(event.duration_ms / 1000.0 * sr)
@@ -178,11 +178,7 @@ def _add_vocal_event(
     return signal
 
 
-def _build_instrument_bed(
-    total_samples: int,
-    bed: InstrumentBed,
-    sr: int
-) -> np.ndarray:
+def _build_instrument_bed(total_samples: int, bed: InstrumentBed, sr: int) -> np.ndarray:
     """Build instrument bed with noise and transients."""
     # Deterministic RNG
     rng = np.random.default_rng(42)
@@ -194,7 +190,7 @@ def _build_instrument_bed(
         white = rng.normal(0, 1, total_samples)
         # Simple pink approximation
         b = np.ones(5) / 5
-        instruments = np.convolve(white, b, mode='same')
+        instruments = np.convolve(white, b, mode="same")
     else:
         instruments = rng.normal(0, 1, total_samples)
 
@@ -203,10 +199,10 @@ def _build_instrument_bed(
     instruments = instruments * noise_amplitude
 
     # Add transients
-    for transient in (bed.transients or []):
-        t_ms = transient['t_ms']
-        level_db = transient['level_db']
-        dur_ms = transient['dur_ms']
+    for transient in bed.transients or []:
+        t_ms = transient["t_ms"]
+        level_db = transient["level_db"]
+        dur_ms = transient["dur_ms"]
 
         start_sample = int(t_ms / 1000.0 * sr)
         dur_samples = int(dur_ms / 1000.0 * sr)

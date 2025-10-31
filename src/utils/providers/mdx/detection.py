@@ -18,11 +18,7 @@ from utils.providers.mdx.config import MdxConfig
 logger = logging.getLogger(__name__)
 
 
-def compute_rms(
-    audio: np.ndarray,
-    frame_samples: int,
-    hop_samples: int
-) -> np.ndarray:
+def compute_rms(audio: np.ndarray, frame_samples: int, hop_samples: int) -> np.ndarray:
     """
     Compute short-time RMS energy.
 
@@ -52,10 +48,7 @@ def compute_rms(
     return rms_values
 
 
-def estimate_noise_floor(
-    rms_values: np.ndarray,
-    noise_floor_frames: int
-) -> Tuple[float, float]:
+def estimate_noise_floor(rms_values: np.ndarray, noise_floor_frames: int) -> Tuple[float, float]:
     """
     Estimate noise floor and standard deviation from initial frames.
 
@@ -72,7 +65,7 @@ def estimate_noise_floor(
         return (0.0, 0.0)
 
     # Use first N frames for noise floor estimation
-    noise_frames = rms_values[:min(noise_floor_frames, len(rms_values))]
+    noise_frames = rms_values[: min(noise_floor_frames, len(rms_values))]
 
     if len(noise_frames) == 0:
         return (0.0, 0.0)
@@ -85,10 +78,7 @@ def estimate_noise_floor(
 
 
 def detect_onset_in_vocal_chunk(
-    vocal_audio: np.ndarray,
-    sample_rate: int,
-    chunk_start_ms: float,
-    config: MdxConfig
+    vocal_audio: np.ndarray, sample_rate: int, chunk_start_ms: float, config: MdxConfig
 ) -> Optional[float]:
     """
     Detect vocal onset in a vocal stem chunk using energy threshold.
@@ -129,10 +119,7 @@ def detect_onset_in_vocal_chunk(
             return None
 
         # Estimate noise floor
-        noise_floor_frames = int(
-            (config.noise_floor_duration_ms / 1000.0)
-            / (config.hop_duration_ms / 1000.0)
-        )
+        noise_floor_frames = int((config.noise_floor_duration_ms / 1000.0) / (config.hop_duration_ms / 1000.0))
         # Clamp noise_floor_frames if it exceeds available frames
         if noise_floor_frames >= len(rms_values):
             logger.warning(
@@ -146,26 +133,24 @@ def detect_onset_in_vocal_chunk(
         max_rms = np.max(rms_values)
         mean_rms = np.mean(rms_values)
 
-        logger.info(f"Chunk analysis - Noise floor={noise_floor:.6f}, sigma={noise_sigma:.6f}, "
-                    f"max_rms={max_rms:.6f}, mean_rms={mean_rms:.6f}")
+        logger.info(
+            f"Chunk analysis - Noise floor={noise_floor:.6f}, sigma={noise_sigma:.6f}, "
+            f"max_rms={max_rms:.6f}, mean_rms={mean_rms:.6f}"
+        )
 
         # Detect onset - use BOTH SNR threshold AND absolute threshold
         snr_threshold = noise_floor + config.onset_snr_threshold * noise_sigma
         combined_threshold = max(snr_threshold, config.onset_abs_threshold)
 
-        logger.info(f"Thresholds - SNR_threshold={snr_threshold:.6f}, "
-                    f"Absolute_threshold={config.onset_abs_threshold:.6f}, "
-                    f"Combined={combined_threshold:.6f}")
+        logger.info(
+            f"Thresholds - SNR_threshold={snr_threshold:.6f}, "
+            f"Absolute_threshold={config.onset_abs_threshold:.6f}, "
+            f"Combined={combined_threshold:.6f}"
+        )
 
         # Find sustained energy above threshold
-        min_frames = int(
-            (config.min_voiced_duration_ms / 1000.0)
-            / (config.hop_duration_ms / 1000.0)
-        )
-        hysteresis_frames = int(
-            (config.hysteresis_ms / 1000.0)
-            / (config.hop_duration_ms / 1000.0)
-        )
+        min_frames = int((config.min_voiced_duration_ms / 1000.0) / (config.hop_duration_ms / 1000.0))
+        hysteresis_frames = int((config.hysteresis_ms / 1000.0) / (config.hop_duration_ms / 1000.0))
 
         above_threshold = rms_values > combined_threshold
         onset_frame = None
@@ -175,7 +160,7 @@ def detect_onset_in_vocal_chunk(
 
         # Find first sustained onset (after noise floor region)
         for i in range(search_start, len(above_threshold) - min_frames):
-            if np.all(above_threshold[i:i + min_frames]):
+            if np.all(above_threshold[i : i + min_frames]):
                 # Found sustained energy - now look back for the actual onset (rising edge)
                 onset_frame = i
 
@@ -217,9 +202,11 @@ def detect_onset_in_vocal_chunk(
 
                                 # Only use refined onset if it makes sense (earlier than or close to original)
                                 if refined_onset <= onset_frame:
-                                    logger.debug(f"Refined onset from frame {onset_frame} to {refined_onset} "
-                                                 f"(first rise: {energy_derivative[first_rise_idx]:.4f}, "
-                                                 f"threshold: {threshold_derivative:.4f})")
+                                    logger.debug(
+                                        f"Refined onset from frame {onset_frame} to {refined_onset} "
+                                        f"(first rise: {energy_derivative[first_rise_idx]:.4f}, "
+                                        f"threshold: {threshold_derivative:.4f})"
+                                    )
                                     onset_frame = refined_onset
 
                 break
@@ -228,8 +215,10 @@ def detect_onset_in_vocal_chunk(
             # Convert frame to absolute timestamp
             onset_offset_ms = (onset_frame * hop_samples / sample_rate) * 1000.0
             onset_abs_ms = chunk_start_ms + onset_offset_ms
-            logger.info(f"Onset detected at {onset_abs_ms:.1f}ms "
-                        f"(RMS={rms_values[onset_frame]:.4f}, threshold={combined_threshold:.4f})")
+            logger.info(
+                f"Onset detected at {onset_abs_ms:.1f}ms "
+                f"(RMS={rms_values[onset_frame]:.4f}, threshold={combined_threshold:.4f})"
+            )
             return float(onset_abs_ms)
 
         return None

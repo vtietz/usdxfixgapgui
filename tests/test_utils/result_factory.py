@@ -11,7 +11,7 @@ def create_gap_detection_result(
     notes_overlap: int = 0,
     silence_periods: list = None,
     duration_ms: int = 180000,
-    status: GapInfoStatus = GapInfoStatus.MATCH
+    status: GapInfoStatus = GapInfoStatus.MATCH,
 ) -> Mock:
     """
     Create a mock GapDetectionResult object.
@@ -55,10 +55,7 @@ def create_match_result(song_file_path: str, detected_gap: int = 1000) -> Mock:
         A Mock with MATCH status and zero gap_diff
     """
     return create_gap_detection_result(
-        song_file_path=song_file_path,
-        detected_gap=detected_gap,
-        gap_diff=0,
-        status=GapInfoStatus.MATCH
+        song_file_path=song_file_path, detected_gap=detected_gap, gap_diff=0, status=GapInfoStatus.MATCH
     )
 
 
@@ -75,8 +72,5 @@ def create_mismatch_result(song_file_path: str, detected_gap: int = 1200, gap_di
         A Mock with MISMATCH status
     """
     return create_gap_detection_result(
-        song_file_path=song_file_path,
-        detected_gap=detected_gap,
-        gap_diff=gap_diff,
-        status=GapInfoStatus.MISMATCH
+        song_file_path=song_file_path, detected_gap=detected_gap, gap_diff=gap_diff, status=GapInfoStatus.MISMATCH
     )

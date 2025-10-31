@@ -366,9 +366,9 @@ class Config(QObject):
             'C:/Users/user/AppData/Local/USDXFixGap/gpu_runtime/torch-2.4.1-cu121'
         """
         # Normalize version to use dashes
-        normalized = torch_version.replace('+', '-')
-        if not normalized.startswith('torch-'):
-            normalized = f'torch-{normalized}'
+        normalized = torch_version.replace("+", "-")
+        if not normalized.startswith("torch-"):
+            normalized = f"torch-{normalized}"
         return os.path.join(self.gpu_runtime_root, normalized)
 
     @property

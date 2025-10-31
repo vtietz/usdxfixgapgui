@@ -32,6 +32,7 @@ class GapDetectionContext:
     normalized format. This eliminates parameter passing complexity
     and ensures consistency across pipeline steps.
     """
+
     audio_file: str
     original_gap_ms: float
     detection_time_sec: int
@@ -55,12 +56,7 @@ class GapDetectionContext:
             raise ValueError("Config is required for gap detection")
 
 
-def validate_inputs(
-    audio_file: str,
-    original_gap: int,
-    audio_length: Optional[int],
-    config: Optional[Config]
-) -> None:
+def validate_inputs(audio_file: str, original_gap: int, audio_length: Optional[int], config: Optional[Config]) -> None:
     """Validate gap detection inputs with clear error messages.
 
     Args:
@@ -89,10 +85,7 @@ def validate_inputs(
         raise ValueError("Config is required for gap detection")
 
 
-def calculate_detection_time(
-    original_gap_ms: float,
-    default_detection_time_sec: int
-) -> int:
+def calculate_detection_time(original_gap_ms: float, default_detection_time_sec: int) -> int:
     """Calculate optimal detection time window.
 
     Ensures detection window is large enough to capture the gap.
@@ -132,7 +125,7 @@ def normalize_context(
     default_detection_time: int,
     config: Config,
     overwrite: bool,
-    check_cancellation: Optional[Callable] = None
+    check_cancellation: Optional[Callable] = None,
 ) -> GapDetectionContext:
     """Normalize inputs into immutable detection context.
 
@@ -161,10 +154,7 @@ def normalize_context(
         audio_length = int(duration * 1000) if duration else None
 
     # Calculate detection time
-    detection_time = calculate_detection_time(
-        float(original_gap),
-        default_detection_time
-    )
+    detection_time = calculate_detection_time(float(original_gap), default_detection_time)
 
     return GapDetectionContext(
         audio_file=audio_file,
@@ -176,15 +166,11 @@ def normalize_context(
         overwrite=overwrite,
         start_window_sec=config.vocal_start_window_sec,
         window_increment_sec=config.vocal_window_increment_sec,
-        window_max_sec=config.vocal_window_max_sec
+        window_max_sec=config.vocal_window_max_sec,
     )
 
 
-def get_or_create_vocals(
-    ctx: GapDetectionContext,
-    check_cancellation: Optional[Callable] = None,
-    provider = None
-) -> str:
+def get_or_create_vocals(ctx: GapDetectionContext, check_cancellation: Optional[Callable] = None, provider=None) -> str:
     """Get or create vocals file for detection.
 
     I/O boundary - handles file system operations.
@@ -212,22 +198,14 @@ def get_or_create_vocals(
         provider = get_detection_provider(ctx.config)
 
     vocals_file = provider.get_vocals_file(
-        ctx.audio_file,
-        ctx.tmp_root,
-        destination_vocals_file,
-        ctx.detection_time_sec,
-        ctx.overwrite,
-        check_cancellation
+        ctx.audio_file, ctx.tmp_root, destination_vocals_file, ctx.detection_time_sec, ctx.overwrite, check_cancellation
     )
 
     return vocals_file
 
 
 def detect_silence_periods(
-    ctx: GapDetectionContext,
-    vocals_file: str,
-    check_cancellation: Optional[Callable] = None,
-    provider = None
+    ctx: GapDetectionContext, vocals_file: str, check_cancellation: Optional[Callable] = None, provider=None
 ) -> List[Tuple[float, float]]:
     """Detect silence periods in vocals file.
 
@@ -247,20 +225,14 @@ def detect_silence_periods(
         provider = get_detection_provider(ctx.config)
 
     silence_periods = provider.detect_silence_periods(
-        ctx.audio_file,
-        vocals_file,
-        original_gap_ms=ctx.original_gap_ms,
-        check_cancellation=check_cancellation
+        ctx.audio_file, vocals_file, original_gap_ms=ctx.original_gap_ms, check_cancellation=check_cancellation
     )
 
     logger.debug(f"Detected {len(silence_periods)} silence periods")
     return silence_periods
 
 
-def detect_gap_from_silence(
-    silence_periods: Sequence[Tuple[float, float]],
-    original_gap_ms: float
-) -> Optional[int]:
+def detect_gap_from_silence(silence_periods: Sequence[Tuple[float, float]], original_gap_ms: float) -> Optional[int]:
     """Pure function: detect gap from silence periods.
 
     Returns the END of the first silence period (where vocals start).
@@ -290,11 +262,7 @@ def detect_gap_from_silence(
     return int(gap_ms)
 
 
-def should_retry_detection(
-    detected_gap_ms: int,
-    detection_time_sec: int,
-    audio_length_ms: Optional[int]
-) -> bool:
+def should_retry_detection(detected_gap_ms: int, detection_time_sec: int, audio_length_ms: Optional[int]) -> bool:
     """Pure function: determine if detection should be retried.
 
     Retry if detected gap is beyond detection window, unless we've
@@ -323,10 +291,7 @@ def should_retry_detection(
 
 
 def compute_confidence_score(
-    ctx: GapDetectionContext,
-    detected_gap_ms: float,
-    check_cancellation: Optional[Callable] = None,
-    provider = None
+    ctx: GapDetectionContext, detected_gap_ms: float, check_cancellation: Optional[Callable] = None, provider=None
 ) -> Optional[float]:
     """Compute confidence score for detection.
 
@@ -344,11 +309,7 @@ def compute_confidence_score(
         if provider is None:
             provider = get_detection_provider(ctx.config)
 
-        confidence = provider.compute_confidence(
-            ctx.audio_file,
-            detected_gap_ms,
-            check_cancellation=check_cancellation
-        )
+        confidence = provider.compute_confidence(ctx.audio_file, detected_gap_ms, check_cancellation=check_cancellation)
         logger.debug(f"Detection confidence: {confidence:.3f}")
         return confidence
     except Exception as e:
@@ -364,7 +325,7 @@ def perform(
     default_detection_time: int,
     config: Config,
     overwrite: bool,
-    check_cancellation: Optional[Callable] = None
+    check_cancellation: Optional[Callable] = None,
 ) -> DetectGapResult:
     """Gap detection pipeline.
 
@@ -402,14 +363,7 @@ def perform(
 
     # Step 1: Normalize inputs into context
     ctx = normalize_context(
-        audio_file,
-        tmp_root,
-        original_gap,
-        audio_length,
-        default_detection_time,
-        config,
-        overwrite,
-        check_cancellation
+        audio_file, tmp_root, original_gap, audio_length, default_detection_time, config, overwrite, check_cancellation
     )
 
     # Create provider once for reuse across pipeline (avoid redundant model loads)
@@ -437,10 +391,7 @@ def perform(
 
     # Step 5: Check if we need to retry with larger window
     if should_retry_detection(detected_gap, ctx.detection_time_sec, ctx.audio_length_ms):
-        logger.info(
-            f"Detected gap {detected_gap}ms beyond detection window. "
-            f"Consider increasing detection time."
-        )
+        logger.info(f"Detected gap {detected_gap}ms beyond detection window. " f"Consider increasing detection time.")
         # Note: Retry logic not included - failed detection should be handled by caller
         # Can be re-added if needed with recursive call
 

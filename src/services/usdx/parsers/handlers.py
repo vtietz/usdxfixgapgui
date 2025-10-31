@@ -12,10 +12,10 @@ class GapTagHandler:
 
     @property
     def tag_prefix(self) -> str:
-        return '#GAP:'
+        return "#GAP:"
 
     def parse(self, line: str, tags: Tags, notes: list) -> None:
-        value = line.split(':')[1].strip()
+        value = line.split(":")[1].strip()
         # Remove all numbers after "," or "."
         value = value.split(",")[0].split(".")[0]
         tags.GAP = int(value) if value else None
@@ -26,10 +26,10 @@ class TitleTagHandler:
 
     @property
     def tag_prefix(self) -> str:
-        return '#TITLE:'
+        return "#TITLE:"
 
     def parse(self, line: str, tags: Tags, notes: list) -> None:
-        tags.TITLE = line.split(':')[1].strip()
+        tags.TITLE = line.split(":")[1].strip()
 
 
 class ArtistTagHandler:
@@ -37,10 +37,10 @@ class ArtistTagHandler:
 
     @property
     def tag_prefix(self) -> str:
-        return '#ARTIST:'
+        return "#ARTIST:"
 
     def parse(self, line: str, tags: Tags, notes: list) -> None:
-        tags.ARTIST = line.split(':')[1].strip()
+        tags.ARTIST = line.split(":")[1].strip()
 
 
 class Mp3TagHandler:
@@ -48,10 +48,10 @@ class Mp3TagHandler:
 
     @property
     def tag_prefix(self) -> str:
-        return '#MP3:'
+        return "#MP3:"
 
     def parse(self, line: str, tags: Tags, notes: list) -> None:
-        tags.AUDIO = line.split(':')[1].strip()
+        tags.AUDIO = line.split(":")[1].strip()
 
 
 class AudioTagHandler:
@@ -59,10 +59,10 @@ class AudioTagHandler:
 
     @property
     def tag_prefix(self) -> str:
-        return '#AUDIO:'
+        return "#AUDIO:"
 
     def parse(self, line: str, tags: Tags, notes: list) -> None:
-        tags.AUDIO = line.split(':')[1].strip()
+        tags.AUDIO = line.split(":")[1].strip()
 
 
 class BpmTagHandler:
@@ -70,12 +70,12 @@ class BpmTagHandler:
 
     @property
     def tag_prefix(self) -> str:
-        return '#BPM:'
+        return "#BPM:"
 
     def parse(self, line: str, tags: Tags, notes: list) -> None:
-        value = line.split(':')[1].strip()
+        value = line.split(":")[1].strip()
         # Handle both period and comma as decimal separator (locale-aware)
-        value_normalized = value.replace(',', '.') if value else None
+        value_normalized = value.replace(",", ".") if value else None
         tags.BPM = float(value_normalized) if value_normalized else None
 
 
@@ -84,12 +84,12 @@ class StartTagHandler:
 
     @property
     def tag_prefix(self) -> str:
-        return '#START:'
+        return "#START:"
 
     def parse(self, line: str, tags: Tags, notes: list) -> None:
-        value = line.split(':')[1].strip()
+        value = line.split(":")[1].strip()
         # Handle both period and comma as decimal separator
-        value_normalized = value.replace(',', '.') if value else None
+        value_normalized = value.replace(",", ".") if value else None
         tags.START = float(value_normalized) if value_normalized else None
 
 
@@ -98,10 +98,10 @@ class RelativeTagHandler:
 
     @property
     def tag_prefix(self) -> str:
-        return '#RELATIVE:'
+        return "#RELATIVE:"
 
     def parse(self, line: str, tags: Tags, notes: list) -> None:
-        value = line.split(':')[1].strip()
+        value = line.split(":")[1].strip()
         tags.RELATIVE = value.lower() == "yes" if value else None
 
 
@@ -114,11 +114,11 @@ class NoteLineHandler:
 
     def parse(self, line: str, tags: Tags, notes: list) -> None:
         parts = line.strip().split()
-        if len(parts) >= 5 and parts[0] in {':', '*', 'R', '-', 'F', 'G'}:
+        if len(parts) >= 5 and parts[0] in {":", "*", "R", "-", "F", "G"}:
             note = Note()
             note.NoteType = parts[0]
             note.StartBeat = int(parts[1])
             note.Length = int(parts[2])
             note.Pitch = int(parts[3])
-            note.Text = ' '.join(parts[4:])
+            note.Text = " ".join(parts[4:])
             notes.append(note)

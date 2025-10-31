@@ -1,20 +1,17 @@
 """
 Tests for WorkerQueueManager FIFO ordering, instant lane, and cancellation behavior.
 """
+
 import pytest
 from unittest.mock import Mock, patch
 from collections import deque
 
-from managers.worker_queue_manager import (
-    WorkerQueueManager,
-    IWorker,
-    IWorkerSignals,
-    WorkerStatus
-)
+from managers.worker_queue_manager import WorkerQueueManager, IWorker, IWorkerSignals, WorkerStatus
 
 
 class MockWorker(IWorker):
     """Mock worker for testing"""
+
     def __init__(self, description: str, is_instant: bool = False):
         super().__init__(is_instant=is_instant)
         self.signals = IWorkerSignals()
@@ -26,6 +23,7 @@ class MockWorker(IWorker):
         self._run_called = True
         # Simulate work
         import asyncio
+
         await asyncio.sleep(0.01)
 
 
@@ -43,7 +41,7 @@ class TestFIFOOrdering:
         manager = WorkerQueueManager()
 
         # Prevent auto-start by mocking start_next_task
-        with patch.object(manager, 'start_next_task'):
+        with patch.object(manager, "start_next_task"):
             # Add three standard tasks
             worker_a = MockWorker("Task A", is_instant=False)
             worker_b = MockWorker("Task B", is_instant=False)
@@ -93,7 +91,7 @@ class TestInstantLane:
         # Add instant task with slot free
         worker = MockWorker("Instant Task", is_instant=True)
 
-        with patch.object(manager, 'start_next_instant_task') as mock_start:
+        with patch.object(manager, "start_next_instant_task") as mock_start:
             manager.add_task(worker, start_now=False)
             # Should start immediately regardless of start_now
             mock_start.assert_called_once()
@@ -120,14 +118,14 @@ class TestInstantLane:
 
         # Add standard task and verify it's running
         standard_worker = MockWorker("Standard Task", is_instant=False)
-        with patch('managers.worker_queue_manager.run_async'):
+        with patch("managers.worker_queue_manager.run_async"):
             manager.add_task(standard_worker, start_now=True)
             manager.running_tasks[standard_worker.id] = standard_worker
 
         # Add instant task - should start despite standard task running
         instant_worker = MockWorker("Instant Task", is_instant=True)
 
-        with patch.object(manager, 'start_next_instant_task') as mock_start:
+        with patch.object(manager, "start_next_instant_task") as mock_start:
             manager.add_task(instant_worker, start_now=False)
             # Should start immediately even with standard task running
             mock_start.assert_called_once()
@@ -162,7 +160,7 @@ class TestCancellation:
         manager.running_tasks[worker.id] = worker
 
         # Cancel it
-        with patch.object(worker, 'cancel') as mock_cancel:
+        with patch.object(worker, "cancel") as mock_cancel:
             manager.cancel_task(worker.id)
             mock_cancel.assert_called_once()
 
@@ -171,7 +169,7 @@ class TestCancellation:
         manager = WorkerQueueManager()
 
         # Prevent auto-start by mocking start_next_task
-        with patch.object(manager, 'start_next_task'):
+        with patch.object(manager, "start_next_task"):
             # Add queued standard tasks
             worker_a = MockWorker("Task A", is_instant=False)
             worker_b = MockWorker("Task B", is_instant=False)
@@ -216,7 +214,7 @@ class TestCancellation:
         manager = WorkerQueueManager()
 
         # Prevent auto-start by mocking start_next_task
-        with patch.object(manager, 'start_next_task'):
+        with patch.object(manager, "start_next_task"):
             # Add standard tasks (will queue since start is prevented)
             workers = [MockWorker(f"Task {i}", is_instant=False) for i in range(5)]
             for worker in workers:
@@ -244,7 +242,7 @@ class TestCancellation:
         manager = WorkerQueueManager()
 
         # Prevent auto-start by mocking start_next_task
-        with patch.object(manager, 'start_next_task'):
+        with patch.object(manager, "start_next_task"):
             # Add multiple tasks (will queue since start is prevented)
             worker_a = MockWorker("Task A", is_instant=False)
             worker_b = MockWorker("Task B", is_instant=False)
@@ -281,7 +279,7 @@ class TestTaskFinalization:
         manager.queued_instant_tasks.append(queued_instant)
 
         # Finalize running instant
-        with patch.object(manager, 'start_next_instant_task') as mock_start:
+        with patch.object(manager, "start_next_instant_task") as mock_start:
             manager._finalize_task(running_instant.id)
 
             # Should start next queued instant
@@ -302,7 +300,7 @@ class TestTaskFinalization:
         manager.queued_tasks.append(queued_standard)
 
         # Finalize running standard
-        with patch.object(manager, 'start_next_task') as mock_start:
+        with patch.object(manager, "start_next_task") as mock_start:
             manager._finalize_task(running_standard.id)
 
             # Should start next queued standard (queue is not empty, running_tasks is now empty)
@@ -323,7 +321,7 @@ class TestUISignaling:
         # Add instant task with free slot
         worker = MockWorker("Instant Task", is_instant=True)
 
-        with patch.object(manager, 'start_next_instant_task'):
+        with patch.object(manager, "start_next_instant_task"):
             # Reset call count before adding task
             manager.on_task_list_changed.reset_mock()
 
@@ -344,13 +342,15 @@ class TestUISignaling:
         manager.running_instant_task = running_instant
 
         # Mock the signal (after manager initialization to avoid init emissions)
-        with patch.object(manager, 'on_task_list_changed') as mock_signal:
+        with patch.object(manager, "on_task_list_changed") as mock_signal:
             # Add instant task (will queue since slot is busy)
             worker = MockWorker("Queued Instant", is_instant=True)
             manager.add_task(worker, start_now=False)
 
             # Should emit signal when queuing
             assert mock_signal.emit.call_count >= 1
+
+
 class TestWorkerProperties:
     """Test worker property handling"""
 

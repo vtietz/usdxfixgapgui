@@ -66,7 +66,7 @@ class CacheUpdateScheduler(QObject):
         path = event.path
 
         # Check if it's a .txt file (potential new song)
-        if path.lower().endswith('.txt'):
+        if path.lower().endswith(".txt"):
             logger.info(f"Detected new .txt file: {path}")
 
             # Schedule targeted rescan
@@ -83,7 +83,7 @@ class CacheUpdateScheduler(QObject):
         path = event.path
 
         # Check if it's a .txt file
-        if path.lower().endswith('.txt'):
+        if path.lower().endswith(".txt"):
             logger.info(f"Detected deleted .txt file: {path}")
 
             # Remove from cache
@@ -109,7 +109,7 @@ class CacheUpdateScheduler(QObject):
             return
 
         # Check if it's a .txt file
-        if dest_path.lower().endswith('.txt'):
+        if dest_path.lower().endswith(".txt"):
             logger.info(f"Detected moved .txt file: {src_path} -> {dest_path}")
 
             # Treat as delete + create for simplicity
@@ -136,7 +136,7 @@ class CacheUpdateScheduler(QObject):
         try:
             for root, dirs, files in os.walk(directory):
                 for filename in files:
-                    if filename.lower().endswith('.txt'):
+                    if filename.lower().endswith(".txt"):
                         txt_path = os.path.join(root, filename)
                         logger.info(f"Found .txt file in new directory: {txt_path}")
 
@@ -152,6 +152,7 @@ class CacheUpdateScheduler(QObject):
         try:
             # Get all cached entries (returns list of tuples when deserialize=False)
             from common.database import get_all_cache_entries
+
             cached_entries = get_all_cache_entries(deserialize=False)
 
             directory_norm = os.path.normpath(directory)
@@ -177,6 +178,7 @@ class CacheUpdateScheduler(QObject):
         """Handle directory move/rename by updating all songs inside."""
         try:
             from common.database import get_all_cache_entries
+
             cached_entries = get_all_cache_entries(deserialize=False)
 
             src_norm = os.path.normpath(src_dir)

@@ -8,6 +8,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class NormalizeAudioWorker(IWorker):
     def __init__(self, song: Song):
         super().__init__()
@@ -21,7 +22,9 @@ class NormalizeAudioWorker(IWorker):
         try:
             # Use the normalization level from config
             normalization_level = self.config.normalization_level
-            audio.normalize_audio(self.song.audio_file, target_level=normalization_level, check_cancellation=self.is_cancelled)
+            audio.normalize_audio(
+                self.song.audio_file, target_level=normalization_level, check_cancellation=self.is_cancelled
+            )
 
             # Update normalization info using service
             GapInfoService.set_normalized(self.song.gap_info, normalization_level)

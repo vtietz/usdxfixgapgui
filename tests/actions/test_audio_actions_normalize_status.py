@@ -25,12 +25,7 @@ class TestNormalizeStatusRestoration:
         audio_file = tmp_path / "test.mp3"
         audio_file.write_text("audio data")
 
-        song = song_factory(
-            title="Match Song",
-            gap=1000,
-            audio_file=str(audio_file),
-            with_notes=True
-        )
+        song = song_factory(title="Match Song", gap=1000, audio_file=str(audio_file), with_notes=True)
 
         # Set gap_info with MATCH status (as if detection already ran)
         song.gap_info.detected_gap = 1000
@@ -41,8 +36,10 @@ class TestNormalizeStatusRestoration:
         assert song.status == SongStatus.MATCH, "Precondition: Song should start with MATCH status"
 
         # Mock worker and signals
-        with patch('actions.audio_actions.NormalizeAudioWorker') as mock_worker_class, \
-             patch('actions.audio_actions.SongActions') as mock_song_actions_class:
+        with (
+            patch("actions.audio_actions.NormalizeAudioWorker") as mock_worker_class,
+            patch("actions.audio_actions.SongActions") as mock_song_actions_class,
+        ):
 
             mock_worker = Mock()
             mock_worker.signals = Mock()
@@ -66,9 +63,7 @@ class TestNormalizeStatusRestoration:
             assert song.status == SongStatus.PROCESSING, "Status should be PROCESSING after started"
 
             # Simulate finished signal → status should restore to MATCH
-            finished_callbacks = [
-                call[0][0] for call in mock_worker.signals.finished.connect.call_args_list
-            ]
+            finished_callbacks = [call[0][0] for call in mock_worker.signals.finished.connect.call_args_list]
             for callback in finished_callbacks:
                 callback()
 
@@ -90,8 +85,10 @@ class TestNormalizeStatusRestoration:
 
         assert song.status == SongStatus.MISMATCH, "Precondition: MISMATCH status"
 
-        with patch('actions.audio_actions.NormalizeAudioWorker') as mock_worker_class, \
-             patch('actions.audio_actions.SongActions'):
+        with (
+            patch("actions.audio_actions.NormalizeAudioWorker") as mock_worker_class,
+            patch("actions.audio_actions.SongActions"),
+        ):
 
             mock_worker = Mock()
             mock_worker.signals = Mock()
@@ -109,9 +106,7 @@ class TestNormalizeStatusRestoration:
             assert song.status == SongStatus.PROCESSING
 
             # Simulate finished → should restore MISMATCH
-            finished_callbacks = [
-                call[0][0] for call in mock_worker.signals.finished.connect.call_args_list
-            ]
+            finished_callbacks = [call[0][0] for call in mock_worker.signals.finished.connect.call_args_list]
             for callback in finished_callbacks:
                 callback()
 
@@ -125,8 +120,10 @@ class TestNormalizeStatusRestoration:
         song = song_factory(title="Error Song", audio_file=str(audio_file))
         song.gap_info.status = GapInfoStatus.MATCH
 
-        with patch('actions.audio_actions.NormalizeAudioWorker') as mock_worker_class, \
-             patch('actions.audio_actions.SongActions'):
+        with (
+            patch("actions.audio_actions.NormalizeAudioWorker") as mock_worker_class,
+            patch("actions.audio_actions.SongActions"),
+        ):
 
             mock_worker = Mock()
             mock_worker.signals = Mock()
@@ -148,9 +145,7 @@ class TestNormalizeStatusRestoration:
             assert song.status == SongStatus.ERROR
 
             # Simulate finished → ERROR should NOT be overridden
-            finished_callbacks = [
-                call[0][0] for call in mock_worker.signals.finished.connect.call_args_list
-            ]
+            finished_callbacks = [call[0][0] for call in mock_worker.signals.finished.connect.call_args_list]
             for callback in finished_callbacks:
                 callback()
 
@@ -166,8 +161,10 @@ class TestNormalizeStatusRestoration:
         song.gap_info = None  # Explicitly remove gap_info
         song.status = SongStatus.NOT_PROCESSED
 
-        with patch('actions.audio_actions.NormalizeAudioWorker') as mock_worker_class, \
-             patch('actions.audio_actions.SongActions'):
+        with (
+            patch("actions.audio_actions.NormalizeAudioWorker") as mock_worker_class,
+            patch("actions.audio_actions.SongActions"),
+        ):
 
             mock_worker = Mock()
             mock_worker.signals = Mock()
@@ -185,9 +182,7 @@ class TestNormalizeStatusRestoration:
             assert song.status == SongStatus.PROCESSING
 
             # Simulate finished → should fallback to NOT_PROCESSED
-            finished_callbacks = [
-                call[0][0] for call in mock_worker.signals.finished.connect.call_args_list
-            ]
+            finished_callbacks = [call[0][0] for call in mock_worker.signals.finished.connect.call_args_list]
             for callback in finished_callbacks:
                 callback()
 
@@ -201,9 +196,11 @@ class TestNormalizeStatusRestoration:
         song = song_factory(title="Reload Test", audio_file=str(audio_file))
         song.gap_info.status = GapInfoStatus.MATCH
 
-        with patch('actions.audio_actions.NormalizeAudioWorker') as mock_worker_class, \
-             patch('actions.audio_actions.SongActions') as mock_song_actions_class, \
-             patch('PySide6.QtCore.QTimer.singleShot') as mock_timer:
+        with (
+            patch("actions.audio_actions.NormalizeAudioWorker") as mock_worker_class,
+            patch("actions.audio_actions.SongActions") as mock_song_actions_class,
+            patch("PySide6.QtCore.QTimer.singleShot") as mock_timer,
+        ):
 
             mock_worker = Mock()
             mock_worker.signals = Mock()
@@ -219,9 +216,7 @@ class TestNormalizeStatusRestoration:
             audio_actions._normalize_song(song, start_now=True)
 
             # Simulate finished
-            finished_callbacks = [
-                call[0][0] for call in mock_worker.signals.finished.connect.call_args_list
-            ]
+            finished_callbacks = [call[0][0] for call in mock_worker.signals.finished.connect.call_args_list]
             for callback in finished_callbacks:
                 callback()
 
@@ -243,9 +238,11 @@ class TestNormalizeStatusRestoration:
 
         song = song_factory(title="Error No Reload", audio_file=str(audio_file))
 
-        with patch('actions.audio_actions.NormalizeAudioWorker') as mock_worker_class, \
-             patch('actions.audio_actions.SongActions') as mock_song_actions_class, \
-             patch('PySide6.QtCore.QTimer.singleShot') as mock_timer:
+        with (
+            patch("actions.audio_actions.NormalizeAudioWorker") as mock_worker_class,
+            patch("actions.audio_actions.SongActions") as mock_song_actions_class,
+            patch("PySide6.QtCore.QTimer.singleShot") as mock_timer,
+        ):
 
             mock_worker = Mock()
             mock_worker.signals = Mock()
@@ -266,9 +263,7 @@ class TestNormalizeStatusRestoration:
             song.status = SongStatus.ERROR
 
             # Simulate finished
-            finished_callbacks = [
-                call[0][0] for call in mock_worker.signals.finished.connect.call_args_list
-            ]
+            finished_callbacks = [call[0][0] for call in mock_worker.signals.finished.connect.call_args_list]
             for callback in finished_callbacks:
                 callback()
 
@@ -296,8 +291,10 @@ class TestNormalizeStatusRestoration:
         assert song1.status == SongStatus.MATCH
         assert song2.status == SongStatus.MISMATCH
 
-        with patch('actions.audio_actions.NormalizeAudioWorker') as mock_worker_class, \
-             patch('actions.audio_actions.SongActions'):
+        with (
+            patch("actions.audio_actions.NormalizeAudioWorker") as mock_worker_class,
+            patch("actions.audio_actions.SongActions"),
+        ):
 
             # Track workers created per song
             workers = {}
@@ -327,9 +324,7 @@ class TestNormalizeStatusRestoration:
                 assert song.status == SongStatus.PROCESSING
 
                 # Finished
-                finished_callbacks = [
-                    call[0][0] for call in worker.signals.finished.connect.call_args_list
-                ]
+                finished_callbacks = [call[0][0] for call in worker.signals.finished.connect.call_args_list]
                 for callback in finished_callbacks:
                     callback()
 
@@ -349,8 +344,10 @@ class TestNormalizeStatusRestoration:
 
         assert song.status == SongStatus.UPDATED
 
-        with patch('actions.audio_actions.NormalizeAudioWorker') as mock_worker_class, \
-             patch('actions.audio_actions.SongActions'):
+        with (
+            patch("actions.audio_actions.NormalizeAudioWorker") as mock_worker_class,
+            patch("actions.audio_actions.SongActions"),
+        ):
 
             mock_worker = Mock()
             mock_worker.signals = Mock()
@@ -368,9 +365,7 @@ class TestNormalizeStatusRestoration:
             assert song.status == SongStatus.PROCESSING
 
             # Simulate finished
-            finished_callbacks = [
-                call[0][0] for call in mock_worker.signals.finished.connect.call_args_list
-            ]
+            finished_callbacks = [call[0][0] for call in mock_worker.signals.finished.connect.call_args_list]
             for callback in finished_callbacks:
                 callback()
 
@@ -386,8 +381,10 @@ class TestNormalizeStatusRestoration:
 
         assert song.status == SongStatus.SOLVED
 
-        with patch('actions.audio_actions.NormalizeAudioWorker') as mock_worker_class, \
-             patch('actions.audio_actions.SongActions'):
+        with (
+            patch("actions.audio_actions.NormalizeAudioWorker") as mock_worker_class,
+            patch("actions.audio_actions.SongActions"),
+        ):
 
             mock_worker = Mock()
             mock_worker.signals = Mock()
@@ -405,9 +402,7 @@ class TestNormalizeStatusRestoration:
             assert song.status == SongStatus.PROCESSING
 
             # Simulate finished
-            finished_callbacks = [
-                call[0][0] for call in mock_worker.signals.finished.connect.call_args_list
-            ]
+            finished_callbacks = [call[0][0] for call in mock_worker.signals.finished.connect.call_args_list]
             for callback in finished_callbacks:
                 callback()
 

@@ -10,7 +10,6 @@ import numpy as np
 from typing import Optional, Callable, OrderedDict
 import torchaudio
 
-from utils.providers.exceptions import DetectionFailedError
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +17,9 @@ logger = logging.getLogger(__name__)
 def compute_confidence_score(
     audio_file: str,
     detected_gap_ms: float,
-    vocals_cache: 'OrderedDict',
+    vocals_cache: "OrderedDict",
     separate_vocals_fn: Callable,
-    check_cancellation: Optional[Callable[[], bool]] = None
+    check_cancellation: Optional[Callable[[], bool]] = None,
 ) -> float:
     """
     Compute confidence based on SNR (Signal-to-Noise Ratio) at onset.
@@ -78,13 +77,10 @@ def compute_confidence_score(
 
             logger.debug(f"Loading {segment_duration:.1f}s audio segment for confidence computation")
             import warnings
+
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
-                waveform, sample_rate = torchaudio.load(
-                    audio_file,
-                    frame_offset=0,
-                    num_frames=num_frames
-                )
+                waveform, sample_rate = torchaudio.load(audio_file, frame_offset=0, num_frames=num_frames)
 
             # Convert to stereo if needed
             if waveform.shape[0] == 1:
@@ -100,7 +96,7 @@ def compute_confidence_score(
 
         # Compute RMS in noise floor region (first 800ms of chunk)
         noise_samples = int(0.8 * sample_rate)
-        noise_rms = np.sqrt(np.mean(vocals_mono[:min(noise_samples, len(vocals_mono))]**2))
+        noise_rms = np.sqrt(np.mean(vocals_mono[: min(noise_samples, len(vocals_mono))] ** 2))
 
         # Compute RMS in signal region (300ms after onset)
         onset_sample = int((onset_in_chunk_ms / 1000.0) * sample_rate)
@@ -108,7 +104,7 @@ def compute_confidence_score(
         signal_end = min(onset_sample + signal_duration_samples, len(vocals_mono))
 
         if onset_sample < len(vocals_mono):
-            signal_rms = np.sqrt(np.mean(vocals_mono[onset_sample:signal_end]**2))
+            signal_rms = np.sqrt(np.mean(vocals_mono[onset_sample:signal_end] ** 2))
         else:
             signal_rms = noise_rms
 

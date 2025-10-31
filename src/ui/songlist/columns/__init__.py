@@ -21,7 +21,7 @@ from .strategies import (
     NotesOverlapColumn,
     ProcessedTimeColumn,
     NormalizedColumn,
-    StatusColumn
+    StatusColumn,
 )
 
 
@@ -35,37 +35,39 @@ def create_registry(base_directory: str) -> ColumnRegistry:
         Configured ColumnRegistry with all column strategies registered
     """
     registry = ColumnRegistry()
-    registry.register_all([
-        PathColumn(base_directory),
-        ArtistColumn(),
-        TitleColumn(),
-        DurationColumn(),
-        BPMColumn(),
-        GapColumn(),
-        DetectedGapColumn(),
-        DiffColumn(),
-        NotesOverlapColumn(),
-        ProcessedTimeColumn(),
-        NormalizedColumn(),
-        StatusColumn()
-    ])
+    registry.register_all(
+        [
+            PathColumn(base_directory),
+            ArtistColumn(),
+            TitleColumn(),
+            DurationColumn(),
+            BPMColumn(),
+            GapColumn(),
+            DetectedGapColumn(),
+            DiffColumn(),
+            NotesOverlapColumn(),
+            ProcessedTimeColumn(),
+            NormalizedColumn(),
+            StatusColumn(),
+        ]
+    )
     return registry
 
 
 __all__ = [
-    'ColumnStrategy',
-    'ColumnRegistry',
-    'create_registry',
-    'PathColumn',
-    'ArtistColumn',
-    'TitleColumn',
-    'DurationColumn',
-    'BPMColumn',
-    'GapColumn',
-    'DetectedGapColumn',
-    'DiffColumn',
-    'NotesOverlapColumn',
-    'ProcessedTimeColumn',
-    'NormalizedColumn',
-    'StatusColumn',
+    "ColumnStrategy",
+    "ColumnRegistry",
+    "create_registry",
+    "PathColumn",
+    "ArtistColumn",
+    "TitleColumn",
+    "DurationColumn",
+    "BPMColumn",
+    "GapColumn",
+    "DetectedGapColumn",
+    "DiffColumn",
+    "NotesOverlapColumn",
+    "ProcessedTimeColumn",
+    "NormalizedColumn",
+    "StatusColumn",
 ]

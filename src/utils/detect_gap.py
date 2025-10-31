@@ -1,7 +1,5 @@
 import logging
 import os
-import utils.files as files
-import utils.audio as audio
 from typing import List, Tuple, Optional
 from common.config import Config
 from utils.result_types import DetectGapResult
@@ -9,18 +7,21 @@ from utils.providers import get_detection_provider
 
 logger = logging.getLogger(__name__)
 
+
 class DetectGapOptions:
     """Options for gap detection."""
 
-    def __init__(self,
-                 audio_file: str,
-                 tmp_root: str,
-                 original_gap: int,
-                 audio_length: Optional[int] = None,
-                 default_detection_time: int = 60,
-                 silence_detect_params: str = "silencedetect=noise=-10dB:d=0.2",
-                 overwrite: bool = False,
-                 config: Optional[Config] = None):
+    def __init__(
+        self,
+        audio_file: str,
+        tmp_root: str,
+        original_gap: int,
+        audio_length: Optional[int] = None,
+        default_detection_time: int = 60,
+        silence_detect_params: str = "silencedetect=noise=-10dB:d=0.2",
+        overwrite: bool = False,
+        config: Optional[Config] = None,
+    ):
         self.audio_file = audio_file
         self.tmp_root = tmp_root
         self.original_gap = original_gap
@@ -42,7 +43,7 @@ def detect_nearest_gap(silence_periods: List[Tuple[float, float]], start_positio
         return 0
 
     closest_gap_ms = None
-    closest_gap_diff_ms = float('inf')  # Initialize with infinity
+    closest_gap_diff_ms = float("inf")  # Initialize with infinity
 
     # Evaluate both the start and end of each silence period
     for start_ms, end_ms in silence_periods:
@@ -67,14 +68,14 @@ def detect_nearest_gap(silence_periods: List[Tuple[float, float]], start_positio
 
 
 def get_vocals_file(
-        audio_file,
-        temp_root,
-        destination_vocals_filepath,
-        duration: int = 60,
-        overwrite = False,
-        check_cancellation = None,
-        config: Optional[Config] = None
-    ):
+    audio_file,
+    temp_root,
+    destination_vocals_filepath,
+    duration: int = 60,
+    overwrite=False,
+    check_cancellation=None,
+    config: Optional[Config] = None,
+):
     """
     Get vocals file using configured detection provider.
 
@@ -95,13 +96,9 @@ def get_vocals_file(
 
     provider = get_detection_provider(config)
     return provider.get_vocals_file(
-        audio_file,
-        temp_root,
-        destination_vocals_filepath,
-        duration,
-        overwrite,
-        check_cancellation
+        audio_file, temp_root, destination_vocals_filepath, duration, overwrite, check_cancellation
     )
+
 
 def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResult:
     """
@@ -123,5 +120,5 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
         default_detection_time=options.default_detection_time,
         config=options.config,
         overwrite=options.overwrite,
-        check_cancellation=check_cancellation
+        check_cancellation=check_cancellation,
     )

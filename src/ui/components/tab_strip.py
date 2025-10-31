@@ -6,11 +6,11 @@ Displays Original/Extracted/Both as flat toggle buttons with active state.
 
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QButtonGroup
 from PySide6.QtCore import Signal
-from typing import Optional
 
 
 class AudioSourceTab:
     """Audio source tab identifiers."""
+
     ORIGINAL = "original"
     EXTRACTED = "extracted"
     BOTH = "both"  # Future: side-by-side comparison

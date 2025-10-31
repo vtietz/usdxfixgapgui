@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 CHUNK_SIZE = 400  # Songs per chunk
 CHUNK_DELAY_MS = 16  # Delay between chunks (60 FPS)
 
+
 class CustomSortFilterProxyModel(QSortFilterProxyModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -36,17 +37,16 @@ class CustomSortFilterProxyModel(QSortFilterProxyModel):
         # Prefer cached lowercase strings from model if available
         cache_entry = source_model._row_cache.get(song.path) if hasattr(source_model, "_row_cache") else None
         if cache_entry:
-            textMatch = (self.textFilter in cache_entry['artist_lower'] or
-                         self.textFilter in cache_entry['title_lower'])
+            textMatch = self.textFilter in cache_entry["artist_lower"] or self.textFilter in cache_entry["title_lower"]
         else:
             # Fallback to direct lowercase conversion
-            textMatch = (self.textFilter in song.artist.lower() or
-                         self.textFilter in song.title.lower())
+            textMatch = self.textFilter in song.artist.lower() or self.textFilter in song.title.lower()
 
         return statusMatch and textMatch
 
+
 class SongListWidget(QWidget):
-    def __init__(self, songs_model: Songs, actions: Actions, data: AppData,parent=None):
+    def __init__(self, songs_model: Songs, actions: Actions, data: AppData, parent=None):
         super().__init__(parent)
         # actions are passed to the view; no instance attribute to avoid clashing with QWidget.actions()
 
@@ -196,8 +196,7 @@ class SongListWidget(QWidget):
                 )
             elif self._data.capabilities and not self._data.capabilities.has_ffmpeg:
                 self.detectButton.setToolTip(
-                    "Gap detection disabled: FFmpeg not available\n"
-                    "→ Install FFmpeg and add to system PATH"
+                    "Gap detection disabled: FFmpeg not available\n" "→ Install FFmpeg and add to system PATH"
                 )
             else:
                 self.detectButton.setToolTip("Gap detection disabled: System requirements not met")
@@ -282,7 +281,7 @@ class SongListWidget(QWidget):
 
         # Get next chunk
         end_index = min(self._streaming_index + CHUNK_SIZE, len(self._streaming_songs))
-        chunk = self._streaming_songs[self._streaming_index:end_index]
+        chunk = self._streaming_songs[self._streaming_index : end_index]
 
         # Append to model
         self.tableModel.load_data_async_append(chunk)
@@ -304,11 +303,11 @@ class SongListWidget(QWidget):
         self.tableView.setSortingEnabled(True)
 
         # Apply column resizing if needed
-        if hasattr(self.tableView, 'apply_resize_policy'):
+        if hasattr(self.tableView, "apply_resize_policy"):
             self.tableView.apply_resize_policy()
 
         # Trigger viewport-based lazy loading for visible songs
-        if hasattr(self.tableView, 'reset_viewport_loading'):
+        if hasattr(self.tableView, "reset_viewport_loading"):
             self.tableView.reset_viewport_loading()
 
         # Clear streaming state

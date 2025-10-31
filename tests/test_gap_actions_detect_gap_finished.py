@@ -17,18 +17,10 @@ class TestDetectGapFinished:
         audio_file = tmp_path / "test_audio.mp3"
         audio_file.write_text("audio data")
 
-        song = song_factory(
-            title="Test Song",
-            gap=1000,
-            audio_file=str(audio_file),
-            with_notes=True
-        )
+        song = song_factory(title="Test Song", gap=1000, audio_file=str(audio_file), with_notes=True)
 
         # Create detection result with MATCH status
-        result = create_match_result(
-            song_file_path=song.txt_file,
-            detected_gap=1000
-        )
+        result = create_match_result(song_file_path=song.txt_file, detected_gap=1000)
         result.notes_overlap = 50
         result.silence_periods = [(0, 500), (1000, 1500)]
         result.duration_ms = 180000
@@ -36,9 +28,11 @@ class TestDetectGapFinished:
         # Enable auto_normalize in config
         app_data.config.auto_normalize = True
 
-        with patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_gap_service_save, \
-             patch('actions.gap_actions.AudioActions') as mock_audio_actions_class:
+        with (
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock) as mock_gap_service_save,
+            patch("actions.gap_actions.AudioActions") as mock_audio_actions_class,
+        ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
@@ -82,18 +76,16 @@ class TestDetectGapFinished:
         song = song_factory(title="Mismatch Song", gap=1000)
 
         # Create mismatch result
-        result = create_mismatch_result(
-            song_file_path=song.txt_file,
-            detected_gap=1200,
-            gap_diff=200
-        )
+        result = create_mismatch_result(song_file_path=song.txt_file, detected_gap=1200, gap_diff=200)
         result.notes_overlap = 100
         result.silence_periods = []
         result.duration_ms = 150000
 
-        with patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_save, \
-             patch('actions.gap_actions.AudioActions'):
+        with (
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock) as mock_save,
+            patch("actions.gap_actions.AudioActions"),
+        ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
@@ -118,9 +110,11 @@ class TestDetectGapFinished:
         # Disable auto_normalize
         app_data.config.auto_normalize = False
 
-        with patch('actions.gap_actions.run_async'), \
-             patch('actions.gap_actions.GapInfoService'), \
-             patch('actions.gap_actions.AudioActions') as mock_audio_class:
+        with (
+            patch("actions.gap_actions.run_async"),
+            patch("actions.gap_actions.GapInfoService"),
+            patch("actions.gap_actions.AudioActions") as mock_audio_class,
+        ):
 
             mock_audio = Mock()
             mock_audio_class.return_value = mock_audio
@@ -142,9 +136,11 @@ class TestDetectGapFinished:
         # Enable auto_normalize but song has no audio
         app_data.config.auto_normalize = True
 
-        with patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_save, \
-             patch('actions.gap_actions.AudioActions') as mock_audio_class:
+        with (
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock) as mock_save,
+            patch("actions.gap_actions.AudioActions") as mock_audio_class,
+        ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
@@ -163,8 +159,10 @@ class TestDetectGapFinished:
         song = song_factory(title="Song A", txt_file="/path/to/songA.txt")
         result = create_match_result(song_file_path="/path/to/songB.txt")
 
-        with patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('actions.gap_actions.AudioActions') as mock_audio_class:
+        with (
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("actions.gap_actions.AudioActions") as mock_audio_class,
+        ):
 
             gap_actions = GapActions(app_data)
             gap_actions._on_detect_gap_finished(song, result)
@@ -183,18 +181,17 @@ class TestDetectGapFinished:
         song = song_factory(title="Cache Test", gap=1000)
 
         # Create detection result with MATCH status
-        result = create_match_result(
-            song_file_path=song.txt_file,
-            detected_gap=1000
-        )
+        result = create_match_result(song_file_path=song.txt_file, detected_gap=1000)
         result.notes_overlap = 50
         result.silence_periods = []
         result.duration_ms = 150000
 
-        with patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_gap_save, \
-             patch('services.song_service.SongService') as mock_song_service_class, \
-             patch('actions.gap_actions.AudioActions'):
+        with (
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock) as mock_gap_save,
+            patch("services.song_service.SongService") as mock_song_service_class,
+            patch("actions.gap_actions.AudioActions"),
+        ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
@@ -227,12 +224,14 @@ class TestDetectGapFinished:
 
         new_gap = 1200
 
-        with patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock), \
-             patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock), \
-             patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock) as mock_gap_save, \
-             patch('services.song_service.SongService') as mock_song_service_class, \
-             patch('actions.gap_actions.AudioActions'):
+        with (
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("services.usdx_file_service.USDXFileService.load", new_callable=AsyncMock),
+            patch("services.usdx_file_service.USDXFileService.write_gap_tag", new_callable=AsyncMock),
+            patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock) as mock_gap_save,
+            patch("services.song_service.SongService") as mock_song_service_class,
+            patch("actions.gap_actions.AudioActions"),
+        ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
@@ -267,12 +266,14 @@ class TestDetectGapFinished:
         song.gap_info.detected_gap = 1200
         song.gap_info.status = GapInfoStatus.UPDATED
 
-        with patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock), \
-             patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock), \
-             patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock), \
-             patch('services.song_service.SongService') as mock_song_service_class, \
-             patch('actions.gap_actions.AudioActions'):
+        with (
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("services.usdx_file_service.USDXFileService.load", new_callable=AsyncMock),
+            patch("services.usdx_file_service.USDXFileService.write_gap_tag", new_callable=AsyncMock),
+            patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock),
+            patch("services.song_service.SongService") as mock_song_service_class,
+            patch("actions.gap_actions.AudioActions"),
+        ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
@@ -299,9 +300,11 @@ class TestDetectGapFinished:
         song.gap_info.detected_gap = 1200
         song.gap_info.status = GapInfoStatus.MISMATCH
 
-        with patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock), \
-             patch('services.song_service.SongService') as mock_song_service_class:
+        with (
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock),
+            patch("services.song_service.SongService") as mock_song_service_class,
+        ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
@@ -330,10 +333,12 @@ class TestDetectGapFinished:
         silence_periods = [(0, 500), (1000, 1500)]
         detection_time = 30000
 
-        with patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock), \
-             patch('services.song_service.SongService') as mock_song_service_class, \
-             patch('actions.gap_actions.usdx.get_notes_overlap', return_value=75.5):
+        with (
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock),
+            patch("services.song_service.SongService") as mock_song_service_class,
+            patch("actions.gap_actions.usdx.get_notes_overlap", return_value=75.5),
+        ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async

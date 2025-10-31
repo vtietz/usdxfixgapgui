@@ -6,6 +6,7 @@ from workers.load_usdx_files import LoadUsdxFilesWorker
 
 logger = logging.getLogger(__name__)
 
+
 class CoreActions(BaseActions):
     """Core application actions like directory management and song loading"""
 
@@ -21,7 +22,9 @@ class CoreActions(BaseActions):
             return True
         else:
             if self.config.last_directory:
-                logger.warning(f"Last directory in config is invalid or no longer exists: '{self.config.last_directory}'")
+                logger.warning(
+                    f"Last directory in config is invalid or no longer exists: '{self.config.last_directory}'"
+                )
             else:
                 logger.info("No previous directory found in configuration")
             return False
@@ -64,7 +67,7 @@ class CoreActions(BaseActions):
         # Set original gap for all songs
         for song in songs:
             if song.status == SongStatus.NOT_PROCESSED and song.gap_info:
-                if hasattr(song.gap_info, 'original_gap'):  # Type guard
+                if hasattr(song.gap_info, "original_gap"):  # Type guard
                     song.gap_info.original_gap = song.gap
 
         # Use bulk add for better performance
@@ -74,13 +77,14 @@ class CoreActions(BaseActions):
         """Handle individual song loaded (for single file reloads)."""
         self.data.songs.add(song)
         if song.status == SongStatus.NOT_PROCESSED and song.gap_info:
-            if hasattr(song.gap_info, 'original_gap'):  # Type guard
+            if hasattr(song.gap_info, "original_gap"):  # Type guard
                 song.gap_info.original_gap = song.gap
         # Only run auto-detection for single file loads, not bulk loads
         # Auto-detection uses MDX (only supported method)
-        is_bulk_load = getattr(self, '_is_bulk_load', False)  # Safe attribute access
+        is_bulk_load = getattr(self, "_is_bulk_load", False)  # Safe attribute access
         if not is_bulk_load:
             from actions.gap_actions import GapActions
+
             gap_actions = GapActions(self.data)
             gap_actions._detect_gap(song)
 

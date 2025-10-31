@@ -1,6 +1,5 @@
 import os
 import logging
-from pathlib import Path
 from PySide6.QtCore import QObject, Signal, QUrl
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from utils.files import get_file_checksum
@@ -14,10 +13,12 @@ logger = logging.getLogger(__name__)
 torchaudio: object | None = None
 try:
     import torchaudio
+
     TORCHAUDIO_AVAILABLE = True
 except (ImportError, OSError) as e:
     logger.warning(f"torchaudio not available for media validation: {e}")
     TORCHAUDIO_AVAILABLE = False
+
 
 class PlayerController(QObject):
     position_changed = Signal(int)
@@ -125,7 +126,7 @@ class PlayerController(QObject):
             return False
 
         # For vocals files (MP3), use torchaudio to validate IF available
-        if "vocals" in file.lower() and file.lower().endswith('.mp3'):
+        if "vocals" in file.lower() and file.lower().endswith(".mp3"):
             if not TORCHAUDIO_AVAILABLE or torchaudio is None:
                 logger.debug("torchaudio not available, using basic validation only")
                 return True  # Fall back to basic validation when torchaudio unavailable
@@ -133,8 +134,10 @@ class PlayerController(QObject):
             try:
                 info = torchaudio.info(file)  # type: ignore[attr-defined]
 
-                logger.info(f"Vocals file validation - Format: {info.num_channels}ch @ {info.sample_rate}Hz, "
-                           f"Frames: {info.num_frames}, Encoding: {getattr(info, 'encoding', 'N/A')}")
+                logger.info(
+                    f"Vocals file validation - Format: {info.num_channels}ch @ {info.sample_rate}Hz, "
+                    f"Frames: {info.num_frames}, Encoding: {getattr(info, 'encoding', 'N/A')}"
+                )
 
                 # Check for reasonable audio properties
                 if info.num_channels == 0 or info.sample_rate == 0 or info.num_frames == 0:

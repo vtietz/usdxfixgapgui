@@ -35,7 +35,7 @@ class ChunkWriter:
 
     def _update_hash_from_existing(self):
         """Update hash from existing partial file."""
-        with open(self.file_path, 'rb') as f:
+        with open(self.file_path, "rb") as f:
             bytes_read = 0
             while bytes_read < self._resume_from_byte:
                 chunk_size = min(8192, self._resume_from_byte - bytes_read)
@@ -53,7 +53,7 @@ class ChunkWriter:
         Args:
             chunk: Bytes to write
         """
-        with open(self.file_path, 'ab') as f:
+        with open(self.file_path, "ab") as f:
             f.write(chunk)
             f.flush()
             os.fsync(f.fileno())  # Force write to disk
@@ -75,9 +75,7 @@ class ChunkWriter:
         matches = actual_hash == expected_sha256
 
         if not matches:
-            logger.warning(
-                f"Hash mismatch: expected {expected_sha256}, got {actual_hash}"
-            )
+            logger.warning(f"Hash mismatch: expected {expected_sha256}, got {actual_hash}")
 
         return matches
 

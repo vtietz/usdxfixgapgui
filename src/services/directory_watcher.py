@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class WatchEventType(Enum):
     """Normalized filesystem event types"""
+
     CREATED = "created"
     DELETED = "deleted"
     MODIFIED = "modified"
@@ -29,6 +30,7 @@ class WatchEventType(Enum):
 @dataclass
 class WatchEvent:
     """Normalized filesystem event"""
+
     event_type: WatchEventType
     path: str
     src_path: Optional[str] = None  # For moved events
@@ -85,10 +87,7 @@ class DirectoryWatcher(QObject):
 
         try:
             self._watch_path = path
-            self._event_handler = _FileSystemEventHandler(
-                self._ignore_patterns,
-                self._on_event
-            )
+            self._event_handler = _FileSystemEventHandler(self._ignore_patterns, self._on_event)
 
             self._observer = Observer()
             self._observer.schedule(self._event_handler, path, recursive=True)
@@ -155,10 +154,7 @@ class _FileSystemEventHandler(FileSystemEventHandler):
             return False
 
         path_lower = path.lower()
-        return any(
-            path_lower.endswith(pattern.lower())
-            for pattern in self._ignore_patterns
-        )
+        return any(path_lower.endswith(pattern.lower()) for pattern in self._ignore_patterns)
 
     def on_created(self, event: FileSystemEvent):
         """Handle created events."""
@@ -166,9 +162,7 @@ class _FileSystemEventHandler(FileSystemEventHandler):
             return
 
         watch_event = WatchEvent(
-            event_type=WatchEventType.CREATED,
-            path=event.src_path,
-            is_directory=event.is_directory
+            event_type=WatchEventType.CREATED, path=event.src_path, is_directory=event.is_directory
         )
         self._callback(watch_event)
 
@@ -178,9 +172,7 @@ class _FileSystemEventHandler(FileSystemEventHandler):
             return
 
         watch_event = WatchEvent(
-            event_type=WatchEventType.DELETED,
-            path=event.src_path,
-            is_directory=event.is_directory
+            event_type=WatchEventType.DELETED, path=event.src_path, is_directory=event.is_directory
         )
         self._callback(watch_event)
 
@@ -194,15 +186,13 @@ class _FileSystemEventHandler(FileSystemEventHandler):
             return
 
         watch_event = WatchEvent(
-            event_type=WatchEventType.MODIFIED,
-            path=event.src_path,
-            is_directory=event.is_directory
+            event_type=WatchEventType.MODIFIED, path=event.src_path, is_directory=event.is_directory
         )
         self._callback(watch_event)
 
     def on_moved(self, event: FileSystemEvent):
         """Handle moved/renamed events."""
-        if hasattr(event, 'dest_path'):
+        if hasattr(event, "dest_path"):
             dest_path = event.dest_path
         else:
             dest_path = event.src_path
@@ -211,9 +201,6 @@ class _FileSystemEventHandler(FileSystemEventHandler):
             return
 
         watch_event = WatchEvent(
-            event_type=WatchEventType.MOVED,
-            path=dest_path,
-            src_path=event.src_path,
-            is_directory=event.is_directory
+            event_type=WatchEventType.MOVED, path=dest_path, src_path=event.src_path, is_directory=event.is_directory
         )
         self._callback(watch_event)

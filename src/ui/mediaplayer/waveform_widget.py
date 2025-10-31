@@ -2,9 +2,8 @@ import os
 from PySide6.QtWidgets import QLabel, QWidget, QSizePolicy
 from PySide6.QtGui import QPainter, QPen, QPixmap, QColor
 from PySide6.QtCore import Qt, Signal, QEvent
-from ui.mediaplayer.gap_marker_colors import (
-    PLAYHEAD_COLOR, DETECTED_GAP_COLOR, REVERT_GAP_COLOR
-)
+from ui.mediaplayer.gap_marker_colors import PLAYHEAD_COLOR, DETECTED_GAP_COLOR, REVERT_GAP_COLOR
+
 
 class WaveformWidget(QLabel):
     # Change signal type to float

@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class AsyncioThread(QThread):
     def __init__(self, loop: asyncio.AbstractEventLoop):
         super().__init__()
@@ -14,11 +15,13 @@ class AsyncioThread(QThread):
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
+
 # Lazy-start state management
 _loop = None
 _thread = None
 _semaphore = None
 _started = False
+
 
 def _ensure_started():
     """Ensure asyncio runtime is started (lazy initialization)."""
@@ -34,9 +37,11 @@ def _ensure_started():
     _started = True
     logger.info("Asyncio runtime started")
 
+
 def is_started():
     """Check if asyncio runtime is active."""
     return _started
+
 
 def run_async(coro, callback=None):
     """Run coroutine in background asyncio thread."""
@@ -51,6 +56,7 @@ def run_async(coro, callback=None):
     if callback:
         future.add_done_callback(lambda f: callback(f.result()))
 
+
 def run_sync(coro):
     """Run coroutine synchronously and return result."""
     _ensure_started()  # Lazy start
@@ -62,6 +68,7 @@ def run_sync(coro):
 
     future = asyncio.run_coroutine_threadsafe(sync_wrapper(), _loop)
     return future.result()
+
 
 def shutdown_asyncio():
     """Properly shutdown the asyncio event loop and thread (idempotent)."""

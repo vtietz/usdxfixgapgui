@@ -22,6 +22,7 @@ from typing import List, Set
 @dataclass
 class Link:
     """Represents a link found in documentation."""
+
     file: Path
     line_num: int
     url: str
@@ -32,6 +33,7 @@ class Link:
 @dataclass
 class LinkIssue:
     """Represents a broken or invalid link."""
+
     link: Link
     reason: str
     severity: str  # 'error' or 'warning'
@@ -43,11 +45,9 @@ class MarkdownLinkChecker:
     def __init__(self, root_dir: Path):
         self.root_dir = root_dir
         self.issues: List[LinkIssue] = []
-        self.link_pattern = re.compile(
-            r'\[([^\]]+)\]\(([^\)]+)\)'  # [text](url)
-        )
+        self.link_pattern = re.compile(r"\[([^\]]+)\]\(([^\)]+)\)")  # [text](url)
         # Common heading patterns for anchor validation
-        self.heading_pattern = re.compile(r'^#+\s+(.+)$', re.MULTILINE)
+        self.heading_pattern = re.compile(r"^#+\s+(.+)$", re.MULTILINE)
 
     def check_all_links(self) -> int:
         """Check all markdown files for broken links."""
@@ -65,29 +65,31 @@ class MarkdownLinkChecker:
     def _find_markdown_files(self) -> List[Path]:
         """Find all markdown files in the repository."""
         md_files = []
-        for ext in ['*.md', '*.MD']:
+        for ext in ["*.md", "*.MD"]:
             md_files.extend(self.root_dir.rglob(ext))
 
         # Exclude build artifacts, virtual environments, and third-party libs
         excluded = {
-            '.venv', 'venv', 'build', 'dist', '__pycache__', 'node_modules',
-            '.conda', 'site-packages', 'pretrained_models'
+            ".venv",
+            "venv",
+            "build",
+            "dist",
+            "__pycache__",
+            "node_modules",
+            ".conda",
+            "site-packages",
+            "pretrained_models",
         }
-        return [
-            f for f in md_files
-            if not any(part in excluded for part in f.parts)
-        ]
+        return [f for f in md_files if not any(part in excluded for part in f.parts)]
 
     def _check_file(self, md_file: Path):
         """Check all links in a single markdown file."""
         try:
-            content = md_file.read_text(encoding='utf-8')
+            content = md_file.read_text(encoding="utf-8")
         except Exception as e:
-            self.issues.append(LinkIssue(
-                link=Link(md_file, 0, '', '', False),
-                reason=f"Failed to read file: {e}",
-                severity='error'
-            ))
+            self.issues.append(
+                LinkIssue(link=Link(md_file, 0, "", "", False), reason=f"Failed to read file: {e}", severity="error")
+            )
             return
 
         # Extract all headings for anchor validation
@@ -99,15 +101,9 @@ class MarkdownLinkChecker:
                 text, url = match.groups()
 
                 # Skip external URLs (we don't validate those)
-                is_external = url.startswith(('http://', 'https://', 'mailto:', 'ftp://'))
+                is_external = url.startswith(("http://", "https://", "mailto:", "ftp://"))
 
-                link = Link(
-                    file=md_file,
-                    line_num=line_num,
-                    url=url,
-                    text=text,
-                    is_external=is_external
-                )
+                link = Link(file=md_file, line_num=line_num, url=url, text=text, is_external=is_external)
 
                 if not is_external:
                     self._validate_internal_link(link, md_file, headings)
@@ -127,11 +123,11 @@ class MarkdownLinkChecker:
         # Remove emoji and special chars, convert to lowercase
         anchor = text.lower()
         # Remove code backticks
-        anchor = re.sub(r'`([^`]+)`', r'\1', anchor)
+        anchor = re.sub(r"`([^`]+)`", r"\1", anchor)
         # Remove special characters except spaces and hyphens
-        anchor = re.sub(r'[^\w\s-]', '', anchor)
+        anchor = re.sub(r"[^\w\s-]", "", anchor)
         # Replace spaces with hyphens
-        anchor = re.sub(r'\s+', '-', anchor.strip())
+        anchor = re.sub(r"\s+", "-", anchor.strip())
         return anchor
 
     def _validate_internal_link(self, link: Link, current_file: Path, headings: Set[str]):
@@ -139,63 +135,57 @@ class MarkdownLinkChecker:
         url = link.url
 
         # Skip template placeholders (meant to be filled during release)
-        if url in ('link', 'TBD', 'TODO', '#'):
+        if url in ("link", "TBD", "TODO", "#"):
             return
 
         # Split path and anchor
-        if '#' in url:
-            path_part, anchor = url.split('#', 1)
+        if "#" in url:
+            path_part, anchor = url.split("#", 1)
         else:
             path_part, anchor = url, None
 
         # Handle anchor-only links (same file)
         if not path_part:
             if anchor and anchor not in headings:
-                self.issues.append(LinkIssue(
-                    link=link,
-                    reason=f"Anchor '#{anchor}' not found in current file",
-                    severity='error'
-                ))
+                self.issues.append(
+                    LinkIssue(link=link, reason=f"Anchor '#{anchor}' not found in current file", severity="error")
+                )
             return
 
         # Resolve relative path
-        if path_part.startswith('/'):
+        if path_part.startswith("/"):
             # Absolute from repo root
-            target_path = self.root_dir / path_part.lstrip('/')
+            target_path = self.root_dir / path_part.lstrip("/")
         else:
             # Relative to current file
             target_path = (current_file.parent / path_part).resolve()
 
         # Check if target exists
         if not target_path.exists():
-            self.issues.append(LinkIssue(
-                link=link,
-                reason=f"File not found: {path_part}",
-                severity='error'
-            ))
+            self.issues.append(LinkIssue(link=link, reason=f"File not found: {path_part}", severity="error"))
             return
 
         # Validate anchor if present
         if anchor:
             try:
-                target_content = target_path.read_text(encoding='utf-8')
+                target_content = target_path.read_text(encoding="utf-8")
                 target_headings = self._extract_headings(target_content)
                 if anchor not in target_headings:
-                    self.issues.append(LinkIssue(
-                        link=link,
-                        reason=f"Anchor '#{anchor}' not found in {target_path.name}",
-                        severity='error'
-                    ))
+                    self.issues.append(
+                        LinkIssue(
+                            link=link, reason=f"Anchor '#{anchor}' not found in {target_path.name}", severity="error"
+                        )
+                    )
             except Exception as e:
-                self.issues.append(LinkIssue(
-                    link=link,
-                    reason=f"Failed to validate anchor in {target_path.name}: {e}",
-                    severity='warning'
-                ))
+                self.issues.append(
+                    LinkIssue(
+                        link=link, reason=f"Failed to validate anchor in {target_path.name}: {e}", severity="warning"
+                    )
+                )
 
     def _has_errors(self) -> bool:
         """Check if any errors (not warnings) were found."""
-        return any(issue.severity == 'error' for issue in self.issues)
+        return any(issue.severity == "error" for issue in self.issues)
 
     def _print_summary(self):
         """Print summary of link check results."""
@@ -218,13 +208,13 @@ class MarkdownLinkChecker:
             print("─" * 80)
 
             for issue in file_issues:
-                icon = "❌" if issue.severity == 'error' else "⚠️"
+                icon = "❌" if issue.severity == "error" else "⚠️"
                 print(f"  {icon} Line {issue.link.line_num}: {issue.reason}")
                 print(f"     Link: [{issue.link.text}]({issue.link.url})")
 
         # Summary stats
-        errors = sum(1 for i in self.issues if i.severity == 'error')
-        warnings = sum(1 for i in self.issues if i.severity == 'warning')
+        errors = sum(1 for i in self.issues if i.severity == "error")
+        warnings = sum(1 for i in self.issues if i.severity == "warning")
 
         print("\n" + "=" * 80)
         if errors > 0:
@@ -240,7 +230,7 @@ def main():
     # Find repository root (contains .git)
     current = Path.cwd()
     while current != current.parent:
-        if (current / '.git').exists():
+        if (current / ".git").exists():
             break
         current = current.parent
     else:
@@ -251,5 +241,5 @@ def main():
     return checker.check_all_links()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

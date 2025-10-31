@@ -3,9 +3,9 @@ Tests for CoreActions directory management.
 
 Validates directory setting, config persistence, and auto-load behavior.
 """
+
 import pytest
-import os
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock, patch
 from actions.core_actions import CoreActions
 
 
@@ -44,9 +44,7 @@ def core_actions(mock_app_data):
 class TestSetDirectory:
     """Test set_directory validation and state management."""
 
-    def test_set_directory_valid_path_sets_data_directory(
-        self, core_actions, mock_app_data, tmp_path
-    ):
+    def test_set_directory_valid_path_sets_data_directory(self, core_actions, mock_app_data, tmp_path):
         """set_directory with valid path sets data.directory."""
         test_dir = tmp_path / "valid_songs"
         test_dir.mkdir()
@@ -55,9 +53,7 @@ class TestSetDirectory:
 
         assert mock_app_data.directory == str(test_dir)
 
-    def test_set_directory_persists_to_config(
-        self, core_actions, mock_app_data, tmp_path
-    ):
+    def test_set_directory_persists_to_config(self, core_actions, mock_app_data, tmp_path):
         """set_directory persists directory to config.last_directory."""
         test_dir = tmp_path / "valid_songs"
         test_dir.mkdir()
@@ -67,11 +63,9 @@ class TestSetDirectory:
         assert mock_app_data.config.last_directory == str(test_dir)
         mock_app_data.config.save.assert_called_once()
 
-    @patch('actions.core_actions.CoreActions._load_songs')
-    @patch('actions.core_actions.CoreActions._clear_songs')
-    def test_set_directory_clears_and_loads_songs(
-        self, mock_clear, mock_load, core_actions, tmp_path
-    ):
+    @patch("actions.core_actions.CoreActions._load_songs")
+    @patch("actions.core_actions.CoreActions._clear_songs")
+    def test_set_directory_clears_and_loads_songs(self, mock_clear, mock_load, core_actions, tmp_path):
         """set_directory clears existing songs and triggers load."""
         test_dir = tmp_path / "valid_songs"
         test_dir.mkdir()
@@ -81,9 +75,7 @@ class TestSetDirectory:
         mock_clear.assert_called_once()
         mock_load.assert_called_once()
 
-    def test_set_directory_invalid_path_returns_early(
-        self, core_actions, mock_app_data
-    ):
+    def test_set_directory_invalid_path_returns_early(self, core_actions, mock_app_data):
         """set_directory with invalid path returns early without changes."""
         original_directory = mock_app_data.directory
 
@@ -94,9 +86,7 @@ class TestSetDirectory:
         mock_app_data.config.save.assert_not_called()
         mock_app_data.songs.clear.assert_not_called()
 
-    def test_set_directory_empty_string_returns_early(
-        self, core_actions, mock_app_data
-    ):
+    def test_set_directory_empty_string_returns_early(self, core_actions, mock_app_data):
         """set_directory with empty string returns early."""
         original_directory = mock_app_data.directory
 
@@ -105,9 +95,7 @@ class TestSetDirectory:
         assert mock_app_data.directory == original_directory
         mock_app_data.config.save.assert_not_called()
 
-    def test_set_directory_none_returns_early(
-        self, core_actions, mock_app_data
-    ):
+    def test_set_directory_none_returns_early(self, core_actions, mock_app_data):
         """set_directory with None returns early."""
         original_directory = mock_app_data.directory
 
@@ -120,8 +108,8 @@ class TestSetDirectory:
 class TestAutoLoadLastDirectory:
     """Test auto_load_last_directory behavior."""
 
-    @patch('actions.core_actions.CoreActions._load_songs')
-    @patch('actions.core_actions.CoreActions._clear_songs')
+    @patch("actions.core_actions.CoreActions._load_songs")
+    @patch("actions.core_actions.CoreActions._clear_songs")
     def test_auto_load_valid_directory_returns_true_and_loads(
         self, mock_clear, mock_load, core_actions, mock_app_data, tmp_path
     ):
@@ -137,9 +125,7 @@ class TestAutoLoadLastDirectory:
         mock_clear.assert_called_once()
         mock_load.assert_called_once()
 
-    def test_auto_load_invalid_directory_returns_false(
-        self, core_actions, mock_app_data
-    ):
+    def test_auto_load_invalid_directory_returns_false(self, core_actions, mock_app_data):
         """auto_load_last_directory with invalid path returns False without loading."""
         mock_app_data.config.last_directory = "/nonexistent/path"
 
@@ -148,9 +134,7 @@ class TestAutoLoadLastDirectory:
         assert result is False
         mock_app_data.songs.clear.assert_not_called()
 
-    def test_auto_load_empty_directory_returns_false(
-        self, core_actions, mock_app_data
-    ):
+    def test_auto_load_empty_directory_returns_false(self, core_actions, mock_app_data):
         """auto_load_last_directory with empty config returns False."""
         mock_app_data.config.last_directory = ""
 
@@ -159,9 +143,7 @@ class TestAutoLoadLastDirectory:
         assert result is False
         mock_app_data.songs.clear.assert_not_called()
 
-    def test_auto_load_none_directory_returns_false(
-        self, core_actions, mock_app_data
-    ):
+    def test_auto_load_none_directory_returns_false(self, core_actions, mock_app_data):
         """auto_load_last_directory with None config returns False."""
         mock_app_data.config.last_directory = None
 
@@ -170,8 +152,8 @@ class TestAutoLoadLastDirectory:
         assert result is False
         mock_app_data.songs.clear.assert_not_called()
 
-    @patch('actions.core_actions.CoreActions._load_songs')
-    @patch('actions.core_actions.CoreActions._clear_songs')
+    @patch("actions.core_actions.CoreActions._load_songs")
+    @patch("actions.core_actions.CoreActions._clear_songs")
     def test_auto_load_sets_data_directory_before_loading(
         self, mock_clear, mock_load, core_actions, mock_app_data, tmp_path
     ):
@@ -192,9 +174,7 @@ class TestAutoLoadLastDirectory:
 class TestClearSongs:
     """Test _clear_songs functionality."""
 
-    def test_clear_songs_calls_songs_clear(
-        self, core_actions, mock_app_data
-    ):
+    def test_clear_songs_calls_songs_clear(self, core_actions, mock_app_data):
         """_clear_songs calls data.songs.clear()."""
         core_actions._clear_songs()
 

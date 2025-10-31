@@ -21,13 +21,13 @@ class RuntimeValidator:
         Returns:
             True if all required DLLs are present, False otherwise
         """
-        if sys.platform != 'win32':
+        if sys.platform != "win32":
             return True  # Not applicable on non-Windows
 
         try:
             import ctypes
 
-            required_dlls = ['vcruntime140_1.dll', 'msvcp140.dll']
+            required_dlls = ["vcruntime140_1.dll", "msvcp140.dll"]
             missing_dlls = []
 
             for dll_name in required_dlls:

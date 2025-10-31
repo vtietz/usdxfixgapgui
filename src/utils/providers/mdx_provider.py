@@ -108,7 +108,7 @@ class MdxProvider(IDetectionProvider):
         destination_vocals_filepath: str,
         duration: int = 60,
         overwrite: bool = False,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        check_cancellation: Optional[Callable[[], bool]] = None,
     ) -> str:
         """
         Prepare vocals using Demucs separation.
@@ -141,6 +141,7 @@ class MdxProvider(IDetectionProvider):
                 # Load audio
                 logger.info("Loading audio file...")
                 import warnings
+
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
                     waveform, sample_rate = torchaudio.load(audio_file)
@@ -163,17 +164,20 @@ class MdxProvider(IDetectionProvider):
                     raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
 
                 # Run Demucs separation
-                separation_desc = f"{duration}s preview" if duration > 0 and duration < track_duration_sec else "full-track"
+                separation_desc = (
+                    f"{duration}s preview" if duration > 0 and duration < track_duration_sec else "full-track"
+                )
                 logger.info(f"Running {separation_desc} Demucs separation (this may take a while)...")
                 model = self._get_demucs_model()
 
                 import time
+
                 start_time = time.time()
                 with torch.no_grad():
                     # Prepare input
                     waveform = waveform.to(self._device)
                     # Use FP16 mixed precision on CUDA if enabled
-                    use_autocast = self._device == 'cuda' and self.mdx_config.use_fp16
+                    use_autocast = self._device == "cuda" and self.mdx_config.use_fp16
                     with torch.cuda.amp.autocast(enabled=use_autocast, dtype=torch.float16):
                         # Use apply_model for Demucs inference (not direct call)
                         sources = apply_model(model, waveform.unsqueeze(0), device=self._device)
@@ -198,11 +202,7 @@ class MdxProvider(IDetectionProvider):
             except Exception as e:
                 if "cancelled" in str(e).lower():
                     raise
-                raise DetectionFailedError(
-                    f"Demucs vocals preparation failed: {e}",
-                    provider_name="mdx",
-                    cause=e
-                )
+                raise DetectionFailedError(f"Demucs vocals preparation failed: {e}", provider_name="mdx", cause=e)
         else:
             logger.debug(f"Using existing vocals at {destination_vocals_filepath}")
 
@@ -213,7 +213,7 @@ class MdxProvider(IDetectionProvider):
         audio_file: str,
         vocals_file: str,
         original_gap_ms: Optional[float] = None,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        check_cancellation: Optional[Callable[[], bool]] = None,
     ) -> List[Tuple[float, float]]:
         """
         Detect silence periods using expanding window Demucs scanning.
@@ -262,7 +262,7 @@ class MdxProvider(IDetectionProvider):
         expected_gap = original_gap_ms if original_gap_ms is not None else 0.0
 
         # Log device being used
-        device_name = "GPU (CUDA)" if self._device == 'cuda' else "CPU"
+        device_name = "GPU (CUDA)" if self._device == "cuda" else "CPU"
         logger.info(f"Starting MDX vocal onset detection on {device_name} (expected gap: {expected_gap:.0f}ms)")
         _flush_logs()
         logger.info(f"Analyzing audio file: {audio_file}")
@@ -276,8 +276,10 @@ class MdxProvider(IDetectionProvider):
                 logger.warning("No vocal onset detected, assuming vocals at start")
                 onset_ms = 0.0
 
-            logger.info(f"Detected vocal onset at {onset_ms:.1f}ms "
-                        f"(expected: {expected_gap:.1f}ms, diff: {abs(onset_ms - expected_gap):.1f}ms)")
+            logger.info(
+                f"Detected vocal onset at {onset_ms:.1f}ms "
+                f"(expected: {expected_gap:.1f}ms, diff: {abs(onset_ms - expected_gap):.1f}ms)"
+            )
 
             # Convert onset to silence period
             # Return one silence period from 0 to onset
@@ -295,17 +297,10 @@ class MdxProvider(IDetectionProvider):
         except Exception as e:
             if "cancelled" in str(e).lower():
                 raise
-            raise DetectionFailedError(
-                f"MDX onset detection failed: {e}",
-                provider_name="mdx",
-                cause=e
-            )
+            raise DetectionFailedError(f"MDX onset detection failed: {e}", provider_name="mdx", cause=e)
 
     def compute_confidence(
-        self,
-        audio_file: str,
-        detected_gap_ms: float,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        self, audio_file: str, detected_gap_ms: float, check_cancellation: Optional[Callable[[], bool]] = None
     ) -> float:
         """
         Compute confidence based on SNR (Signal-to-Noise Ratio) at onset.
@@ -325,7 +320,7 @@ class MdxProvider(IDetectionProvider):
             detected_gap_ms=detected_gap_ms,
             vocals_cache=self._vocals_cache.cache_dict,
             separate_vocals_fn=self._separate_vocals_chunk,
-            check_cancellation=check_cancellation
+            check_cancellation=check_cancellation,
         )
 
     def get_method_name(self) -> str:
@@ -337,10 +332,7 @@ class MdxProvider(IDetectionProvider):
     # ============================================================================
 
     def _scan_chunks_for_onset(
-        self,
-        audio_file: str,
-        expected_gap_ms: float,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        self, audio_file: str, expected_gap_ms: float, check_cancellation: Optional[Callable[[], bool]] = None
     ) -> Optional[float]:
         """
         Expanding window vocal onset detection around expected gap position.
@@ -384,14 +376,11 @@ class MdxProvider(IDetectionProvider):
             config=self.mdx_config,
             vocals_cache=self._vocals_cache,
             total_duration_ms=total_duration_ms,
-            check_cancellation=check_cancellation
+            check_cancellation=check_cancellation,
         )
 
     def _separate_vocals_chunk(
-        self,
-        waveform: 'torch.Tensor',
-        sample_rate: int,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        self, waveform: "torch.Tensor", sample_rate: int, check_cancellation: Optional[Callable[[], bool]] = None
     ) -> np.ndarray:
         """
         Separate vocals from audio chunk using Demucs (delegates to separator module).
@@ -411,14 +400,11 @@ class MdxProvider(IDetectionProvider):
             sample_rate=sample_rate,
             device=self._device,
             use_fp16=self.mdx_config.use_fp16,
-            check_cancellation=check_cancellation
+            check_cancellation=check_cancellation,
         )
 
     def _detect_onset_in_vocal_chunk(
-        self,
-        vocal_audio: np.ndarray,
-        sample_rate: int,
-        chunk_start_ms: float
+        self, vocal_audio: np.ndarray, sample_rate: int, chunk_start_ms: float
     ) -> Optional[float]:
         """
         Detect vocal onset in a vocal stem chunk (delegates to detection module).
@@ -432,8 +418,5 @@ class MdxProvider(IDetectionProvider):
             Absolute timestamp in milliseconds of onset, or None if not found
         """
         return detect_onset_in_vocal_chunk(
-            vocal_audio=vocal_audio,
-            sample_rate=sample_rate,
-            chunk_start_ms=chunk_start_ms,
-            config=self.mdx_config
+            vocal_audio=vocal_audio, sample_rate=sample_rate, chunk_start_ms=chunk_start_ms, config=self.mdx_config
         )

@@ -17,15 +17,16 @@ RESIZE_DEBOUNCE_MS = 200  # Delay before re-enabling expensive operations after 
 VIEWPORT_LOAD_DELAY_MS = 100  # Delay before loading visible songs
 VIEWPORT_BUFFER_ROWS = 10  # Load this many extra rows above/below viewport
 
+
 class SongListView(QTableView):
-    selected_songs_changed = Signal(list) # Emits list of selected Song objects
+    selected_songs_changed = Signal(list)  # Emits list of selected Song objects
 
     def __init__(self, model, actions: Actions, parent=None):
         super().__init__(parent)
         self.setModel(model)
         # Track both proxy and source model for robust mapping
-        self.proxyModel = model if hasattr(model, 'mapToSource') else None
-        self.tableModel = model.sourceModel() if hasattr(model, 'sourceModel') else model
+        self.proxyModel = model if hasattr(model, "mapToSource") else None
+        self.tableModel = model.sourceModel() if hasattr(model, "sourceModel") else model
         # Avoid name clash with QWidget.actions() method
         self.ui_actions = actions
 
@@ -42,9 +43,9 @@ class SongListView(QTableView):
         self._pending_selection = None
 
         # Re-trigger viewport lazy-loading whenever data changes in proxy or source
-        if hasattr(model, 'dataChanged'):
+        if hasattr(model, "dataChanged"):
             model.dataChanged.connect(lambda *args: self.reset_viewport_loading())
-        if hasattr(self.tableModel, 'dataChanged'):
+        if hasattr(self.tableModel, "dataChanged"):
             self.tableModel.dataChanged.connect(lambda *args: self.reset_viewport_loading())
 
         # Resize optimization state
@@ -125,7 +126,6 @@ class SongListView(QTableView):
             for i in range(12):
                 resize_mode = QHeaderView.ResizeMode.Stretch if i < 3 else QHeaderView.ResizeMode.ResizeToContents
                 self.horizontalHeader().setSectionResizeMode(i, resize_mode)
-
 
     def onSelectionChanged(self, selected, deselected):
         """Debounce selection changes to prevent rapid-fire updates"""
@@ -286,7 +286,9 @@ class SongListView(QTableView):
         songs_to_load = []
         for proxy_row in range(first_row, last_row + 1):
             proxy_index = proxy_model.index(proxy_row, 0)
-            source_index = proxy_model.mapToSource(proxy_index) if isinstance(proxy_model, QSortFilterProxyModel) else proxy_index
+            source_index = (
+                proxy_model.mapToSource(proxy_index) if isinstance(proxy_model, QSortFilterProxyModel) else proxy_index
+            )
 
             if not source_index.isValid() or source_index.row() in self._loaded_rows:
                 continue
@@ -312,11 +314,7 @@ class SongListView(QTableView):
 
         # Check if essential fields are missing
         needs_load = (
-            not song.title or
-            not song.artist or
-            song.bpm == 0 or
-            not hasattr(song, 'notes') or
-            song.notes is None
+            not song.title or not song.artist or song.bpm == 0 or not hasattr(song, "notes") or song.notes is None
         )
 
         return needs_load
@@ -335,4 +333,3 @@ class SongListView(QTableView):
         self._loaded_rows.clear()
         # Trigger initial load
         QTimer.singleShot(100, self._load_visible_songs)
-

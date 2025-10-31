@@ -2,6 +2,7 @@
 Tests for reload_song_light() - metadata-only reload without status changes.
 Validates the fix for PermissionError bug (passing directory instead of txt_file).
 """
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -39,8 +40,10 @@ def test_reload_song_light_uses_txt_file_not_path(song_actions, fake_run_async):
     test_song.artist = "Test Artist"
 
     # Mock the service to verify the parameter it receives
-    with patch('actions.song_actions.SongService') as mock_service_class, \
-         patch('actions.song_actions.run_async') as mock_run_async:
+    with (
+        patch("actions.song_actions.SongService") as mock_service_class,
+        patch("actions.song_actions.run_async") as mock_run_async,
+    ):
         mock_service = mock_service_class.return_value
 
         # Mock load_song_metadata_only to return a reloaded song
@@ -60,12 +63,10 @@ def test_reload_song_light_uses_txt_file_not_path(song_actions, fake_run_async):
         call_args = mock_service.load_song_metadata_only.call_args[0]
 
         # The first argument should be txt_file (full file path)
-        assert call_args[0] == test_song.txt_file, \
-            f"Expected txt_file '{test_song.txt_file}', got '{call_args[0]}'"
+        assert call_args[0] == test_song.txt_file, f"Expected txt_file '{test_song.txt_file}', got '{call_args[0]}'"
 
         # It should NOT be the directory path
-        assert call_args[0] != test_song.path, \
-            f"Service should receive txt_file, not path (directory)"
+        assert call_args[0] != test_song.path, f"Service should receive txt_file, not path (directory)"
 
 
 def test_reload_song_light_does_not_change_status(song_actions, mock_app_data, fake_run_async):
@@ -80,14 +81,17 @@ def test_reload_song_light_does_not_change_status(song_actions, mock_app_data, f
     gap_info = GapInfo("/test/path")
     gap_info.owner = test_song
     from model.gap_info import GapInfoStatus
+
     gap_info.status = GapInfoStatus.MATCH
     test_song._gap_info = gap_info
     test_song._gap_info_updated()  # This sets status to MATCH
 
     initial_status = test_song.status
 
-    with patch('actions.song_actions.SongService') as mock_service_class, \
-         patch('actions.song_actions.run_async') as mock_run_async:
+    with (
+        patch("actions.song_actions.SongService") as mock_service_class,
+        patch("actions.song_actions.run_async") as mock_run_async,
+    ):
         mock_service = mock_service_class.return_value
 
         # Mock reloaded song - metadata only, no status change
@@ -102,8 +106,7 @@ def test_reload_song_light_does_not_change_status(song_actions, mock_app_data, f
         song_actions.reload_song_light(specific_song=test_song)
 
         # Verify status was preserved
-        assert test_song.status == initial_status, \
-            f"Status should remain {initial_status}, got {test_song.status}"
+        assert test_song.status == initial_status, f"Status should remain {initial_status}, got {test_song.status}"
 
 
 def test_reload_song_light_with_error_handling(song_actions, fake_run_async):
@@ -115,8 +118,10 @@ def test_reload_song_light_with_error_handling(song_actions, fake_run_async):
 
     test_song = Song("Z:/Songs/NonExistent/Title.txt")
 
-    with patch('actions.song_actions.SongService') as mock_service_class, \
-         patch('actions.song_actions.run_async') as mock_run_async:
+    with (
+        patch("actions.song_actions.SongService") as mock_service_class,
+        patch("actions.song_actions.run_async") as mock_run_async,
+    ):
         mock_service = mock_service_class.return_value
 
         # Mock service to return a song with error
@@ -161,5 +166,5 @@ def test_metadata_only_validates_path_is_file():
     assert "invalid path" in song.status_text.lower() or "expected file" in song.status_text.lower()
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

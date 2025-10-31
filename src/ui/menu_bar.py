@@ -138,31 +138,27 @@ class MenuBar(QWidget):
         config_path = self.config.config_path
 
         if not os.path.exists(config_path):
-            QMessageBox.warning(
-                self,
-                "Config Not Found",
-                f"Configuration file not found at:\n{config_path}"
-            )
+            QMessageBox.warning(self, "Config Not Found", f"Configuration file not found at:\n{config_path}")
             return
 
         try:
-            if sys.platform == 'win32':
+            if sys.platform == "win32":
                 # Windows - use default associated program
                 os.startfile(config_path)
                 logger.info(f"Opened config file: {config_path}")
-            elif sys.platform == 'darwin':
+            elif sys.platform == "darwin":
                 # macOS
-                subprocess.run(['open', config_path], check=True)
+                subprocess.run(["open", config_path], check=True)
                 logger.info(f"Opened config file: {config_path}")
             else:
                 # Linux and other Unix-like systems
                 # Try xdg-open first (most common), fall back to common editors
                 try:
-                    subprocess.run(['xdg-open', config_path], check=True)
+                    subprocess.run(["xdg-open", config_path], check=True)
                     logger.info(f"Opened config file: {config_path}")
                 except (subprocess.CalledProcessError, FileNotFoundError):
                     # Fallback to common text editors
-                    for editor in ['gedit', 'kate', 'nano', 'vi']:
+                    for editor in ["gedit", "kate", "nano", "vi"]:
                         try:
                             subprocess.Popen([editor, config_path])
                             logger.info(f"Opened config file with {editor}: {config_path}")
@@ -175,14 +171,13 @@ class MenuBar(QWidget):
         except Exception as e:
             logger.error(f"Failed to open config file: {e}", exc_info=True)
             QMessageBox.warning(
-                self,
-                "Cannot Open Config",
-                f"Failed to open configuration file:\n{str(e)}\n\nPath: {config_path}"
+                self, "Cannot Open Config", f"Failed to open configuration file:\n{str(e)}\n\nPath: {config_path}"
             )
 
     def show_about_dialog(self):
         """Show About dialog (reuses startup dialog in about mode)."""
         from ui.startup_dialog import StartupDialog
+
         # Store reference to prevent garbage collection (dialog is non-modal)
         self._about_dialog = StartupDialog.show_about(parent=self, config=self.config)
         logger.info("Showed About dialog")
@@ -191,11 +186,7 @@ class MenuBar(QWidget):
         # Use the last directory from config if available, otherwise use the current directory
         start_dir = self.data.directory if self.data.directory else self.config.last_directory
 
-        directory = QFileDialog.getExistingDirectory(
-            self,
-            "Select Directory",
-            start_dir
-        )
+        directory = QFileDialog.getExistingDirectory(self, "Select Directory", start_dir)
         if directory:  # Check if a directory was selected
             self.on_directory_selected(directory)
 
@@ -208,9 +199,7 @@ class MenuBar(QWidget):
         """Handle re-scan button click - re-scans the current directory."""
         if not self.data.directory:
             QMessageBox.information(
-                self,
-                "No Directory",
-                "Please load a directory first using the 'Load Songs' button."
+                self, "No Directory", "Please load a directory first using the 'Load Songs' button."
             )
             return
 
@@ -241,11 +230,7 @@ class MenuBar(QWidget):
                 # Failed to start - uncheck the button
                 logger.warning("Failed to start watch mode")
                 self.watch_mode_button.setChecked(False)
-                QMessageBox.warning(
-                    self,
-                    "Watch Mode Error",
-                    "Failed to start watch mode. Check logs for details."
-                )
+                QMessageBox.warning(self, "Watch Mode Error", "Failed to start watch mode. Check logs for details.")
         else:
             # User wants to disable watch mode
             logger.info("Attempting to stop watch mode...")

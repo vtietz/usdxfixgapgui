@@ -7,9 +7,9 @@ failures from detection failures, enabling better error handling and user feedba
 
 from typing import Optional
 
+
 class ProviderError(Exception):
     """Base exception for all provider-related errors."""
-
 
 
 class ProviderInitializationError(ProviderError):

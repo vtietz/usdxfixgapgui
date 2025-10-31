@@ -7,6 +7,7 @@ from model.song import Song
 
 logger = logging.getLogger(__name__)
 
+
 class BaseManager(QObject):
     """Base class for all managers with common functionality"""
 

@@ -6,13 +6,15 @@ from typing import List, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class GapInfoStatus(Enum):
-    NOT_PROCESSED = 'NOT_PROCESSED'
-    MATCH = 'MATCH'
-    MISMATCH = 'MISMATCH'
-    SOLVED = 'SOLVED'
-    UPDATED = 'UPDATED'
-    ERROR = 'ERROR'
+    NOT_PROCESSED = "NOT_PROCESSED"
+    MATCH = "MATCH"
+    MISMATCH = "MISMATCH"
+    SOLVED = "SOLVED"
+    UPDATED = "UPDATED"
+    ERROR = "ERROR"
+
 
 class GapInfo:
     """Data class for song gap analysis information"""
@@ -77,7 +79,7 @@ class GapInfo:
 
         self._status = value
         # Update owner's status when this status changes
-        if hasattr(self, 'owner') and self.owner is not None:
+        if hasattr(self, "owner") and self.owner is not None:
             self.owner._gap_info_updated()
 
     def set_normalized(self):
@@ -88,6 +90,7 @@ class GapInfo:
     async def save(self):
         """For backward compatibility - delegates to GapInfoService"""
         from services.gap_info_service import GapInfoService
+
         return await GapInfoService.save(self)
 
     def __str__(self):

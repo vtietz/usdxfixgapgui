@@ -22,8 +22,10 @@ class ConfigValidationError:
         self.severity = severity  # "warning", "error", "info"
 
     def __str__(self):
-        return (f"[{self.severity.upper()}] {self.key}={self.current_value} "
-                f"(recommended: {self.recommended_value}) - {self.reason}")
+        return (
+            f"[{self.severity.upper()}] {self.key}={self.current_value} "
+            f"(recommended: {self.recommended_value}) - {self.reason}"
+        )
 
 
 def validate_mdx_config(config) -> List[ConfigValidationError]:
@@ -44,87 +46,104 @@ def validate_mdx_config(config) -> List[ConfigValidationError]:
     errors = []
 
     # Check FP16 - known to cause type mismatch with Demucs
-    if hasattr(config, 'mdx_use_fp16') and config.mdx_use_fp16:
-        errors.append(ConfigValidationError(
-            key="mdx.use_fp16",
-            current_value=True,
-            recommended_value=False,
-            reason="FP16 causes type mismatch errors with Demucs (Half vs Float bias). "
-                   "Use TF32 for acceleration instead.",
-            severity="error"
-        ))
+    if hasattr(config, "mdx_use_fp16") and config.mdx_use_fp16:
+        errors.append(
+            ConfigValidationError(
+                key="mdx.use_fp16",
+                current_value=True,
+                recommended_value=False,
+                reason="FP16 causes type mismatch errors with Demucs (Half vs Float bias). "
+                "Use TF32 for acceleration instead.",
+                severity="error",
+            )
+        )
 
     # Check threshold ranges
-    if hasattr(config, 'mdx_onset_snr_threshold'):
+    if hasattr(config, "mdx_onset_snr_threshold"):
         snr = config.mdx_onset_snr_threshold
         if snr < 3.0:
-            errors.append(ConfigValidationError(
-                key="mdx.onset_snr_threshold",
-                current_value=snr,
-                recommended_value=6.5,
-                reason="SNR threshold too low - will detect excessive noise/false positives",
-                severity="warning"
-            ))
+            errors.append(
+                ConfigValidationError(
+                    key="mdx.onset_snr_threshold",
+                    current_value=snr,
+                    recommended_value=6.5,
+                    reason="SNR threshold too low - will detect excessive noise/false positives",
+                    severity="warning",
+                )
+            )
         elif snr > 12.0:
-            errors.append(ConfigValidationError(
-                key="mdx.onset_snr_threshold",
-                current_value=snr,
-                recommended_value=6.5,
-                reason="SNR threshold too high - will miss quiet vocal starts",
-                severity="warning"
-            ))
+            errors.append(
+                ConfigValidationError(
+                    key="mdx.onset_snr_threshold",
+                    current_value=snr,
+                    recommended_value=6.5,
+                    reason="SNR threshold too high - will miss quiet vocal starts",
+                    severity="warning",
+                )
+            )
 
-    if hasattr(config, 'mdx_onset_abs_threshold'):
+    if hasattr(config, "mdx_onset_abs_threshold"):
         abs_thresh = config.mdx_onset_abs_threshold
         if abs_thresh < 0.005:
-            errors.append(ConfigValidationError(
-                key="mdx.onset_abs_threshold",
-                current_value=abs_thresh,
-                recommended_value=0.020,
-                reason="Absolute threshold too low - will detect noise",
-                severity="warning"
-            ))
+            errors.append(
+                ConfigValidationError(
+                    key="mdx.onset_abs_threshold",
+                    current_value=abs_thresh,
+                    recommended_value=0.020,
+                    reason="Absolute threshold too low - will detect noise",
+                    severity="warning",
+                )
+            )
         elif abs_thresh > 0.1:
-            errors.append(ConfigValidationError(
-                key="mdx.onset_abs_threshold",
-                current_value=abs_thresh,
-                recommended_value=0.020,
-                reason="Absolute threshold too high - will miss quiet vocals",
-                severity="warning"
-            ))
+            errors.append(
+                ConfigValidationError(
+                    key="mdx.onset_abs_threshold",
+                    current_value=abs_thresh,
+                    recommended_value=0.020,
+                    reason="Absolute threshold too high - will miss quiet vocals",
+                    severity="warning",
+                )
+            )
 
     # Check minimum duration
-    if hasattr(config, 'mdx_min_voiced_duration_ms'):
+    if hasattr(config, "mdx_min_voiced_duration_ms"):
         min_dur = config.mdx_min_voiced_duration_ms
         if min_dur < 50:
-            errors.append(ConfigValidationError(
-                key="mdx.min_voiced_duration_ms",
-                current_value=min_dur,
-                recommended_value=200,
-                reason="Minimum duration too short - will detect noise spikes",
-                severity="warning"
-            ))
+            errors.append(
+                ConfigValidationError(
+                    key="mdx.min_voiced_duration_ms",
+                    current_value=min_dur,
+                    recommended_value=200,
+                    reason="Minimum duration too short - will detect noise spikes",
+                    severity="warning",
+                )
+            )
         elif min_dur > 1000:
-            errors.append(ConfigValidationError(
-                key="mdx.min_voiced_duration_ms",
-                current_value=min_dur,
-                recommended_value=200,
-                reason="Minimum duration too long - will miss short vocal phrases",
-                severity="warning"
-            ))
+            errors.append(
+                ConfigValidationError(
+                    key="mdx.min_voiced_duration_ms",
+                    current_value=min_dur,
+                    recommended_value=200,
+                    reason="Minimum duration too long - will miss short vocal phrases",
+                    severity="warning",
+                )
+            )
 
     # Check TF32 only used on CUDA
-    if hasattr(config, 'mdx_tf32') and config.mdx_tf32:
+    if hasattr(config, "mdx_tf32") and config.mdx_tf32:
         try:
             import torch
+
             if not torch.cuda.is_available():
-                errors.append(ConfigValidationError(
-                    key="mdx.tf32",
-                    current_value=True,
-                    recommended_value=False,
-                    reason="TF32 only works on CUDA - no GPU detected",
-                    severity="info"
-                ))
+                errors.append(
+                    ConfigValidationError(
+                        key="mdx.tf32",
+                        current_value=True,
+                        recommended_value=False,
+                        reason="TF32 only works on CUDA - no GPU detected",
+                        severity="info",
+                    )
+                )
         except (ImportError, OSError):
             # ImportError: PyTorch not available yet
             # OSError: PyInstaller frozen exe trying to load excluded CUDA DLLs
@@ -161,7 +180,7 @@ def validate_config(config, auto_fix: bool = True) -> Tuple[bool, List[ConfigVal
                 # Apply fix
                 if error.key == "mdx.use_fp16":
                     config.mdx_use_fp16 = False
-                    config._config.set('mdx', 'use_fp16', 'false')
+                    config._config.set("mdx", "use_fp16", "false")
                     logger.info("✓ Disabled FP16 to prevent type mismatch errors")
                     fixed_any = True
 
@@ -207,9 +226,9 @@ def print_validation_report(errors: List[ConfigValidationError]):
     for error in errors:
         errors_by_severity[error.severity].append(error)
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("CONFIGURATION VALIDATION REPORT")
-    print("="*70)
+    print("=" * 70)
 
     if errors_by_severity["error"]:
         print(f"\n❌ ERRORS ({len(errors_by_severity['error'])}):")
@@ -227,4 +246,4 @@ def print_validation_report(errors: List[ConfigValidationError]):
             print(f"  • {info}")
 
     print("\nSee docs/mdx-detection-tuning.md for parameter guidance")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")

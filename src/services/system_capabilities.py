@@ -20,9 +20,11 @@ from typing import Optional
 # Conditionally import Qt - not needed for CLI mode
 try:
     from PySide6.QtCore import QObject, Signal
+
     HAS_QT = True
 except ImportError:
     HAS_QT = False
+
     # Dummy implementations for CLI mode
     class QObject:
         pass
@@ -33,6 +35,7 @@ except ImportError:
 
         def emit(self, *args):
             pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +57,7 @@ class SystemCapabilities:
         ffmpeg_version: FFmpeg version string if available
         can_detect: At least one detection method available (requires torch + ffmpeg)
     """
+
     # PyTorch
     has_torch: bool
     torch_version: Optional[str]
@@ -89,10 +93,10 @@ class SystemCapabilities:
     def get_detection_mode(self) -> str:
         """Get current detection mode: 'gpu', 'cpu', or 'unavailable'."""
         if not self.can_detect:
-            return 'unavailable'
+            return "unavailable"
         if self.has_cuda:
-            return 'gpu'
-        return 'cpu'
+            return "gpu"
+        return "cpu"
 
     def get_user_message(self) -> str:
         """Get user-friendly status message for UI."""
@@ -123,7 +127,7 @@ class SystemCapabilitiesService(QObject):
     capabilities_changed = Signal(SystemCapabilities)
 
     # Singleton instance
-    _instance: Optional['SystemCapabilitiesService'] = None
+    _instance: Optional["SystemCapabilitiesService"] = None
 
     def __new__(cls):
         """Ensure only one instance exists."""
@@ -240,7 +244,7 @@ class SystemCapabilitiesService(QObject):
             has_ffmpeg=has_ffmpeg,
             has_ffprobe=has_ffprobe,
             ffmpeg_version=ffmpeg_version,
-            can_detect=can_detect
+            can_detect=can_detect,
         )
 
         logger.info(f"\n{self._capabilities.get_status_summary()}")
@@ -283,6 +287,7 @@ class SystemCapabilitiesService(QObject):
         """
         try:
             import torch
+
             version = torch.__version__
             logger.debug(f"PyTorch {version} loaded successfully")
             return True, version, None
@@ -304,6 +309,7 @@ class SystemCapabilitiesService(QObject):
         """
         try:
             import torch
+
             if torch.cuda.is_available():
                 cuda_version = torch.version.cuda
                 gpu_name = torch.cuda.get_device_name(0)
@@ -326,9 +332,10 @@ class SystemCapabilitiesService(QObject):
         """
         try:
             from utils.gpu_bootstrap import capability_probe
+
             cap = capability_probe()
-            if cap and 'gpu_names' in cap and cap['gpu_names']:
-                gpu_name = cap['gpu_names'][0] if isinstance(cap['gpu_names'], list) else cap['gpu_names']
+            if cap and "gpu_names" in cap and cap["gpu_names"]:
+                gpu_name = cap["gpu_names"][0] if isinstance(cap["gpu_names"], list) else cap["gpu_names"]
                 logger.debug(f"Physical GPU detected: {gpu_name}")
                 return gpu_name
         except Exception as e:
@@ -345,16 +352,16 @@ class SystemCapabilitiesService(QObject):
         """
         try:
             result = subprocess.run(
-                ['ffmpeg', '-version'],
+                ["ffmpeg", "-version"],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
             )
             if result.returncode == 0:
                 # Parse version from first line
-                first_line = result.stdout.split('\n')[0]
-                version = first_line.split('version')[1].split()[0] if 'version' in first_line else 'unknown'
+                first_line = result.stdout.split("\n")[0]
+                version = first_line.split("version")[1].split()[0] if "version" in first_line else "unknown"
                 logger.debug(f"FFmpeg {version} found")
                 return True, version
             else:
@@ -376,11 +383,11 @@ class SystemCapabilitiesService(QObject):
         """
         try:
             result = subprocess.run(
-                ['ffprobe', '-version'],
+                ["ffprobe", "-version"],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
             )
             if result.returncode == 0:
                 logger.debug("FFprobe found")

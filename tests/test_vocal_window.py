@@ -10,11 +10,8 @@ Tests the new windowing behavior:
     - Iterative window expansion logic
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import torch
-import numpy as np
-from dataclasses import dataclass
 
 from common.config import Config
 from utils.gap_detection.pipeline import GapDetectionContext, normalize_context
@@ -54,7 +51,7 @@ class TestGapDetectionContextWindowing:
         config = Config()
 
         # Create a test audio file context
-        with patch('os.path.exists', return_value=True):
+        with patch("os.path.exists", return_value=True):
             ctx = GapDetectionContext(
                 audio_file="/test/song.mp3",
                 original_gap_ms=5000.0,
@@ -65,7 +62,7 @@ class TestGapDetectionContextWindowing:
                 overwrite=False,
                 start_window_sec=30,
                 window_increment_sec=15,
-                window_max_sec=90
+                window_max_sec=90,
             )
 
         assert ctx.start_window_sec == 30
@@ -79,8 +76,7 @@ class TestGapDetectionContextWindowing:
         config.vocal_window_increment_sec = 20
         config.vocal_window_max_sec = 120
 
-        with patch('os.path.exists', return_value=True), \
-             patch('utils.audio.get_audio_duration', return_value=180.0):
+        with patch("os.path.exists", return_value=True), patch("utils.audio.get_audio_duration", return_value=180.0):
 
             ctx = normalize_context(
                 audio_file="/test/song.mp3",
@@ -89,7 +85,7 @@ class TestGapDetectionContextWindowing:
                 audio_length=None,
                 default_detection_time=30,
                 config=config,
-                overwrite=False
+                overwrite=False,
             )
 
         assert ctx.start_window_sec == 45
@@ -130,11 +126,11 @@ class TestMDXConfigWindowing:
 class TestPreviewDurationCap:
     """Test preview vocals duration capping."""
 
-    @patch('torchaudio.load')
-    @patch('torchaudio.save')
-    @patch('torchaudio.info')
-    @patch('os.path.exists', return_value=False)
-    @patch('os.makedirs')
+    @patch("torchaudio.load")
+    @patch("torchaudio.save")
+    @patch("torchaudio.info")
+    @patch("os.path.exists", return_value=False)
+    @patch("os.makedirs")
     def test_get_vocals_file_caps_duration(self, mock_makedirs, mock_exists, mock_info, mock_save, mock_load):
         """get_vocals_file should cap waveform to requested duration."""
         from utils.providers.mdx_provider import MdxProvider
@@ -151,8 +147,10 @@ class TestPreviewDurationCap:
 
         # Mock model
         mock_model = Mock()
-        with patch.object(provider, '_get_demucs_model', return_value=mock_model), \
-             patch('utils.providers.mdx_provider.apply_model') as mock_apply:
+        with (
+            patch.object(provider, "_get_demucs_model", return_value=mock_model),
+            patch("utils.providers.mdx_provider.apply_model") as mock_apply,
+        ):
 
             # Mock Demucs output
             mock_vocals = torch.randn(2, total_samples)
@@ -166,7 +164,7 @@ class TestPreviewDurationCap:
                 temp_root="/tmp",
                 destination_vocals_filepath="/tmp/vocals.wav",
                 duration=30,
-                overwrite=True
+                overwrite=True,
             )
 
             # Verify apply_model received capped waveform (30s instead of 180s)
@@ -191,20 +189,20 @@ class TestScannerChunkLimits:
         # Create mock objects
         mock_model = Mock()
         mock_model.samplerate = 44100  # Required by Demucs apply_model
-        mock_model.sources = ['vocals', 'drums', 'bass', 'other']  # Required by Demucs len(model.sources)
+        mock_model.sources = ["vocals", "drums", "bass", "other"]  # Required by Demucs len(model.sources)
         mock_model.segment = 8  # Required by Demucs apply_model assertion
         mock_device = "cpu"
         config = MdxConfig(
-            start_window_ms=30000,  # 30s limit
-            start_window_increment_ms=15000,
-            start_window_max_ms=90000
+            start_window_ms=30000, start_window_increment_ms=15000, start_window_max_ms=90000  # 30s limit
         )
         vocals_cache = VocalsCache()
 
         # Mock torchaudio.info to return 180s track
-        with patch('torchaudio.info') as mock_info, \
-             patch('torchaudio.load') as mock_load, \
-             patch('demucs.apply.apply_model') as mock_apply:
+        with (
+            patch("torchaudio.info") as mock_info,
+            patch("torchaudio.load") as mock_load,
+            patch("demucs.apply.apply_model") as mock_apply,
+        ):
 
             mock_info_obj = Mock()
             mock_info_obj.num_frames = int(180 * 44100)
@@ -216,7 +214,7 @@ class TestScannerChunkLimits:
 
             # Mock Demucs to return silence (no onset)
             mock_sources = torch.zeros(1, 4, 2, int(12 * 44100))
-            mock_apply.return_value = mock_sources            # Run scanner
+            mock_apply.return_value = mock_sources  # Run scanner
             onset_ms = scan_for_onset(
                 audio_file="/test/song.mp3",
                 expected_gap_ms=5000.0,
@@ -224,7 +222,7 @@ class TestScannerChunkLimits:
                 device=mock_device,
                 config=config,
                 vocals_cache=vocals_cache,
-                total_duration_ms=180000
+                total_duration_ms=180000,
             )
 
             # With 30s limit and no onset, should return None
@@ -243,13 +241,9 @@ class TestIterativeExpansion:
 
         mock_model = Mock()
         mock_model.samplerate = 44100  # Required by Demucs apply_model
-        mock_model.sources = ['vocals', 'drums', 'bass', 'other']  # Required by Demucs len(model.sources)
+        mock_model.sources = ["vocals", "drums", "bass", "other"]  # Required by Demucs len(model.sources)
         mock_model.segment = 8  # Required by Demucs apply_model assertion
-        config = MdxConfig(
-            start_window_ms=30000,
-            start_window_increment_ms=15000,
-            start_window_max_ms=60000
-        )
+        config = MdxConfig(start_window_ms=30000, start_window_increment_ms=15000, start_window_max_ms=60000)
         vocals_cache = VocalsCache()
 
         call_count = 0
@@ -269,9 +263,11 @@ class TestIterativeExpansion:
                 sources[0, 3, :, :1000] = 0.5  # Vocal energy at start of chunk
                 return sources
 
-        with patch('torchaudio.info') as mock_info, \
-             patch('torchaudio.load') as mock_load, \
-             patch('demucs.apply.apply_model', side_effect=mock_apply_model):
+        with (
+            patch("torchaudio.info") as mock_info,
+            patch("torchaudio.load") as mock_load,
+            patch("demucs.apply.apply_model", side_effect=mock_apply_model),
+        ):
 
             mock_info_obj = Mock()
             mock_info_obj.num_frames = int(180 * 44100)
@@ -287,7 +283,7 @@ class TestIterativeExpansion:
                 device="cpu",
                 config=config,
                 vocals_cache=vocals_cache,
-                total_duration_ms=180000
+                total_duration_ms=180000,
             )
 
             # Should have expanded and found onset

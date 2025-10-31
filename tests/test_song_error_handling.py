@@ -1,4 +1,5 @@
 """Tests for Song model error handling semantics."""
+
 from model.song import Song, SongStatus
 from model.gap_info import GapInfo, GapInfoStatus
 

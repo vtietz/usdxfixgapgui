@@ -13,11 +13,7 @@ from ui.mediaplayer.event_filter import MediaPlayerEventFilter
 from ui.mediaplayer.waveform_widget import WaveformWidget
 from ui.mediaplayer.player_controller import PlayerController
 from ui.mediaplayer.ui_manager import UIManager
-from ui.mediaplayer.gap_marker_colors import (
-    PLAYHEAD_HEX,
-    DETECTED_GAP_HEX,
-    REVERT_GAP_HEX
-)
+from ui.mediaplayer.gap_marker_colors import PLAYHEAD_HEX, DETECTED_GAP_HEX
 from ui.ui_utils import make_color_dot_icon
 
 logger = logging.getLogger(__name__)
@@ -51,7 +47,7 @@ class MediaPlayerComponent(QWidget):
             self,
             lambda: self.player.adjust_position_left(),
             lambda: self.player.adjust_position_right(),
-            lambda: self.player.play()
+            lambda: self.player.play(),
         )
 
         # Connect signals from player to local handlers
@@ -93,7 +89,7 @@ class MediaPlayerComponent(QWidget):
         self.waveform_widget = WaveformWidget(self)
 
         # Setup action buttons
-        self.position_label = QLabel('')
+        self.position_label = QLabel("")
         self.position_label.setStyleSheet(f"color: {self._config.playback_position_color};")
 
         # Add colored dot icons matching waveform markers
@@ -117,7 +113,7 @@ class MediaPlayerComponent(QWidget):
         self.revert_btn = QPushButton("Revert")
         self.revert_btn.setToolTip("Revert to previously saved gap value (R)")
 
-        self.syllable_label = QLabel('')
+        self.syllable_label = QLabel("")
         self.syllable_label.setStyleSheet(f"color: {self._config.playback_position_color};")
 
         # Create layouts
@@ -147,19 +143,16 @@ class MediaPlayerComponent(QWidget):
 
         # Set up UI manager with references to UI elements
         button_dict = {
-            'play': self.play_btn,
-            'audio': self.audio_btn,
-            'vocals': self.vocals_btn,
-            'save_position': self.save_current_play_position_btn,
-            'save_detected': self.save_detected_gap_btn,
-            'keep_original': self.keep_original_gap_btn,
-            'revert': self.revert_btn
+            "play": self.play_btn,
+            "audio": self.audio_btn,
+            "vocals": self.vocals_btn,
+            "save_position": self.save_current_play_position_btn,
+            "save_detected": self.save_detected_gap_btn,
+            "keep_original": self.keep_original_gap_btn,
+            "revert": self.revert_btn,
         }
 
-        label_dict = {
-            'position': self.position_label,
-            'syllable': self.syllable_label
-        }
+        label_dict = {"position": self.position_label, "syllable": self.syllable_label}
 
         self.ui_manager.setup(button_dict, label_dict, self.waveform_widget)
 
@@ -189,11 +182,7 @@ class MediaPlayerComponent(QWidget):
 
     def update_position(self, position):
         """Update UI elements when position changes"""
-        self.ui_manager.update_position_label(
-            position,
-            self.player.is_media_loaded(),
-            self.player.is_playing()
-        )
+        self.ui_manager.update_position_label(position, self.player.is_media_loaded(), self.player.is_playing())
 
         self.ui_manager.update_syllable_label(position, self._song)
         self.waveform_widget.update_position(position, self.player.get_duration())
@@ -202,10 +191,7 @@ class MediaPlayerComponent(QWidget):
     def update_ui(self):
         """Update all UI elements based on current state"""
         self.ui_manager.update_button_states(
-            self._song,
-            self.player.get_audio_status(),
-            self.player.is_media_loaded(),
-            self.player.is_playing()
+            self._song, self.player.get_audio_status(), self.player.is_media_loaded(), self.player.is_playing()
         )
 
     def on_play_state_changed(self, playing: bool):
@@ -222,14 +208,10 @@ class MediaPlayerComponent(QWidget):
         """Handle when vocals file fails validation"""
         # Clear waveform and show error placeholder
         self.waveform_widget.load_waveform(None)
-        self.waveform_widget.set_placeholder(
-            "Invalid vocals file - re-run gap detection to regenerate"
-        )
+        self.waveform_widget.set_placeholder("Invalid vocals file - re-run gap detection to regenerate")
 
         # Update vocals button tooltip
-        self.vocals_btn.setToolTip(
-            "Invalid vocals file format. Re-run gap detection to re-extract vocals."
-        )
+        self.vocals_btn.setToolTip("Invalid vocals file format. Re-run gap detection to re-extract vocals.")
 
         # Update UI state
         self.update_ui()
@@ -258,10 +240,9 @@ class MediaPlayerComponent(QWidget):
         self.update_player_files()
 
         # Track B: Update gap markers from GapState
-        if hasattr(self._data, 'gap_state') and self._data.gap_state:
+        if hasattr(self._data, "gap_state") and self._data.gap_state:
             self.waveform_widget.set_gap_markers(
-                original_gap_ms=self._data.gap_state.saved_gap_ms,
-                detected_gap_ms=self._data.gap_state.detected_gap_ms
+                original_gap_ms=self._data.gap_state.saved_gap_ms, detected_gap_ms=self._data.gap_state.detected_gap_ms
             )
         else:
             self.waveform_widget.set_gap_markers(None, None)
@@ -282,6 +263,7 @@ class MediaPlayerComponent(QWidget):
             self.waveform_widget.set_placeholder("Loading waveform…")
 
             from actions.audio_actions import AudioActions
+
             audio_actions = AudioActions(self._data)
             # Defer slightly to let UI render first, then start instant task
             QTimer.singleShot(0, lambda: audio_actions._create_waveforms(song, overwrite=False, use_queue=True))
@@ -308,7 +290,7 @@ class MediaPlayerComponent(QWidget):
         self.update_player_files()
 
         # Track B: Update GapState when song data changes (e.g., after metadata reload)
-        if hasattr(self._data, 'gap_state') and self._data.gap_state:
+        if hasattr(self._data, "gap_state") and self._data.gap_state:
             # Update GapState with latest gap_info data
             if updated_song.gap_info:
                 self._data.gap_state.detected_gap_ms = updated_song.gap_info.detected_gap
@@ -316,8 +298,7 @@ class MediaPlayerComponent(QWidget):
 
             # Refresh gap markers on waveform
             self.waveform_widget.set_gap_markers(
-                original_gap_ms=self._data.gap_state.saved_gap_ms,
-                detected_gap_ms=self._data.gap_state.detected_gap_ms
+                original_gap_ms=self._data.gap_state.saved_gap_ms, detected_gap_ms=self._data.gap_state.detected_gap_ms
             )
 
     def update_player_files(self):
@@ -341,7 +322,7 @@ class MediaPlayerComponent(QWidget):
             # Keep waveform as-is; do not reload here
             return
         # Check if song has notes attribute but don't prevent playback
-        if not hasattr(song, 'notes') or song.notes is None:
+        if not hasattr(song, "notes") or song.notes is None:
             logger.warning(f"Song '{song.title}' does not have notes data, but will play audio anyway")
 
         # Get paths using WaveformPathService
@@ -361,15 +342,16 @@ class MediaPlayerComponent(QWidget):
         if audio_status == AudioFileStatus.AUDIO:
             logger.debug(f"Loading audio file: {paths['audio_file']}")
             # Keep audio playback available even during gap detection (PROCESSING status)
-            self.player.load_media(paths['audio_file'])
+            self.player.load_media(paths["audio_file"])
 
             # Check if audio waveform exists
-            if os.path.exists(paths['audio_waveform_file']):
-                self.waveform_widget.load_waveform(paths['audio_waveform_file'])
+            if os.path.exists(paths["audio_waveform_file"]):
+                self.waveform_widget.load_waveform(paths["audio_waveform_file"])
 
                 # Track B: Set waveform duration for gap markers from the actual audio file
                 from utils.audio import get_audio_duration
-                duration_f = get_audio_duration(paths['audio_file'])
+
+                duration_f = get_audio_duration(paths["audio_file"])
                 if duration_f is not None:
                     self.waveform_widget.duration_ms = int(duration_f)
                     self.waveform_widget.overlay.update()  # Trigger marker redraw
@@ -386,7 +368,7 @@ class MediaPlayerComponent(QWidget):
 
         else:  # VOCALS mode
             # Check if vocals file exists
-            vocals_file_exists = os.path.exists(paths['vocals_file'])
+            vocals_file_exists = os.path.exists(paths["vocals_file"])
 
             if not vocals_file_exists:
                 # Vocals not extracted yet
@@ -398,15 +380,16 @@ class MediaPlayerComponent(QWidget):
             else:
                 # Vocals file exists, load it
                 logger.debug(f"Loading vocals file: {paths['vocals_file']}")
-                self.player.load_media(paths['vocals_file'])
+                self.player.load_media(paths["vocals_file"])
 
                 # Check if vocals waveform exists
-                if os.path.exists(paths['vocals_waveform_file']):
-                    self.waveform_widget.load_waveform(paths['vocals_waveform_file'])
+                if os.path.exists(paths["vocals_waveform_file"]):
+                    self.waveform_widget.load_waveform(paths["vocals_waveform_file"])
 
                     # Track B: Set waveform duration for gap markers from the actual vocals file
                     from utils.audio import get_audio_duration
-                    duration_f = get_audio_duration(paths['vocals_file'])
+
+                    duration_f = get_audio_duration(paths["vocals_file"])
                     if duration_f is not None:
                         self.waveform_widget.duration_ms = int(duration_f)
                         self.waveform_widget.overlay.update()  # Trigger marker redraw

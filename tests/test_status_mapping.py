@@ -1,4 +1,5 @@
 """Tests for centralized status mapping via GapInfo."""
+
 from model.song import Song, SongStatus
 from model.gap_info import GapInfo, GapInfoStatus
 
@@ -196,8 +197,9 @@ class TestStatusMappingIntegrity:
 
         for gap_status, expected_song_status in mapping.items():
             gap_info.status = gap_status
-            assert song.status == expected_song_status, \
-                f"GapInfoStatus.{gap_status.name} should map to SongStatus.{expected_song_status.name}"
+            assert (
+                song.status == expected_song_status
+            ), f"GapInfoStatus.{gap_status.name} should map to SongStatus.{expected_song_status.name}"
 
     def test_gap_info_owner_hook_is_set(self):
         """GapInfo should have owner reference after assignment."""

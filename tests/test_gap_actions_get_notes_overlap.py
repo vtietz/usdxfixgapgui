@@ -18,9 +18,11 @@ class TestGetNotesOverlap:
         detection_time = 180000  # 3 minutes in ms
 
         # Mock the utils.usdx.get_notes_overlap function to return a specific value
-        with patch('actions.gap_actions.usdx.get_notes_overlap', return_value=123) as mock_overlap, \
-             patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_service_save:
+        with (
+            patch("actions.gap_actions.usdx.get_notes_overlap", return_value=123) as mock_overlap,
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock) as mock_service_save,
+        ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
@@ -54,9 +56,11 @@ class TestGetNotesOverlap:
         silence_periods = [(0, 500)]
         detection_time = 120000
 
-        with patch('actions.gap_actions.usdx.get_notes_overlap', return_value=456) as mock_overlap, \
-             patch('actions.gap_actions.run_async') as mock_run_async, \
-             patch('actions.gap_actions.GapInfoService.save', new_callable=AsyncMock) as mock_save:
+        with (
+            patch("actions.gap_actions.usdx.get_notes_overlap", return_value=456) as mock_overlap,
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock) as mock_save,
+        ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
@@ -75,8 +79,10 @@ class TestGetNotesOverlap:
         # Setup: No selected song
         app_data.first_selected_song = None
 
-        with patch('actions.gap_actions.usdx.get_notes_overlap') as mock_overlap, \
-             patch('actions.gap_actions.run_async') as mock_run_async:
+        with (
+            patch("actions.gap_actions.usdx.get_notes_overlap") as mock_overlap,
+            patch("actions.gap_actions.run_async") as mock_run_async,
+        ):
 
             gap_actions = GapActions(app_data)
 

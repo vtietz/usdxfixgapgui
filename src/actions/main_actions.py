@@ -7,6 +7,7 @@ from actions.audio_actions import AudioActions
 from actions.ui_actions import UiActions
 from actions.watch_mode_actions import WatchModeActions
 
+
 class Actions(BaseActions):
     """Main actions class that combines all action modules"""
 

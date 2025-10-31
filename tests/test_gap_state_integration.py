@@ -124,5 +124,6 @@ def test_gap_state_reflects_mismatch(song_actions, app_data, song_with_gap):
 
     # 20ms diff should be WARNING
     from services.gap_state import SeverityBand
+
     assert app_data.gap_state.severity_band() == SeverityBand.GOOD  # 20ms is within GOOD threshold
     assert app_data.gap_state.format_diff() == "+20ms"

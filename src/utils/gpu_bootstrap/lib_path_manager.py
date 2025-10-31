@@ -34,14 +34,14 @@ class LibPathManager:
         Returns:
             True if successful or not Windows, False on failure
         """
-        if sys.platform != 'win32':
+        if sys.platform != "win32":
             return True  # Not applicable on non-Windows
 
         if not path.exists():
             self.messages.append(f"DLL directory does not exist: {path}")
             return False
 
-        if not hasattr(os, 'add_dll_directory'):
+        if not hasattr(os, "add_dll_directory"):
             self.messages.append("os.add_dll_directory not available")
             return False
 
@@ -75,7 +75,7 @@ class LibPathManager:
         Args:
             path: Directory containing shared libraries
         """
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             return  # Not applicable on Windows
 
         if not path.exists():
@@ -83,19 +83,18 @@ class LibPathManager:
             return
 
         path_str = str(path)
-        ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+        ld_path = os.environ.get("LD_LIBRARY_PATH", "")
 
         if ld_path:
             new_ld_path = f"{path_str}:{ld_path}"
         else:
             new_ld_path = path_str
 
-        os.environ['LD_LIBRARY_PATH'] = new_ld_path
+        os.environ["LD_LIBRARY_PATH"] = new_ld_path
         self.added_ld_paths.append(path_str)
         logger.info(f"Added to LD_LIBRARY_PATH: {path_str}")
 
-    def install_paths(self, dll_dirs: List[Path], sys_paths: List[Path],
-                      ld_paths: List[Path]) -> InstallationResult:
+    def install_paths(self, dll_dirs: List[Path], sys_paths: List[Path], ld_paths: List[Path]) -> InstallationResult:
         """
         Install all configured paths.
 
@@ -112,7 +111,7 @@ class LibPathManager:
             self.prepend_sys_path(path)
 
         # Platform-specific library paths
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             for dll_dir in dll_dirs:
                 self.add_dll_dir(dll_dir)
         else:
@@ -128,7 +127,7 @@ class LibPathManager:
             added_sys_paths=self.added_sys_paths.copy(),
             added_ld_paths=self.added_ld_paths.copy(),
             messages=self.messages.copy(),
-            error_message=None if success else "Failed to add any paths"
+            error_message=None if success else "Failed to add any paths",
         )
 
     def get_installation_result(self) -> InstallationResult:
@@ -141,5 +140,5 @@ class LibPathManager:
             added_sys_paths=self.added_sys_paths.copy(),
             added_ld_paths=self.added_ld_paths.copy(),
             messages=self.messages.copy(),
-            error_message=None if success else "No paths were added"
+            error_message=None if success else "No paths were added",
         )

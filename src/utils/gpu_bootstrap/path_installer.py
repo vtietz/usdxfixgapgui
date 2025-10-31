@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class InstallationResult:
     """Result of path installation."""
+
     success: bool
     added_dll_dirs: List[str]
     error_message: str = ""
@@ -47,10 +48,10 @@ class PathInstaller:
                 logger.info(f"Added to sys.path: {entry_str}")
 
         # Windows: Add DLL directories
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             for dll_dir in config.dll_directories:
                 if dll_dir.exists():
-                    if hasattr(os, 'add_dll_directory'):
+                    if hasattr(os, "add_dll_directory"):
                         try:
                             os.add_dll_directory(str(dll_dir))
                             added_dll_dirs.append(str(dll_dir))
@@ -64,9 +65,9 @@ class PathInstaller:
         else:
             for lib_path in config.ld_library_paths:
                 if lib_path.exists():
-                    ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+                    ld_path = os.environ.get("LD_LIBRARY_PATH", "")
                     new_ld_path = f"{lib_path}:{ld_path}" if ld_path else str(lib_path)
-                    os.environ['LD_LIBRARY_PATH'] = new_ld_path
+                    os.environ["LD_LIBRARY_PATH"] = new_ld_path
                     logger.info(f"Added to LD_LIBRARY_PATH: {lib_path}")
 
         return InstallationResult(success=True, added_dll_dirs=added_dll_dirs)

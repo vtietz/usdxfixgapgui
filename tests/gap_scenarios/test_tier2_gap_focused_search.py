@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed
 from utils.providers.mdx.scanner.pipeline import scan_for_onset
@@ -26,6 +26,7 @@ from utils.providers.mdx.vocals_cache import VocalsCache
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def artifact_dir(tmp_path):
     """
@@ -34,8 +35,8 @@ def artifact_dir(tmp_path):
     If GAP_TIER2_WRITE_DOCS=1, writes to docs/gap-tests/tier2/
     Otherwise uses tmp_path for CI cleanliness.
     """
-    if os.environ.get('GAP_TIER2_WRITE_DOCS') == '1':
-        docs_path = Path(__file__).parent.parent.parent / 'docs' / 'gap-tests' / 'tier2'
+    if os.environ.get("GAP_TIER2_WRITE_DOCS") == "1":
+        docs_path = Path(__file__).parent.parent.parent / "docs" / "gap-tests" / "tier2"
         docs_path.mkdir(parents=True, exist_ok=True)
         return docs_path
     return tmp_path
@@ -45,6 +46,7 @@ def artifact_dir(tmp_path):
 # Helpers
 # ============================================================================
 
+
 def write_tier2_preview_if_enabled(
     audio_path: str,
     truth_ms: float,
@@ -52,10 +54,10 @@ def write_tier2_preview_if_enabled(
     early_noise_ms: float | None,
     expected_gap_ms: float,
     scenario_name: str,
-    artifact_dir: Path
+    artifact_dir: Path,
 ):
     """Write tier-2 visualization if GAP_TIER2_WRITE_DOCS is enabled."""
-    if os.environ.get('GAP_TIER2_WRITE_DOCS') == '1':
+    if os.environ.get("GAP_TIER2_WRITE_DOCS") == "1":
         from test_utils import visualize
         import torchaudio
 
@@ -67,31 +69,26 @@ def write_tier2_preview_if_enabled(
         error_str = f"Δ{detected_ms - truth_ms:+.1f}ms" if detected_ms else "NONE"
 
         title_parts = [
-            scenario_name.replace('-', ' ').replace('_', ' ').title(),
+            scenario_name.replace("-", " ").replace("_", " ").title(),
             f"Expected={expected_gap_ms:.0f}ms",
             f"Truth={truth_ms:.0f}ms",
-            f"Detected={detected_ms:.0f}ms ({error_str})" if detected_ms else "NOT DETECTED"
+            f"Detected={detected_ms:.0f}ms ({error_str})" if detected_ms else "NOT DETECTED",
         ]
         if early_noise_ms:
             title_parts.insert(1, f"EarlyNoise={early_noise_ms:.0f}ms")
 
         title = " | ".join(title_parts)
 
-        visualize.save_waveform_preview(
-            vocals, sr, title, truth_ms, detected_ms, str(out_path), rms_overlay=True
-        )
+        visualize.save_waveform_preview(vocals, sr, title, truth_ms, detected_ms, str(out_path), rms_overlay=True)
 
 
 # ============================================================================
 # Gap-Focused Search Tests
 # ============================================================================
 
+
 def test_11_ignore_early_noise_detect_expected_gap(
-    tmp_path,
-    artifact_dir,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
+    tmp_path, artifact_dir, patch_separator, mdx_config_tight, model_placeholder
 ):
     """
     Scenario 11: Early noise burst + vocals at expected gap.
@@ -124,16 +121,14 @@ def test_11_ignore_early_noise_detect_expected_gap(
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_gap_focused.wav",
         duration_ms=30000,
-        vocal_events=[
-            VocalEvent(onset_ms=vocal_onset_ms, duration_ms=10000, fade_in_ms=100, amp=0.7)
-        ],
+        vocal_events=[VocalEvent(onset_ms=vocal_onset_ms, duration_ms=10000, fade_in_ms=100, amp=0.7)],
         instrument_bed=InstrumentBed(
             noise_floor_db=-60.0,
             transients=[
                 # Early noise burst that should be IGNORED
-                {'t_ms': early_noise_ms, 'level_db': -25.0, 'dur_ms': 500}
-            ]
-        )
+                {"t_ms": early_noise_ms, "level_db": -25.0, "dur_ms": 500}
+            ],
+        ),
     )
 
     # Run scanner with expected_gap_ms hint
@@ -144,7 +139,7 @@ def test_11_ignore_early_noise_detect_expected_gap(
         device="cpu",
         config=mdx_config_tight,  # initial_radius_ms=7500
         vocals_cache=VocalsCache(),
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Write visualization
@@ -155,13 +150,11 @@ def test_11_ignore_early_noise_detect_expected_gap(
         early_noise_ms,
         expected_gap_ms,
         "11-ignore-early-noise-detect-expected-gap",
-        artifact_dir
+        artifact_dir,
     )
 
     # Validate detection
-    assert detected is not None, (
-        f"Gap-focused search should detect vocals at {vocal_onset_ms}ms"
-    )
+    assert detected is not None, f"Gap-focused search should detect vocals at {vocal_onset_ms}ms"
 
     # Key assertion: detected gap should be NEAR expected gap, NOT near early noise
     error_ms = abs(detected - vocal_onset_ms)
@@ -186,11 +179,7 @@ def test_11_ignore_early_noise_detect_expected_gap(
 
 
 def test_12_multiple_false_positives_detect_correct_gap(
-    tmp_path,
-    artifact_dir,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
+    tmp_path, artifact_dir, patch_separator, mdx_config_tight, model_placeholder
 ):
     """
     Scenario 12: Multiple early false positives + correct vocal onset.
@@ -217,17 +206,15 @@ def test_12_multiple_false_positives_detect_correct_gap(
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_multiple_false_positives.wav",
         duration_ms=30000,
-        vocal_events=[
-            VocalEvent(onset_ms=vocal_onset_ms, duration_ms=10000, fade_in_ms=150, amp=0.7)
-        ],
+        vocal_events=[VocalEvent(onset_ms=vocal_onset_ms, duration_ms=10000, fade_in_ms=150, amp=0.7)],
         instrument_bed=InstrumentBed(
             noise_floor_db=-60.0,
             transients=[
-                {'t_ms': fp1_ms, 'level_db': -22.0, 'dur_ms': 200},
-                {'t_ms': fp2_ms, 'level_db': -28.0, 'dur_ms': 400},
-                {'t_ms': fp3_ms, 'level_db': -24.0, 'dur_ms': 300}
-            ]
-        )
+                {"t_ms": fp1_ms, "level_db": -22.0, "dur_ms": 200},
+                {"t_ms": fp2_ms, "level_db": -28.0, "dur_ms": 400},
+                {"t_ms": fp3_ms, "level_db": -24.0, "dur_ms": 300},
+            ],
+        ),
     )
 
     detected = scan_for_onset(
@@ -237,7 +224,7 @@ def test_12_multiple_false_positives_detect_correct_gap(
         device="cpu",
         config=mdx_config_tight,
         vocals_cache=VocalsCache(),
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Write visualization (fp1_ms as representative early noise)
@@ -248,15 +235,15 @@ def test_12_multiple_false_positives_detect_correct_gap(
         fp1_ms,
         expected_gap_ms,
         "12-multiple-false-positives-detect-correct-gap",
-        artifact_dir
+        artifact_dir,
     )
 
     assert detected is not None, "Should detect correct vocal onset"
 
     error_ms = abs(detected - vocal_onset_ms)
-    assert error_ms <= 300, (
-        f"Detection error {error_ms:.0f}ms (detected={detected:.0f}ms, truth={vocal_onset_ms:.0f}ms)"
-    )
+    assert (
+        error_ms <= 300
+    ), f"Detection error {error_ms:.0f}ms (detected={detected:.0f}ms, truth={vocal_onset_ms:.0f}ms)"
 
     # Ensure we didn't detect any of the false positives
     for fp_ms, fp_name in [(fp1_ms, "FP1"), (fp2_ms, "FP2"), (fp3_ms, "FP3")]:
@@ -268,11 +255,7 @@ def test_12_multiple_false_positives_detect_correct_gap(
 
 
 def test_13_early_vocals_outside_initial_window_requires_expansion(
-    tmp_path,
-    artifact_dir,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
+    tmp_path, artifact_dir, patch_separator, mdx_config_tight, model_placeholder
 ):
     """
     Scenario 13: Vocals at 1000ms, expected gap at 10000ms.
@@ -294,10 +277,8 @@ def test_13_early_vocals_outside_initial_window_requires_expansion(
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_early_vocals_expansion.wav",
         duration_ms=30000,
-        vocal_events=[
-            VocalEvent(onset_ms=vocal_onset_ms, duration_ms=15000, fade_in_ms=100, amp=0.8)
-        ],
-        instrument_bed=InstrumentBed(noise_floor_db=-60.0)
+        vocal_events=[VocalEvent(onset_ms=vocal_onset_ms, duration_ms=15000, fade_in_ms=100, amp=0.8)],
+        instrument_bed=InstrumentBed(noise_floor_db=-60.0),
     )
 
     detected = scan_for_onset(
@@ -307,7 +288,7 @@ def test_13_early_vocals_outside_initial_window_requires_expansion(
         device="cpu",
         config=mdx_config_tight,  # Will expand to catch early vocals
         vocals_cache=VocalsCache(),
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Write visualization (no early noise)
@@ -318,18 +299,16 @@ def test_13_early_vocals_outside_initial_window_requires_expansion(
         None,  # No early noise
         expected_gap_ms,
         "13-early-vocals-outside-initial-window",
-        artifact_dir
+        artifact_dir,
     )
 
     # Should still detect early vocals via expansion
-    assert detected is not None, (
-        f"Expansion should find early vocals at {vocal_onset_ms}ms even with late expected_gap"
-    )
+    assert detected is not None, f"Expansion should find early vocals at {vocal_onset_ms}ms even with late expected_gap"
 
     error_ms = abs(detected - vocal_onset_ms)
-    assert error_ms <= 500, (
-        f"Detection error {error_ms:.0f}ms (detected={detected:.0f}ms, truth={vocal_onset_ms:.0f}ms)"
-    )
+    assert (
+        error_ms <= 500
+    ), f"Detection error {error_ms:.0f}ms (detected={detected:.0f}ms, truth={vocal_onset_ms:.0f}ms)"
 
     print(f"\n[Early Vocals + Expansion Test]")
     print(f"Vocals at: {vocal_onset_ms}ms (very early)")
@@ -338,11 +317,7 @@ def test_13_early_vocals_outside_initial_window_requires_expansion(
 
 
 def test_14_gradual_fade_in_at_expected_gap_with_early_noise(
-    tmp_path,
-    artifact_dir,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
+    tmp_path, artifact_dir, patch_separator, mdx_config_tight, model_placeholder
 ):
     """
     Scenario 14: Gradual fade-in vocals at expected gap + early noise.
@@ -368,11 +343,8 @@ def test_14_gradual_fade_in_at_expected_gap_with_early_noise(
             VocalEvent(onset_ms=vocal_onset_ms, duration_ms=10000, fade_in_ms=2000, amp=0.6)
         ],
         instrument_bed=InstrumentBed(
-            noise_floor_db=-60.0,
-            transients=[
-                {'t_ms': early_noise_ms, 'level_db': -26.0, 'dur_ms': 600}
-            ]
-        )
+            noise_floor_db=-60.0, transients=[{"t_ms": early_noise_ms, "level_db": -26.0, "dur_ms": 600}]
+        ),
     )
 
     detected = scan_for_onset(
@@ -382,7 +354,7 @@ def test_14_gradual_fade_in_at_expected_gap_with_early_noise(
         device="cpu",
         config=mdx_config_tight,
         vocals_cache=VocalsCache(),
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Write visualization
@@ -393,7 +365,7 @@ def test_14_gradual_fade_in_at_expected_gap_with_early_noise(
         early_noise_ms,
         expected_gap_ms,
         "14-gradual-fade-in-with-early-noise",
-        artifact_dir
+        artifact_dir,
     )
 
     assert detected is not None, "Should detect gradual fade-in vocals"
@@ -408,9 +380,7 @@ def test_14_gradual_fade_in_at_expected_gap_with_early_noise(
     )
 
     # Must ignore early noise
-    assert early_noise_distance > 8000, (
-        f"Detected {detected:.0f}ms too close to early noise at {early_noise_ms:.0f}ms"
-    )
+    assert early_noise_distance > 8000, f"Detected {detected:.0f}ms too close to early noise at {early_noise_ms:.0f}ms"
 
     print(f"\n[Gradual Fade-In + Gap-Focused Test]")
     print(f"Early noise: {early_noise_ms}ms (IGNORED ✓)")

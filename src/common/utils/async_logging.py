@@ -8,8 +8,13 @@ from typing import Optional
 _queue_listener = None
 _shutdown_registered = False
 
-def setup_async_logging(log_level=logging.INFO, log_file_path: Optional[str] = None,
-                       max_bytes: int = 10*1024*1024, backup_count: int = 3) -> None:
+
+def setup_async_logging(
+    log_level=logging.INFO,
+    log_file_path: Optional[str] = None,
+    max_bytes: int = 10 * 1024 * 1024,
+    backup_count: int = 3,
+) -> None:
     """
     Set up asynchronous logging to prevent logging operations from blocking the main thread.
 
@@ -42,13 +47,11 @@ def setup_async_logging(log_level=logging.INFO, log_file_path: Optional[str] = N
     # Create and add file handler if a log file path is provided
     if log_file_path:
         file_handler = logging.handlers.RotatingFileHandler(
-            log_file_path,
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding='utf-8'
+            log_file_path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
         )
-        file_formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s: %(message)s',
-                                          datefmt='%Y-%m-%d %H:%M:%S')
+        file_formatter = logging.Formatter(
+            "%(asctime)s %(name)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        )
         file_handler.setFormatter(file_formatter)
         handlers.append(file_handler)
 
@@ -63,6 +66,7 @@ def setup_async_logging(log_level=logging.INFO, log_file_path: Optional[str] = N
 
     logging.info("Asynchronous logging setup completed")
 
+
 def shutdown_async_logging():
     """Stop the queue listener thread and wait for it to finish (idempotent)."""
     global _queue_listener
@@ -75,7 +79,7 @@ def shutdown_async_logging():
     _queue_listener.stop()
 
     # Wait for the listener thread to actually stop (with timeout)
-    if hasattr(_queue_listener, '_thread') and _queue_listener._thread:
+    if hasattr(_queue_listener, "_thread") and _queue_listener._thread:
         _queue_listener._thread.join(timeout=2.0)
         if _queue_listener._thread.is_alive():
             logging.warning("Logging thread did not stop within timeout")

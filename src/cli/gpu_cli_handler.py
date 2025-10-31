@@ -24,8 +24,8 @@ def get_app_version():
     try:
         version_file = resource_path("VERSION")
         if os.path.exists(version_file):
-            with open(version_file, 'r') as f:
-                return f.read().strip().lstrip('v')
+            with open(version_file, "r") as f:
+                return f.read().strip().lstrip("v")
         return "1.0.0"  # Fallback
     except Exception:
         return "1.0.0"
@@ -48,7 +48,7 @@ def handle_gpu_disable(config):
 def _print_gpu_capability_info(cap):
     """Print GPU capability information."""
     print(f"NVIDIA GPU detected: {cap['has_nvidia']}")
-    if cap['has_nvidia']:
+    if cap["has_nvidia"]:
         print(f"Driver version: {cap['driver_version']}")
         print(f"GPU(s): {', '.join(cap['gpu_names'])}")
 
@@ -65,7 +65,7 @@ def _print_gpu_pack_info(config):
             pack_dir = Path(path)
             install_json = pack_dir / "install.json"
             if install_json.exists():
-                with open(install_json, 'r') as f:
+                with open(install_json, "r") as f:
                     info = json.load(f)
                 print(f"Installed on: {info.get('install_timestamp', 'unknown')}")
                 print(f"CUDA version: {info.get('cuda_version', 'unknown')}")
@@ -89,6 +89,7 @@ def _print_dll_diagnostics():
     """Print DLL path diagnostics."""
     print("\n=== DLL Path Diagnostics ===")
     from utils.gpu_bootstrap import ADDED_DLL_DIRS
+
     if ADDED_DLL_DIRS:
         print(f"DLL directories added to search path: {len(ADDED_DLL_DIRS)}")
         for dll_dir in ADDED_DLL_DIRS:
@@ -101,7 +102,7 @@ def _print_dll_diagnostics():
 def _print_python_path_diagnostics():
     """Print Python path diagnostics for torch-related paths."""
     print("\n=== Python Path (torch-related) ===")
-    torch_paths = [p for p in sys.path if 'torch' in p.lower() or 'cuda' in p.lower()]
+    torch_paths = [p for p in sys.path if "torch" in p.lower() or "cuda" in p.lower()]
     if torch_paths:
         for p in torch_paths:
             print(f"  - {p}")
@@ -113,12 +114,12 @@ def _print_python_path_diagnostics():
 def _print_environment_variables():
     """Print relevant environment variables."""
     print("\n=== Environment Variables ===")
-    env_vars = ['USDXFIXGAP_GPU_PACK_DIR', 'CUDA_PATH', 'PATH']
+    env_vars = ["USDXFIXGAP_GPU_PACK_DIR", "CUDA_PATH", "PATH"]
     for var in env_vars:
-        value = os.environ.get(var, 'Not set')
-        if var == 'PATH':
+        value = os.environ.get(var, "Not set")
+        if var == "PATH":
             path_entries = value.split(os.pathsep)
-            cuda_paths = [p for p in path_entries if 'cuda' in p.lower() or 'torch' in p.lower()]
+            cuda_paths = [p for p in path_entries if "cuda" in p.lower() or "torch" in p.lower()]
             if cuda_paths:
                 print(f"{var} (CUDA/torch entries):")
                 for p in cuda_paths[:5]:
@@ -134,6 +135,7 @@ def _run_torch_smoke_test():
     print("\n=== Torch Smoke Test ===")
     try:
         import torch
+
         print(f"PyTorch version: {torch.__version__}")
         print(f"CUDA available: {torch.cuda.is_available()}")
         if torch.cuda.is_available():
@@ -172,10 +174,10 @@ def _write_diagnostics_file(config, cap, torch_paths):
     from utils.gpu_bootstrap import ADDED_DLL_DIRS
 
     diag_file = Path(get_app_dir()) / "gpu_diagnostics.txt"
-    with open(diag_file, 'w') as f:
+    with open(diag_file, "w") as f:
         f.write("=== GPU Diagnostics ===\n")
         f.write(f"NVIDIA GPU detected: {cap['has_nvidia']}\n")
-        if cap['has_nvidia']:
+        if cap["has_nvidia"]:
             f.write(f"Driver version: {cap['driver_version']}\n")
             f.write(f"GPU(s): {', '.join(cap['gpu_names'])}\n")
         f.write(f"GPU Pack installed: {config.gpu_pack_installed_version or 'No'}\n")
@@ -234,7 +236,7 @@ def handle_setup_gpu(config):
     app_version = get_app_version()
     cap = gpu_bootstrap.capability_probe()
 
-    if not cap['has_nvidia']:
+    if not cap["has_nvidia"]:
         print("ERROR: No NVIDIA GPU detected. GPU Pack requires NVIDIA GPU with compatible driver.")
         return
 
@@ -246,15 +248,15 @@ def handle_setup_gpu(config):
     except Exception as e:
         print(f"WARNING: Could not load local manifest: {e}")
         # Use default manifests
-        manifests: Dict[str, 'gpu_manifest.GpuPackManifest'] = {}
+        manifests: Dict[str, "gpu_manifest.GpuPackManifest"] = {}
         for flavor, manifest_data in gpu_manifest.DEFAULT_MANIFESTS.items():
             manifest_data_copy = manifest_data.copy()
-            manifest_data_copy['app_version'] = app_version
+            manifest_data_copy["app_version"] = app_version
             manifests[flavor] = gpu_manifest.GpuPackManifest.from_dict(manifest_data_copy)
 
     # Choose pack
     flavor_override = config.gpu_flavor if config.gpu_flavor else None
-    chosen = gpu_manifest.choose_pack(manifests, cap['driver_version'], flavor_override)
+    chosen = gpu_manifest.choose_pack(manifests, cap["driver_version"], flavor_override)
 
     if not chosen:
         print("ERROR: No compatible GPU Pack found for your driver version.")
@@ -275,14 +277,14 @@ def handle_setup_gpu(config):
 
         def progress_cb(downloaded, total):
             pct = (downloaded / total * 100) if total > 0 else 0
-            print(f"Progress: {pct:.1f}% ({downloaded / (1024**2):.1f} MB / {total / (1024**2):.1f} MB)", end='\r')
+            print(f"Progress: {pct:.1f}% ({downloaded / (1024**2):.1f} MB / {total / (1024**2):.1f} MB)", end="\r")
 
         gpu_downloader.download_with_resume(
             url=chosen.url,
             dest_zip=dest_zip,
             expected_sha256=chosen.sha256,
             expected_size=chosen.size,
-            progress_cb=progress_cb
+            progress_cb=progress_cb,
         )
         print("\nDownload complete. Extracting...")
 
@@ -312,6 +314,7 @@ def handle_setup_gpu(config):
     except Exception as e:
         print(f"\nERROR: GPU Pack installation failed: {e}")
         import traceback
+
         traceback.print_exc()
 
 
@@ -328,13 +331,13 @@ def handle_setup_gpu_zip(config, zip_path_str):
 
     # Try to infer flavor from filename (e.g., "usdxfixgap-gpu-cu121-v1.0.0.zip")
     flavor = None
-    if 'cu121' in zip_path.name.lower():
-        flavor = 'cu121'
-    elif 'cu124' in zip_path.name.lower():
-        flavor = 'cu124'
+    if "cu121" in zip_path.name.lower():
+        flavor = "cu121"
+    elif "cu124" in zip_path.name.lower():
+        flavor = "cu124"
     else:
         # Default to config flavor
-        flavor = config.gpu_flavor if config.gpu_flavor else 'cu121'
+        flavor = config.gpu_flavor if config.gpu_flavor else "cu121"
 
     print(f"Detected flavor: {flavor}")
 
@@ -346,13 +349,13 @@ def handle_setup_gpu_zip(config, zip_path_str):
 
         # Create minimal install record (no manifest info available)
         install_info = {
-            'app_version': app_version,
-            'flavor': flavor,
-            'install_timestamp': datetime.utcnow().isoformat() + 'Z',
-            'source': 'offline_zip'
+            "app_version": app_version,
+            "flavor": flavor,
+            "install_timestamp": datetime.utcnow().isoformat() + "Z",
+            "source": "offline_zip",
         }
         install_json = pack_dir / "install.json"
-        with open(install_json, 'w') as f:
+        with open(install_json, "w") as f:
             json.dump(install_info, f, indent=2)
 
         # Update config
@@ -367,6 +370,7 @@ def handle_setup_gpu_zip(config, zip_path_str):
     except Exception as e:
         print(f"\nERROR: GPU Pack installation from ZIP failed: {e}")
         import traceback
+
         traceback.print_exc()
 
 

@@ -17,7 +17,7 @@ def stub_separate_vocals_chunk(
     sample_rate: int,
     device: str,
     use_fp16: bool,
-    check_cancellation: Optional[Callable[[], bool]] = None
+    check_cancellation: Optional[Callable[[], bool]] = None,
 ) -> np.ndarray:
     """
     Stub for separate_vocals_chunk that returns the right channel as vocals.

@@ -38,7 +38,7 @@ class ConfigStub:
         mdx_radius_increment_ms: int = 7500,
         mdx_max_expansions: int = 2,
         mdx_early_stop_tolerance_ms: int = 500,
-        mdx_confidence_threshold: float = 0.55
+        mdx_confidence_threshold: float = 0.55,
     ):
         """
         Initialize config stub with sensible defaults.

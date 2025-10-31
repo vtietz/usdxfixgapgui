@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QProgressBar
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 
@@ -7,8 +7,9 @@ from app.app_data import AppData
 
 # Assuming SongStatus and Songs are defined elsewhere
 
+
 class SongsStatusVisualizer(QWidget):
-    def __init__(self, songs: Songs, data: 'AppData | None' = None, parent=None):
+    def __init__(self, songs: Songs, data: "AppData | None" = None, parent=None):
         super().__init__(parent)
         self.songs = songs
         self.data = data  # Optional AppData for loading state
@@ -16,7 +17,7 @@ class SongsStatusVisualizer(QWidget):
         self.setLayout(self._layout)
         self._layout.setSpacing(0)
         self._layout.setContentsMargins(0, 0, 0, 0)
-        #self.setFixedHeight(5)
+        # self.setFixedHeight(5)
 
         # Optional: Store labels for updating without recreation
         self.status_labels = {}
@@ -59,7 +60,9 @@ class SongsStatusVisualizer(QWidget):
 
             if status not in self.status_labels:
                 label = QLabel(self)
-                label.setStyleSheet(f"background-color: {self.get_color_for_status(status).name()}; color: rgba(255, 255, 255, 0.5); font-size: 8px;")
+                label.setStyleSheet(
+                    f"background-color: {self.get_color_for_status(status).name()}; color: rgba(255, 255, 255, 0.5); font-size: 8px;"
+                )
                 self.status_labels[status] = label
                 self._layout.addWidget(label)
             else:
@@ -72,7 +75,9 @@ class SongsStatusVisualizer(QWidget):
                 policy = label.sizePolicy()
                 policy.setHorizontalStretch(int(proportion * 100))  # Use the proportion to influence the stretch factor
                 label.setSizePolicy(policy)
-                label.setMinimumWidth(int(proportion * 100))  # This helps in making sure that the QLabel's size changes dynamically based on the proportion
+                label.setMinimumWidth(
+                    int(proportion * 100)
+                )  # This helps in making sure that the QLabel's size changes dynamically based on the proportion
                 label.setText(str(count))
                 label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -81,7 +86,6 @@ class SongsStatusVisualizer(QWidget):
 
         # Refresh widget to reflect changes
         self.update()
-
 
     def calculate_status_counts(self):
         # Implement logic to count songs by their status, returning a dictionary

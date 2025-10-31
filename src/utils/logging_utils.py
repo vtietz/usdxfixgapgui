@@ -13,11 +13,11 @@ import sys
 import time
 import uuid
 from contextvars import ContextVar
-from typing import Optional, Dict, Any
+from typing import Optional
 from functools import wraps
 
 # Context variable to store current selection_id across async boundaries
-_selection_context: ContextVar[Optional[str]] = ContextVar('selection_id', default=None)
+_selection_context: ContextVar[Optional[str]] = ContextVar("selection_id", default=None)
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,7 @@ def flush_logs():
 # ============================================================================
 # Correlation ID Tracking (for Phase 0 - UI freeze elimination)
 # ============================================================================
+
 
 def generate_selection_id() -> str:
     """
@@ -180,17 +181,9 @@ class TimingSpan:
             duration_ms = 0.0
 
         if exc_type is not None:
-            log_error(
-                f"{self.operation} - failed after {duration_ms:.0f}ms",
-                error=str(exc_val),
-                **self.extra_context
-            )
+            log_error(f"{self.operation} - failed after {duration_ms:.0f}ms", error=str(exc_val), **self.extra_context)
         else:
-            log_info(
-                f"{self.operation} - completed",
-                duration_ms=f"{duration_ms:.0f}",
-                **self.extra_context
-            )
+            log_info(f"{self.operation} - completed", duration_ms=f"{duration_ms:.0f}", **self.extra_context)
 
         return False  # Don't suppress exceptions
 
@@ -207,11 +200,12 @@ def with_selection_context(func):
 
     The function must have a 'selection_id' parameter or accept **kwargs.
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         # Try to get selection_id from kwargs or args
-        selection_id = kwargs.get('selection_id')
-        if not selection_id and len(args) > 0 and hasattr(args[0], 'selection_id'):
+        selection_id = kwargs.get("selection_id")
+        if not selection_id and len(args) > 0 and hasattr(args[0], "selection_id"):
             selection_id = args[0].selection_id
 
         if selection_id:

@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DownloadState:
     """Persisted download state for resume."""
+
     url: str
     dest_path: str  # Store as string for JSON serialization
     expected_size: int
@@ -30,11 +31,11 @@ class DownloadState:
         Args:
             meta_file: Path to .meta file
         """
-        with open(meta_file, 'w') as f:
+        with open(meta_file, "w") as f:
             json.dump(asdict(self), f, indent=2)
 
     @classmethod
-    def load(cls, meta_file: Path) -> Optional['DownloadState']:
+    def load(cls, meta_file: Path) -> Optional["DownloadState"]:
         """
         Load state from JSON.
 
@@ -47,7 +48,7 @@ class DownloadState:
         if not meta_file.exists():
             return None
         try:
-            with open(meta_file, 'r') as f:
+            with open(meta_file, "r") as f:
                 data = json.load(f)
                 return cls(**data)
         except Exception as e:
@@ -66,8 +67,8 @@ class ResumeManager:
             dest_file: Final destination file path
         """
         self.dest_file = dest_file
-        self.part_file = dest_file.with_suffix('.part')
-        self.meta_file = dest_file.with_suffix('.meta')
+        self.part_file = dest_file.with_suffix(".part")
+        self.meta_file = dest_file.with_suffix(".meta")
 
     def get_resume_position(self) -> int:
         """
@@ -87,13 +88,7 @@ class ResumeManager:
         # Fallback: use file size
         return self.part_file.stat().st_size
 
-    def save_state(
-        self,
-        url: str,
-        expected_size: int,
-        expected_sha256: str,
-        bytes_downloaded: int
-    ):
+    def save_state(self, url: str, expected_size: int, expected_sha256: str, bytes_downloaded: int):
         """
         Save current download state.
 
@@ -108,7 +103,7 @@ class ResumeManager:
             dest_path=str(self.dest_file),
             expected_size=expected_size,
             expected_sha256=expected_sha256,
-            bytes_downloaded=bytes_downloaded
+            bytes_downloaded=bytes_downloaded,
         )
         state.save(self.meta_file)
 

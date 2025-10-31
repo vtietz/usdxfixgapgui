@@ -31,7 +31,7 @@ class USDXFileService:
             await USDXFileService.determine_encoding(usdx_file)
 
         # Read file content
-        async with aiofiles.open(usdx_file.filepath, 'r', encoding=usdx_file.encoding) as file:
+        async with aiofiles.open(usdx_file.filepath, "r", encoding=usdx_file.encoding) as file:
             usdx_file.content = await file.read()
 
         # Parse content
@@ -54,12 +54,20 @@ class USDXFileService:
     @staticmethod
     async def determine_encoding(usdx_file: USDXFile) -> None:
         """Determine the encoding of the USDX file"""
-        async with aiofiles.open(usdx_file.filepath, 'rb') as file:
+        async with aiofiles.open(usdx_file.filepath, "rb") as file:
             raw = await file.read()
 
         encodings = [
-            'utf-8', 'utf-16', 'utf-32', 'cp1252', 'cp1250', 'latin-1',
-            'ascii', 'windows-1252', 'iso-8859-1', 'iso-8859-15'
+            "utf-8",
+            "utf-16",
+            "utf-32",
+            "cp1252",
+            "cp1250",
+            "latin-1",
+            "ascii",
+            "windows-1252",
+            "iso-8859-1",
+            "iso-8859-15",
         ]
 
         for encoding in encodings:
@@ -142,7 +150,7 @@ class USDXFileService:
         if not usdx_file.content:
             raise ValueError("No content to save")
 
-        async with aiofiles.open(usdx_file.filepath, 'w', encoding=usdx_file.encoding) as file:
+        async with aiofiles.open(usdx_file.filepath, "w", encoding=usdx_file.encoding) as file:
             await file.write(usdx_file.content)
 
         logger.debug(f"USDX file saved: {usdx_file.filepath}")
@@ -184,20 +192,20 @@ class USDXFileService:
                 await USDXFileService.determine_encoding(usdx_file)
 
             # Open the file and read content asynchronously
-            async with aiofiles.open(usdx_file.filepath, 'r', encoding=usdx_file.encoding) as f:
+            async with aiofiles.open(usdx_file.filepath, "r", encoding=usdx_file.encoding) as f:
                 lines = await f.readlines()
 
             # Find and parse notes
             notes = []
             for line in lines:
                 parts = line.strip().split()
-                if len(parts) >= 5 and parts[0] in {':', '*', 'R', '-', 'F', 'G'}:
+                if len(parts) >= 5 and parts[0] in {":", "*", "R", "-", "F", "G"}:
                     note = Note()
                     note.NoteType = parts[0]
                     note.StartBeat = int(parts[1])
                     note.Length = int(parts[2])
                     note.Pitch = int(parts[3])
-                    note.Text = ' '.join(parts[4:])
+                    note.Text = " ".join(parts[4:])
                     notes.append(note)
 
             return notes

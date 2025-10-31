@@ -23,14 +23,14 @@ def _check_vcruntime() -> None:
     Check for Microsoft Visual C++ Redistributable DLLs on Windows.
     Logs a warning with download URL if they're missing.
     """
-    if sys.platform != 'win32':
+    if sys.platform != "win32":
         return
 
     try:
         import ctypes
 
         # Try to load critical VC++ runtime DLLs
-        required_dlls = ['vcruntime140_1.dll', 'msvcp140.dll']
+        required_dlls = ["vcruntime140_1.dll", "msvcp140.dll"]
         missing_dlls = []
 
         for dll_name in required_dlls:
@@ -62,19 +62,20 @@ def resolve_pack_dir(torch_version: str, flavor: str = "cu121", config=None) -> 
         Path to GPU Pack directory (e.g., %LOCALAPPDATA%/USDXFixGap/gpu_runtime/torch-2.4.1-cu121/)
     """
     # Prefer config method if available (centralized path management)
-    if config and hasattr(config, 'get_gpu_pack_dir'):
+    if config and hasattr(config, "get_gpu_pack_dir"):
         return Path(config.get_gpu_pack_dir(torch_version))
 
     # Fallback: manual path construction (for backward compatibility)
     from utils.files import get_localappdata_dir
+
     data_dir = get_localappdata_dir()
 
     # Normalize torch version to use dashes (torch-2.4.1-cu121)
-    torch_dir = torch_version.replace('+', '-')
-    if not torch_dir.startswith('torch-'):
-        torch_dir = f'torch-{torch_dir}'
+    torch_dir = torch_version.replace("+", "-")
+    if not torch_dir.startswith("torch-"):
+        torch_dir = f"torch-{torch_dir}"
 
-    pack_dir = Path(data_dir) / 'gpu_runtime' / torch_dir
+    pack_dir = Path(data_dir) / "gpu_runtime" / torch_dir
     return pack_dir
 
 
@@ -91,15 +92,15 @@ def find_installed_pack_dirs() -> List[Dict[str, Any]]:
 
     # Use centralized path function
     data_dir = get_localappdata_dir()
-    runtime_root = Path(data_dir) / 'gpu_runtime'
+    runtime_root = Path(data_dir) / "gpu_runtime"
 
     if not runtime_root.exists():
         return []
 
     candidates = []
     # Match both old format (v1.4.0-cu121) and new format (torch-2.4.1-cu121)
-    old_pattern = re.compile(r'^v([\d.]+)-(cu\d+)$')
-    new_pattern = re.compile(r'^torch-([\d.]+)-(cu\d+)$')
+    old_pattern = re.compile(r"^v([\d.]+)-(cu\d+)$")
+    new_pattern = re.compile(r"^torch-([\d.]+)-(cu\d+)$")
 
     try:
         for item in runtime_root.iterdir():
@@ -123,28 +124,30 @@ def find_installed_pack_dirs() -> List[Dict[str, Any]]:
                     flavor = match.group(2)
 
             # Check for install.json
-            install_json_path = item / 'install.json'
+            install_json_path = item / "install.json"
             if install_json_path.exists():
                 has_install_json = True
                 try:
-                    with open(install_json_path, 'r') as f:
+                    with open(install_json_path, "r") as f:
                         install_data = json.load(f)
                         # Override with install.json data if available
-                        if 'torch_version' in install_data:
-                            torch_version = install_data['torch_version']
-                        if 'flavor' in install_data:
-                            flavor = install_data['flavor']
+                        if "torch_version" in install_data:
+                            torch_version = install_data["torch_version"]
+                        if "flavor" in install_data:
+                            flavor = install_data["flavor"]
                 except Exception as e:
                     logger.debug(f"Could not parse install.json in {item}: {e}")
 
             # Add candidate if we have at least a flavor or install.json
             if flavor or has_install_json:
-                candidates.append({
-                    'path': item,
-                    'torch_version': torch_version,
-                    'flavor': flavor,
-                    'has_install_json': has_install_json
-                })
+                candidates.append(
+                    {
+                        "path": item,
+                        "torch_version": torch_version,
+                        "flavor": flavor,
+                        "has_install_json": has_install_json,
+                    }
+                )
 
     except Exception as e:
         logger.debug(f"Error scanning GPU runtime directory: {e}")
@@ -173,21 +176,21 @@ def select_best_existing_pack(candidates: List[Dict[str, Any]], config_flavor: O
 
     # Filter by flavor if specified
     if config_flavor:
-        flavor_matches = [c for c in candidates if c.get('flavor') == config_flavor]
+        flavor_matches = [c for c in candidates if c.get("flavor") == config_flavor]
         if flavor_matches:
             candidates = flavor_matches
 
     # Prefer packs with install.json
-    with_install = [c for c in candidates if c['has_install_json']]
+    with_install = [c for c in candidates if c["has_install_json"]]
     if with_install:
         candidates = with_install
 
     # Sort by version (most recent first)
     def version_key(candidate):
-        ver = candidate.get('app_version')
+        ver = candidate.get("app_version")
         if ver:
             try:
-                parts = [int(p) for p in ver.split('.')]
+                parts = [int(p) for p in ver.split(".")]
                 return tuple(parts)
             except:
                 pass
@@ -195,7 +198,7 @@ def select_best_existing_pack(candidates: List[Dict[str, Any]], config_flavor: O
 
     candidates.sort(key=version_key, reverse=True)
 
-    return candidates[0]['path'] if candidates else None
+    return candidates[0]["path"] if candidates else None
 
 
 def auto_recover_gpu_pack_config(config) -> bool:
@@ -214,7 +217,7 @@ def auto_recover_gpu_pack_config(config) -> bool:
     import json
 
     # Only recover if pack path is not set
-    pack_path = getattr(config, 'gpu_pack_path', '')
+    pack_path = getattr(config, "gpu_pack_path", "")
     if pack_path:
         return False
 
@@ -227,7 +230,7 @@ def auto_recover_gpu_pack_config(config) -> bool:
         return False
 
     # Select best pack
-    config_flavor = getattr(config, 'gpu_flavor', None)
+    config_flavor = getattr(config, "gpu_flavor", None)
     best_pack = select_best_existing_pack(candidates, config_flavor)
 
     if not best_pack:
@@ -240,17 +243,19 @@ def auto_recover_gpu_pack_config(config) -> bool:
     config.gpu_pack_path = str(best_pack)
 
     # Try to read install.json for version info
-    install_json_path = best_pack / 'install.json'
+    install_json_path = best_pack / "install.json"
     if install_json_path.exists():
         try:
-            with open(install_json_path, 'r') as f:
+            with open(install_json_path, "r") as f:
                 install_data = json.load(f)
-                if 'app_version' in install_data:
-                    config.gpu_pack_installed_version = install_data['app_version']
-                if 'flavor' in install_data and not config_flavor:
-                    config.gpu_flavor = install_data['flavor']
-                logger.debug(f"Loaded installation metadata: version={install_data.get('app_version')}, "
-                           f"flavor={install_data.get('flavor')}")
+                if "app_version" in install_data:
+                    config.gpu_pack_installed_version = install_data["app_version"]
+                if "flavor" in install_data and not config_flavor:
+                    config.gpu_flavor = install_data["flavor"]
+                logger.debug(
+                    f"Loaded installation metadata: version={install_data.get('app_version')}, "
+                    f"flavor={install_data.get('flavor')}"
+                )
         except Exception as e:
             logger.debug(f"Could not read install.json: {e}")
 
@@ -278,11 +283,12 @@ def probe_nvml() -> Optional[Tuple[List[str], str]]:
     """
     try:
         import pynvml
+
         pynvml.nvmlInit()
 
         driver_version = pynvml.nvmlSystemGetDriverVersion()
         if isinstance(driver_version, bytes):
-            driver_version = driver_version.decode('utf-8')
+            driver_version = driver_version.decode("utf-8")
 
         device_count = pynvml.nvmlDeviceGetCount()
         gpu_names = []
@@ -291,7 +297,7 @@ def probe_nvml() -> Optional[Tuple[List[str], str]]:
             handle = pynvml.nvmlDeviceGetHandleByIndex(i)
             name = pynvml.nvmlDeviceGetName(handle)
             if isinstance(name, bytes):
-                name = name.decode('utf-8')
+                name = name.decode("utf-8")
             gpu_names.append(name)
 
         pynvml.nvmlShutdown()
@@ -311,17 +317,17 @@ def probe_nvidia_smi() -> Optional[Tuple[List[str], str]]:
     """
     try:
         result = subprocess.run(
-            ['nvidia-smi', '--query-gpu=name,driver_version', '--format=csv,noheader'],
+            ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv,noheader"],
             capture_output=True,
             text=True,
             timeout=5,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
 
         if result.returncode != 0:
             return None
 
-        lines = result.stdout.strip().split('\n')
+        lines = result.stdout.strip().split("\n")
         if not lines or not lines[0]:
             return None
 
@@ -329,7 +335,7 @@ def probe_nvidia_smi() -> Optional[Tuple[List[str], str]]:
         driver_version = None
 
         for line in lines:
-            parts = [p.strip() for p in line.split(',')]
+            parts = [p.strip() for p in line.split(",")]
             if len(parts) >= 2:
                 gpu_names.append(parts[0])
                 if driver_version is None:
@@ -355,18 +361,10 @@ def capability_probe() -> Dict[str, Any]:
         result = probe_nvidia_smi()
 
     if result is None:
-        return {
-            'has_nvidia': False,
-            'driver_version': None,
-            'gpu_names': []
-        }
+        return {"has_nvidia": False, "driver_version": None, "gpu_names": []}
 
     gpu_names, driver_version = result
-    return {
-        'has_nvidia': True,
-        'driver_version': driver_version,
-        'gpu_names': gpu_names
-    }
+    return {"has_nvidia": True, "driver_version": driver_version, "gpu_names": gpu_names}
 
 
 def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
@@ -384,6 +382,7 @@ def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
 
     # Use GPU bootstrap orchestrator
     from utils.gpu_bootstrap import enable_runtime
+
     logger.debug("Using GPU bootstrap")
     success, added_dirs = enable_runtime(pack_dir)
     if success:
@@ -413,7 +412,7 @@ def detect_system_pytorch_cuda() -> Optional[Dict[str, str]]:
         # Check minimum PyTorch version (2.0+)
         version = torch.__version__
         try:
-            major = int(version.split('.')[0].replace('+', ''))  # Handle version like "2.7.1+cpu"
+            major = int(version.split(".")[0].replace("+", ""))  # Handle version like "2.7.1+cpu"
             if major < 2:
                 logger.debug(f"System PyTorch version too old: {version} (need 2.0+)")
                 return None
@@ -434,11 +433,7 @@ def detect_system_pytorch_cuda() -> Optional[Dict[str, str]]:
             logger.debug(f"Could not get CUDA device name: {e}")
             device_name = "Unknown GPU"
 
-        return {
-            'torch_version': version,
-            'cuda_version': cuda_version,
-            'device_name': device_name
-        }
+        return {"torch_version": version, "cuda_version": cuda_version, "device_name": device_name}
 
     except ImportError:
         logger.debug("System PyTorch not available (ImportError)")
@@ -471,8 +466,8 @@ def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
             return (False, "torch.version.cuda is None")
 
         # Compare versions
-        expected_parts = expected_cuda.split('.')
-        actual_parts = torch_cuda_version.split('.')
+        expected_parts = expected_cuda.split(".")
+        actual_parts = torch_cuda_version.split(".")
 
         # If only major version specified (e.g., "12"), accept any minor version
         compare_parts = len(expected_parts)
@@ -481,7 +476,7 @@ def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
 
         # Smoke test: create tensor on GPU and perform operation
         try:
-            device = torch.device('cuda:0')
+            device = torch.device("cuda:0")
             x = torch.randn(100, 100, device=device)
             y = torch.randn(100, 100, device=device)
             z = torch.matmul(x, y)
@@ -489,7 +484,7 @@ def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
             # Ensure computation completed
             torch.cuda.synchronize()
 
-            if z.device.type != 'cuda':
+            if z.device.type != "cuda":
                 return (False, "Smoke test failed: result not on GPU")
 
         except Exception as e:
@@ -589,21 +584,23 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
         auto_recover_gpu_pack_config(config)
 
         # Check if user has explicitly disabled GPU
-        gpu_opt_in = getattr(config, 'gpu_opt_in', None)
+        gpu_opt_in = getattr(config, "gpu_opt_in", None)
         if gpu_opt_in is False:
             logger.debug("GPU acceleration explicitly disabled (gpu_opt_in=false)")
             return False
 
         # STEP 1: Try system PyTorch+CUDA first if enabled
-        prefer_system = getattr(config, 'prefer_system_pytorch', True)
+        prefer_system = getattr(config, "prefer_system_pytorch", True)
         if prefer_system and gpu_opt_in is not False:
             logger.debug("Checking for system PyTorch with CUDA...")
             system_pytorch = detect_system_pytorch_cuda()
 
             if system_pytorch:
-                logger.info(f"Found system PyTorch {system_pytorch['torch_version']} "
-                           f"with CUDA {system_pytorch['cuda_version']} "
-                           f"({system_pytorch['device_name']})")
+                logger.info(
+                    f"Found system PyTorch {system_pytorch['torch_version']} "
+                    f"with CUDA {system_pytorch['cuda_version']} "
+                    f"({system_pytorch['device_name']})"
+                )
 
                 # Validate it works properly
                 try:
@@ -624,9 +621,9 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
                 logger.debug("System PyTorch with CUDA not found, trying GPU Pack...")
 
         # STEP 2: Try GPU Pack if configured
-        pack_path = getattr(config, 'gpu_pack_path', '')
+        pack_path = getattr(config, "gpu_pack_path", "")
         pack_dir = None
-        gpu_flavor = getattr(config, 'gpu_flavor', 'cu121')
+        gpu_flavor = getattr(config, "gpu_flavor", "cu121")
         expected_cuda = "12.1" if gpu_flavor == "cu121" else "12.4"
 
         if pack_path:
@@ -742,7 +739,7 @@ def _build_diagnostic_message(pack_dir: Optional[Path], flavor: str, expected_cu
     else:
         lines.append("No DLL directories were added")
 
-    env_pack_dir = os.environ.get('USDXFIXGAP_GPU_PACK_DIR', 'Not set')
+    env_pack_dir = os.environ.get("USDXFIXGAP_GPU_PACK_DIR", "Not set")
     lines.append(f"USDXFIXGAP_GPU_PACK_DIR: {env_pack_dir}")
 
     lines.append("Run --gpu-diagnostics for detailed information")
@@ -755,7 +752,7 @@ def child_process_min_bootstrap():
     Minimal bootstrap for child processes.
     Replicates GPU Pack activation using environment variable.
     """
-    pack_dir_str = os.environ.get('USDXFIXGAP_GPU_PACK_DIR')
+    pack_dir_str = os.environ.get("USDXFIXGAP_GPU_PACK_DIR")
     if pack_dir_str:
         pack_dir = Path(pack_dir_str)
         if pack_dir.exists():

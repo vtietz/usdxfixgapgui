@@ -13,19 +13,22 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class DetectGapWorkerOptions:
     """Options for the DetectGapWorker."""
 
-    def __init__(self,
-                 audio_file: str,
-                 txt_file: str,
-                 notes: List[Note],
-                 bpm,
-                 original_gap: int,
-                 duration_ms: int,
-                 config: Config,
-                 tmp_path: str,
-                 overwrite=False):
+    def __init__(
+        self,
+        audio_file: str,
+        txt_file: str,
+        notes: List[Note],
+        bpm,
+        original_gap: int,
+        duration_ms: int,
+        config: Config,
+        tmp_path: str,
+        overwrite=False,
+    ):
         self.audio_file = audio_file
         self.txt_file = txt_file
         self.notes = notes
@@ -35,6 +38,7 @@ class DetectGapWorkerOptions:
         self.tmp_path = tmp_path
         self.overwrite = overwrite
         self.bpm = bpm
+
 
 class GapDetectionResult:
     """Class to hold gap detection results separate from the Song object."""
@@ -60,8 +64,10 @@ class GapDetectionResult:
         self.waveform_json_path: Optional[str] = None
         self.detected_gap_ms: Optional[float] = None
 
+
 class WorkerSignals(IWorkerSignals):
     finished = Signal(GapDetectionResult)
+
 
 class DetectGapWorker(IWorker):
     def __init__(self, options: DetectGapWorkerOptions):
@@ -87,7 +93,7 @@ class DetectGapWorker(IWorker):
                 default_detection_time=self.options.config.default_detection_time,
                 silence_detect_params="silencedetect=noise=-10dB:d=0.2",  # Default value
                 overwrite=self.options.overwrite,
-                config=self.options.config  # Pass config for provider selection
+                config=self.options.config,  # Pass config for provider selection
             )
 
             # Perform gap detection
@@ -106,11 +112,15 @@ class DetectGapWorker(IWorker):
             gap_diff = abs(self.options.original_gap - detected_gap)
 
             # Determine status
-            info_status = GapInfoStatus.MISMATCH if gap_diff > self.options.config.gap_tolerance else GapInfoStatus.MATCH
+            info_status = (
+                GapInfoStatus.MISMATCH if gap_diff > self.options.config.gap_tolerance else GapInfoStatus.MATCH
+            )
 
             # Get vocals duration for notes overlap calculation
             vocals_duration_ms = audio.get_audio_duration(detection_result.vocals_file, self.is_cancelled)
-            notes_overlap = usdx.get_notes_overlap(self.options.notes or [], detection_result.silence_periods, vocals_duration_ms)
+            notes_overlap = usdx.get_notes_overlap(
+                self.options.notes or [], detection_result.silence_periods, vocals_duration_ms
+            )
 
             # Populate the result with basic fields
             result.detected_gap = detected_gap

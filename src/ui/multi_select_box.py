@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QComboBox, QSizePolicy, QListView, QLineEdit
-from PySide6.QtCore import Qt, Signal # Changed from pyqtSignal
+from PySide6.QtCore import Qt, Signal  # Changed from pyqtSignal
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QMouseEvent
+
 
 class CheckableComboBoxListView(QListView):
     def mousePressEvent(self, event: QMouseEvent):
@@ -11,6 +12,7 @@ class CheckableComboBoxListView(QListView):
                 item.setCheckState(Qt.CheckState.Unchecked)
             else:
                 item.setCheckState(Qt.CheckState.Checked)
+
 
 class ClickableLineEdit(QLineEdit):
     def __init__(self, parent=None):
@@ -25,7 +27,7 @@ class ClickableLineEdit(QLineEdit):
 
 
 class MultiSelectComboBox(QWidget):
-    selectionChanged = Signal(list) # Changed from pyqtSignal
+    selectionChanged = Signal(list)  # Changed from pyqtSignal
 
     def __init__(self, items=[], parent=None):
         super().__init__(parent=parent)
@@ -79,7 +81,11 @@ class MultiSelectComboBox(QWidget):
         """
         Update the QLineEdit to show the currently selected items.
         """
-        selectedItems = [self.model.item(i).text() for i in range(self.model.rowCount()) if self.model.item(i).checkState() == Qt.CheckState.Checked]
+        selectedItems = [
+            self.model.item(i).text()
+            for i in range(self.model.rowCount())
+            if self.model.item(i).checkState() == Qt.CheckState.Checked
+        ]
         self.filterDropdown.lineEdit().setText(", ".join(selectedItems) if selectedItems else "Select item")
         self.selectionChanged.emit(selectedItems)
 
@@ -87,9 +93,11 @@ class MultiSelectComboBox(QWidget):
         # Call updateLineEdit directly to refresh the displayed text and emit the signal
         self.updateLineEdit()
 
+
 # Example usage
-if __name__ == '__main__':
-    import sys # Added import sys for example usage
+if __name__ == "__main__":
+    import sys  # Added import sys for example usage
+
     app = QApplication(sys.argv)
     # Example list of strings to be used as items in the combo box
     items = ["Item 1", "Item 2", "Item 3", "Item 4"]

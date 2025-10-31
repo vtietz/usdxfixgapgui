@@ -24,12 +24,7 @@ class ColumnRegistry:
         for strategy in strategies:
             self.register(strategy)
 
-    def format_display(
-        self,
-        song: Song,
-        column: int,
-        cache_entry: Optional[dict] = None
-    ) -> str:
+    def format_display(self, song: Song, column: int, cache_entry: Optional[dict] = None) -> str:
         """
         Format display for column using registered strategy.
 
@@ -46,12 +41,7 @@ class ColumnRegistry:
             return strategy.format_display(song, cache_entry)
         return ""
 
-    def get_sort_key(
-        self,
-        song: Song,
-        column: int,
-        cache_entry: Optional[dict] = None
-    ) -> Any:
+    def get_sort_key(self, song: Song, column: int, cache_entry: Optional[dict] = None) -> Any:
         """
         Get sort key for column using registered strategy.
 

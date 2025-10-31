@@ -15,26 +15,24 @@ class TestCreateWaveforms:
         audio_file = tmp_path / "test_song.mp3"
         audio_file.write_text("fake audio")
 
-        song = song_factory(
-            title="Test Song",
-            audio_file=str(audio_file),
-            with_notes=True
-        )
+        song = song_factory(title="Test Song", audio_file=str(audio_file), with_notes=True)
 
         # Mock WaveformPathService.get_paths to return paths
         mock_paths = {
             "audio_file": str(tmp_path / "audio.mp3"),
             "vocals_file": str(tmp_path / "vocals.wav"),
             "audio_waveform_file": str(tmp_path / "audio_waveform.png"),
-            "vocals_waveform_file": str(tmp_path / "vocals_waveform.png")
+            "vocals_waveform_file": str(tmp_path / "vocals_waveform.png"),
         }
 
         # Create the audio files but NOT the waveform files
         (tmp_path / "audio.mp3").write_text("audio data")
         (tmp_path / "vocals.wav").write_text("vocals data")
 
-        with patch('actions.audio_actions.WaveformPathService.get_paths', return_value=mock_paths), \
-             patch('actions.audio_actions.CreateWaveform') as mock_waveform_class:
+        with (
+            patch("actions.audio_actions.WaveformPathService.get_paths", return_value=mock_paths),
+            patch("actions.audio_actions.CreateWaveform") as mock_waveform_class,
+        ):
 
             # Track created workers
             created_workers = []
@@ -85,22 +83,20 @@ class TestCreateWaveforms:
     def test_nonexistent_audio_file_triggers_reload(self, app_data, song_factory):
         """Test: Audio file path exists in song but file doesn't exist on disk"""
         # Setup: Song with audio_file path that doesn't exist
-        song = song_factory(
-            title="Missing File",
-            audio_file="/nonexistent/path/audio.mp3",
-            with_notes=True
-        )
+        song = song_factory(title="Missing File", audio_file="/nonexistent/path/audio.mp3", with_notes=True)
 
         mock_paths = {
             "audio_file": "/nonexistent/path/audio.mp3",
             "vocals_file": "/nonexistent/path/vocals.wav",
             "audio_waveform_file": "/path/to/audio_waveform.png",
-            "vocals_waveform_file": "/path/to/vocals_waveform.png"
+            "vocals_waveform_file": "/path/to/vocals_waveform.png",
         }
 
-        with patch('actions.audio_actions.WaveformPathService.get_paths', return_value=mock_paths), \
-             patch('actions.audio_actions.SongActions') as mock_song_actions_class, \
-             patch('actions.audio_actions.CreateWaveform'):
+        with (
+            patch("actions.audio_actions.WaveformPathService.get_paths", return_value=mock_paths),
+            patch("actions.audio_actions.SongActions") as mock_song_actions_class,
+            patch("actions.audio_actions.CreateWaveform"),
+        ):
 
             mock_song_actions = Mock()
             mock_song_actions_class.return_value = mock_song_actions
@@ -126,21 +122,19 @@ class TestCreateWaveforms:
         vocals_waveform = tmp_path / "vocals_waveform.png"
         vocals_waveform.write_text("existing waveform")
 
-        song = song_factory(
-            title="Has Waveforms",
-            audio_file=str(audio_file),
-            with_notes=True
-        )
+        song = song_factory(title="Has Waveforms", audio_file=str(audio_file), with_notes=True)
 
         mock_paths = {
             "audio_file": str(audio_file),
             "vocals_file": str(vocals_file),
             "audio_waveform_file": str(audio_waveform),
-            "vocals_waveform_file": str(vocals_waveform)
+            "vocals_waveform_file": str(vocals_waveform),
         }
 
-        with patch('actions.audio_actions.WaveformPathService.get_paths', return_value=mock_paths), \
-             patch('actions.audio_actions.CreateWaveform') as mock_waveform_class:
+        with (
+            patch("actions.audio_actions.WaveformPathService.get_paths", return_value=mock_paths),
+            patch("actions.audio_actions.CreateWaveform") as mock_waveform_class,
+        ):
 
             audio_actions = AudioActions(app_data)
 

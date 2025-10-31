@@ -21,7 +21,7 @@ from services.system_capabilities import SystemCapabilities
 @pytest.fixture(autouse=True)
 def mock_sys_exit():
     """Mock sys.exit to prevent tests from actually exiting."""
-    with patch('sys.exit') as mock_exit:
+    with patch("sys.exit") as mock_exit:
         yield mock_exit
 
 
@@ -49,7 +49,7 @@ def healthy_capabilities():
         has_ffmpeg=True,
         has_ffprobe=True,
         ffmpeg_version="6.1",
-        can_detect=True
+        can_detect=True,
     )
 
 
@@ -66,14 +66,14 @@ def gpu_available_capabilities():
         has_ffmpeg=True,
         has_ffprobe=True,
         ffmpeg_version="6.1",
-        can_detect=True
+        can_detect=True,
     )
 
 
 class TestStartupDialogBasics:
     """Test basic startup dialog behavior."""
 
-    @patch('ui.startup_dialog.check_system_capabilities')
+    @patch("ui.startup_dialog.check_system_capabilities")
     def test_startup_mode_creates_dialog(self, mock_check, qtbot, mock_config, healthy_capabilities):
         """Test that startup mode creates dialog with countdown."""
         mock_check.return_value = healthy_capabilities
@@ -83,11 +83,11 @@ class TestStartupDialogBasics:
 
         # Verify startup mode
         assert dialog.startup_mode is True
-        assert hasattr(dialog, 'start_btn')
-        assert hasattr(dialog, 'close_app_btn')
+        assert hasattr(dialog, "start_btn")
+        assert hasattr(dialog, "close_app_btn")
         assert dialog.start_btn.text() == "Start App"
 
-    @patch('ui.startup_dialog.check_system_capabilities')
+    @patch("ui.startup_dialog.check_system_capabilities")
     def test_about_mode_creates_dialog(self, mock_check, qtbot, mock_config, healthy_capabilities):
         """Test that about mode creates dialog without countdown."""
         mock_check.return_value = healthy_capabilities
@@ -97,15 +97,15 @@ class TestStartupDialogBasics:
 
         # Verify about mode
         assert dialog.startup_mode is False
-        assert hasattr(dialog, 'close_btn')
-        assert not hasattr(dialog, 'start_btn')
-        assert not hasattr(dialog, 'close_app_btn')
+        assert hasattr(dialog, "close_btn")
+        assert not hasattr(dialog, "start_btn")
+        assert not hasattr(dialog, "close_app_btn")
 
 
 class TestGPUDownloadButton:
     """Test GPU Pack download button visibility."""
 
-    @patch('ui.startup_dialog.check_system_capabilities')
+    @patch("ui.startup_dialog.check_system_capabilities")
     def test_download_button_hidden_when_no_gpu(self, mock_check, qtbot, mock_config, healthy_capabilities):
         """Download button should be hidden when no GPU detected."""
         mock_check.return_value = healthy_capabilities
@@ -119,7 +119,7 @@ class TestGPUDownloadButton:
         # Download button should be hidden (no GPU)
         assert not dialog.download_btn.isVisible()
 
-    @patch('ui.startup_dialog.check_system_capabilities')
+    @patch("ui.startup_dialog.check_system_capabilities")
     def test_download_button_shown_when_gpu_available(self, mock_check, qtbot, mock_config, gpu_available_capabilities):
         """Download button should be shown when GPU available but no pack."""
         mock_check.return_value = gpu_available_capabilities
@@ -132,16 +132,16 @@ class TestGPUDownloadButton:
 
         # Verify capabilities meet criteria for showing download button
         # (actual button visibility is tested via integration - UI update is async)
-        assert dialog.capabilities.gpu_name == 'NVIDIA GeForce RTX 3060'
+        assert dialog.capabilities.gpu_name == "NVIDIA GeForce RTX 3060"
         assert not dialog.capabilities.has_cuda
-        assert dialog.capabilities.get_detection_mode() == 'cpu'
+        assert dialog.capabilities.get_detection_mode() == "cpu"
         assert dialog.capabilities.can_detect
 
 
 class TestButtonBehavior:
     """Test button click behavior."""
 
-    @patch('ui.startup_dialog.check_system_capabilities')
+    @patch("ui.startup_dialog.check_system_capabilities")
     def test_close_app_button_quits(self, mock_check, qtbot, mock_config, mock_sys_exit, healthy_capabilities):
         """Close App button should exit application."""
         mock_check.return_value = healthy_capabilities
@@ -158,7 +158,7 @@ class TestButtonBehavior:
         # sys.exit should be called with 0
         mock_sys_exit.assert_called_once_with(0)
 
-    @patch('ui.startup_dialog.check_system_capabilities')
+    @patch("ui.startup_dialog.check_system_capabilities")
     def test_start_app_button_accepts_dialog(self, mock_check, qtbot, mock_config, healthy_capabilities):
         """Start App button should accept dialog and return capabilities."""
         mock_check.return_value = healthy_capabilities
@@ -180,7 +180,7 @@ class TestButtonBehavior:
 class TestDontShowAgainCheckbox:
     """Test 'Don't show again' checkbox."""
 
-    @patch('ui.startup_dialog.check_system_capabilities')
+    @patch("ui.startup_dialog.check_system_capabilities")
     def test_dont_show_checkbox_saves_config(self, mock_check, qtbot, mock_config, healthy_capabilities):
         """Checking 'Don't show again' should save config."""
         mock_check.return_value = healthy_capabilities
@@ -219,10 +219,7 @@ class TestDownloadWorker:
         dest_zip = Path("/tmp/gpu_pack/pack.zip")
 
         worker = GpuDownloadWorker(
-            config=mock_config,
-            chosen_manifest=mock_manifest,
-            pack_dir=pack_dir,
-            dest_zip=dest_zip
+            config=mock_config, chosen_manifest=mock_manifest, pack_dir=pack_dir, dest_zip=dest_zip
         )
 
         assert worker.config == mock_config
@@ -231,7 +228,7 @@ class TestDownloadWorker:
         assert worker.dest_zip == dest_zip
         assert worker.cancel_token is not None
 
-    @patch('ui.startup_dialog.gpu_downloader.download_with_resume')
+    @patch("ui.startup_dialog.gpu_downloader.download_with_resume")
     def test_worker_download_success(self, mock_download, qtbot):
         """Test successful download flow."""
         from pathlib import Path
@@ -245,7 +242,8 @@ class TestDownloadWorker:
 
             # Create mock ZIP file
             import zipfile
-            with zipfile.ZipFile(dest_zip, 'w') as zf:
+
+            with zipfile.ZipFile(dest_zip, "w") as zf:
                 zf.writestr("test.txt", "test data")
 
             mock_config = Mock()
@@ -258,10 +256,7 @@ class TestDownloadWorker:
             mock_download.return_value = True
 
             worker = GpuDownloadWorker(
-                config=mock_config,
-                chosen_manifest=mock_manifest,
-                pack_dir=pack_dir,
-                dest_zip=dest_zip
+                config=mock_config, chosen_manifest=mock_manifest, pack_dir=pack_dir, dest_zip=dest_zip
             )
 
             # Track signals
@@ -277,8 +272,8 @@ class TestDownloadWorker:
             assert success is True
             assert "successfully" in message.lower()
 
-    @patch('ui.startup_dialog.check_system_capabilities')
-    @patch('PySide6.QtWidgets.QMessageBox.question')
+    @patch("ui.startup_dialog.check_system_capabilities")
+    @patch("PySide6.QtWidgets.QMessageBox.question")
     def test_download_retry_on_failure(self, mock_question, mock_check, qtbot, mock_config, gpu_available_capabilities):
         """Test that user can retry download after failure."""
         mock_check.return_value = gpu_available_capabilities
@@ -301,9 +296,11 @@ class TestDownloadWorker:
         assert "retry" in call_args[0][2].lower()  # Message text contains "retry"
         assert "Bad magic number" in call_args[0][2]  # Error message included
 
-    @patch('ui.startup_dialog.check_system_capabilities')
-    @patch('PySide6.QtWidgets.QMessageBox.question')
-    def test_download_no_retry_on_user_decline(self, mock_question, mock_check, qtbot, mock_config, gpu_available_capabilities):
+    @patch("ui.startup_dialog.check_system_capabilities")
+    @patch("PySide6.QtWidgets.QMessageBox.question")
+    def test_download_no_retry_on_user_decline(
+        self, mock_question, mock_check, qtbot, mock_config, gpu_available_capabilities
+    ):
         """Test that download UI resets when user declines retry."""
         mock_check.return_value = gpu_available_capabilities
 
@@ -330,7 +327,7 @@ class TestDownloadWorker:
 class TestStaticMethods:
     """Test static factory methods."""
 
-    @patch('ui.startup_dialog.check_system_capabilities')
+    @patch("ui.startup_dialog.check_system_capabilities")
     def test_show_startup_returns_capabilities(self, mock_check, qtbot, mock_config, healthy_capabilities):
         """show_startup() should return capabilities when accepted."""
         mock_check.return_value = healthy_capabilities
@@ -347,30 +344,30 @@ class TestStaticMethods:
         # Should have capabilities
         assert dialog.capabilities == healthy_capabilities
 
-    @patch('ui.startup_dialog.check_system_capabilities')
+    @patch("ui.startup_dialog.check_system_capabilities")
     def test_show_startup_returns_none_on_cancel(self, mock_check, qtbot, mock_config, healthy_capabilities):
         """show_startup() should return None when rejected."""
         mock_check.return_value = healthy_capabilities
 
         # Create and auto-reject dialog
-        with patch.object(StartupDialog, 'exec', return_value=QDialog.DialogCode.Rejected):
+        with patch.object(StartupDialog, "exec", return_value=QDialog.DialogCode.Rejected):
             result = StartupDialog.show_startup(parent=None, config=mock_config)
 
         # Should return None
         assert result is None
 
-    @patch('ui.startup_dialog.check_system_capabilities')
+    @patch("ui.startup_dialog.check_system_capabilities")
     def test_show_about_displays_dialog(self, mock_check, qtbot, mock_config, healthy_capabilities):
         """show_about() should display dialog in about mode."""
         mock_check.return_value = healthy_capabilities
 
         # Create and auto-accept dialog
-        with patch.object(StartupDialog, 'exec', return_value=QDialog.DialogCode.Accepted):
+        with patch.object(StartupDialog, "exec", return_value=QDialog.DialogCode.Accepted):
             StartupDialog.show_about(parent=None, config=mock_config)
 
         # Just verify it doesn't crash - about mode doesn't return anything
 
-    @patch('services.system_capabilities.check_system_capabilities')
+    @patch("services.system_capabilities.check_system_capabilities")
     def test_show_startup_skips_when_config_enabled_and_healthy(self, mock_check, mock_config, healthy_capabilities):
         """show_startup() should skip dialog when splash_dont_show_health=True and system is healthy."""
         # Configure mock to return our test capabilities
@@ -386,7 +383,7 @@ class TestStaticMethods:
         assert result.has_torch is True
         mock_check.assert_called_once()
 
-    @patch('services.system_capabilities.check_system_capabilities')
+    @patch("services.system_capabilities.check_system_capabilities")
     def test_show_startup_shows_when_config_enabled_but_error(self, mock_check, qtbot, mock_config):
         """show_startup() should show dialog when splash_dont_show_health=True but system has error."""
         # Simulate unhealthy system (no PyTorch)
@@ -400,32 +397,32 @@ class TestStaticMethods:
             has_ffmpeg=True,
             has_ffprobe=True,
             ffmpeg_version="6.1",
-            can_detect=False
+            can_detect=False,
         )
         # Mock returns unhealthy capabilities twice (once for skip check, once for dialog)
         mock_check.return_value = unhealthy_capabilities
         mock_config.splash_dont_show_health = True
 
         # Should show dialog despite skip setting because of error
-        with patch.object(StartupDialog, 'exec', return_value=QDialog.DialogCode.Accepted) as mock_exec:
+        with patch.object(StartupDialog, "exec", return_value=QDialog.DialogCode.Accepted) as mock_exec:
             result = StartupDialog.show_startup(parent=None, config=mock_config)
 
         # Dialog should have been shown (exec was called)
         mock_exec.assert_called_once()
 
-    @patch('services.system_capabilities.check_system_capabilities')
+    @patch("services.system_capabilities.check_system_capabilities")
     def test_show_startup_always_shows_when_config_disabled(self, mock_check, mock_config, healthy_capabilities):
         """show_startup() should always show dialog when splash_dont_show_health=False."""
         mock_check.return_value = healthy_capabilities
         mock_config.splash_dont_show_health = False
 
         # Should show dialog
-        with patch.object(StartupDialog, 'exec', return_value=QDialog.DialogCode.Accepted) as mock_exec:
+        with patch.object(StartupDialog, "exec", return_value=QDialog.DialogCode.Accepted) as mock_exec:
             result = StartupDialog.show_startup(parent=None, config=mock_config)
 
         # Dialog should have been shown (exec was called)
         mock_exec.assert_called_once()
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

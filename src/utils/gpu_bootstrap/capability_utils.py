@@ -22,6 +22,7 @@ def probe_nvml() -> Optional[Tuple[List[str], str]]:
     """
     try:
         import pynvml
+
         pynvml.nvmlInit()
 
         driver_version = pynvml.nvmlSystemGetDriverVersion()
@@ -33,14 +34,14 @@ def probe_nvml() -> Optional[Tuple[List[str], str]]:
             name = pynvml.nvmlDeviceGetName(handle)
             # Handle bytes/string conversion
             if isinstance(name, bytes):
-                name = name.decode('utf-8')
+                name = name.decode("utf-8")
             gpu_names.append(name)
 
         pynvml.nvmlShutdown()
 
         # Handle bytes/string conversion for driver version
         if isinstance(driver_version, bytes):
-            driver_version = driver_version.decode('utf-8')
+            driver_version = driver_version.decode("utf-8")
 
         return (gpu_names, driver_version) if gpu_names and driver_version else None
 
@@ -59,25 +60,25 @@ def probe_nvidia_smi() -> Optional[Tuple[List[str], str]]:
     try:
         # Query driver version
         driver_result = subprocess.run(
-            ['nvidia-smi', '--query-gpu=driver_version', '--format=csv,noheader'],
+            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
             capture_output=True,
             text=True,
             timeout=5,
             check=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
-        driver_version = driver_result.stdout.strip().split('\n')[0].strip()
+        driver_version = driver_result.stdout.strip().split("\n")[0].strip()
 
         # Query GPU names
         gpu_result = subprocess.run(
-            ['nvidia-smi', '--query-gpu=name', '--format=csv,noheader'],
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
             capture_output=True,
             text=True,
             timeout=5,
             check=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
-        gpu_names = [name.strip() for name in gpu_result.stdout.strip().split('\n') if name.strip()]
+        gpu_names = [name.strip() for name in gpu_result.stdout.strip().split("\n") if name.strip()]
 
         return (gpu_names, driver_version) if gpu_names and driver_version else None
 
@@ -99,15 +100,7 @@ def capability_probe() -> Dict[str, Any]:
         result = probe_nvidia_smi()
 
     if result is None:
-        return {
-            'has_nvidia': False,
-            'driver_version': None,
-            'gpu_names': []
-        }
+        return {"has_nvidia": False, "driver_version": None, "gpu_names": []}
 
     gpu_names, driver_version = result
-    return {
-        'has_nvidia': True,
-        'driver_version': driver_version,
-        'gpu_names': gpu_names
-    }
+    return {"has_nvidia": True, "driver_version": driver_version, "gpu_names": gpu_names}

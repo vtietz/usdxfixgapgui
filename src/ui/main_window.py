@@ -6,11 +6,8 @@ Separated from main entry point for better code organization.
 """
 
 import sys
-import os
 import logging
-from pathlib import Path
 
-from common.constants import APP_NAME
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMessageBox
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
@@ -99,6 +96,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
     # Set application icon
     icon_path = resource_path("assets/usdxfixgap-icon.ico")
     import os
+
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
         logger.info(f"Loaded icon from: {icon_path}")
@@ -140,7 +138,9 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
         if window.isMaximized():
             logger.debug(f"Window state saved: maximized")
         else:
-            logger.debug(f"Window geometry saved: {config.window_width}x{config.window_height} at ({config.window_x}, {config.window_y})")
+            logger.debug(
+                f"Window geometry saved: {config.window_width}x{config.window_height} at ({config.window_x}, {config.window_y})"
+            )
 
     # Connect to aboutToQuit to save geometry before closing
     app.aboutToQuit.connect(save_window_geometry)
@@ -182,12 +182,16 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
     # Detection mode indicator
     detection_label = QLabel()
     detection_label.setFixedHeight(20)
-    detection_label.setStyleSheet("padding: 2px 8px; font-size: 8px; background-color: #2E2E2E; color: rgba(255, 255, 255, 0.7);")
+    detection_label.setStyleSheet(
+        "padding: 2px 8px; font-size: 8px; background-color: #2E2E2E; color: rgba(255, 255, 255, 0.7);"
+    )
 
     if capabilities and capabilities.can_detect:
         if capabilities.has_cuda:
             detection_label.setText("GPU")
-            detection_label.setToolTip(f"Gap detection using GPU acceleration\nGPU: {capabilities.gpu_name or 'CUDA available'}")
+            detection_label.setToolTip(
+                f"Gap detection using GPU acceleration\nGPU: {capabilities.gpu_name or 'CUDA available'}"
+            )
         else:
             detection_label.setText("CPU")
             detection_label.setToolTip("Gap detection using CPU (slower)\nTip: Install GPU Pack for faster detection")
@@ -213,6 +217,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
     # Log runtime information
     try:
         import PySide6
+
         qt_version = getattr(PySide6, "__version__", "unknown")
         logger.debug(f"Runtime PySide6 version: {qt_version}")
     except:
@@ -222,7 +227,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
 
     # Check dependencies
     dependencies = [
-        ('ffmpeg', '-version'),
+        ("ffmpeg", "-version"),
     ]
     if not check_dependencies(dependencies):
         logger.error("Some dependencies are not installed.")

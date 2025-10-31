@@ -77,7 +77,7 @@ def scan_for_onset(
     config: MdxConfig,
     vocals_cache: VocalsCache,
     total_duration_ms: float,
-    check_cancellation: Optional[Callable[[], bool]] = None
+    check_cancellation: Optional[Callable[[], bool]] = None,
 ) -> Optional[float]:
     """
     Vocal onset detection with expanding window search.
@@ -121,22 +121,18 @@ def scan_for_onset(
         chunk_iterator = ChunkIterator(
             chunk_duration_ms=config.chunk_duration_ms,
             chunk_overlap_ms=config.chunk_overlap_ms,
-            total_duration_ms=total_duration_ms
+            total_duration_ms=total_duration_ms,
         )
 
         expansion_strategy = ExpansionStrategy(
             initial_radius_ms=config.initial_radius_ms,
             radius_increment_ms=config.radius_increment_ms,
             max_expansions=config.max_expansions,
-            total_duration_ms=total_duration_ms
+            total_duration_ms=total_duration_ms,
         )
 
         onset_detector = OnsetDetectorPipeline(
-            audio_file=audio_file,
-            model=model,
-            device=device,
-            config=config,
-            vocals_cache=vocals_cache
+            audio_file=audio_file, model=model, device=device, config=config, vocals_cache=vocals_cache
         )
 
         # Collect all detected onsets
@@ -233,10 +229,7 @@ def scan_for_onset(
             if search_limit_ms >= config.start_window_max_ms:
                 break
 
-            search_limit_ms = min(
-                search_limit_ms + config.start_window_increment_ms,
-                config.start_window_max_ms
-            )
+            search_limit_ms = min(search_limit_ms + config.start_window_increment_ms, config.start_window_max_ms)
             logger.info(f"No onset in current window, expanding to {search_limit_ms/1000:.1f}s")
             _flush_logs()
 
@@ -248,8 +241,4 @@ def scan_for_onset(
         if "cancelled" in str(e).lower():
             raise
         logger.error(f"MDX scan failed: {e}")
-        raise DetectionFailedError(
-            f"MDX scanning failed: {e}",
-            provider_name="mdx",
-            cause=e
-        )
+        raise DetectionFailedError(f"MDX scanning failed: {e}", provider_name="mdx", cause=e)

@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PathConfig:
     """Configuration for path additions."""
+
     sys_path_entries: List[Path]  # Entries to add to sys.path
     dll_directories: List[Path]  # Windows DLL directories
     ld_library_paths: List[Path]  # Linux LD_LIBRARY_PATH entries
@@ -49,38 +50,31 @@ class PathCalculator:
     @staticmethod
     def _calculate_wheel_paths(pack_dir: Path) -> PathConfig:
         """Calculate paths for wheel extraction layout."""
-        torch_dir = pack_dir / 'torch'
+        torch_dir = pack_dir / "torch"
 
         sys_path_entries = [pack_dir]
 
-        if sys.platform == 'win32':
-            dll_directories = [
-                torch_dir / 'lib',
-                pack_dir / 'bin',
-                pack_dir / 'torchaudio' / 'lib'
-            ]
+        if sys.platform == "win32":
+            dll_directories = [torch_dir / "lib", pack_dir / "bin", pack_dir / "torchaudio" / "lib"]
             ld_library_paths = []
         else:
             dll_directories = []
-            ld_library_paths = [torch_dir / 'lib']
+            ld_library_paths = [torch_dir / "lib"]
 
         return PathConfig(sys_path_entries, dll_directories, ld_library_paths)
 
     @staticmethod
     def _calculate_site_packages_paths(pack_dir: Path) -> PathConfig:
         """Calculate paths for site-packages layout."""
-        site_packages = pack_dir / 'site-packages'
+        site_packages = pack_dir / "site-packages"
 
         sys_path_entries = [site_packages]
 
-        if sys.platform == 'win32':
-            dll_directories = [
-                pack_dir / 'bin',
-                site_packages / 'torchaudio' / 'lib'
-            ]
+        if sys.platform == "win32":
+            dll_directories = [pack_dir / "bin", site_packages / "torchaudio" / "lib"]
             ld_library_paths = []
         else:
             dll_directories = []
-            ld_library_paths = [pack_dir / 'lib']
+            ld_library_paths = [pack_dir / "lib"]
 
         return PathConfig(sys_path_entries, dll_directories, ld_library_paths)

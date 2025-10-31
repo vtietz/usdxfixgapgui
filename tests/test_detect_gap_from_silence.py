@@ -8,9 +8,8 @@ resulted in returning 0ms instead of the actual onset at 2600ms.
 import sys
 from pathlib import Path
 
-import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from utils.gap_detection.pipeline import detect_gap_from_silence
 
@@ -32,8 +31,7 @@ def test_disney_duck_tales_scenario():
     result = detect_gap_from_silence(silence_periods, original_gap_ms)
 
     assert result == 2600, (
-        f"Should return END of silence (vocal onset at 2600ms), "
-        f"not START of silence (0ms). Got: {result}ms"
+        f"Should return END of silence (vocal onset at 2600ms), " f"not START of silence (0ms). Got: {result}ms"
     )
 
 
@@ -75,8 +73,7 @@ def test_long_intro():
     result = detect_gap_from_silence(silence_periods, original_gap_ms)
 
     assert result == 45000, (
-        f"Should return 45000ms (actual vocal onset), "
-        f"not 10000ms (expected gap). Got {result}ms"
+        f"Should return 45000ms (actual vocal onset), " f"not 10000ms (expected gap). Got {result}ms"
     )
 
 
@@ -93,6 +90,5 @@ def test_multiple_silence_periods():
     result = detect_gap_from_silence(silence_periods, original_gap_ms)
 
     assert result == 3000, (
-        f"Should return end of FIRST silence period (3000ms), "
-        f"not any other period. Got {result}ms"
+        f"Should return end of FIRST silence period (3000ms), " f"not any other period. Got {result}ms"
     )

@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class IWorkerSignals(QObject):
     """Signals to be used by the IWorker class for inter-task communication."""
+
     started = pyqtSignal()
     finished = pyqtSignal()
     progress = pyqtSignal()
@@ -22,6 +23,7 @@ class IWorkerSignals(QObject):
 
 class WorkerStatus(Enum):
     """Enum to represent the status of a worker task."""
+
     RUNNING = 1
     WAITING = 2
     CANCELLING = 3
@@ -38,6 +40,7 @@ class IWorker(QObject):
     - Standard (is_instant=False): Long-running tasks that run sequentially (gap detection, normalization, scan all)
     - Instant (is_instant=True): User-triggered tasks that can run immediately in parallel with standard tasks (waveform, light reload)
     """
+
     def __init__(self, is_instant: bool = False):
         super().__init__()
         self.signals = IWorkerSignals()

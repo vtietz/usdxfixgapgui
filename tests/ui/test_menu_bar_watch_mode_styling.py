@@ -1,7 +1,7 @@
 """Tests for watch mode button visual feedback (orange styling and logging)."""
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from PySide6.QtWidgets import QApplication
 
 from ui.menu_bar import MenuBar
@@ -64,18 +64,16 @@ class TestWatchModeButtonStyling:
     def test_toggle_logs_user_action(self, menu_bar, caplog):
         """Test: Toggling the button logs the user action"""
         import logging
+
         caplog.set_level(logging.INFO)
 
         # Mock the actions to prevent actual watch mode start
-        with patch.object(menu_bar._actions, 'start_watch_mode', return_value=True):
+        with patch.object(menu_bar._actions, "start_watch_mode", return_value=True):
             # Simulate user clicking to enable
             menu_bar.onWatchModeToggled(True)
 
             # Check log contains toggle message
-            assert any(
-                "User toggled watch mode button: ON" in record.message
-                for record in caplog.records
-            )
+            assert any("User toggled watch mode button: ON" in record.message for record in caplog.records)
 
         caplog.clear()
 
@@ -83,14 +81,12 @@ class TestWatchModeButtonStyling:
         menu_bar.onWatchModeToggled(False)
 
         # Check log contains toggle message
-        assert any(
-            "User toggled watch mode button: OFF" in record.message
-            for record in caplog.records
-        )
+        assert any("User toggled watch mode button: OFF" in record.message for record in caplog.records)
 
     def test_enabled_state_logs_activation(self, menu_bar, caplog):
         """Test: Watch mode enabled state change logs activation message"""
         import logging
+
         caplog.set_level(logging.INFO)
 
         # Enable watch mode
@@ -98,8 +94,7 @@ class TestWatchModeButtonStyling:
 
         # Check log contains ENABLED message
         assert any(
-            "Watch mode ENABLED - monitoring directory for changes" in record.message
-            for record in caplog.records
+            "Watch mode ENABLED - monitoring directory for changes" in record.message for record in caplog.records
         )
 
         caplog.clear()
@@ -108,43 +103,38 @@ class TestWatchModeButtonStyling:
         menu_bar.onWatchModeEnabledChanged(False)
 
         # Check log contains DISABLED message
-        assert any(
-            "Watch mode DISABLED - stopped monitoring directory" in record.message
-            for record in caplog.records
-        )
+        assert any("Watch mode DISABLED - stopped monitoring directory" in record.message for record in caplog.records)
 
     def test_toggle_logs_start_attempt(self, menu_bar, caplog):
         """Test: Toggle logs when attempting to start watch mode"""
         import logging
+
         caplog.set_level(logging.INFO)
 
-        with patch.object(menu_bar._actions, 'start_watch_mode', return_value=True):
+        with patch.object(menu_bar._actions, "start_watch_mode", return_value=True):
             menu_bar.onWatchModeToggled(True)
 
             # Check log shows attempt to start
-            assert any(
-                "Attempting to start watch mode" in record.message
-                for record in caplog.records
-            )
+            assert any("Attempting to start watch mode" in record.message for record in caplog.records)
 
     def test_toggle_logs_stop_attempt(self, menu_bar, caplog):
         """Test: Toggle logs when attempting to stop watch mode"""
         import logging
+
         caplog.set_level(logging.INFO)
 
         menu_bar.onWatchModeToggled(False)
 
         # Check log shows attempt to stop
-        assert any(
-            "Attempting to stop watch mode" in record.message
-            for record in caplog.records
-        )
+        assert any("Attempting to stop watch mode" in record.message for record in caplog.records)
 
     def test_failed_start_reverts_button_state(self, menu_bar):
         """Test: Failed start unchecks button and shows no orange styling"""
         # Mock failed start
-        with patch.object(menu_bar._actions, 'start_watch_mode', return_value=False), \
-             patch('ui.menu_bar.QMessageBox.warning'):  # Suppress warning dialog
+        with (
+            patch.object(menu_bar._actions, "start_watch_mode", return_value=False),
+            patch("ui.menu_bar.QMessageBox.warning"),
+        ):  # Suppress warning dialog
 
             # Try to enable (will fail)
             menu_bar.onWatchModeToggled(True)

@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GpuPackManifest:
     """GPU Pack metadata and download information."""
+
     app_version: str
     torch_version: str
     cuda_version: str
@@ -33,7 +34,7 @@ class GpuPackManifest:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict) -> 'GpuPackManifest':
+    def from_dict(cls, data: Dict) -> "GpuPackManifest":
         """Create from dictionary."""
         return cls(**data)
 
@@ -50,7 +51,7 @@ class GpuPackManifest:
 # The app_version field is metadata only - GPU Pack is versioned by PyTorch/CUDA version.
 
 # Detect platform and Python version for wheel selection
-_PLATFORM_SUFFIX = 'win_amd64' if sys.platform == 'win32' else 'linux_x86_64'
+_PLATFORM_SUFFIX = "win_amd64" if sys.platform == "win32" else "linux_x86_64"
 _PYTHON_VERSION = f"cp{sys.version_info.major}{sys.version_info.minor}"  # e.g., cp312 for Python 3.12
 
 # Python version specific wheel metadata
@@ -59,24 +60,19 @@ _WHEEL_METADATA = {
     "cu121": {
         "cp38": {
             "sha256": "a48b991cd861266523cbed4705f89bef09669d5d2bbfa2524486156f74a222a8",
-            "size": 2444894201  # ~2.44GB
+            "size": 2444894201,  # ~2.44GB
         },
         "cp312": {
             "sha256": "TBD",  # Will be computed on first successful download
-            "size": 2444846875  # Actual size of torch-2.4.1+cu121-cp312-cp312-win_amd64.whl
-        }
+            "size": 2444846875,  # Actual size of torch-2.4.1+cu121-cp312-cp312-win_amd64.whl
+        },
     },
     "cu124": {
-        "cp38": {
-            "sha256": "TBD",
-            "size": 2444894201
-        },
-        "cp312": {
-            "sha256": "TBD",
-            "size": 2444894201  # Approximate, will be corrected on first download
-        }
-    }
+        "cp38": {"sha256": "TBD", "size": 2444894201},
+        "cp312": {"sha256": "TBD", "size": 2444894201},  # Approximate, will be corrected on first download
+    },
 }
+
 
 # Get metadata for current Python version, fallback to cp38 if unavailable
 def _get_wheel_metadata(flavor: str) -> Dict:
@@ -91,6 +87,7 @@ def _get_wheel_metadata(flavor: str) -> Dict:
 
     return py_meta
 
+
 DEFAULT_MANIFESTS = {
     "cu121": {
         "app_version": "1.0.0",  # Metadata only
@@ -99,7 +96,7 @@ DEFAULT_MANIFESTS = {
         "url": f"https://download.pytorch.org/whl/cu121/torch-2.4.1%2Bcu121-{_PYTHON_VERSION}-{_PYTHON_VERSION}-{_PLATFORM_SUFFIX}.whl",
         **_get_wheel_metadata("cu121"),
         "min_driver": "531.00",
-        "flavor": "cu121"
+        "flavor": "cu121",
     },
     "cu124": {
         "app_version": "1.0.0",  # Metadata only
@@ -108,8 +105,8 @@ DEFAULT_MANIFESTS = {
         "url": f"https://download.pytorch.org/whl/cu124/torch-2.4.1%2Bcu124-{_PYTHON_VERSION}-{_PYTHON_VERSION}-{_PLATFORM_SUFFIX}.whl",
         **_get_wheel_metadata("cu124"),
         "min_driver": "550.00",
-        "flavor": "cu124"
-    }
+        "flavor": "cu124",
+    },
 }
 
 
@@ -128,10 +125,11 @@ def load_local_manifest(app_version: str) -> Dict[str, GpuPackManifest]:
     # Try to load from bundled JSON file if it exists
     try:
         from utils.files import resource_path
-        manifest_path = resource_path('gpu_pack_manifest.json')
+
+        manifest_path = resource_path("gpu_pack_manifest.json")
 
         if Path(manifest_path).exists():
-            with open(manifest_path, 'r') as f:
+            with open(manifest_path, "r") as f:
                 data = json.load(f)
                 for flavor, manifest_data in data.items():
                     manifests[flavor] = GpuPackManifest.from_dict(manifest_data)
@@ -143,7 +141,7 @@ def load_local_manifest(app_version: str) -> Dict[str, GpuPackManifest]:
     # Fallback to embedded defaults
     for flavor, manifest_data in DEFAULT_MANIFESTS.items():
         manifest_data_copy = manifest_data.copy()
-        manifest_data_copy['app_version'] = app_version  # Use current app version
+        manifest_data_copy["app_version"] = app_version  # Use current app version
         manifests[flavor] = GpuPackManifest.from_dict(manifest_data_copy)
 
     logger.debug("Using embedded default manifest")
@@ -162,13 +160,10 @@ def fetch_remote_manifest(url: str, timeout: int = 10) -> Optional[Dict[str, Gpu
         Dictionary of flavor -> GpuPackManifest or None on failure
     """
     try:
-        req = urllib.request.Request(
-            url,
-            headers={'User-Agent': 'USDXFixGap/1.0'}
-        )
+        req = urllib.request.Request(url, headers={"User-Agent": "USDXFixGap/1.0"})
 
         with urllib.request.urlopen(req, timeout=timeout) as response:
-            data = json.loads(response.read().decode('utf-8'))
+            data = json.loads(response.read().decode("utf-8"))
 
             manifests = {}
             for flavor, manifest_data in data.items():
@@ -200,8 +195,8 @@ def compare_driver_version(driver_version: str, min_required: str) -> bool:
         True if driver_version >= min_required
     """
     try:
-        driver_parts = [int(x) for x in driver_version.split('.')]
-        required_parts = [int(x) for x in min_required.split('.')]
+        driver_parts = [int(x) for x in driver_version.split(".")]
+        required_parts = [int(x) for x in min_required.split(".")]
 
         # Pad to same length
         max_len = max(len(driver_parts), len(required_parts))
@@ -216,9 +211,7 @@ def compare_driver_version(driver_version: str, min_required: str) -> bool:
 
 
 def choose_pack(
-    manifests: Dict[str, GpuPackManifest],
-    driver_version: Optional[str] = None,
-    flavor_override: Optional[str] = None
+    manifests: Dict[str, GpuPackManifest], driver_version: Optional[str] = None, flavor_override: Optional[str] = None
 ) -> Optional[GpuPackManifest]:
     """
     Choose appropriate GPU Pack based on driver version and preferences.
@@ -252,18 +245,18 @@ def choose_pack(
     if not driver_version:
         # No driver info, default to cu121 (widest compatibility)
         logger.debug("No driver version available, defaulting to cu121")
-        return manifests.get('cu121')
+        return manifests.get("cu121")
 
     # Check if driver supports cu124
-    if 'cu124' in manifests:
-        cu124_manifest = manifests['cu124']
+    if "cu124" in manifests:
+        cu124_manifest = manifests["cu124"]
         if compare_driver_version(driver_version, cu124_manifest.min_driver):
             logger.debug(f"Driver {driver_version} supports cu124, selecting cu124")
             return cu124_manifest
 
     # Fallback to cu121
-    if 'cu121' in manifests:
-        cu121_manifest = manifests['cu121']
+    if "cu121" in manifests:
+        cu121_manifest = manifests["cu121"]
         if compare_driver_version(driver_version, cu121_manifest.min_driver):
             logger.debug(f"Selecting cu121 for driver {driver_version}")
             return cu121_manifest

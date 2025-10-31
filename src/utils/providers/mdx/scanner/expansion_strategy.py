@@ -20,6 +20,7 @@ class SearchWindow:
         radius_ms: Current radius from expected gap
         expansion_num: Expansion iteration number (0-indexed)
     """
+
     start_ms: float
     end_ms: float
     radius_ms: float
@@ -50,11 +51,7 @@ class ExpansionStrategy:
     """
 
     def __init__(
-        self,
-        initial_radius_ms: float,
-        radius_increment_ms: float,
-        max_expansions: int,
-        total_duration_ms: float
+        self, initial_radius_ms: float, radius_increment_ms: float, max_expansions: int, total_duration_ms: float
     ):
         """
         Initialize expansion strategy.
@@ -70,10 +67,7 @@ class ExpansionStrategy:
         self.max_expansions = max_expansions
         self.total_duration_ms = total_duration_ms
 
-    def generate_windows(
-        self,
-        expected_gap_ms: float
-    ) -> Tuple[SearchWindow, ...]:
+    def generate_windows(self, expected_gap_ms: float) -> Tuple[SearchWindow, ...]:
         """
         Generate sequence of search windows with expanding radius.
 
@@ -88,9 +82,7 @@ class ExpansionStrategy:
 
         for expansion_num in range(self.max_expansions + 1):
             window = self._calculate_window(
-                expected_gap_ms=expected_gap_ms,
-                radius_ms=current_radius_ms,
-                expansion_num=expansion_num
+                expected_gap_ms=expected_gap_ms, radius_ms=current_radius_ms, expansion_num=expansion_num
             )
             windows.append(window)
 
@@ -99,12 +91,7 @@ class ExpansionStrategy:
 
         return tuple(windows)
 
-    def _calculate_window(
-        self,
-        expected_gap_ms: float,
-        radius_ms: float,
-        expansion_num: int
-    ) -> SearchWindow:
+    def _calculate_window(self, expected_gap_ms: float, radius_ms: float, expansion_num: int) -> SearchWindow:
         """
         Calculate search window for given radius.
 
@@ -125,12 +112,7 @@ class ExpansionStrategy:
         start_ms = max(0.0, expected_gap_ms - radius_ms)
         end_ms = min(self.total_duration_ms, expected_gap_ms + radius_ms)
 
-        return SearchWindow(
-            start_ms=start_ms,
-            end_ms=end_ms,
-            radius_ms=radius_ms,
-            expansion_num=expansion_num
-        )
+        return SearchWindow(start_ms=start_ms, end_ms=end_ms, radius_ms=radius_ms, expansion_num=expansion_num)
 
     def should_continue(self, expansion_num: int, found_onset: bool) -> bool:
         """

@@ -54,11 +54,7 @@ class WatchModeActions(BaseActions):
         Returns:
             True if directory is set and initial scan is complete
         """
-        return (
-            self.data.directory is not None
-            and self.data.directory != ""
-            and self._is_initial_scan_complete
-        )
+        return self.data.directory is not None and self.data.directory != "" and self._is_initial_scan_complete
 
     def is_watch_mode_enabled(self) -> bool:
         """
@@ -87,9 +83,7 @@ class WatchModeActions(BaseActions):
         try:
             # Parse ignore patterns from config
             ignore_patterns_str = self.config.watch_ignore_patterns
-            ignore_patterns = set(
-                p.strip() for p in ignore_patterns_str.split(',') if p.strip()
-            )
+            ignore_patterns = set(p.strip() for p in ignore_patterns_str.split(",") if p.strip())
 
             # Create controller
             self._watch_controller = WatchModeController(
@@ -101,7 +95,7 @@ class WatchModeActions(BaseActions):
                 songs_get_by_txt_file=self.data.songs.get_by_txt_file,
                 songs_get_by_path=self.data.songs.get_by_path,
                 songs_add=self.data.songs.add,
-                songs_remove_by_txt_file=self.data.songs.remove_by_txt_file
+                songs_remove_by_txt_file=self.data.songs.remove_by_txt_file,
             )
 
             # Connect error signal

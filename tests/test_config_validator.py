@@ -4,13 +4,8 @@ Tests for configuration validator.
 Ensures invalid configurations are detected and can be auto-fixed.
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-from utils.config_validator import (
-    validate_mdx_config,
-    validate_config,
-    ConfigValidationError
-)
+from unittest.mock import Mock
+from utils.config_validator import validate_mdx_config, validate_config, ConfigValidationError
 
 
 class TestMdxConfigValidation:
@@ -126,7 +121,7 @@ class TestConfigAutoFix:
 
         # Should have set FP16 to False
         assert config.mdx_use_fp16 is False
-        config._config.set.assert_called_with('mdx', 'use_fp16', 'false')
+        config._config.set.assert_called_with("mdx", "use_fp16", "false")
 
         # Should have saved config
         config.save.assert_called_once()
@@ -184,11 +179,7 @@ class TestConfigValidationError:
     def test_error_string_representation(self):
         """Error should have readable string representation."""
         error = ConfigValidationError(
-            key="test.key",
-            current_value=True,
-            recommended_value=False,
-            reason="Test reason",
-            severity="error"
+            key="test.key", current_value=True, recommended_value=False, reason="Test reason", severity="error"
         )
 
         error_str = str(error)

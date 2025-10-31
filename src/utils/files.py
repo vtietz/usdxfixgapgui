@@ -33,11 +33,11 @@ def find_txt_file(path):
     if os.path.isdir(path):
         # If path is a directory, find the .txt file
         for file in os.listdir(path):
-            if file.endswith('.txt'):
+            if file.endswith(".txt"):
                 return os.path.join(path, file)
         # No .txt file found
         return None
-    elif path.endswith('.txt'):
+    elif path.endswith(".txt"):
         # If path is already the txt file
         return path
     else:
@@ -56,13 +56,13 @@ def is_portable_mode():
     Returns:
         bool: True if portable mode, False otherwise
     """
-    if not getattr(sys, 'frozen', False):
+    if not getattr(sys, "frozen", False):
         # Not frozen = running as script = use system directories
         return False
 
     app_dir = os.path.dirname(sys.executable)
     # Check for _internal directory (PyInstaller directory build marker)
-    internal_dir = os.path.join(app_dir, '_internal')
+    internal_dir = os.path.join(app_dir, "_internal")
     return os.path.isdir(internal_dir)
 
 
@@ -91,8 +91,8 @@ def get_localappdata_dir():
     from common.constants import APP_FOLDER_NAME
 
     # Windows: Use LOCALAPPDATA
-    if sys.platform == 'win32':
-        local_app_data = os.getenv('LOCALAPPDATA')
+    if sys.platform == "win32":
+        local_app_data = os.getenv("LOCALAPPDATA")
         if local_app_data:
             app_data_dir = os.path.join(local_app_data, APP_FOLDER_NAME)
             os.makedirs(app_data_dir, exist_ok=True)
@@ -102,19 +102,19 @@ def get_localappdata_dir():
         return get_app_dir()
 
     # macOS: Use Application Support
-    elif sys.platform == 'darwin':
-        app_support = os.path.expanduser(f'~/Library/Application Support/{APP_FOLDER_NAME}')
+    elif sys.platform == "darwin":
+        app_support = os.path.expanduser(f"~/Library/Application Support/{APP_FOLDER_NAME}")
         os.makedirs(app_support, exist_ok=True)
         return app_support
 
     # Linux and other Unix-like: Use XDG standard
     else:
         # Respect XDG_DATA_HOME if set, otherwise use default ~/.local/share
-        xdg_data = os.getenv('XDG_DATA_HOME')
+        xdg_data = os.getenv("XDG_DATA_HOME")
         if xdg_data:
             app_data_dir = os.path.join(xdg_data, APP_FOLDER_NAME)
         else:
-            app_data_dir = os.path.expanduser(f'~/.local/share/{APP_FOLDER_NAME}')
+            app_data_dir = os.path.expanduser(f"~/.local/share/{APP_FOLDER_NAME}")
         os.makedirs(app_data_dir, exist_ok=True)
         return app_data_dir
 
@@ -151,10 +151,10 @@ def get_models_dir(config=None):
         Custom: E:/USDXFixGap/models/ (if configured)
         Network: //server/shared/USDXFixGap/models/ (if configured)
     """
-    if config and hasattr(config, 'models_directory') and config.models_directory:
+    if config and hasattr(config, "models_directory") and config.models_directory:
         models_dir = os.path.expandvars(config.models_directory)
     else:
-        models_dir = os.path.join(get_localappdata_dir(), 'models')
+        models_dir = os.path.join(get_localappdata_dir(), "models")
 
     os.makedirs(models_dir, exist_ok=True)
     return models_dir
@@ -162,12 +162,12 @@ def get_models_dir(config=None):
 
 def get_demucs_models_dir(config=None):
     """Get directory for Demucs models."""
-    return os.path.join(get_models_dir(config), 'demucs')
+    return os.path.join(get_models_dir(config), "demucs")
 
 
 def get_spleeter_models_dir(config=None):
     """Get directory for Spleeter models."""
-    return os.path.join(get_models_dir(config), 'spleeter')
+    return os.path.join(get_models_dir(config), "spleeter")
 
 
 def resource_path(relative_path):
@@ -231,7 +231,7 @@ def list_files(directory, endswith=".txt"):
 
 
 def ignore_file_exists(txt_file):
-    ignre_file = os.path.join( os.path.dirname(txt_file), IGNORE_FILE)
+    ignre_file = os.path.join(os.path.dirname(txt_file), IGNORE_FILE)
     return os.path.exists(ignre_file)
 
 
@@ -260,7 +260,7 @@ def generate_directory_hash(directory_path):
     :return: A hexadecimal hash value as a string.
     """
     # Encode the directory path to a byte representation required by hashlib
-    directory_bytes = directory_path.encode('utf-8')
+    directory_bytes = directory_path.encode("utf-8")
     # Use SHA-256 from hashlib and compute the hash
     hash_object = hashlib.sha256(directory_bytes)
     # Get the hexadecimal representation of the hash
@@ -301,7 +301,7 @@ def rmtree(directory):
         logger.error(f"Error removing directory {directory}: {e}")
 
 
-def get_file_checksum(file_path, algorithm='sha256', buffer_size=65536):
+def get_file_checksum(file_path, algorithm="sha256", buffer_size=65536):
     """
     Calculate the checksum of a file using the specified algorithm.
 
@@ -320,7 +320,7 @@ def get_file_checksum(file_path, algorithm='sha256', buffer_size=65536):
     try:
         hash_algo = getattr(hashlib, algorithm.lower())()
 
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             # Read the file in chunks to handle large files efficiently
             while chunk := f.read(buffer_size):
                 hash_algo.update(chunk)

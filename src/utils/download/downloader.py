@@ -24,7 +24,7 @@ def download_file(
     expected_sha256: str,
     expected_size: int,
     progress_cb: Optional[Callable[[int, int], None]] = None,
-    cancel_token=None
+    cancel_token=None,
 ) -> bool:
     """
     Download file with resume support and SHA-256 verification.
@@ -79,9 +79,7 @@ def download_file(
         if response.content_length:
             total_size = response.content_length + start_byte
             if total_size != expected_size:
-                raise ValueError(
-                    f"Size mismatch: expected {expected_size}, got {total_size}"
-                )
+                raise ValueError(f"Size mismatch: expected {expected_size}, got {total_size}")
 
         # Write chunks with verification
         writer = ChunkWriter(resume_mgr.part_file, resume_from_byte=start_byte)
@@ -96,19 +94,14 @@ def download_file(
 
         # Verify size
         if writer.get_bytes_written() != expected_size:
-            raise ValueError(
-                f"Downloaded {writer.get_bytes_written()} bytes, "
-                f"expected {expected_size}"
-            )
+            raise ValueError(f"Downloaded {writer.get_bytes_written()} bytes, " f"expected {expected_size}")
 
         # Verify hash
         if not _is_placeholder_checksum(expected_sha256):
             if not writer.verify(expected_sha256):
                 raise ValueError("Checksum verification failed")
         else:
-            logger.warning(
-                f"Checksum verification skipped (placeholder: {expected_sha256})"
-            )
+            logger.warning(f"Checksum verification skipped (placeholder: {expected_sha256})")
 
         # Move to final location
         resume_mgr.part_file.rename(dest_zip)
@@ -120,8 +113,7 @@ def download_file(
     # Execute with retry and handle special cases
     try:
         result = retry_policy.execute(
-            download_operation,
-            on_retry=lambda attempt, exc: _handle_retry(attempt, exc, resume_mgr, start_byte)
+            download_operation, on_retry=lambda attempt, exc: _handle_retry(attempt, exc, resume_mgr, start_byte)
         )
         return result
     except InterruptedError:
@@ -155,6 +147,7 @@ def _verify_complete_file(file_path: Path, expected_sha256: str, expected_size: 
     try:
         # Import here to avoid circular dependency with gpu_downloader
         from utils.gpu_downloader import verify_file_checksum
+
         return verify_file_checksum(file_path, expected_sha256, expected_size)
     except Exception as e:
         logger.warning(f"Failed to verify file: {e}")
@@ -171,7 +164,7 @@ def _is_placeholder_checksum(checksum: str) -> bool:
     Returns:
         True if placeholder, False otherwise
     """
-    return checksum.upper() in ['TBD', 'TODO', 'PLACEHOLDER', 'UNKNOWN']
+    return checksum.upper() in ["TBD", "TODO", "PLACEHOLDER", "UNKNOWN"]
 
 
 def _handle_retry(attempt: int, exc: Exception, resume_mgr: ResumeManager, start_byte: int):

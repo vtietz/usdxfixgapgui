@@ -3,7 +3,7 @@ Tests for AudioService facade.
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, PropertyMock
+from unittest.mock import Mock
 from src.services.audio_service import AudioService, AudioSource
 
 
@@ -243,6 +243,7 @@ def test_playing_changed_triggers_callback(audio_service):
 
 def test_callback_error_doesnt_crash(audio_service):
     """Test callback errors don't crash the service."""
+
     def bad_callback():
         raise ValueError("Test error")
 

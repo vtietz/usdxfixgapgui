@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed
 from utils.providers.mdx.scanner.pipeline import scan_for_onset
@@ -20,12 +20,8 @@ from utils.providers.mdx.vocals_cache import VocalsCache
 # Performance Tests
 # ============================================================================
 
-def test_11_vocals_cache_reuse(
-    tmp_path,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
-):
+
+def test_11_vocals_cache_reuse(tmp_path, patch_separator, mdx_config_tight, model_placeholder):
     """
     Scenario 11: VocalsCache prevents redundant separation.
 
@@ -36,10 +32,8 @@ def test_11_vocals_cache_reuse(
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_cache.wav",
         duration_ms=30000,
-        vocal_events=[
-            VocalEvent(onset_ms=onset_ms, duration_ms=10000, fade_in_ms=100, amp=0.7)
-        ],
-        instrument_bed=InstrumentBed(noise_floor_db=-60.0)
+        vocal_events=[VocalEvent(onset_ms=onset_ms, duration_ms=10000, fade_in_ms=100, amp=0.7)],
+        instrument_bed=InstrumentBed(noise_floor_db=-60.0),
     )
 
     # Shared cache
@@ -53,7 +47,7 @@ def test_11_vocals_cache_reuse(
         device="cpu",
         config=mdx_config_tight,
         vocals_cache=cache,
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Second scan with same cache
@@ -64,7 +58,7 @@ def test_11_vocals_cache_reuse(
         device="cpu",
         config=mdx_config_tight,
         vocals_cache=cache,
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Both should detect onset
@@ -77,12 +71,7 @@ def test_11_vocals_cache_reuse(
     assert len(cache._cache) > 0, "11-cache: VocalsCache should have stored chunks"
 
 
-def test_12_early_stop_optimization(
-    tmp_path,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
-):
+def test_12_early_stop_optimization(tmp_path, patch_separator, mdx_config_tight, model_placeholder):
     """
     Scenario 12: Early stop when onset found within tolerance.
 
@@ -98,9 +87,9 @@ def test_12_early_stop_optimization(
         duration_ms=60000,
         vocal_events=[
             VocalEvent(onset_ms=onset_ms, duration_ms=8000, fade_in_ms=100, amp=0.7),
-            VocalEvent(onset_ms=40000.0, duration_ms=8000, fade_in_ms=100, amp=0.6)
+            VocalEvent(onset_ms=40000.0, duration_ms=8000, fade_in_ms=100, amp=0.6),
         ],
-        instrument_bed=InstrumentBed(noise_floor_db=-60.0)
+        instrument_bed=InstrumentBed(noise_floor_db=-60.0),
     )
 
     cache = VocalsCache()
@@ -111,7 +100,7 @@ def test_12_early_stop_optimization(
         device="cpu",
         config=mdx_config_tight,
         vocals_cache=cache,
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Should detect first onset
@@ -131,12 +120,7 @@ def test_12_early_stop_optimization(
             )
 
 
-def test_13_resample_to_44100(
-    tmp_path,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
-):
+def test_13_resample_to_44100(tmp_path, patch_separator, mdx_config_tight, model_placeholder):
     """
     Scenario 13: Audio resampling to 44100Hz.
 
@@ -149,10 +133,8 @@ def test_13_resample_to_44100(
         output_path=tmp_path / "test_resample.wav",
         sr=48000,  # Non-standard rate
         duration_ms=30000,
-        vocal_events=[
-            VocalEvent(onset_ms=onset_ms, duration_ms=10000, fade_in_ms=100, amp=0.7)
-        ],
-        instrument_bed=InstrumentBed(noise_floor_db=-60.0)
+        vocal_events=[VocalEvent(onset_ms=onset_ms, duration_ms=10000, fade_in_ms=100, amp=0.7)],
+        instrument_bed=InstrumentBed(noise_floor_db=-60.0),
     )
 
     detected = scan_for_onset(
@@ -162,11 +144,11 @@ def test_13_resample_to_44100(
         device="cpu",
         config=mdx_config_tight,
         vocals_cache=VocalsCache(),
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Should detect correctly despite resampling
     assert detected is not None
-    assert abs(detected - onset_ms) <= 200, (
-        f"13-resample: Timing error after resampling (detected={detected}ms, truth={onset_ms}ms)"
-    )
+    assert (
+        abs(detected - onset_ms) <= 200
+    ), f"13-resample: Timing error after resampling (detected={detected}ms, truth={onset_ms}ms)"

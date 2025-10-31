@@ -12,6 +12,7 @@ from enum import Enum
 
 class SeverityBand(Enum):
     """Severity bands for gap differences."""
+
     GOOD = "good"  # 0-50ms
     WARNING = "warning"  # 50-200ms
     ERROR = "error"  # 200+ms
@@ -40,10 +41,10 @@ class GapState:
     def __post_init__(self):
         """Initialize callbacks list."""
         if self._on_change_callbacks is None:
-            object.__setattr__(self, '_on_change_callbacks', [])
+            object.__setattr__(self, "_on_change_callbacks", [])
         # Initialize saved_gap_ms if not provided
         if self.saved_gap_ms == 0:
-            object.__setattr__(self, 'saved_gap_ms', self.current_gap_ms)
+            object.__setattr__(self, "saved_gap_ms", self.current_gap_ms)
 
     @property
     def diff_ms(self) -> Optional[int]:
@@ -79,8 +80,8 @@ class GapState:
         if value == self.current_gap_ms:
             return
 
-        object.__setattr__(self, 'current_gap_ms', value)
-        object.__setattr__(self, 'is_dirty', value != self.saved_gap_ms)
+        object.__setattr__(self, "current_gap_ms", value)
+        object.__setattr__(self, "is_dirty", value != self.saved_gap_ms)
         self._notify_change()
 
     def set_detected_gap_ms(self, value: Optional[int]) -> None:
@@ -93,7 +94,7 @@ class GapState:
         if value == self.detected_gap_ms:
             return
 
-        object.__setattr__(self, 'detected_gap_ms', value)
+        object.__setattr__(self, "detected_gap_ms", value)
         self._notify_change()
 
     def mark_clean(self) -> None:
@@ -101,8 +102,8 @@ class GapState:
         Mark state as clean (saved).
         Updates saved_gap_ms to current value.
         """
-        object.__setattr__(self, 'saved_gap_ms', self.current_gap_ms)
-        object.__setattr__(self, 'is_dirty', False)
+        object.__setattr__(self, "saved_gap_ms", self.current_gap_ms)
+        object.__setattr__(self, "is_dirty", False)
         self._notify_change()
 
     def revert(self) -> None:
@@ -113,8 +114,8 @@ class GapState:
         if not self.can_revert:
             return
 
-        object.__setattr__(self, 'current_gap_ms', self.saved_gap_ms)
-        object.__setattr__(self, 'is_dirty', False)
+        object.__setattr__(self, "current_gap_ms", self.saved_gap_ms)
+        object.__setattr__(self, "is_dirty", False)
         self._notify_change()
 
     def apply_detected(self) -> None:
@@ -166,7 +167,7 @@ class GapState:
             callback: Function to call when state changes (no args)
         """
         if self._on_change_callbacks is None:
-            object.__setattr__(self, '_on_change_callbacks', [])
+            object.__setattr__(self, "_on_change_callbacks", [])
 
         assert self._on_change_callbacks is not None  # For type checker
         if callback not in self._on_change_callbacks:
@@ -194,7 +195,7 @@ class GapState:
                 print(f"Error in GapState callback: {e}")
 
     @classmethod
-    def from_song(cls, current_gap: int, detected_gap: Optional[int] = None) -> 'GapState':
+    def from_song(cls, current_gap: int, detected_gap: Optional[int] = None) -> "GapState":
         """
         Create GapState from song data.
 
@@ -205,9 +206,4 @@ class GapState:
         Returns:
             New GapState instance
         """
-        return cls(
-            current_gap_ms=current_gap,
-            detected_gap_ms=detected_gap,
-            saved_gap_ms=current_gap,
-            is_dirty=False
-        )
+        return cls(current_gap_ms=current_gap, detected_gap_ms=detected_gap, saved_gap_ms=current_gap, is_dirty=False)

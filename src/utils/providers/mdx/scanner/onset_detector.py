@@ -46,14 +46,7 @@ class OnsetDetectorPipeline:
         onset_ms = pipeline.process_chunk(chunk_boundaries)
     """
 
-    def __init__(
-        self,
-        audio_file: str,
-        model,
-        device: str,
-        config: MdxConfig,
-        vocals_cache: VocalsCache
-    ):
+    def __init__(self, audio_file: str, model, device: str, config: MdxConfig, vocals_cache: VocalsCache):
         """
         Initialize onset detector pipeline.
 
@@ -76,9 +69,7 @@ class OnsetDetectorPipeline:
         self.num_frames = info.num_frames
 
     def process_chunk(
-        self,
-        chunk: ChunkBoundaries,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        self, chunk: ChunkBoundaries, check_cancellation: Optional[Callable[[], bool]] = None
     ) -> Optional[float]:
         """
         Process single chunk for onset detection.
@@ -99,11 +90,7 @@ class OnsetDetectorPipeline:
 
         # Apply optional resampling for CPU speedup
         if self.config.resample_hz > 0 and self.sample_rate != self.config.resample_hz:
-            waveform = torchaudio.functional.resample(
-                waveform,
-                self.sample_rate,
-                self.config.resample_hz
-            )
+            waveform = torchaudio.functional.resample(waveform, self.sample_rate, self.config.resample_hz)
             current_sample_rate = self.config.resample_hz
         else:
             current_sample_rate = self.sample_rate
@@ -112,12 +99,7 @@ class OnsetDetectorPipeline:
         vocals = self._separate_vocals(waveform, current_sample_rate, check_cancellation)
 
         # Cache vocals for potential reuse
-        self.vocals_cache.put(
-            self.audio_file,
-            chunk.start_ms,
-            chunk.end_ms,
-            vocals
-        )
+        self.vocals_cache.put(self.audio_file, chunk.start_ms, chunk.end_ms, vocals)
 
         # Detect onset in vocals
         onset_ms = self._detect_onset(vocals, current_sample_rate, chunk.start_ms)
@@ -137,19 +119,12 @@ class OnsetDetectorPipeline:
         # Calculate frame boundaries
         frame_offset = int(chunk.start_s * self.sample_rate)
         chunk_duration_s = (chunk.end_ms - chunk.start_ms) / 1000.0
-        num_frames = min(
-            int(chunk_duration_s * self.sample_rate),
-            self.num_frames - frame_offset
-        )
+        num_frames = min(int(chunk_duration_s * self.sample_rate), self.num_frames - frame_offset)
 
         # Load chunk (suppress MP3 warning)
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
-            waveform, _ = torchaudio.load(
-                self.audio_file,
-                frame_offset=frame_offset,
-                num_frames=num_frames
-            )
+            waveform, _ = torchaudio.load(self.audio_file, frame_offset=frame_offset, num_frames=num_frames)
 
         # Convert to stereo if needed
         if waveform.shape[0] == 1:
@@ -158,10 +133,7 @@ class OnsetDetectorPipeline:
         return waveform
 
     def _separate_vocals(
-        self,
-        waveform: torch.Tensor,
-        sample_rate: int,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        self, waveform: torch.Tensor, sample_rate: int, check_cancellation: Optional[Callable[[], bool]] = None
     ) -> np.ndarray:
         """
         Separate vocals from waveform.
@@ -182,15 +154,10 @@ class OnsetDetectorPipeline:
             sample_rate=sample_rate,
             device=self.device,
             use_fp16=self.config.use_fp16,
-            check_cancellation=check_cancellation
+            check_cancellation=check_cancellation,
         )
 
-    def _detect_onset(
-        self,
-        vocal_audio: np.ndarray,
-        sample_rate: int,
-        chunk_start_ms: float
-    ) -> Optional[float]:
+    def _detect_onset(self, vocal_audio: np.ndarray, sample_rate: int, chunk_start_ms: float) -> Optional[float]:
         """
         Detect onset in vocal audio.
 
@@ -205,8 +172,5 @@ class OnsetDetectorPipeline:
             Absolute onset timestamp in milliseconds, or None
         """
         return detect_onset_in_vocal_chunk(
-            vocal_audio=vocal_audio,
-            sample_rate=sample_rate,
-            chunk_start_ms=chunk_start_ms,
-            config=self.config
+            vocal_audio=vocal_audio, sample_rate=sample_rate, chunk_start_ms=chunk_start_ms, config=self.config
         )

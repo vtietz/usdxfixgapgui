@@ -28,4 +28,4 @@ Usage:
 
 from utils.providers.mdx.scanner.pipeline import scan_for_onset
 
-__all__ = ['scan_for_onset']
+__all__ = ["scan_for_onset"]

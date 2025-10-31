@@ -18,6 +18,7 @@ def show_error_dialog(title, message, details=None):
     """Show error dialog for critical startup failures (even before Qt is initialized)"""
     try:
         from PySide6.QtWidgets import QApplication, QMessageBox
+
         app = QApplication.instance()
         if app is None:
             app = QApplication(sys.argv)
@@ -42,25 +43,18 @@ def show_error_dialog(title, message, details=None):
 
 def parse_arguments():
     """Parse command-line arguments"""
-    parser = argparse.ArgumentParser(description=f'{APP_NAME} - {APP_DESCRIPTION}')
+    parser = argparse.ArgumentParser(description=f"{APP_NAME} - {APP_DESCRIPTION}")
 
     # Version info
-    parser.add_argument('--version', action='store_true',
-                       help='Show version information and exit')
-    parser.add_argument('--health-check', action='store_true',
-                       help='Verify application can start (for CI/testing)')
+    parser.add_argument("--version", action="store_true", help="Show version information and exit")
+    parser.add_argument("--health-check", action="store_true", help="Verify application can start (for CI/testing)")
 
     # GPU management
-    parser.add_argument('--setup-gpu', action='store_true',
-                       help='Download and install GPU Pack for CUDA acceleration')
-    parser.add_argument('--setup-gpu-zip', type=str, metavar='PATH',
-                       help='Install GPU Pack from offline ZIP file')
-    parser.add_argument('--gpu-enable', action='store_true',
-                       help='Enable GPU acceleration (set gpu_opt_in=true)')
-    parser.add_argument('--gpu-disable', action='store_true',
-                       help='Disable GPU acceleration (set gpu_opt_in=false)')
-    parser.add_argument('--gpu-diagnostics', action='store_true',
-                       help='Show GPU status and write diagnostics to file')
+    parser.add_argument("--setup-gpu", action="store_true", help="Download and install GPU Pack for CUDA acceleration")
+    parser.add_argument("--setup-gpu-zip", type=str, metavar="PATH", help="Install GPU Pack from offline ZIP file")
+    parser.add_argument("--gpu-enable", action="store_true", help="Enable GPU acceleration (set gpu_opt_in=true)")
+    parser.add_argument("--gpu-disable", action="store_true", help="Disable GPU acceleration (set gpu_opt_in=false)")
+    parser.add_argument("--gpu-diagnostics", action="store_true", help="Show GPU status and write diagnostics to file")
 
     return parser.parse_args()
 
@@ -69,9 +63,10 @@ def get_version():
     """Read version from VERSION file"""
     try:
         from utils.files import resource_path
-        version_file = resource_path('VERSION')
+
+        version_file = resource_path("VERSION")
         if os.path.exists(version_file):
-            with open(version_file, 'r') as f:
+            with open(version_file, "r") as f:
                 return f.read().strip()
     except Exception:
         pass
@@ -86,18 +81,21 @@ def print_version_info():
 
     try:
         from PySide6 import __version__ as pyside_version
+
         print(f"PySide6: {pyside_version}")
     except Exception:
         print("PySide6: not available")
 
     try:
         import torch
+
         print(f"PyTorch: {torch.__version__}")
     except Exception:
         print("PyTorch: not available")
 
     try:
         import librosa
+
         print(f"librosa: {librosa.__version__}")
     except Exception:
         print("librosa: not available")
@@ -116,7 +114,7 @@ def health_check():
 
     # Check Qt Framework
     try:
-        __import__('PySide6.QtCore')
+        __import__("PySide6.QtCore")
         print(f"✓ {'Qt Framework':20} (PySide6.QtCore)")
     except Exception as e:
         print(f"✗ {'Qt Framework':20} (PySide6.QtCore): {str(e)}")
@@ -125,6 +123,7 @@ def health_check():
     # Check system capabilities using centralized service
     try:
         from services.system_capabilities import check_system_capabilities
+
         caps = check_system_capabilities()
 
         # PyTorch
@@ -166,8 +165,8 @@ def health_check():
 
     # Check other critical modules
     other_modules = [
-        ('librosa', 'Audio Processing'),
-        ('soundfile', 'Audio I/O'),
+        ("librosa", "Audio Processing"),
+        ("soundfile", "Audio I/O"),
     ]
 
     for module_name, description in other_modules:
@@ -192,7 +191,8 @@ def health_check():
     # Check assets directory
     try:
         from utils.files import resource_path
-        assets_dir = resource_path('assets')
+
+        assets_dir = resource_path("assets")
         if os.path.exists(assets_dir):
             print(f"✓ {'Assets Directory':20} ({assets_dir})")
         else:
@@ -235,6 +235,7 @@ def main():
 
         # Validate config and auto-fix critical errors
         from utils.config_validator import validate_config, print_validation_report
+
         is_valid, validation_errors = validate_config(config, auto_fix=True)
         if validation_errors:
             print_validation_report(validation_errors)
@@ -254,16 +255,14 @@ def main():
             if should_exit:
                 # Cleanup asyncio if it was started
                 from utils.run_async import shutdown_asyncio
+
                 shutdown_asyncio()
                 sys.exit(0)
 
         # Setup async logging BEFORE splash screen
         log_file_path = os.path.join(get_localappdata_dir(), APP_LOG_FILENAME)
         setup_async_logging(
-            log_level=config.log_level,
-            log_file_path=log_file_path,
-            max_bytes=10*1024*1024,  # 10MB
-            backup_count=3
+            log_level=config.log_level, log_file_path=log_file_path, max_bytes=10 * 1024 * 1024, backup_count=3  # 10MB
         )
 
         logger = logging.getLogger(__name__)
@@ -274,27 +273,33 @@ def main():
 
         # Create QApplication BEFORE splash (needed for Qt dialogs)
         from PySide6.QtWidgets import QApplication
+
         app = QApplication.instance()
         if app is None:
             app = QApplication(sys.argv)
 
         # Enable dark mode BEFORE showing splash
         from utils.enable_darkmode import enable_dark_mode
+
         enable_dark_mode(app)
 
         # Show startup dialog and run system capability checks
         from ui.startup_dialog import StartupDialog
+
         capabilities = StartupDialog.show_startup(parent=None, config=config)
 
         # If dialog returned no capabilities, fall back to auto-detection
         if capabilities is None:
             logger.warning("Startup dialog returned no capabilities; proceeding with auto-detected capabilities")
             from services.system_capabilities import check_system_capabilities
+
             capabilities = check_system_capabilities()
 
-        logger.info(f"System capabilities: torch={capabilities.has_torch}, "
-                   f"cuda={capabilities.has_cuda}, ffmpeg={capabilities.has_ffmpeg}, "
-                   f"can_detect={capabilities.can_detect}")
+        logger.info(
+            f"System capabilities: torch={capabilities.has_torch}, "
+            f"cuda={capabilities.has_cuda}, ffmpeg={capabilities.has_ffmpeg}, "
+            f"can_detect={capabilities.can_detect}"
+        )
 
         # Bootstrap GPU Pack if needed (based on capabilities and config)
         gpu_enabled = gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
@@ -304,6 +309,7 @@ def main():
 
         # Import and start GUI (pass capabilities)
         from ui.main_window import create_and_run_gui
+
         exit_code = create_and_run_gui(config, gpu_enabled, log_file_path, capabilities)
 
         sys.exit(exit_code)
@@ -316,7 +322,7 @@ def main():
         # Try to log to file if path is available
         if log_file_path:
             try:
-                with open(log_file_path, 'a', encoding='utf-8') as f:
+                with open(log_file_path, "a", encoding="utf-8") as f:
                     f.write(f"\n{'='*60}\n")
                     f.write(f"CRITICAL STARTUP ERROR\n")
                     f.write(f"{'='*60}\n")
@@ -332,6 +338,7 @@ def main():
         try:
             from utils.run_async import shutdown_asyncio
             from common.utils.async_logging import shutdown_async_logging
+
             shutdown_asyncio()
             shutdown_async_logging()
         except Exception:

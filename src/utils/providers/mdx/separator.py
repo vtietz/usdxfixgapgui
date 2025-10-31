@@ -23,11 +23,11 @@ VOCALS_INDEX = 3
 
 def separate_vocals_chunk(
     model,
-    waveform: 'torch.Tensor',
+    waveform: "torch.Tensor",
     sample_rate: int,
     device: str,
     use_fp16: bool,
-    check_cancellation: Optional[Callable[[], bool]] = None
+    check_cancellation: Optional[Callable[[], bool]] = None,
 ) -> np.ndarray:
     """
     Separate vocals from audio chunk using Demucs with GPU optimizations.
@@ -61,7 +61,7 @@ def separate_vocals_chunk(
 
     with torch.no_grad():
         # Apply FP16 if enabled and on GPU
-        if use_fp16 and device == 'cuda':
+        if use_fp16 and device == "cuda":
             logger.debug("Using FP16 precision on GPU")
             waveform_gpu = waveform.to(device).to(torch.float16)
         else:

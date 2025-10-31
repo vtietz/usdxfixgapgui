@@ -35,7 +35,7 @@ def detect_system_pytorch_cuda() -> Optional[Dict[str, str]]:
         # Check minimum PyTorch version (2.0+)
         version = torch.__version__
         try:
-            major = int(version.split('.')[0].replace('+', ''))  # Handle version like "2.7.1+cpu"
+            major = int(version.split(".")[0].replace("+", ""))  # Handle version like "2.7.1+cpu"
             if major < 2:
                 logger.debug(f"System PyTorch version too old: {version} (need 2.0+)")
                 return None
@@ -56,11 +56,7 @@ def detect_system_pytorch_cuda() -> Optional[Dict[str, str]]:
             logger.debug(f"Could not get CUDA device name: {e}")
             device_name = "Unknown GPU"
 
-        return {
-            'torch_version': version,
-            'cuda_version': cuda_version,
-            'device_name': device_name
-        }
+        return {"torch_version": version, "cuda_version": cuda_version, "device_name": device_name}
 
     except ImportError:
         logger.debug("System PyTorch not available (ImportError)")

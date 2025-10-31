@@ -14,8 +14,16 @@ import logging
 from typing import Optional
 from pathlib import Path
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QTextEdit, QProgressBar, QCheckBox, QMessageBox, QSizePolicy
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QTextEdit,
+    QProgressBar,
+    QCheckBox,
+    QMessageBox,
+    QSizePolicy,
 )
 from PySide6.QtCore import Qt, QTimer, Signal, QThread
 from PySide6.QtGui import QFont
@@ -36,6 +44,7 @@ class GpuDownloadWorker(QThread):
         finished: (success: bool, message: str) - download completion status
         log_message: (message: str) - log message for UI display
     """
+
     progress = Signal(int, str)
     finished = Signal(bool, str)
     log_message = Signal(str)
@@ -75,7 +84,7 @@ class GpuDownloadWorker(QThread):
                 expected_size=self.chosen_manifest.size,
                 progress_cb=on_progress,
                 cancel_token=self.cancel_token,
-                config=self.config
+                config=self.config,
             )
 
             if self.cancel_token.is_cancelled():
@@ -92,7 +101,8 @@ class GpuDownloadWorker(QThread):
             self.progress.emit(95, "Extracting GPU Pack...")
 
             import zipfile
-            with zipfile.ZipFile(self.dest_zip, 'r') as zip_ref:
+
+            with zipfile.ZipFile(self.dest_zip, "r") as zip_ref:
                 zip_ref.extractall(self.pack_dir)
 
             logger.info("GPU Pack installed successfully")
@@ -157,25 +167,26 @@ class StartupDialog(QDialog):
             self.setWindowFlags(Qt.WindowType.Dialog)
 
         # Enable mouse tracking for drag and drop
-        self._drag_position = None        # Main layout
+        self._drag_position = None  # Main layout
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
         layout.setContentsMargins(10, 10, 10, 10)
 
         # App title and version
         from utils.files import resource_path
+
         version = "unknown"
         try:
             # Try multiple paths for VERSION file
             version_paths = [
-                resource_path('VERSION'),
-                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'VERSION'),
-                'VERSION'
+                resource_path("VERSION"),
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "VERSION"),
+                "VERSION",
             ]
 
             for version_file in version_paths:
                 if os.path.exists(version_file):
-                    with open(version_file, 'r', encoding='utf-8') as f:
+                    with open(version_file, "r", encoding="utf-8") as f:
                         version = f.read().strip()
                         if version:  # Found valid version
                             break
@@ -206,7 +217,8 @@ class StartupDialog(QDialog):
         self.log_text.setReadOnly(True)
         # self.log_text.setMaximumHeight(300)  # Limit height to prevent overlay
         self.log_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.log_text.setStyleSheet("""
+        self.log_text.setStyleSheet(
+            """
             QTextEdit {
                 background-color: #1E1E1E;
                 color: #E0E0E0;
@@ -216,7 +228,8 @@ class StartupDialog(QDialog):
                 font-family: 'Consolas', 'Courier New', monospace;
                 font-size: 9pt;
             }
-        """)
+        """
+        )
         layout.addWidget(self.log_text)
 
         # Progress bar (full width, no extra spacing)
@@ -297,11 +310,11 @@ class StartupDialog(QDialog):
         if self.capabilities.can_detect:
             detection_mode = self.capabilities.get_detection_mode()
 
-            if detection_mode == 'gpu':
+            if detection_mode == "gpu":
                 self.log("✅ Gap detection ready (GPU acceleration enabled)")
                 self.status_label.setText("✅ System Ready (GPU Mode)")
                 self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
-            elif detection_mode == 'cpu':
+            elif detection_mode == "cpu":
                 # Check if GPU is available but pack not installed
                 if self.capabilities.gpu_name and not self.capabilities.has_cuda:
                     self.log("⚡ GPU Pack Available for Download")
@@ -343,7 +356,7 @@ class StartupDialog(QDialog):
         """Handle Download GPU Pack button click."""
         # Disable buttons during download
         self.download_btn.setEnabled(False)
-        if hasattr(self, 'start_btn'):
+        if hasattr(self, "start_btn"):
             self.start_btn.setEnabled(False)
 
         # Show progress UI
@@ -357,21 +370,24 @@ class StartupDialog(QDialog):
         try:
             # Get manifests and capability info
             from utils.files import resource_path
-            version_file = resource_path('VERSION')
+
+            version_file = resource_path("VERSION")
             app_version = "unknown"
             if os.path.exists(version_file):
-                with open(version_file, 'r', encoding='utf-8') as f:
+                with open(version_file, "r", encoding="utf-8") as f:
                     app_version = f.read().strip()
 
             manifests = gpu_manifest.load_local_manifest(app_version)
             cap = gpu_bootstrap.capability_probe()
 
             # Choose pack based on driver version
-            flavor_override = self.config.gpu_flavor if self.config and hasattr(self.config, 'gpu_flavor') and self.config.gpu_flavor else None
+            flavor_override = (
+                self.config.gpu_flavor
+                if self.config and hasattr(self.config, "gpu_flavor") and self.config.gpu_flavor
+                else None
+            )
             chosen_manifest = gpu_manifest.choose_pack(
-                manifests,
-                cap.get('driver_version') if cap else None,
-                flavor_override
+                manifests, cap.get("driver_version") if cap else None, flavor_override
             )
 
             if not chosen_manifest:
@@ -382,7 +398,7 @@ class StartupDialog(QDialog):
                     "This could mean:\n"
                     "• GPU Pack is not yet available for your Python version\n"
                     "• Your system is not compatible\n\n"
-                    "Please check the documentation for supported configurations."
+                    "Please check the documentation for supported configurations.",
                 )
                 self._reset_download_ui()
                 return
@@ -395,7 +411,7 @@ class StartupDialog(QDialog):
             pack_dir.mkdir(parents=True, exist_ok=True)
 
             # Store ZIP in parent directory (gpu_runtime/)
-            torch_version_normalized = chosen_manifest.torch_version.replace('+', '-')
+            torch_version_normalized = chosen_manifest.torch_version.replace("+", "-")
             dest_zip = pack_dir.parent / f"gpu_pack_{torch_version_normalized}.zip"
 
             # Log download destination (both to file and UI)
@@ -405,10 +421,7 @@ class StartupDialog(QDialog):
 
             # Start download worker
             self._download_worker = GpuDownloadWorker(
-                config=self.config,
-                chosen_manifest=chosen_manifest,
-                pack_dir=pack_dir,
-                dest_zip=dest_zip
+                config=self.config, chosen_manifest=chosen_manifest, pack_dir=pack_dir, dest_zip=dest_zip
             )
             self._download_worker.progress.connect(self._on_download_progress)
             self._download_worker.finished.connect(self._on_download_finished)
@@ -417,11 +430,7 @@ class StartupDialog(QDialog):
 
         except Exception as e:
             logger.error(f"Failed to start GPU Pack download: {e}", exc_info=True)
-            QMessageBox.critical(
-                self,
-                "Download Failed",
-                f"Failed to start GPU Pack download:\n\n{str(e)}"
-            )
+            QMessageBox.critical(self, "Download Failed", f"Failed to start GPU Pack download:\n\n{str(e)}")
             self._reset_download_ui()
 
     def _on_download_progress(self, percentage: int, message: str):
@@ -452,7 +461,7 @@ class StartupDialog(QDialog):
             self.status_label.setStyleSheet("color: #FFA500; font-weight: bold;")
 
             # Disable Start App button - user MUST restart
-            if hasattr(self, 'start_btn'):
+            if hasattr(self, "start_btn"):
                 self.start_btn.setEnabled(False)
                 self.start_btn.setText("Restart Required")
 
@@ -467,7 +476,7 @@ class StartupDialog(QDialog):
                 "Download Complete",
                 "GPU Pack downloaded and installed successfully!\n\n"
                 "Please restart the application to enable GPU acceleration.\n\n"
-                "Click 'Close App' to exit, then start the application again."
+                "Click 'Close App' to exit, then start the application again.",
             )
         else:
             # Clean up worker reference
@@ -480,10 +489,9 @@ class StartupDialog(QDialog):
             reply = QMessageBox.question(
                 self,
                 "Download Failed",
-                f"GPU Pack download failed:\n\n{message}\n\n"
-                "Would you like to retry the download?",
+                f"GPU Pack download failed:\n\n{message}\n\n" "Would you like to retry the download?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes
+                QMessageBox.StandardButton.Yes,
             )
 
             if reply == QMessageBox.StandardButton.Yes:
@@ -492,7 +500,7 @@ class StartupDialog(QDialog):
                     from pathlib import Path
                     from utils.files import get_localappdata_dir
 
-                    if self.config and hasattr(self.config, 'data_dir') and self.config.data_dir:
+                    if self.config and hasattr(self.config, "data_dir") and self.config.data_dir:
                         pack_dir = Path(self.config.data_dir) / "gpu_runtime"
                     else:
                         localappdata = get_localappdata_dir()
@@ -524,13 +532,13 @@ class StartupDialog(QDialog):
         self.progress_bar.setVisible(False)
         self.progress_label.setVisible(False)
         self.download_btn.setEnabled(True)
-        if hasattr(self, 'start_btn'):
+        if hasattr(self, "start_btn"):
             self.start_btn.setEnabled(True)
 
     def _on_start_clicked(self):
         """Handle Start App button click."""
         # Save "don't show" preference if checked
-        if hasattr(self, 'dont_show_checkbox') and self.dont_show_checkbox.isChecked():
+        if hasattr(self, "dont_show_checkbox") and self.dont_show_checkbox.isChecked():
             if self.config:
                 self.config.splash_dont_show_health = True
                 self.config.save()
@@ -549,6 +557,7 @@ class StartupDialog(QDialog):
 
         # Raise SystemExit to stop the application startup
         import sys
+
         sys.exit(0)
 
     def log(self, message: str):
@@ -590,10 +599,9 @@ class StartupDialog(QDialog):
             reply = QMessageBox.question(
                 self,
                 "Download in Progress",
-                "GPU Pack download is in progress.\n\n"
-                "Are you sure you want to cancel?",
+                "GPU Pack download is in progress.\n\n" "Are you sure you want to cancel?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
+                QMessageBox.StandardButton.No,
             )
 
             if reply == QMessageBox.StandardButton.No:
@@ -611,6 +619,7 @@ class StartupDialog(QDialog):
             self.reject()
             # Use sys.exit to terminate the application
             import sys
+
             sys.exit(0)
         else:
             event.accept()
@@ -632,11 +641,12 @@ class StartupDialog(QDialog):
             SystemCapabilities if successful, None if cancelled
         """
         # Check if we should skip the dialog
-        skip_if_healthy = config and hasattr(config, 'splash_dont_show_health') and config.splash_dont_show_health
+        skip_if_healthy = config and hasattr(config, "splash_dont_show_health") and config.splash_dont_show_health
 
         if skip_if_healthy:
             # Run quick health check without showing dialog
             from services.system_capabilities import check_system_capabilities
+
             capabilities = check_system_capabilities()
 
             # Only show dialog if there's a critical error

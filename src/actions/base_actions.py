@@ -54,6 +54,7 @@ class BaseActions(QObject):
 
     def _on_song_worker_started(self, song: Song):
         from model.song import SongStatus
+
         song.status = SongStatus.PROCESSING
         self.data.songs.updated.emit(song)
 
@@ -92,33 +93,23 @@ class BaseActions(QObject):
             # Skip restoration if song is in ERROR state
             # (error handler already set it)
             if getattr(song, "status", None) == SongStatus.ERROR:
-                logger.debug(
-                    f"Skipping status restoration for {song}: status is ERROR"
-                )
+                logger.debug(f"Skipping status restoration for {song}: status is ERROR")
                 return
 
             # Restore status based on gap_info
-            if hasattr(song, 'gap_info') and song.gap_info:
+            if hasattr(song, "gap_info") and song.gap_info:
                 # Trigger owner mapping by re-assigning the current GapInfo
                 # status. This forces the GapInfo.status.setter to call
                 # song._gap_info_updated() which maps GapInfo.status to
                 # Song.status
                 current_status = song.gap_info.status
                 song.gap_info.status = current_status
-                logger.debug(
-                    f"Restored status for {song} from gap_info: "
-                    f"{current_status}"
-                )
+                logger.debug(f"Restored status for {song} from gap_info: " f"{current_status}")
             else:
                 # No gap_info available, reset to NOT_PROCESSED
                 song.status = SongStatus.NOT_PROCESSED
-                logger.debug(
-                    f"Reset status for {song} to NOT_PROCESSED (no gap_info)"
-                )
+                logger.debug(f"Reset status for {song} to NOT_PROCESSED (no gap_info)")
 
         except Exception as e:
             # Log but don't crash; status will stay as-is
-            logger.warning(
-                f"Failed to restore status for {song}: {e}",
-                exc_info=True
-            )
+            logger.warning(f"Failed to restore status for {song}: {e}", exc_info=True)

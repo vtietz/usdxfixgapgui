@@ -1,4 +1,5 @@
 """Test that German umlauts and special characters are handled correctly"""
+
 import asyncio
 import os
 import tempfile
@@ -20,7 +21,7 @@ def test_load_notes_with_german_umlauts():
 : 12 4 8 gern
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', encoding='cp1252', suffix='.txt', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", encoding="cp1252", suffix=".txt", delete=False) as f:
         f.write(content)
         temp_file = f.name
 
@@ -37,7 +38,7 @@ def test_load_notes_with_german_umlauts():
         assert notes[3].Text == "gern"
 
         # Verify encoding was detected
-        assert usdx_file.encoding in ['cp1252', 'windows-1252', 'latin-1']
+        assert usdx_file.encoding in ["cp1252", "windows-1252", "latin-1"]
 
     finally:
         if os.path.exists(temp_file):
@@ -58,7 +59,7 @@ def test_load_notes_with_utf8_encoding():
 : 16 4 9 ken
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', suffix='.txt', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", suffix=".txt", delete=False) as f:
         f.write(content)
         temp_file = f.name
 
@@ -74,7 +75,7 @@ def test_load_notes_with_utf8_encoding():
         assert notes[4].Text == "ken"
 
         # Verify encoding was detected
-        assert usdx_file.encoding == 'utf-8'
+        assert usdx_file.encoding == "utf-8"
 
     finally:
         if os.path.exists(temp_file):

@@ -73,11 +73,7 @@ def is_gpu_ready(config, gpu_enabled: bool) -> bool:
     Returns:
         True if GPU is ready to use, False otherwise
     """
-    return (
-        is_gpu_pack_installed(config) and
-        is_gpu_enabled(config) and
-        gpu_enabled
-    )
+    return is_gpu_pack_installed(config) and is_gpu_enabled(config) and gpu_enabled
 
 
 def get_gpu_status_summary(config, gpu_enabled: bool) -> dict:
@@ -101,11 +97,11 @@ def get_gpu_status_summary(config, gpu_enabled: bool) -> dict:
     pack_info = get_gpu_pack_info(config)
 
     return {
-        'installed': is_gpu_pack_installed(config),
-        'enabled': is_gpu_enabled(config),
-        'bootstrapped': gpu_enabled,
-        'ready': is_gpu_ready(config, gpu_enabled),
-        'version': pack_info[0] if pack_info else None,
-        'path': pack_info[1] if pack_info else None,
-        'last_error': config.gpu_last_error if hasattr(config, 'gpu_last_error') else None
+        "installed": is_gpu_pack_installed(config),
+        "enabled": is_gpu_enabled(config),
+        "bootstrapped": gpu_enabled,
+        "ready": is_gpu_ready(config, gpu_enabled),
+        "version": pack_info[0] if pack_info else None,
+        "path": pack_info[1] if pack_info else None,
+        "last_error": config.gpu_last_error if hasattr(config, "gpu_last_error") else None,
     }

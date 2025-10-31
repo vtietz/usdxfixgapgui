@@ -7,6 +7,7 @@ from ui.mediaplayer.constants import AudioFileStatus
 
 logger = logging.getLogger(__name__)
 
+
 class UIManager:
     def __init__(self, config):
         self._config = config
@@ -14,16 +15,16 @@ class UIManager:
 
     def setup(self, buttons, labels, waveform_widget):
         """Set up references to UI elements"""
-        self.play_btn = buttons['play']
-        self.audio_btn = buttons['audio']
-        self.vocals_btn = buttons['vocals']
-        self.save_current_play_position_btn = buttons['save_position']
-        self.save_detected_gap_btn = buttons['save_detected']
-        self.keep_original_gap_btn = buttons['keep_original']
-        self.revert_btn = buttons['revert']
+        self.play_btn = buttons["play"]
+        self.audio_btn = buttons["audio"]
+        self.vocals_btn = buttons["vocals"]
+        self.save_current_play_position_btn = buttons["save_position"]
+        self.save_detected_gap_btn = buttons["save_detected"]
+        self.keep_original_gap_btn = buttons["keep_original"]
+        self.revert_btn = buttons["revert"]
 
-        self.position_label = labels['position']
-        self.syllable_label = labels['syllable']
+        self.position_label = labels["position"]
+        self.syllable_label = labels["syllable"]
 
         self.waveform_widget = waveform_widget
 
@@ -33,7 +34,9 @@ class UIManager:
 
         self.save_current_play_position_btn.setEnabled(is_enabled and self._play_position > 0)
         # Check if detected_gap exists and is greater than 0
-        has_detected_gap = is_enabled and song.gap_info.detected_gap is not None and song.gap_info.detected_gap > 0 if song else False
+        has_detected_gap = (
+            is_enabled and song.gap_info.detected_gap is not None and song.gap_info.detected_gap > 0 if song else False
+        )
         self.save_detected_gap_btn.setEnabled(has_detected_gap)
         self.keep_original_gap_btn.setEnabled(is_enabled)
         self.play_btn.setEnabled(is_enabled and (is_media_loaded or is_playing))
@@ -83,7 +86,7 @@ class UIManager:
             return
 
         # Check if song has notes attribute
-        if not hasattr(song, 'notes') or song.notes is None:
+        if not hasattr(song, "notes") or song.notes is None:
             self.syllable_label.setText("")
             return
 

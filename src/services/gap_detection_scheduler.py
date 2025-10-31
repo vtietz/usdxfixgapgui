@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class _PendingDetection:
     """Track a pending gap detection task"""
+
     song_path: str
     txt_file: str
     last_event_time: datetime
@@ -47,7 +48,7 @@ class GapDetectionScheduler(QObject):
         debounce_ms: int,
         start_gap_detection: Callable,
         songs_get_by_txt_file: Callable,
-        songs_get_by_path: Callable
+        songs_get_by_path: Callable,
     ):
         """
         Initialize GapDetectionScheduler.
@@ -71,7 +72,7 @@ class GapDetectionScheduler(QObject):
         self._in_flight: Set[str] = set()
 
         # Extensions that trigger gap detection
-        self._trigger_extensions = {'.txt', '.mp3', '.wav', '.ogg', '.m4a', '.flac'}
+        self._trigger_extensions = {".txt", ".mp3", ".wav", ".ogg", ".m4a", ".flac"}
 
     def handle_event(self, event: WatchEvent):
         """
@@ -111,7 +112,7 @@ class GapDetectionScheduler(QObject):
         """Find .txt file in folder."""
         try:
             for filename in os.listdir(folder):
-                if filename.lower().endswith('.txt'):
+                if filename.lower().endswith(".txt"):
                     return os.path.join(folder, filename)
         except Exception as e:
             logger.debug(f"Error listing {folder}: {e}")
@@ -146,12 +147,7 @@ class GapDetectionScheduler(QObject):
             timer.setSingleShot(True)
             timer.timeout.connect(lambda: self._execute_detection(song_path))
 
-            pending = _PendingDetection(
-                song_path=song_path,
-                txt_file=txt_file,
-                last_event_time=now,
-                timer=timer
-            )
+            pending = _PendingDetection(song_path=song_path, txt_file=txt_file, last_event_time=now, timer=timer)
 
             self._pending[song_path] = pending
             timer.start(self._debounce_ms)

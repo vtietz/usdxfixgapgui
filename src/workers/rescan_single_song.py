@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class WorkerSignals(IWorkerSignals):
     """Signals emitted by RescanSingleSongWorker"""
+
     songScanned = Signal(Song)
 
 
@@ -42,11 +43,12 @@ class RescanSingleSongWorker(IWorker):
         """Load/scan the song from file."""
         try:
             # Determine txt file path
-            if os.path.isfile(self.song_path) and self.song_path.endswith('.txt'):
+            if os.path.isfile(self.song_path) and self.song_path.endswith(".txt"):
                 txt_file = self.song_path
             else:
                 # Find txt file in directory
                 from utils import files
+
                 txt_file = files.find_txt_file(self.song_path)
 
             # Load song with force_reload=True to bypass cache
@@ -62,7 +64,7 @@ class RescanSingleSongWorker(IWorker):
             logger.error(f"Error scanning song '{self.song_path}': {e}", exc_info=True)
 
             # Create minimal song with error status
-            txt_path = self.song_path if self.song_path.endswith('.txt') else ""
+            txt_path = self.song_path if self.song_path.endswith(".txt") else ""
             song = Song(txt_file=txt_path)
             song.set_error(str(e))
 

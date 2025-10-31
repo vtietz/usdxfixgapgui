@@ -36,5 +36,5 @@ def create_basic_notes() -> list:
     """
     return [
         create_note(start_beat=0, length=4, pitch=60, text="Hello"),
-        create_note(start_beat=4, length=4, pitch=62, text="World")
+        create_note(start_beat=4, length=4, pitch=62, text="World"),
     ]

@@ -8,16 +8,18 @@ from model.usdx_file import Note  # Add this import
 
 logger = logging.getLogger(__name__)
 
+
 class SongStatus(Enum):
-    NOT_PROCESSED = 'NOT_PROCESSED'
-    QUEUED = 'QUEUED'
-    PROCESSING = 'PROCESSING'
-    GAP_DETECTED = 'GAP_DETECTED'
-    SOLVED = 'SOLVED'
-    UPDATED = 'UPDATED'
-    MATCH = 'MATCH'
-    MISMATCH = 'MISMATCH'
-    ERROR = 'ERROR'
+    NOT_PROCESSED = "NOT_PROCESSED"
+    QUEUED = "QUEUED"
+    PROCESSING = "PROCESSING"
+    GAP_DETECTED = "GAP_DETECTED"
+    SOLVED = "SOLVED"
+    UPDATED = "UPDATED"
+    MATCH = "MATCH"
+    MISMATCH = "MISMATCH"
+    ERROR = "ERROR"
+
 
 class Song:
 

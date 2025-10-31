@@ -1,4 +1,5 @@
 """Test waveform widget placeholder functionality"""
+
 import pytest
 from ui.mediaplayer.waveform_widget import WaveformWidget
 

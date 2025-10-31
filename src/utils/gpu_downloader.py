@@ -8,21 +8,19 @@ and atomic extraction.
 import json
 import hashlib
 import logging
-import time
 import uuid
 import shutil
 import zipfile
 from pathlib import Path
 from typing import Optional, Callable
 from datetime import datetime
-import urllib.request
-import urllib.error
 
 logger = logging.getLogger(__name__)
 
 
 class CancelToken:
     """Simple cancellation token for downloads."""
+
     def __init__(self):
         self.cancelled = False
 
@@ -40,7 +38,7 @@ def download_with_resume(
     expected_size: int,
     progress_cb: Optional[Callable[[int, int], None]] = None,
     cancel_token: Optional[CancelToken] = None,
-    config=None
+    config=None,
 ) -> bool:
     """
     Download file with resume support and SHA-256 verification.
@@ -58,6 +56,7 @@ def download_with_resume(
         True on success, False on failure
     """
     from utils.download import download_file
+
     logger.info("Using resilient downloader")
     return download_file(
         url=url,
@@ -65,7 +64,7 @@ def download_with_resume(
         expected_sha256=expected_sha256,
         expected_size=expected_size,
         progress_cb=progress_cb,
-        cancel_token=cancel_token
+        cancel_token=cancel_token,
     )
 
 
@@ -97,7 +96,7 @@ def verify_file_checksum(file_path: Path, expected_sha256: str, expected_size: i
 
         # Check SHA-256
         hasher = hashlib.sha256()
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             while True:
                 chunk = f.read(8192)
                 if not chunk:
@@ -130,13 +129,13 @@ def extract_zip(zip_path: Path, dest_dir: Path) -> bool:
     temp_dir = None
     try:
         # Create temporary extraction directory
-        temp_dir = dest_dir.parent / f'tmp_{uuid.uuid4().hex}'
+        temp_dir = dest_dir.parent / f"tmp_{uuid.uuid4().hex}"
         temp_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Extracting {zip_path} to {temp_dir}")
 
         # Extract ZIP
-        with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(temp_dir)
 
         # Atomic move to final location
@@ -176,16 +175,16 @@ def write_install_record(dest_dir: Path, manifest) -> bool:
     """
     try:
         install_record = {
-            'app_version': manifest.app_version,
-            'torch_version': manifest.torch_version,
-            'cuda_version': manifest.cuda_version,
-            'sha256': manifest.sha256,
-            'install_time': datetime.utcnow().isoformat(),
-            'flavor': manifest.flavor
+            "app_version": manifest.app_version,
+            "torch_version": manifest.torch_version,
+            "cuda_version": manifest.cuda_version,
+            "sha256": manifest.sha256,
+            "install_time": datetime.utcnow().isoformat(),
+            "flavor": manifest.flavor,
         }
 
-        install_json = dest_dir / 'install.json'
-        with open(install_json, 'w') as f:
+        install_json = dest_dir / "install.json"
+        with open(install_json, "w") as f:
             json.dump(install_record, f, indent=2)
 
         logger.info(f"Installation record written: {install_json}")

@@ -28,7 +28,7 @@ def detect_python_version_from_wheel(wheel_filename: str) -> str:
     Returns:
         Python version tag (e.g., 'cp38') or empty string if not found
     """
-    match = re.search(r'-cp(\d+)-', wheel_filename)
+    match = re.search(r"-cp(\d+)-", wheel_filename)
     return f"cp{match.group(1)}" if match else ""
 
 
@@ -57,14 +57,15 @@ def find_mismatched_packs(runtime_root: Path) -> List[Tuple[Path, str, str]]:
         if install_json.exists():
             try:
                 import json
-                with open(install_json, 'r') as f:
-                    data = json.load(f)
+
+                with open(install_json, "r") as f:
+                    json.load(f)
                     # install.json doesn't store wheel filename, so we check dist-info folder
             except Exception as e:
                 logger.debug(f"Failed to read install.json: {e}")
 
         # Check for torch dist-info folder (contains wheel metadata)
-        dist_info_pattern = pack_dir / "torch-*.dist-info"
+        pack_dir / "torch-*.dist-info"
         dist_info_dirs = list(pack_dir.glob("torch-*.dist-info"))
 
         if dist_info_dirs:
@@ -76,8 +77,7 @@ def find_mismatched_packs(runtime_root: Path) -> List[Tuple[Path, str, str]]:
             if pack_py_tag and pack_py_tag != current_py_tag:
                 mismatched.append((pack_dir, pack_py_tag, current_py_tag))
                 logger.info(
-                    f"Found mismatched GPU Pack: {pack_dir.name} "
-                    f"(pack: {pack_py_tag}, current: {current_py_tag})"
+                    f"Found mismatched GPU Pack: {pack_dir.name} " f"(pack: {pack_py_tag}, current: {current_py_tag})"
                 )
 
     return mismatched
@@ -102,18 +102,13 @@ def clean_mismatched_packs(runtime_root: Path, dry_run: bool = True) -> int:
 
     for pack_dir, pack_py, current_py in mismatched:
         if dry_run:
-            logger.info(
-                f"[DRY RUN] Would delete: {pack_dir} "
-                f"(Python {pack_py} → {current_py})"
-            )
+            logger.info(f"[DRY RUN] Would delete: {pack_dir} " f"(Python {pack_py} → {current_py})")
         else:
             try:
                 import shutil
+
                 shutil.rmtree(pack_dir)
-                logger.info(
-                    f"Deleted mismatched GPU Pack: {pack_dir} "
-                    f"(Python {pack_py} → {current_py})"
-                )
+                logger.info(f"Deleted mismatched GPU Pack: {pack_dir} " f"(Python {pack_py} → {current_py})")
             except Exception as e:
                 logger.error(f"Failed to delete {pack_dir}: {e}")
 

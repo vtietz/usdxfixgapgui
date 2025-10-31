@@ -53,7 +53,7 @@ class IDetectionProvider(ABC):
         destination_vocals_filepath: str,
         duration: int = 60,
         overwrite: bool = False,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        check_cancellation: Optional[Callable[[], bool]] = None,
     ) -> str:
         """
         Get or create vocals/preview file for gap detection.
@@ -90,7 +90,7 @@ class IDetectionProvider(ABC):
         audio_file: str,
         vocals_file: str,
         original_gap_ms: Optional[float] = None,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        check_cancellation: Optional[Callable[[], bool]] = None,
     ) -> List[Tuple[float, float]]:
         """
         Detect silence or speech boundary periods in audio.
@@ -123,10 +123,7 @@ class IDetectionProvider(ABC):
 
     @abstractmethod
     def compute_confidence(
-        self,
-        audio_file: str,
-        detected_gap_ms: float,
-        check_cancellation: Optional[Callable[[], bool]] = None
+        self, audio_file: str, detected_gap_ms: float, check_cancellation: Optional[Callable[[], bool]] = None
     ) -> float:
         """
         Compute confidence score for the detected gap.

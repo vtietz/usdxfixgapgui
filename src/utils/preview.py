@@ -14,13 +14,14 @@ try:
     import librosa
     import soundfile as sf
     import numpy as np
+
     LIBROSA_AVAILABLE = True
 except ImportError:
     LIBROSA_AVAILABLE = False
     # Bind names to avoid 'possibly unbound' diagnostics in type checker
     librosa = None  # type: ignore
-    sf = None       # type: ignore
-    np = None       # type: ignore
+    sf = None  # type: ignore
+    np = None  # type: ignore
     logger.warning("librosa not available. Preview generation will be limited.")
 
 
@@ -29,7 +30,7 @@ def extract_time_window(
     start_ms: float,
     end_ms: float,
     output_file: Optional[str] = None,
-    check_cancellation: Optional[Callable[[], bool]] = None
+    check_cancellation: Optional[Callable[[], bool]] = None,
 ) -> str:
     """
     Extract a time window from audio file.
@@ -48,19 +49,24 @@ def extract_time_window(
 
     if output_file is None:
         temp_dir = os.path.dirname(audio_file)
-        output_file = tempfile.NamedTemporaryFile(delete=False, suffix='_window.wav', dir=temp_dir).name
+        output_file = tempfile.NamedTemporaryFile(delete=False, suffix="_window.wav", dir=temp_dir).name
 
     # Use ffmpeg for precise window extraction
     start_sec = start_ms / 1000.0
     duration_sec = (end_ms - start_ms) / 1000.0
 
     command = [
-        'ffmpeg', '-y',
-        '-ss', str(start_sec),
-        '-t', str(duration_sec),
-        '-i', audio_file,
-        '-acodec', 'pcm_s16le',
-        output_file
+        "ffmpeg",
+        "-y",
+        "-ss",
+        str(start_sec),
+        "-t",
+        str(duration_sec),
+        "-i",
+        audio_file,
+        "-acodec",
+        "pcm_s16le",
+        output_file,
     ]
 
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
@@ -78,7 +84,7 @@ def apply_vad_gate(
     vad_segments: List[Tuple[float, float]],
     attenuation_db: float = -12.0,
     output_file: Optional[str] = None,
-    check_cancellation: Optional[Callable[[], bool]] = None
+    check_cancellation: Optional[Callable[[], bool]] = None,
 ) -> str:
     """
     Apply VAD-based gating to attenuate non-vocal frames.
@@ -102,6 +108,7 @@ def apply_vad_gate(
     # Load audio (type-narrow for static checker)
     assert LIBROSA_AVAILABLE and librosa is not None and np is not None and sf is not None
     from typing import cast, Any
+
     lib = cast(Any, librosa)
     np_mod = cast(Any, np)
     sf_mod = cast(Any, sf)
@@ -134,7 +141,7 @@ def apply_vad_gate(
     # Determine output file
     if output_file is None:
         temp_dir = os.path.dirname(audio_file)
-        output_file = tempfile.NamedTemporaryFile(delete=False, suffix='_gated.wav', dir=temp_dir).name
+        output_file = tempfile.NamedTemporaryFile(delete=False, suffix="_gated.wav", dir=temp_dir).name
 
     # Save
     logger.debug(f"Saving gated audio to {output_file}")
@@ -151,7 +158,7 @@ def build_vocals_preview(
     vad_segments: Optional[List[Tuple[float, float]]] = None,
     use_hpss: bool = True,
     output_file: Optional[str] = None,
-    check_cancellation: Optional[Callable[[], bool]] = None
+    check_cancellation: Optional[Callable[[], bool]] = None,
 ) -> str:
     """
     Build a vocals-focused preview window around the detected gap.
@@ -187,9 +194,7 @@ def build_vocals_preview(
             # Perform HPSS on the window
             output_dir = os.path.dirname(window_file)
             harmonic_file, percussive_file = hpss_mono(
-                window_file,
-                output_dir=output_dir,
-                check_cancellation=check_cancellation
+                window_file, output_dir=output_dir, check_cancellation=check_cancellation
             )
 
             try:
@@ -199,7 +204,7 @@ def build_vocals_preview(
                     percussive_file,
                     harmonic_weight=0.8,
                     percussive_weight=0.2,
-                    check_cancellation=check_cancellation
+                    check_cancellation=check_cancellation,
                 )
 
                 # Replace window file with blended version
@@ -235,7 +240,7 @@ def build_vocals_preview(
                     window_file,
                     adjusted_segments,
                     attenuation_db=-9.0,  # 9dB attenuation for non-vocal
-                    check_cancellation=check_cancellation
+                    check_cancellation=check_cancellation,
                 )
 
                 if gated_file != window_file:
@@ -245,6 +250,7 @@ def build_vocals_preview(
 
         # Apply voice clarity filter
         from utils.audio import make_clearer_voice
+
         logger.debug("Applying voice clarity filter")
         window_file = make_clearer_voice(window_file, check_cancellation)
 

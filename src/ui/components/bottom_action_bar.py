@@ -7,12 +7,8 @@ Three clusters:
 - Right: Commit actions (save, keep original)
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QPushButton,
-    QLabel, QSpinBox, QFrame
-)
-from PySide6.QtCore import Signal, Qt
-from typing import Optional
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel, QSpinBox
+from PySide6.QtCore import Signal
 
 
 class BottomActionBar(QWidget):

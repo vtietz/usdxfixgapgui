@@ -31,12 +31,12 @@ def resolve_pack_dir(app_version: str, flavor: str = "cu121") -> Path:
     Returns:
         Path to GPU Pack directory
     """
-    local_app_data = os.getenv('LOCALAPPDATA')
+    local_app_data = os.getenv("LOCALAPPDATA")
     if not local_app_data:
         # Fallback for non-Windows or missing env var
-        local_app_data = os.path.expanduser('~/.local/share')
+        local_app_data = os.path.expanduser("~/.local/share")
 
-    pack_dir = Path(local_app_data) / 'USDXFixGap' / 'gpu_runtime' / f'v{app_version}-{flavor}'
+    pack_dir = Path(local_app_data) / "USDXFixGap" / "gpu_runtime" / f"v{app_version}-{flavor}"
     return pack_dir
 
 
@@ -47,17 +47,17 @@ def find_installed_pack_dirs() -> List[Dict[str, Any]]:
     Returns:
         List of dictionaries with keys: path, app_version, flavor, has_install_json
     """
-    local_app_data = os.getenv('LOCALAPPDATA')
+    local_app_data = os.getenv("LOCALAPPDATA")
     if not local_app_data:
-        local_app_data = os.path.expanduser('~/.local/share')
+        local_app_data = os.path.expanduser("~/.local/share")
 
-    runtime_root = Path(local_app_data) / 'USDXFixGap' / 'gpu_runtime'
+    runtime_root = Path(local_app_data) / "USDXFixGap" / "gpu_runtime"
 
     if not runtime_root.exists():
         return []
 
     candidates = []
-    version_pattern = re.compile(r'^v([\d.]+)-(cu\d+)$')
+    version_pattern = re.compile(r"^v([\d.]+)-(cu\d+)$")
 
     try:
         for item in runtime_root.iterdir():
@@ -75,28 +75,25 @@ def find_installed_pack_dirs() -> List[Dict[str, Any]]:
                 flavor = match.group(2)
 
             # Check for install.json
-            install_json_path = item / 'install.json'
+            install_json_path = item / "install.json"
             if install_json_path.exists():
                 has_install_json = True
                 try:
-                    with open(install_json_path, 'r') as f:
+                    with open(install_json_path, "r") as f:
                         install_data = json.load(f)
                         # Override with install.json data if available
-                        if 'app_version' in install_data:
-                            app_version = install_data['app_version']
-                        if 'flavor' in install_data:
-                            flavor = install_data['flavor']
+                        if "app_version" in install_data:
+                            app_version = install_data["app_version"]
+                        if "flavor" in install_data:
+                            flavor = install_data["flavor"]
                 except Exception as e:
                     logger.debug(f"Could not parse install.json in {item}: {e}")
 
             # Add candidate if we have at least a version or install.json
             if app_version or has_install_json:
-                candidates.append({
-                    'path': item,
-                    'app_version': app_version,
-                    'flavor': flavor,
-                    'has_install_json': has_install_json
-                })
+                candidates.append(
+                    {"path": item, "app_version": app_version, "flavor": flavor, "has_install_json": has_install_json}
+                )
 
     except Exception as e:
         logger.debug(f"Error scanning GPU runtime directory: {e}")
@@ -125,21 +122,21 @@ def select_best_existing_pack(candidates: List[Dict[str, Any]], config_flavor: O
 
     # Filter by flavor if specified
     if config_flavor:
-        flavor_matches = [c for c in candidates if c.get('flavor') == config_flavor]
+        flavor_matches = [c for c in candidates if c.get("flavor") == config_flavor]
         if flavor_matches:
             candidates = flavor_matches
 
     # Prefer packs with install.json
-    with_install = [c for c in candidates if c['has_install_json']]
+    with_install = [c for c in candidates if c["has_install_json"]]
     if with_install:
         candidates = with_install
 
     # Sort by version (most recent first)
     def version_key(candidate):
-        ver = candidate.get('app_version')
+        ver = candidate.get("app_version")
         if ver:
             try:
-                parts = [int(p) for p in ver.split('.')]
+                parts = [int(p) for p in ver.split(".")]
                 return tuple(parts)
             except:
                 pass
@@ -147,7 +144,7 @@ def select_best_existing_pack(candidates: List[Dict[str, Any]], config_flavor: O
 
     candidates.sort(key=version_key, reverse=True)
 
-    return candidates[0]['path'] if candidates else None
+    return candidates[0]["path"] if candidates else None
 
 
 def auto_recover_gpu_pack_config(config) -> bool:
@@ -164,7 +161,7 @@ def auto_recover_gpu_pack_config(config) -> bool:
         True if recovery was performed, False otherwise
     """
     # Only recover if pack path is not set
-    pack_path = getattr(config, 'gpu_pack_path', '')
+    pack_path = getattr(config, "gpu_pack_path", "")
     if pack_path:
         return False
 
@@ -177,7 +174,7 @@ def auto_recover_gpu_pack_config(config) -> bool:
         return False
 
     # Select best pack
-    config_flavor = getattr(config, 'gpu_flavor', None)
+    config_flavor = getattr(config, "gpu_flavor", None)
     best_pack = select_best_existing_pack(candidates, config_flavor)
 
     if not best_pack:
@@ -190,17 +187,19 @@ def auto_recover_gpu_pack_config(config) -> bool:
     config.gpu_pack_path = str(best_pack)
 
     # Try to read install.json for version info
-    install_json_path = best_pack / 'install.json'
+    install_json_path = best_pack / "install.json"
     if install_json_path.exists():
         try:
-            with open(install_json_path, 'r') as f:
+            with open(install_json_path, "r") as f:
                 install_data = json.load(f)
-                if 'app_version' in install_data:
-                    config.gpu_pack_installed_version = install_data['app_version']
-                if 'flavor' in install_data and not config_flavor:
-                    config.gpu_flavor = install_data['flavor']
-                logger.debug(f"Loaded installation metadata: version={install_data.get('app_version')}, "
-                           f"flavor={install_data.get('flavor')}")
+                if "app_version" in install_data:
+                    config.gpu_pack_installed_version = install_data["app_version"]
+                if "flavor" in install_data and not config_flavor:
+                    config.gpu_flavor = install_data["flavor"]
+                logger.debug(
+                    f"Loaded installation metadata: version={install_data.get('app_version')}, "
+                    f"flavor={install_data.get('flavor')}"
+                )
         except Exception as e:
             logger.debug(f"Could not read install.json: {e}")
 

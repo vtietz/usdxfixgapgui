@@ -13,11 +13,7 @@ class TestCancellableProcessSuccess:
         """Test: Successfully aggregates stdout and stderr from subprocess"""
         # Setup: Command that writes to both stdout and stderr
         # Using sys.executable ensures the executable exists on the system
-        command = [
-            sys.executable,
-            "-c",
-            "import sys; print('output line'); sys.stderr.write('error line\\n')"
-        ]
+        command = [sys.executable, "-c", "import sys; print('output line'); sys.stderr.write('error line\\n')"]
 
         # Action: Run the command
         returncode, stdout, stderr = run_cancellable_process(command)
@@ -33,11 +29,7 @@ class TestCancellableProcessSuccess:
 
     def test_handles_empty_output(self):
         """Test: Handles command with no output"""
-        command = [
-            sys.executable,
-            "-c",
-            "pass"  # Does nothing
-        ]
+        command = [sys.executable, "-c", "pass"]  # Does nothing
 
         # Action
         returncode, stdout, stderr = run_cancellable_process(command)
@@ -49,11 +41,7 @@ class TestCancellableProcessSuccess:
 
     def test_handles_multi_line_output(self):
         """Test: Correctly captures multi-line output"""
-        command = [
-            sys.executable,
-            "-c",
-            "for i in range(3): print(f'line {i}')"
-        ]
+        command = [sys.executable, "-c", "for i in range(3): print(f'line {i}')"]
 
         # Action
         returncode, stdout, stderr = run_cancellable_process(command)
@@ -66,11 +54,7 @@ class TestCancellableProcessSuccess:
 
     def test_non_zero_returncode(self):
         """Test: Captures non-zero return code from failing command"""
-        command = [
-            sys.executable,
-            "-c",
-            "import sys; sys.exit(42)"
-        ]
+        command = [sys.executable, "-c", "import sys; sys.exit(42)"]
 
         # Action
         returncode, stdout, stderr = run_cancellable_process(command)
@@ -88,11 +72,7 @@ class TestCancellableProcessSuccess:
             cancelled = True
             return True  # Signal cancellation
 
-        command = [
-            sys.executable,
-            "-c",
-            "import time; time.sleep(10)"  # Long-running command
-        ]
+        command = [sys.executable, "-c", "import time; time.sleep(10)"]  # Long-running command
 
         # Action: Run with cancellation callback
         # Note: The implementation raises Exception when cancelled

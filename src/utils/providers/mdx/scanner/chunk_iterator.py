@@ -5,7 +5,7 @@ Generates audio chunk boundaries with overlap tracking to avoid redundant proces
 Pure iteration logic with no I/O - focuses solely on boundary calculation.
 """
 
-from typing import Iterator, Tuple, Set
+from typing import Iterator, Set
 from dataclasses import dataclass
 
 
@@ -20,6 +20,7 @@ class ChunkBoundaries:
         start_s: Chunk start position in seconds (convenience)
         end_s: Chunk end position in seconds (convenience)
     """
+
     start_ms: float
     end_ms: float
 
@@ -66,12 +67,7 @@ class ChunkIterator:
             pass
     """
 
-    def __init__(
-        self,
-        chunk_duration_ms: float,
-        chunk_overlap_ms: float,
-        total_duration_ms: float
-    ):
+    def __init__(self, chunk_duration_ms: float, chunk_overlap_ms: float, total_duration_ms: float):
         """
         Initialize chunk iterator.
 
@@ -88,11 +84,7 @@ class ChunkIterator:
         # Track processed chunks for deduplication
         self._processed: Set[ChunkBoundaries] = set()
 
-    def generate_chunks(
-        self,
-        start_ms: float,
-        end_ms: float
-    ) -> Iterator[ChunkBoundaries]:
+    def generate_chunks(self, start_ms: float, end_ms: float) -> Iterator[ChunkBoundaries]:
         """
         Generate chunk boundaries within specified range.
 
@@ -110,20 +102,14 @@ class ChunkIterator:
         while current_start_ms < end_ms:
             # Calculate chunk boundaries
             chunk_start_ms = current_start_ms
-            chunk_end_ms = min(
-                current_start_ms + self.chunk_duration_ms,
-                self.total_duration_ms
-            )
+            chunk_end_ms = min(current_start_ms + self.chunk_duration_ms, self.total_duration_ms)
 
             # Skip if chunk extends beyond range
             if chunk_start_ms >= end_ms:
                 break
 
             # Create chunk boundaries
-            chunk = ChunkBoundaries(
-                start_ms=chunk_start_ms,
-                end_ms=chunk_end_ms
-            )
+            chunk = ChunkBoundaries(start_ms=chunk_start_ms, end_ms=chunk_end_ms)
 
             # Skip if already processed
             if chunk in self._processed:

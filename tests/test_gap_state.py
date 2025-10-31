@@ -2,7 +2,6 @@
 Tests for GapState service.
 """
 
-import pytest
 from src.services.gap_state import GapState, SeverityBand
 
 

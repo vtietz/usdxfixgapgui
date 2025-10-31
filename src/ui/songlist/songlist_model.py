@@ -95,16 +95,16 @@ class SongTableModel(QAbstractTableModel):
     def _add_to_cache(self, song: Song):
         """Add a single song to the cache."""
         self._row_cache[song.path] = {
-            'relative_path': files.get_relative_path(self.app_data.directory, song.path),
-            'artist_lower': song.artist.lower(),
-            'title_lower': song.title.lower()
+            "relative_path": files.get_relative_path(self.app_data.directory, song.path),
+            "artist_lower": song.artist.lower(),
+            "title_lower": song.title.lower(),
         }
 
     def _update_cache(self, song: Song):
         """Update cache entry for a song."""
         if song.path in self._row_cache:
-            self._row_cache[song.path]['artist_lower'] = song.artist.lower()
-            self._row_cache[song.path]['title_lower'] = song.title.lower()
+            self._row_cache[song.path]["artist_lower"] = song.artist.lower()
+            self._row_cache[song.path]["title_lower"] = song.title.lower()
 
     def _remove_from_cache(self, song: Song):
         """Remove a song from the cache."""
@@ -120,9 +120,8 @@ class SongTableModel(QAbstractTableModel):
         if not sorted_rows:
             return
 
-        ellipsis = '...' if len(sorted_rows) > 10 else ''
-        logger.debug(f"Emitting dataChanged for {len(sorted_rows)} rows: "
-                     f"{sorted_rows[:10]}{ellipsis}")
+        ellipsis = "..." if len(sorted_rows) > 10 else ""
+        logger.debug(f"Emitting dataChanged for {len(sorted_rows)} rows: " f"{sorted_rows[:10]}{ellipsis}")
 
         # Emit contiguous ranges
         start_row = sorted_rows[0]
@@ -140,7 +139,7 @@ class SongTableModel(QAbstractTableModel):
                         Qt.ItemDataRole.DisplayRole,
                         Qt.ItemDataRole.BackgroundRole,
                         Qt.ItemDataRole.TextAlignmentRole,
-                    ]
+                    ],
                 )
                 start_row = row
                 end_row = row
@@ -153,7 +152,7 @@ class SongTableModel(QAbstractTableModel):
                 Qt.ItemDataRole.DisplayRole,
                 Qt.ItemDataRole.BackgroundRole,
                 Qt.ItemDataRole.TextAlignmentRole,
-            ]
+            ],
         )
 
         self._dirty_rows.clear()
@@ -212,22 +211,29 @@ class SongTableModel(QAbstractTableModel):
             return self._format_column_display(song, column, cache_entry)
         elif role == Qt.ItemDataRole.TextAlignmentRole:
             if 3 <= column <= 8 or column == 10:
-                return (Qt.AlignmentFlag.AlignRight |
-                        Qt.AlignmentFlag.AlignVCenter)
-            return (Qt.AlignmentFlag.AlignLeft |
-                    Qt.AlignmentFlag.AlignVCenter)
+                return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         elif role == Qt.ItemDataRole.BackgroundRole:
             if song.status == SongStatus.ERROR:
                 return Qt.GlobalColor.red
         return None
 
-    def headerData(self, section, orientation,
-                   role=Qt.ItemDataRole.DisplayRole):
-        if (orientation == Qt.Orientation.Horizontal and
-                role == Qt.ItemDataRole.DisplayRole):
-            headers = ["Path", "Artist", "Title", "Length", "BPM", "Gap",
-                       "Detected Gap", "Diff", "Notes", "Time",
-                       "Normalized", "Status"]
+    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
+            headers = [
+                "Path",
+                "Artist",
+                "Title",
+                "Length",
+                "BPM",
+                "Gap",
+                "Detected Gap",
+                "Diff",
+                "Notes",
+                "Time",
+                "Normalized",
+                "Status",
+            ]
             return headers[section]
         return None
 

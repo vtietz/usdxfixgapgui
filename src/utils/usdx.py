@@ -1,9 +1,9 @@
-
 import logging
 from typing import List, cast
 from model.usdx_file import Note
 
 logger = logging.getLogger(__name__)
+
 
 def fix_gap(gap: int, start_beat: int, bpm: float):
     """
@@ -28,15 +28,19 @@ def fix_gap(gap: int, start_beat: int, bpm: float):
         ms_per_beat = 15000.0 / float(bpm)
         position_ms = int(start_beat * ms_per_beat)
         gap = gap - position_ms
-        logger.debug(f"fix_gap: start_beat={start_beat}, bpm={bpm}, ms_per_beat={ms_per_beat:.3f}, "
-                    f"position_ms={position_ms}, adjusted_gap={gap}")
+        logger.debug(
+            f"fix_gap: start_beat={start_beat}, bpm={bpm}, ms_per_beat={ms_per_beat:.3f}, "
+            f"position_ms={position_ms}, adjusted_gap={gap}"
+        )
     return gap
+
 
 def get_syllaby_at_position(notes: List[Note], position: int):
     for note in notes:
         if note.StartBeat == position:
             return note.Text
     return None
+
 
 def get_syllable(notes: List[Note], position_ms: int, bpm: float, gap: int, is_relative=False):
     """
@@ -71,6 +75,7 @@ def get_syllable(notes: List[Note], position_ms: int, bpm: float, gap: int, is_r
     # If no note matches the current position
     return None
 
+
 def calculate_overlap_duration(note: Note, silence_period):
     """Calculate overlap duration between a note and a silence period."""
     if note.start_ms is None or note.end_ms is None:
@@ -91,32 +96,22 @@ def get_notes_overlap(notes: List[Note], silence_periods, max_length_ms=None):
 
     # Work only with notes that have computed timings
     valid_notes: List[Note] = [
-        n for n in notes
-        if getattr(n, "start_ms", None) is not None and getattr(n, "end_ms", None) is not None
+        n for n in notes if getattr(n, "start_ms", None) is not None and getattr(n, "end_ms", None) is not None
     ]
     if not valid_notes:
         return 100.0
 
     # Apply optional max_length_ms filter
     if max_length_ms is not None:
-        valid_notes = [
-            n for n in valid_notes
-            if float(cast(float, n.start_ms)) < float(max_length_ms)
-        ]
+        valid_notes = [n for n in valid_notes if float(cast(float, n.start_ms)) < float(max_length_ms)]
 
     # Compute total note duration within the considered window
     if max_length_ms is None:
-        total_note_duration = sum(
-            float(cast(float, n.end_ms)) - float(cast(float, n.start_ms))
-            for n in valid_notes
-        )
+        total_note_duration = sum(float(cast(float, n.end_ms)) - float(cast(float, n.start_ms)) for n in valid_notes)
     else:
         max_len_f = float(max_length_ms)
         total_note_duration = sum(
-            max(
-                0.0,
-                float(min(float(cast(float, n.end_ms)), max_len_f)) - float(cast(float, n.start_ms))
-            )
+            max(0.0, float(min(float(cast(float, n.end_ms)), max_len_f)) - float(cast(float, n.start_ms)))
             for n in valid_notes
         )
 
@@ -124,7 +119,7 @@ def get_notes_overlap(notes: List[Note], silence_periods, max_length_ms=None):
     for n in valid_notes:
         n_start = float(cast(float, n.start_ms))
         n_end = float(cast(float, n.end_ms))
-        for sp in (silence_periods or []):
+        for sp in silence_periods or []:
             sp_start = float(sp[0])
             sp_end = float(sp[1]) if len(sp) > 1 else sp_start
             # Overlap check

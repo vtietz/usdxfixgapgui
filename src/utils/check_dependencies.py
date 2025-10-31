@@ -4,7 +4,8 @@ import subprocess
 
 logger = logging.getLogger(__name__)
 
-def check_dependency(command, version_flag='--version'):
+
+def check_dependency(command, version_flag="--version"):
     """
     Checks if a given command-line tool is installed and accessible.
 
@@ -23,7 +24,7 @@ def check_dependency(command, version_flag='--version'):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
         if result.returncode == 0:
             logger.debug(f"{command} found: {result.stdout.splitlines()[0]}")
@@ -33,6 +34,7 @@ def check_dependency(command, version_flag='--version'):
             return True
     except FileNotFoundError:
         return False
+
 
 def check_dependencies(dependencies):
     """

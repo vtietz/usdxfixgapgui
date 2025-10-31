@@ -22,25 +22,22 @@ class TestDirectoryWatcher:
         """Test that ignore patterns work correctly"""
         from services.directory_watcher import _FileSystemEventHandler
 
-        handler = _FileSystemEventHandler(
-            ignore_patterns={'.tmp', '~', '.crdownload'},
-            callback=lambda x: None
-        )
+        handler = _FileSystemEventHandler(ignore_patterns={".tmp", "~", ".crdownload"}, callback=lambda x: None)
 
         # Should ignore files matching patterns
-        assert handler._should_ignore('/path/file.tmp')
-        assert handler._should_ignore('/path/file~')
-        assert handler._should_ignore('/path/file.crdownload')
+        assert handler._should_ignore("/path/file.tmp")
+        assert handler._should_ignore("/path/file~")
+        assert handler._should_ignore("/path/file.crdownload")
 
         # Should not ignore normal files
-        assert not handler._should_ignore('/path/file.txt')
-        assert not handler._should_ignore('/path/file.mp3')
+        assert not handler._should_ignore("/path/file.txt")
+        assert not handler._should_ignore("/path/file.mp3")
 
     def test_start_watching_invalid_directory(self):
         """Test that starting with invalid directory fails gracefully"""
         watcher = DirectoryWatcher()
 
-        success = watcher.start_watching('/nonexistent/path')
+        success = watcher.start_watching("/nonexistent/path")
 
         assert not success
         assert not watcher.is_watching()
@@ -71,7 +68,7 @@ class TestGapDetectionScheduler:
             debounce_ms=100,  # Short debounce for testing
             start_gap_detection=mock_start_detection,
             songs_get_by_txt_file=mock_get_by_txt,
-            songs_get_by_path=mock_get_by_path
+            songs_get_by_path=mock_get_by_path,
         )
 
         # Create test directory
@@ -81,11 +78,7 @@ class TestGapDetectionScheduler:
 
             # Simulate multiple rapid modifications
             for i in range(5):
-                event = WatchEvent(
-                    event_type=WatchEventType.MODIFIED,
-                    path=txt_path,
-                    is_directory=False
-                )
+                event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
                 scheduler.handle_event(event)
 
             # Should have 1 pending detection, not 5
@@ -112,7 +105,7 @@ class TestGapDetectionScheduler:
             debounce_ms=50,
             start_gap_detection=mock_start_detection,
             songs_get_by_txt_file=mock_get_by_txt,
-            songs_get_by_path=mock_get_by_path
+            songs_get_by_path=mock_get_by_path,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -120,11 +113,7 @@ class TestGapDetectionScheduler:
             log_path = os.path.join(tmpdir, "debug.log")
             Path(log_path).touch()
 
-            event = WatchEvent(
-                event_type=WatchEventType.MODIFIED,
-                path=log_path,
-                is_directory=False
-            )
+            event = WatchEvent(event_type=WatchEventType.MODIFIED, path=log_path, is_directory=False)
             scheduler.handle_event(event)
 
             # Should not schedule detection
@@ -146,7 +135,7 @@ class TestGapDetectionScheduler:
             debounce_ms=50,
             start_gap_detection=mock_start_detection,
             songs_get_by_txt_file=mock_get_by_txt,
-            songs_get_by_path=mock_get_by_path
+            songs_get_by_path=mock_get_by_path,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -154,11 +143,7 @@ class TestGapDetectionScheduler:
             Path(txt_path).touch()
 
             # First event
-            event = WatchEvent(
-                event_type=WatchEventType.MODIFIED,
-                path=txt_path,
-                is_directory=False
-            )
+            event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
             scheduler.handle_event(event)
 
             # Wait for execution
@@ -191,18 +176,14 @@ class TestGapDetectionScheduler:
             debounce_ms=1000,  # Long debounce
             start_gap_detection=mock_start_detection,
             songs_get_by_txt_file=mock_get_by_txt,
-            songs_get_by_path=mock_get_by_path
+            songs_get_by_path=mock_get_by_path,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             txt_path = os.path.join(tmpdir, "song.txt")
             Path(txt_path).touch()
 
-            event = WatchEvent(
-                event_type=WatchEventType.MODIFIED,
-                path=txt_path,
-                is_directory=False
-            )
+            event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
             scheduler.handle_event(event)
 
             assert len(scheduler._pending) == 1

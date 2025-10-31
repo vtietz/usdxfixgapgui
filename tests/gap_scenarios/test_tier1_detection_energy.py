@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from utils.providers.mdx.config import MdxConfig
 from utils.providers.mdx.detection import detect_onset_in_vocal_chunk
@@ -23,6 +23,7 @@ from test_utils import synth, visualize
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mdx_cfg_default():
@@ -38,8 +39,8 @@ def artifact_dir(tmp_path):
     If GAP_WRITE_DOCS=1, writes to docs/gap-tests/tier1/
     Otherwise uses tmp_path for CI cleanliness.
     """
-    if os.environ.get('GAP_WRITE_DOCS') == '1':
-        docs_path = Path(__file__).parent.parent.parent / 'docs' / 'gap-tests' / 'tier1'
+    if os.environ.get("GAP_WRITE_DOCS") == "1":
+        docs_path = Path(__file__).parent.parent.parent / "docs" / "gap-tests" / "tier1"
         docs_path.mkdir(parents=True, exist_ok=True)
         return docs_path
     return tmp_path
@@ -48,6 +49,7 @@ def artifact_dir(tmp_path):
 # ============================================================================
 # Helpers
 # ============================================================================
+
 
 def assert_onset(actual_ms: float | None, truth_ms: float, tol_ms: float, scenario: str):
     """Assert onset detection within tolerance."""
@@ -62,26 +64,24 @@ def assert_onset(actual_ms: float | None, truth_ms: float, tol_ms: float, scenar
 
 
 def write_preview_if_enabled(
-    wave: np.ndarray,
-    sr: int,
-    truth_ms: float,
-    detected_ms: float | None,
-    scenario_name: str,
-    artifact_dir: Path
+    wave: np.ndarray, sr: int, truth_ms: float, detected_ms: float | None, scenario_name: str, artifact_dir: Path
 ):
     """Write waveform preview if GAP_WRITE_DOCS is enabled."""
-    if os.environ.get('GAP_WRITE_DOCS') == '1':
+    if os.environ.get("GAP_WRITE_DOCS") == "1":
         out_path = artifact_dir / f"{scenario_name}.png"
         error_str = f"Δ{detected_ms - truth_ms:+.1f}ms" if detected_ms else "NONE"
-        title = f"{scenario_name.replace('-', ' ').title()} | Truth={truth_ms:.0f}ms, Detected={detected_ms:.0f}ms ({error_str})" if detected_ms else f"{scenario_name.replace('-', ' ').title()} | Truth={truth_ms:.0f}ms, NOT DETECTED"
-        visualize.save_waveform_preview(
-            wave, sr, title, truth_ms, detected_ms, str(out_path), rms_overlay=True
+        title = (
+            f"{scenario_name.replace('-', ' ').title()} | Truth={truth_ms:.0f}ms, Detected={detected_ms:.0f}ms ({error_str})"
+            if detected_ms
+            else f"{scenario_name.replace('-', ' ').title()} | Truth={truth_ms:.0f}ms, NOT DETECTED"
         )
+        visualize.save_waveform_preview(wave, sr, title, truth_ms, detected_ms, str(out_path), rms_overlay=True)
 
 
 # ============================================================================
 # Test Scenarios
 # ============================================================================
+
 
 def test_01_abrupt_onset(mdx_cfg_default, artifact_dir):
     """
@@ -99,17 +99,14 @@ def test_01_abrupt_onset(mdx_cfg_default, artifact_dir):
         noise_floor_db=-60.0,
         f0_hz=220.0,
         harmonics=4,
-        sr=44100
+        sr=44100,
     )
 
     detected = detect_onset_in_vocal_chunk(
-        vocal_audio=wave,
-        sample_rate=meta['sr'],
-        chunk_start_ms=0.0,
-        config=mdx_cfg_default
+        vocal_audio=wave, sample_rate=meta["sr"], chunk_start_ms=0.0, config=mdx_cfg_default
     )
 
-    write_preview_if_enabled(wave, meta['sr'], onset_ms, detected, "01-abrupt-onset", artifact_dir)
+    write_preview_if_enabled(wave, meta["sr"], onset_ms, detected, "01-abrupt-onset", artifact_dir)
     assert_onset(detected, onset_ms, tol_ms=50, scenario="01-abrupt-onset")
 
 
@@ -129,17 +126,14 @@ def test_02_gradual_fade_in(mdx_cfg_default, artifact_dir):
         noise_floor_db=-60.0,
         f0_hz=220.0,
         harmonics=4,
-        sr=44100
+        sr=44100,
     )
 
     detected = detect_onset_in_vocal_chunk(
-        vocal_audio=wave,
-        sample_rate=meta['sr'],
-        chunk_start_ms=0.0,
-        config=mdx_cfg_default
+        vocal_audio=wave, sample_rate=meta["sr"], chunk_start_ms=0.0, config=mdx_cfg_default
     )
 
-    write_preview_if_enabled(wave, meta['sr'], onset_ms, detected, "02-gradual-fade-in", artifact_dir)
+    write_preview_if_enabled(wave, meta["sr"], onset_ms, detected, "02-gradual-fade-in", artifact_dir)
     assert_onset(detected, onset_ms, tol_ms=200, scenario="02-gradual-fade-in")
 
 
@@ -163,17 +157,14 @@ def test_02b_very_gradual_fade_in(mdx_cfg_default, artifact_dir):
         noise_floor_db=-60.0,
         f0_hz=200.0,
         harmonics=4,
-        sr=44100
+        sr=44100,
     )
 
     detected = detect_onset_in_vocal_chunk(
-        vocal_audio=wave,
-        sample_rate=meta['sr'],
-        chunk_start_ms=0.0,
-        config=mdx_cfg_default
+        vocal_audio=wave, sample_rate=meta["sr"], chunk_start_ms=0.0, config=mdx_cfg_default
     )
 
-    write_preview_if_enabled(wave, meta['sr'], onset_ms, detected, "02b-very-gradual-fade-in", artifact_dir)
+    write_preview_if_enabled(wave, meta["sr"], onset_ms, detected, "02b-very-gradual-fade-in", artifact_dir)
     # Tighter tolerance with improved settings - should catch onset within 300ms
     assert_onset(detected, onset_ms, tol_ms=300, scenario="02b-very-gradual-fade-in")
 
@@ -199,17 +190,14 @@ def test_03_breathy_start(mdx_cfg_default, artifact_dir):
         noise_floor_db=-60.0,
         f0_hz=220.0,
         harmonics=4,
-        sr=44100
+        sr=44100,
     )
 
     detected = detect_onset_in_vocal_chunk(
-        vocal_audio=wave,
-        sample_rate=meta['sr'],
-        chunk_start_ms=0.0,
-        config=mdx_cfg_default
+        vocal_audio=wave, sample_rate=meta["sr"], chunk_start_ms=0.0, config=mdx_cfg_default
     )
 
-    write_preview_if_enabled(wave, meta['sr'], onset_ms, detected, "03-breathy-start", artifact_dir)
+    write_preview_if_enabled(wave, meta["sr"], onset_ms, detected, "03-breathy-start", artifact_dir)
     # Expect detection somewhere between breath start and vocal onset
     # since breath+vocal creates rising energy profile
     assert detected is not None, "03-breathy-start: No onset detected"
@@ -236,7 +224,7 @@ def test_04_quiet_vocals_near_threshold(mdx_cfg_default, artifact_dir):
         noise_floor_db=-50.0,  # Higher noise floor
         f0_hz=220.0,
         harmonics=4,
-        sr=44100
+        sr=44100,
     )
 
     # Reduce overall amplitude to make vocals quieter (just above threshold)
@@ -244,13 +232,10 @@ def test_04_quiet_vocals_near_threshold(mdx_cfg_default, artifact_dir):
     wave = wave * 0.15
 
     detected = detect_onset_in_vocal_chunk(
-        vocal_audio=wave,
-        sample_rate=meta['sr'],
-        chunk_start_ms=0.0,
-        config=mdx_cfg_default
+        vocal_audio=wave, sample_rate=meta["sr"], chunk_start_ms=0.0, config=mdx_cfg_default
     )
 
-    write_preview_if_enabled(wave, meta['sr'], onset_ms, detected, "04-quiet-vocals", artifact_dir)
+    write_preview_if_enabled(wave, meta["sr"], onset_ms, detected, "04-quiet-vocals", artifact_dir)
     assert_onset(detected, onset_ms, tol_ms=250, scenario="04-quiet-vocals")
 
 
@@ -270,17 +255,14 @@ def test_05_high_noise_floor(mdx_cfg_default, artifact_dir):
         noise_floor_db=-24.0,  # Very high noise floor
         f0_hz=220.0,
         harmonics=4,
-        sr=44100
+        sr=44100,
     )
 
     detected = detect_onset_in_vocal_chunk(
-        vocal_audio=wave,
-        sample_rate=meta['sr'],
-        chunk_start_ms=0.0,
-        config=mdx_cfg_default
+        vocal_audio=wave, sample_rate=meta["sr"], chunk_start_ms=0.0, config=mdx_cfg_default
     )
 
-    write_preview_if_enabled(wave, meta['sr'], onset_ms, detected, "05-high-noise-floor", artifact_dir)
+    write_preview_if_enabled(wave, meta["sr"], onset_ms, detected, "05-high-noise-floor", artifact_dir)
     assert_onset(detected, onset_ms, tol_ms=200, scenario="05-high-noise-floor")
 
 
@@ -303,29 +285,26 @@ def test_06_instrument_spike_before_onset(mdx_cfg_default, artifact_dir):
         noise_floor_db=-60.0,
         f0_hz=220.0,
         harmonics=4,
-        sr=44100
+        sr=44100,
     )
 
     # Add spike at 1000ms
-    spike_start_sample = int(spike_ms / 1000.0 * meta['sr'])
-    spike_duration_samples = int(30 / 1000.0 * meta['sr'])  # 30ms spike
+    spike_start_sample = int(spike_ms / 1000.0 * meta["sr"])
+    spike_duration_samples = int(30 / 1000.0 * meta["sr"])  # 30ms spike
     spike_end_sample = spike_start_sample + spike_duration_samples
 
     if spike_end_sample < len(wave):
         # Create short impulse
         spike_amplitude = 0.4
         wave[spike_start_sample:spike_end_sample] += spike_amplitude * np.sin(
-            2 * np.pi * 440.0 * np.arange(spike_duration_samples) / meta['sr']
+            2 * np.pi * 440.0 * np.arange(spike_duration_samples) / meta["sr"]
         )
 
     detected = detect_onset_in_vocal_chunk(
-        vocal_audio=wave,
-        sample_rate=meta['sr'],
-        chunk_start_ms=0.0,
-        config=mdx_cfg_default
+        vocal_audio=wave, sample_rate=meta["sr"], chunk_start_ms=0.0, config=mdx_cfg_default
     )
 
-    write_preview_if_enabled(wave, meta['sr'], onset_ms, detected, "06-instrument-spike", artifact_dir)
+    write_preview_if_enabled(wave, meta["sr"], onset_ms, detected, "06-instrument-spike", artifact_dir)
     assert_onset(detected, onset_ms, tol_ms=150, scenario="06-instrument-spike")
 
 
@@ -348,10 +327,7 @@ def test_07_too_short_energy(mdx_cfg_default, artifact_dir):
     wave = synth.normalize_peak(wave, peak=0.9)
 
     detected = detect_onset_in_vocal_chunk(
-        vocal_audio=wave,
-        sample_rate=44100,
-        chunk_start_ms=0.0,
-        config=mdx_cfg_default
+        vocal_audio=wave, sample_rate=44100, chunk_start_ms=0.0, config=mdx_cfg_default
     )
 
     write_preview_if_enabled(wave, 44100, onset_ms, detected, "07-too-short-energy", artifact_dir)
@@ -375,12 +351,7 @@ def test_08_extremely_short_audio(mdx_cfg_default, artifact_dir):
     wave = np.zeros(500)  # Less than one frame
     sr = 44100
 
-    detected = detect_onset_in_vocal_chunk(
-        vocal_audio=wave,
-        sample_rate=sr,
-        chunk_start_ms=0.0,
-        config=mdx_cfg_default
-    )
+    detected = detect_onset_in_vocal_chunk(vocal_audio=wave, sample_rate=sr, chunk_start_ms=0.0, config=mdx_cfg_default)
 
     # No visualization for this edge case (trivial)
 
@@ -395,12 +366,16 @@ def test_08_extremely_short_audio(mdx_cfg_default, artifact_dir):
 # Parameterized sensitivity tests (optional)
 # ============================================================================
 
-@pytest.mark.parametrize("snr_threshold,abs_threshold,expected_tol_ms", [
-    (4.0, 0.01, 50),   # Default
-    (6.0, 0.01, 80),   # Higher SNR requirement
-    (3.0, 0.01, 50),   # Lower SNR requirement
-    (4.0, 0.02, 60),   # Higher absolute threshold
-])
+
+@pytest.mark.parametrize(
+    "snr_threshold,abs_threshold,expected_tol_ms",
+    [
+        (4.0, 0.01, 50),  # Default
+        (6.0, 0.01, 80),  # Higher SNR requirement
+        (3.0, 0.01, 50),  # Lower SNR requirement
+        (4.0, 0.02, 60),  # Higher absolute threshold
+    ],
+)
 def test_09_sensitivity_sweep_abrupt(snr_threshold, abs_threshold, expected_tol_ms, artifact_dir):
     """
     Scenario 9: Sensitivity sweep on abrupt onset.
@@ -416,22 +391,14 @@ def test_09_sensitivity_sweep_abrupt(snr_threshold, abs_threshold, expected_tol_
         noise_floor_db=-60.0,
         f0_hz=220.0,
         harmonics=4,
-        sr=44100
+        sr=44100,
     )
 
     # Custom config
-    cfg = MdxConfig(
-        onset_snr_threshold=snr_threshold,
-        onset_abs_threshold=abs_threshold
-    )
+    cfg = MdxConfig(onset_snr_threshold=snr_threshold, onset_abs_threshold=abs_threshold)
 
-    detected = detect_onset_in_vocal_chunk(
-        vocal_audio=wave,
-        sample_rate=meta['sr'],
-        chunk_start_ms=0.0,
-        config=cfg
-    )
+    detected = detect_onset_in_vocal_chunk(vocal_audio=wave, sample_rate=meta["sr"], chunk_start_ms=0.0, config=cfg)
 
     scenario_name = f"09-sensitivity-snr{snr_threshold:.1f}-abs{abs_threshold:.3f}"
-    write_preview_if_enabled(wave, meta['sr'], onset_ms, detected, scenario_name, artifact_dir)
+    write_preview_if_enabled(wave, meta["sr"], onset_ms, detected, scenario_name, artifact_dir)
     assert_onset(detected, onset_ms, tol_ms=expected_tol_ms, scenario=scenario_name)

@@ -10,6 +10,7 @@ from model.usdx_file import Note
 
 logger = logging.getLogger(__name__)
 
+
 def create_waveform_image(audio_file, image_path, color, width=1920, height=1080):
     """Create a waveform image for the given audio file."""
 
@@ -24,14 +25,21 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
     # scale=sqrt provides better visibility while maintaining relative loudness differences
     # No normalization: allows visual comparison between original and normalized songs
     command = [
-        'ffmpeg', '-y', '-loglevel', 'quiet', '-i', audio_file,
-        '-filter_complex',
+        "ffmpeg",
+        "-y",
+        "-loglevel",
+        "quiet",
+        "-i",
+        audio_file,
+        "-filter_complex",
         f"showwavespic=s={width}x{height}:colors={color}:scale=sqrt:split_channels=1",
-        '-frames:v', '1', image_path
+        "-frames:v",
+        "1",
+        image_path,
     ]
 
     # Hide command window on Windows
-    if platform.system() == 'Windows':
+    if platform.system() == "Windows":
         result = subprocess.run(command, creationflags=subprocess.CREATE_NO_WINDOW)
     else:
         result = subprocess.run(command)
@@ -40,6 +48,7 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
         raise Exception(f"Failed to create waveform image '{image_path}'. Error: {result.stderr}")
 
     return image_path
+
 
 def draw_silence_periods(image_path, silence_periods, duration_ms, color=(105, 105, 105, 128)):
     """Annotates the waveform image with the silence periods."""
@@ -81,7 +90,7 @@ def draw_silence_periods(image_path, silence_periods, duration_ms, color=(105, 1
 def draw_title(image_path, songname, color="white"):
     """Annotates the waveform image with the song name."""
 
-    if(not os.path.exists(image_path)):
+    if not os.path.exists(image_path):
         raise FileNotFoundError(f"Waveform image not found: {image_path}")
 
     # Load the waveform image
@@ -97,10 +106,11 @@ def draw_title(image_path, songname, color="white"):
     # Save the annotated image
     image.save(image_path)
 
+
 def draw_gap(image_path, detected_gap_ms, duration_ms, line_color="red"):
     """Annotates the waveform image with the detected gap."""
 
-    if(not os.path.exists(image_path)):
+    if not os.path.exists(image_path):
         raise FileNotFoundError(f"Waveform image not found: {image_path}")
 
     if detected_gap_ms is None or not duration_ms or duration_ms <= 0:
@@ -120,8 +130,10 @@ def draw_gap(image_path, detected_gap_ms, duration_ms, line_color="red"):
 
     image.save(image_path)
 
+
 def note_position(start_ms, duration_ms, image_width):
     return (start_ms / duration_ms) * image_width
+
 
 def map_pitch_to_vertical_position(pitch, min_pitch, max_pitch, image_height):
     """Map a pitch value to a vertical position around the middle of the image."""
@@ -131,14 +143,10 @@ def map_pitch_to_vertical_position(pitch, min_pitch, max_pitch, image_height):
     normalized_pitch = (pitch - min_pitch) / pitch_range  # Normalize pitch to 0-1 range
     return (1 - normalized_pitch) * image_height / 2 + image_height / 4
 
-def draw_notes(
-        image_path: str,
-        notes: List[Note],
-        duration_ms: int,
-        color: str
-    ):
 
-    if(not os.path.exists(image_path)):
+def draw_notes(image_path: str, notes: List[Note], duration_ms: int, color: str):
+
+    if not os.path.exists(image_path):
         raise FileNotFoundError(f"Waveform image not found: {image_path}")
 
     if not notes or not duration_ms or duration_ms <= 0:
@@ -146,7 +154,8 @@ def draw_notes(
 
     # Filter out notes without computed timing or missing pitch
     valid_notes = [
-        n for n in notes
+        n
+        for n in notes
         if getattr(n, "start_ms", None) is not None
         and getattr(n, "end_ms", None) is not None
         and getattr(n, "Pitch", None) is not None
@@ -173,11 +182,21 @@ def draw_notes(
             start_position_x = note_position(n.start_ms, duration_ms, image_width)
             end_position_x = note_position(n.end_ms, duration_ms, image_width)
 
-            vertical_position = map_pitch_to_vertical_position(n.Pitch, min_pitch, max_pitch, image_height / 2) + (image_height / 4)
+            vertical_position = map_pitch_to_vertical_position(n.Pitch, min_pitch, max_pitch, image_height / 2) + (
+                image_height / 4
+            )
             draw.text((start_position_x, vertical_position + 12), (n.Text or ""), fill=color)
 
             line_height = 5
-            draw.rectangle([start_position_x, vertical_position - line_height / 2, end_position_x, vertical_position + line_height / 2], fill=color)
+            draw.rectangle(
+                [
+                    start_position_x,
+                    vertical_position - line_height / 2,
+                    end_position_x,
+                    vertical_position + line_height / 2,
+                ],
+                fill=color,
+            )
         except Exception as e:
             logger.debug(f"Skipping malformed note during drawing: {e}")
 

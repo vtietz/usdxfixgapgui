@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 GapInfoServiceRef = GapInfoService
 USDXFileServiceRef = USDXFileService
 
+
 class GapActions(BaseActions):
     """Gap detection and management actions"""
 
@@ -37,7 +38,7 @@ class GapActions(BaseActions):
             duration_ms=song.duration_ms,
             config=self.config,
             tmp_path=self.data.tmp_path,
-            overwrite=overwrite
+            overwrite=overwrite,
         )
 
         worker = DetectGapWorker(options)
@@ -48,7 +49,6 @@ class GapActions(BaseActions):
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
-
 
     def detect_gap(self, overwrite=False):
         selected_songs = self.data.selected_songs
@@ -120,6 +120,7 @@ class GapActions(BaseActions):
                 await GapInfoServiceRef.save(song.gap_info)
             # Update song_cache.db so status persists across app restarts
             from services.song_service import SongService
+
             SongService().update_cache(song)
             logger.debug(f"Updated song cache after gap detection for {song.txt_file}")
 
@@ -157,6 +158,7 @@ class GapActions(BaseActions):
                 await GapInfoServiceRef.save(song_to_process.gap_info)
             # Update song_cache.db so status persists
             from services.song_service import SongService
+
             SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after notes overlap for {song_to_process.txt_file}")
 
@@ -193,6 +195,7 @@ class GapActions(BaseActions):
 
             # Update song_cache.db so status persists
             from services.song_service import SongService
+
             SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after gap update for {song_to_process.txt_file}")
 
@@ -233,6 +236,7 @@ class GapActions(BaseActions):
 
             # Update song_cache.db so status persists
             from services.song_service import SongService
+
             SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after gap revert for {song_to_process.txt_file}")
 
@@ -263,6 +267,7 @@ class GapActions(BaseActions):
                 await GapInfoServiceRef.save(song_to_process.gap_info)
             # Update song_cache.db so status persists
             from services.song_service import SongService
+
             SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after keeping gap for {song_to_process.txt_file}")
 

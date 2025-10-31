@@ -8,25 +8,31 @@ from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
 
-def milliseconds_to_str(time = 0, with_milliseconds=False):
-        if time is None:
-            return ""
-        time = int(time)
-        minutes = time // 60000
-        seconds = (time % 60000) // 1000
-        milliseconds = time % 1000
-        if with_milliseconds:
-            return f'{minutes:02d}:{seconds:02d}:{milliseconds:03d}'
-        else:
-            return f'{minutes:02d}:{seconds:02d}'
+
+def milliseconds_to_str(time=0, with_milliseconds=False):
+    if time is None:
+        return ""
+    time = int(time)
+    minutes = time // 60000
+    seconds = (time % 60000) // 1000
+    milliseconds = time % 1000
+    if with_milliseconds:
+        return f"{minutes:02d}:{seconds:02d}:{milliseconds:03d}"
+    else:
+        return f"{minutes:02d}:{seconds:02d}"
+
 
 def get_audio_duration(audio_file, check_cancellation=None):
     """Get the duration of the audio file using ffprobe."""
     command = [
-        'ffprobe', '-v', 'error',
-        '-show_entries', 'format=duration',
-        '-of', 'default=noprint_wrappers=1:nokey=1',
-        audio_file
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        audio_file,
     ]
 
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
@@ -37,6 +43,7 @@ def get_audio_duration(audio_file, check_cancellation=None):
         logger.error(f"Error getting duration of {audio_file}: {stderr}")
         return None
 
+
 def run_ffmpeg(audio_file, command, check_cancellation=None):
     if not os.path.exists(audio_file):
         raise FileNotFoundError(f"Audio file not found: {audio_file}")
@@ -45,7 +52,7 @@ def run_ffmpeg(audio_file, command, check_cancellation=None):
     extension = os.path.splitext(audio_file)[1]
 
     # Create a temp output path without keeping a handle open (Windows-friendly)
-    fd, temp_file = tempfile.mkstemp(suffix=f'_processed{extension}', dir=temp_dir)
+    fd, temp_file = tempfile.mkstemp(suffix=f"_processed{extension}", dir=temp_dir)
     try:
         os.close(fd)
     except Exception:
@@ -110,11 +117,13 @@ def run_ffmpeg(audio_file, command, check_cancellation=None):
 
     return audio_file
 
+
 def normalize_audio(audio_file, target_level=-20, check_cancellation=None):
     """Normalize the audio file to the target level. Default seetings are equal to USDB Syncher."""
     logger.debug(f"Normalizing {audio_file}...")
-    command = ['-af', f'loudnorm=I={target_level}:LRA=11:TP=-2', '-ar','48000']
+    command = ["-af", f"loudnorm=I={target_level}:LRA=11:TP=-2", "-ar", "48000"]
     return run_ffmpeg(audio_file, command, check_cancellation)
+
 
 def convert_to_mp3(audio_file, check_cancellation=None):
     """Convert audio file to MP3 format."""
@@ -123,17 +132,23 @@ def convert_to_mp3(audio_file, check_cancellation=None):
     run_cancellable_process(command, check_cancellation)
     return mp3_file
 
+
 def detect_silence_periods(
-        audio_file,
-        silence_detect_params="silencedetect=noise=-10dB:d=0.2",
-        check_cancellation=None
-    ) -> List[Tuple[float, float]]:
+    audio_file, silence_detect_params="silencedetect=noise=-10dB:d=0.2", check_cancellation=None
+) -> List[Tuple[float, float]]:
     """Detect silence periods in the audio file."""
     if not os.path.exists(audio_file):
         raise Exception(f"Audio file not found: {audio_file}")
 
     command = [
-        "ffmpeg", "-i", audio_file, "-af", silence_detect_params, "-f", "null", "-",
+        "ffmpeg",
+        "-i",
+        audio_file,
+        "-af",
+        silence_detect_params,
+        "-f",
+        "null",
+        "-",
     ]
     returncode, stdout, stderr = run_cancellable_process(command, check_cancellation)
 
@@ -158,15 +173,16 @@ def detect_silence_periods(
 
     return silence_periods
 
+
 def make_clearer_voice(audio_file, check_cancellation=None):
     filters = [
         "highpass=f=80",
         "lowpass=f=8000",
         "loudnorm=I=-6:LRA=7:TP=-2",
-        "acompressor=threshold=-20dB:ratio=3:attack=5:release=50"
+        "acompressor=threshold=-20dB:ratio=3:attack=5:release=50",
     ]
     command = [
         "-af",
-        ",".join(filters),]
+        ",".join(filters),
+    ]
     return run_ffmpeg(audio_file, command, check_cancellation)
-

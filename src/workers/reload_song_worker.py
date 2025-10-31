@@ -8,8 +8,10 @@ from managers.worker_queue_manager import IWorker, IWorkerSignals
 
 logger = logging.getLogger(__name__)
 
+
 class WorkerSignals(IWorkerSignals):
     songReloaded = Signal(Song)
+
 
 class ReloadSongWorker(IWorker):
     """Worker specifically designed for reloading a single song"""
@@ -37,7 +39,7 @@ class ReloadSongWorker(IWorker):
             # Create a basic song with error status
             song = Song()
             song.path = self.song_path
-            song.txt_file = self.song_path if self.song_path.endswith('.txt') else ""
+            song.txt_file = self.song_path if self.song_path.endswith(".txt") else ""
             song.set_error(str(e))
 
             return song

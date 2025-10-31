@@ -10,11 +10,7 @@ from typing import Optional
 
 
 def generate_silent_then_vocal(
-    duration_sec: float,
-    onset_at_sec: float,
-    sample_rate: int = 22050,
-    frequency: float = 440.0,
-    amplitude: float = 0.5
+    duration_sec: float, onset_at_sec: float, sample_rate: int = 22050, frequency: float = 440.0, amplitude: float = 0.5
 ) -> np.ndarray:
     """Generate synthetic audio: silence then tone.
 
@@ -52,11 +48,7 @@ def generate_silent_then_vocal(
 
 
 def generate_chirp(
-    duration_sec: float,
-    start_freq: float,
-    end_freq: float,
-    sample_rate: int = 22050,
-    amplitude: float = 0.5
+    duration_sec: float, start_freq: float, end_freq: float, sample_rate: int = 22050, amplitude: float = 0.5
 ) -> np.ndarray:
     """Generate frequency sweep (chirp) for onset detection testing.
 
@@ -90,10 +82,7 @@ def generate_chirp(
 
 
 def generate_impulse_train(
-    duration_sec: float,
-    impulse_interval_sec: float,
-    sample_rate: int = 22050,
-    amplitude: float = 0.8
+    duration_sec: float, impulse_interval_sec: float, sample_rate: int = 22050, amplitude: float = 0.8
 ) -> np.ndarray:
     """Generate series of impulses (spikes) at regular intervals.
 
@@ -126,10 +115,7 @@ def generate_impulse_train(
 
 
 def generate_noise(
-    duration_sec: float,
-    sample_rate: int = 22050,
-    amplitude: float = 0.1,
-    seed: Optional[int] = None
+    duration_sec: float, sample_rate: int = 22050, amplitude: float = 0.1, seed: Optional[int] = None
 ) -> np.ndarray:
     """Generate white noise for testing noise floor estimation.
 
@@ -165,7 +151,7 @@ def generate_envelope_test_signal(
     release_sec: float,
     sample_rate: int = 22050,
     frequency: float = 440.0,
-    amplitude: float = 0.7
+    amplitude: float = 0.7,
 ) -> np.ndarray:
     """Generate signal with ADSR-like envelope for envelope extraction testing.
 
@@ -211,11 +197,7 @@ def generate_envelope_test_signal(
     return carrier * envelope
 
 
-def add_noise_to_signal(
-    signal: np.ndarray,
-    snr_db: float,
-    seed: Optional[int] = None
-) -> np.ndarray:
+def add_noise_to_signal(signal: np.ndarray, snr_db: float, seed: Optional[int] = None) -> np.ndarray:
     """Add white noise to signal at specified SNR.
 
     Args:
@@ -235,7 +217,7 @@ def add_noise_to_signal(
         np.random.seed(seed)
 
     # Calculate signal power
-    signal_power = np.mean(signal ** 2)
+    signal_power = np.mean(signal**2)
 
     # Calculate noise power from SNR
     snr_linear = 10 ** (snr_db / 10)

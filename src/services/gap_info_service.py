@@ -9,6 +9,7 @@ from utils import files
 
 logger = logging.getLogger(__name__)
 
+
 class GapInfoService:
     """Service class for operations on GapInfo objects"""
 
@@ -133,6 +134,7 @@ class GapInfoService:
             # Prepare entry data for this song
             # Ensure status is an enum (defensive coding)
             from model.gap_info import GapInfoStatus
+
             if isinstance(gap_info.status, str):
                 try:
                     gap_info.status = GapInfoStatus[gap_info.status]
@@ -161,7 +163,7 @@ class GapInfoService:
                 "confidence": gap_info.confidence,
                 "detected_gap_ms": gap_info.detected_gap_ms,
                 "first_note_ms": gap_info.first_note_ms,
-                "tolerance_band_ms": gap_info.tolerance_band_ms
+                "tolerance_band_ms": gap_info.tolerance_band_ms,
             }
 
             # Read existing file (if any) to preserve other entries
@@ -179,11 +181,7 @@ class GapInfoService:
                     else:
                         # Legacy format - convert to multi-entry
                         logger.info(f"Converting legacy gap info file to multi-entry format: {gap_info.file_path}")
-                        document = {
-                            "entries": {},
-                            "default": existing_data,
-                            "version": 2
-                        }
+                        document = {"entries": {}, "default": existing_data, "version": 2}
                 except json.JSONDecodeError as e:
                     logger.warning(f"Could not parse existing gap info file, will overwrite: {e}")
                 except Exception as e:
@@ -214,12 +212,12 @@ class GapInfoService:
     def map_string_to_status(status_string: str) -> GapInfoStatus:
         """Map a string status to GapInfoStatus enum"""
         status_map = {
-            'NOT_PROCESSED': GapInfoStatus.NOT_PROCESSED,
-            'MATCH': GapInfoStatus.MATCH,
-            'MISMATCH': GapInfoStatus.MISMATCH,
-            'ERROR': GapInfoStatus.ERROR,
-            'UPDATED': GapInfoStatus.UPDATED,
-            'SOLVED': GapInfoStatus.SOLVED,
+            "NOT_PROCESSED": GapInfoStatus.NOT_PROCESSED,
+            "MATCH": GapInfoStatus.MATCH,
+            "MISMATCH": GapInfoStatus.MISMATCH,
+            "ERROR": GapInfoStatus.ERROR,
+            "UPDATED": GapInfoStatus.UPDATED,
+            "SOLVED": GapInfoStatus.SOLVED,
         }
         return status_map.get(status_string, GapInfoStatus.NOT_PROCESSED)
 

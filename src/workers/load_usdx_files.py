@@ -8,10 +8,12 @@ from common.database import get_all_cache_entries, cleanup_stale_entries
 
 logger = logging.getLogger(__name__)
 
+
 class WorkerSignals(IWorkerSignals):
     songLoaded = Signal(Song)
     songsLoadedBatch = Signal(list)  # Batch signal for better performance
     cacheCleanup = Signal(int)  # Signal to report stale cache entries cleaned up
+
 
 class LoadUsdxFilesWorker(IWorker):
     def __init__(self, directory, tmp_root, config=None):
@@ -78,7 +80,7 @@ class LoadUsdxFilesWorker(IWorker):
                 return
 
             # Ensure path exists and song is valid
-            if not hasattr(song, 'path') or not os.path.exists(file_path):
+            if not hasattr(song, "path") or not os.path.exists(file_path):
                 continue
 
             # Update USDB ID if needed
@@ -110,10 +112,11 @@ class LoadUsdxFilesWorker(IWorker):
                     usdb_file_path = os.path.join(root, file)
                     try:
                         import json
-                        with open(usdb_file_path, 'r', encoding='utf-8') as f:
+
+                        with open(usdb_file_path, "r", encoding="utf-8") as f:
                             usdb_data = json.load(f)
-                            if 'song_id' in usdb_data:
-                                self.path_usdb_id_map[root] = usdb_data['song_id']
+                            if "song_id" in usdb_data:
+                                self.path_usdb_id_map[root] = usdb_data["song_id"]
                                 logger.debug(f"Found USDB ID {usdb_data['song_id']} in {root}")
                     except Exception as e:
                         logger.warning(f"Failed to parse .usdb file {usdb_file_path}: {e}")

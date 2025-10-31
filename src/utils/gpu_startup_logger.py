@@ -30,7 +30,7 @@ def log_gpu_status(config, gpu_enabled, show_gui_dialog=True):
     # Probe for NVIDIA GPU
     cap = gpu_bootstrap.capability_probe()
 
-    if cap['has_nvidia']:
+    if cap["has_nvidia"]:
         _log_nvidia_gpu_detected(cap, config, gpu_enabled, show_gui_dialog)
     else:
         _log_no_nvidia_gpu()
@@ -58,6 +58,7 @@ def _log_nvidia_gpu_detected(cap, config, gpu_enabled, show_gui_dialog):
         else:
             # No GPU Pack - check if system CUDA is available before showing warning
             from utils import gpu_bootstrap
+
             system_pytorch = gpu_bootstrap.detect_system_pytorch_cuda()
             if system_pytorch:
                 # System CUDA is available - GPU is actually working!
@@ -95,6 +96,7 @@ def _log_gpu_active():
     # Try to verify CUDA availability
     try:
         import torch
+
         if torch.cuda.is_available():
             print(f"✓ CUDA available: {torch.version.cuda}")
             print(f"✓ PyTorch device count: {torch.cuda.device_count()}")
@@ -131,6 +133,7 @@ def _log_system_cuda_detected():
     # Try to show CUDA details
     try:
         import torch
+
         if torch.cuda.is_available():
             print(f"✓ CUDA version: {torch.version.cuda}")
             print(f"✓ PyTorch version: {torch.__version__}")
@@ -189,7 +192,7 @@ def _log_no_nvidia_gpu():
 
 def _get_executable_name():
     """Get the name of the current executable or script."""
-    if hasattr(sys, '_MEIPASS'):
+    if hasattr(sys, "_MEIPASS"):
         # Running as PyInstaller bundle
         return os.path.basename(sys.executable)
     # Running as script
@@ -245,7 +248,7 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     # Clean up mismatched GPU Packs (wrong Python version)
     try:
         runtime_root = Path.home() / ".local" / "share" / "USDXFixGap" / "gpu_runtime"
-        if hasattr(config, 'data_dir'):
+        if hasattr(config, "data_dir"):
             runtime_root = Path(config.data_dir) / "gpu_runtime"
 
         if gpu_pack_cleaner.should_clean_on_startup(runtime_root):
@@ -260,14 +263,16 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     gpu_bootstrap.auto_recover_gpu_pack_config(config)
 
     # Check if system PyTorch with CUDA is available
-    prefer_system = getattr(config, 'prefer_system_pytorch', True)
+    prefer_system = getattr(config, "prefer_system_pytorch", True)
     logger.info(f"GPU Pack dialog check starting (prefer_system_pytorch={prefer_system}, gpu_enabled={gpu_enabled})")
 
     if prefer_system:
         system_pytorch = gpu_bootstrap.detect_system_pytorch_cuda()
         if system_pytorch:
-            logger.info(f"System PyTorch {system_pytorch['torch_version']} with CUDA "
-                        f"{system_pytorch['cuda_version']} detected - GPU Pack dialog not needed")
+            logger.info(
+                f"System PyTorch {system_pytorch['torch_version']} with CUDA "
+                f"{system_pytorch['cuda_version']} detected - GPU Pack dialog not needed"
+            )
             return None
         else:
             logger.info("No system PyTorch with CUDA detected - checking for GPU Pack dialog")
@@ -281,7 +286,7 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
     cap = gpu_bootstrap.capability_probe()
     logger.info(f"GPU dialog check: has_nvidia={cap['has_nvidia']}, gpu_enabled={gpu_enabled}")
 
-    if cap['has_nvidia'] and not gpu_enabled:
+    if cap["has_nvidia"] and not gpu_enabled:
         # GPU detected but not working - check if GPU Pack is installed
         gpu_pack_installed = is_gpu_pack_installed(config)
         logger.debug(f"GPU Pack installed: {gpu_pack_installed}")
@@ -300,6 +305,8 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
         else:
             logger.debug("GPU Pack installed but GPU bootstrap failed - not showing dialog")
     else:
-        logger.debug(f"GPU dialog not shown: conditions not met (has_nvidia={cap['has_nvidia']}, gpu_enabled={gpu_enabled})")
+        logger.debug(
+            f"GPU dialog not shown: conditions not met (has_nvidia={cap['has_nvidia']}, gpu_enabled={gpu_enabled})"
+        )
 
     return None

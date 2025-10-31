@@ -11,14 +11,14 @@ Provides a simplified interface for audio playback with support for:
 
 import logging
 from enum import Enum
-from typing import Optional, Callable
-from pathlib import Path
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
 
 class AudioSource(Enum):
     """Audio source types."""
+
     ORIGINAL = "original"
     EXTRACTED = "extracted"
     BOTH = "both"  # Future: overlay both sources
@@ -188,18 +188,18 @@ class AudioService:
         """
         if source == AudioSource.ORIGINAL:
             self._player.audio_mode()
-            if hasattr(song, 'audio_file') and song.audio_file:
+            if hasattr(song, "audio_file") and song.audio_file:
                 self._player.load_media(song.audio_file)
         elif source == AudioSource.EXTRACTED:
             self._player.vocals_mode()
-            if hasattr(song, 'vocals_file') and song.vocals_file:
+            if hasattr(song, "vocals_file") and song.vocals_file:
                 self._player.load_media(song.vocals_file)
             else:
                 logger.warning(f"No vocals file available for {song}")
                 # Fall back to original
                 self._current_source = AudioSource.ORIGINAL
                 self._player.audio_mode()
-                if hasattr(song, 'audio_file') and song.audio_file:
+                if hasattr(song, "audio_file") and song.audio_file:
                     self._player.load_media(song.audio_file)
 
     def _on_position_changed(self, position_ms: int) -> None:

@@ -28,13 +28,10 @@ class TestSeparateAudio:
         accompaniment_path.write_text("fake accompaniment")
 
         # Mock run_cancellable_process to verify it's NOT called
-        with patch('utils.separate.run_cancellable_process') as mock_process:
+        with patch("utils.separate.run_cancellable_process") as mock_process:
             # Action: Call separate_audio with overwrite=False
             result_vocals, result_accompaniment = separate_audio(
-                audio_file=str(audio_file),
-                duration=180,
-                output_path=str(output_path),
-                overvrite=False
+                audio_file=str(audio_file), duration=180, output_path=str(output_path), overvrite=False
             )
 
             # Assert: Returns existing paths without calling subprocess
@@ -61,13 +58,10 @@ class TestSeparateAudio:
             accompaniment_path.write_text("generated accompaniment")
             return (0, "Success", "")  # returncode, stdout, stderr
 
-        with patch('utils.separate.run_cancellable_process', side_effect=mock_process_success) as mock_process:
+        with patch("utils.separate.run_cancellable_process", side_effect=mock_process_success) as mock_process:
             # Action: Call separate_audio
             result_vocals, result_accompaniment = separate_audio(
-                audio_file=str(audio_file),
-                duration=180,
-                output_path=str(output_path),
-                overvrite=False
+                audio_file=str(audio_file), duration=180, output_path=str(output_path), overvrite=False
             )
 
             # Assert: Returns expected paths
@@ -112,13 +106,13 @@ class TestSeparateAudio:
             accompaniment_path.write_text("new accompaniment")
             return (0, "Success", "")
 
-        with patch('utils.separate.run_cancellable_process', side_effect=mock_process_success) as mock_process:
+        with patch("utils.separate.run_cancellable_process", side_effect=mock_process_success) as mock_process:
             # Action: Call with overvrite=True (note the typo in the original code)
             result_vocals, result_accompaniment = separate_audio(
                 audio_file=str(audio_file),
                 duration=180,
                 output_path=str(output_path),
-                overvrite=True  # Forces re-separation
+                overvrite=True,  # Forces re-separation
             )
 
             # Assert: Subprocess WAS called despite existing files
@@ -132,10 +126,7 @@ class TestSeparateAudio:
 
         with pytest.raises(Exception, match="Audio file not found"):
             separate_audio(
-                audio_file="/nonexistent/file.mp3",
-                duration=180,
-                output_path=str(output_path),
-                overvrite=False
+                audio_file="/nonexistent/file.mp3", duration=180, output_path=str(output_path), overvrite=False
             )
 
     def test_failed_separation_raises_exception(self, tmp_path):
@@ -145,11 +136,6 @@ class TestSeparateAudio:
         output_path = tmp_path / "output"
 
         # Mock run_cancellable_process to succeed but NOT create files
-        with patch('utils.separate.run_cancellable_process', return_value=(0, "Success", "")):
+        with patch("utils.separate.run_cancellable_process", return_value=(0, "Success", "")):
             with pytest.raises(Exception, match="Failed to separate audio"):
-                separate_audio(
-                    audio_file=str(audio_file),
-                    duration=180,
-                    output_path=str(output_path),
-                    overvrite=False
-                )
+                separate_audio(audio_file=str(audio_file), duration=180, output_path=str(output_path), overvrite=False)

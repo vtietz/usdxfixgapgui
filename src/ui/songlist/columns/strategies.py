@@ -22,13 +22,13 @@ class PathColumn:
 
     def format_display(self, song: Song, cache_entry: Optional[dict]) -> str:
         if cache_entry:
-            return cache_entry['relative_path']
+            return cache_entry["relative_path"]
         # Cache miss - compute on demand
         return files.get_relative_path(self.base_directory, song.path)
 
     def get_sort_key(self, song: Song, cache_entry: Optional[dict]) -> Any:
         if cache_entry:
-            return cache_entry['relative_path']
+            return cache_entry["relative_path"]
         return files.get_relative_path(self.base_directory, song.path)
 
 

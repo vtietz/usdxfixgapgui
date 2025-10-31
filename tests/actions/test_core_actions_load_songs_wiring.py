@@ -3,8 +3,9 @@ Tests for CoreActions song loading wiring.
 
 Validates worker queue integration, signal handling, and batch loading behavior.
 """
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from PySide6.QtCore import QObject, Signal
 from actions.core_actions import CoreActions
 from model.song import Song, SongStatus
@@ -12,6 +13,7 @@ from model.song import Song, SongStatus
 
 class MockLoadWorkerSignals(QObject):
     """Mock signals for LoadUsdxFilesWorker."""
+
     songLoaded = Signal(Song)
     songsLoadedBatch = Signal(list)
     finished = Signal()
@@ -55,7 +57,7 @@ def core_actions(mock_app_data):
 class TestLoadSongsWorkerEnqueue:
     """Test _load_songs worker queue integration."""
 
-    @patch('actions.core_actions.LoadUsdxFilesWorker')
+    @patch("actions.core_actions.LoadUsdxFilesWorker")
     def test_load_songs_creates_worker_with_correct_params(
         self, mock_worker_class, core_actions, mock_app_data, tmp_path
     ):
@@ -72,10 +74,8 @@ class TestLoadSongsWorkerEnqueue:
 
         mock_worker_class.assert_called_once_with(str(test_dir), tmp_path, mock_app_data.config)
 
-    @patch('actions.core_actions.LoadUsdxFilesWorker')
-    def test_load_songs_enqueues_worker_with_start_now_true(
-        self, mock_worker_class, core_actions, mock_app_data
-    ):
+    @patch("actions.core_actions.LoadUsdxFilesWorker")
+    def test_load_songs_enqueues_worker_with_start_now_true(self, mock_worker_class, core_actions, mock_app_data):
         """_load_songs enqueues worker with start_now=True."""
         mock_worker = Mock()
         mock_worker.signals = MockLoadWorkerSignals()
@@ -83,14 +83,10 @@ class TestLoadSongsWorkerEnqueue:
 
         core_actions._load_songs()
 
-        mock_app_data.worker_queue.add_task.assert_called_once_with(
-            mock_worker, True
-        )
+        mock_app_data.worker_queue.add_task.assert_called_once_with(mock_worker, True)
 
-    @patch('actions.core_actions.LoadUsdxFilesWorker')
-    def test_load_songs_connects_signals(
-        self, mock_worker_class, core_actions
-    ):
+    @patch("actions.core_actions.LoadUsdxFilesWorker")
+    def test_load_songs_connects_signals(self, mock_worker_class, core_actions):
         """_load_songs connects all worker signals to handlers."""
         mock_worker = Mock()
         mock_signals = Mock()
@@ -113,9 +109,7 @@ class TestLoadSongsWorkerEnqueue:
 class TestSongsBatchLoadedHandler:
     """Test _on_songs_batch_loaded signal handler."""
 
-    def test_batch_loaded_sets_original_gap_for_not_processed_songs(
-        self, core_actions, mock_app_data, song_factory
-    ):
+    def test_batch_loaded_sets_original_gap_for_not_processed_songs(self, core_actions, mock_app_data, song_factory):
         """_on_songs_batch_loaded sets original_gap for NOT_PROCESSED songs."""
         song1 = song_factory(gap=1000)
         song2 = song_factory(gap=2000)
@@ -128,9 +122,7 @@ class TestSongsBatchLoadedHandler:
         assert song1.gap_info.original_gap == 1000
         assert song2.gap_info.original_gap == 2000
 
-    def test_batch_loaded_skips_original_gap_for_processed_songs(
-        self, core_actions, song_factory
-    ):
+    def test_batch_loaded_skips_original_gap_for_processed_songs(self, core_actions, song_factory):
         """_on_songs_batch_loaded skips original_gap for already processed songs."""
         song = song_factory(gap=1000)
         song.status = SongStatus.MATCH
@@ -141,9 +133,7 @@ class TestSongsBatchLoadedHandler:
         # Should not overwrite existing original_gap
         assert song.gap_info.original_gap == 500
 
-    def test_batch_loaded_calls_songs_add_batch(
-        self, core_actions, mock_app_data, song_factory
-    ):
+    def test_batch_loaded_calls_songs_add_batch(self, core_actions, mock_app_data, song_factory):
         """_on_songs_batch_loaded uses add_batch for performance."""
         songs = [song_factory(), song_factory(), song_factory()]
 
@@ -151,9 +141,7 @@ class TestSongsBatchLoadedHandler:
 
         mock_app_data.songs.add_batch.assert_called_once_with(songs)
 
-    def test_batch_loaded_handles_empty_list(
-        self, core_actions, mock_app_data
-    ):
+    def test_batch_loaded_handles_empty_list(self, core_actions, mock_app_data):
         """_on_songs_batch_loaded handles empty list gracefully."""
         core_actions._on_songs_batch_loaded([])
 
@@ -163,9 +151,7 @@ class TestSongsBatchLoadedHandler:
 class TestSongLoadedHandler:
     """Test _on_song_loaded signal handler."""
 
-    def test_song_loaded_adds_song_to_collection(
-        self, core_actions, mock_app_data, song_factory
-    ):
+    def test_song_loaded_adds_song_to_collection(self, core_actions, mock_app_data, song_factory):
         """_on_song_loaded adds song to songs collection."""
         song = song_factory()
 
@@ -173,9 +159,7 @@ class TestSongLoadedHandler:
 
         mock_app_data.songs.add.assert_called_once_with(song)
 
-    def test_song_loaded_sets_original_gap_for_not_processed(
-        self, core_actions, song_factory
-    ):
+    def test_song_loaded_sets_original_gap_for_not_processed(self, core_actions, song_factory):
         """_on_song_loaded sets original_gap for NOT_PROCESSED songs."""
         song = song_factory(gap=1500)
         song.status = SongStatus.NOT_PROCESSED
@@ -184,9 +168,7 @@ class TestSongLoadedHandler:
 
         assert song.gap_info.original_gap == 1500
 
-    def test_song_loaded_does_not_set_original_gap_for_processed(
-        self, core_actions, song_factory
-    ):
+    def test_song_loaded_does_not_set_original_gap_for_processed(self, core_actions, song_factory):
         """_on_song_loaded does not set original_gap for processed songs."""
         song = song_factory(gap=1500)
         song.status = SongStatus.MATCH
@@ -200,9 +182,7 @@ class TestSongLoadedHandler:
 class TestLoadingFinishedHandler:
     """Test _on_loading_songs_finished signal handler."""
 
-    def test_loading_finished_sets_is_loading_songs_false(
-        self, core_actions, mock_app_data
-    ):
+    def test_loading_finished_sets_is_loading_songs_false(self, core_actions, mock_app_data):
         """_on_loading_songs_finished sets is_loading_songs to False."""
         mock_app_data.is_loading_songs = True
 
@@ -214,11 +194,9 @@ class TestLoadingFinishedHandler:
 class TestErrorHandler:
     """Test error signal handler."""
 
-    @patch('actions.core_actions.logger')
-    @patch('actions.core_actions.LoadUsdxFilesWorker')
-    def test_error_handler_logs_error(
-        self, mock_worker_class, mock_logger, core_actions
-    ):
+    @patch("actions.core_actions.logger")
+    @patch("actions.core_actions.LoadUsdxFilesWorker")
+    def test_error_handler_logs_error(self, mock_worker_class, mock_logger, core_actions):
         """Error signal handler logs errors."""
         mock_worker = Mock()
         mock_signals = Mock()
@@ -247,10 +225,8 @@ class TestErrorHandler:
 class TestIntegratedSignalFlow:
     """Test integrated signal flow simulation."""
 
-    @patch('actions.core_actions.LoadUsdxFilesWorker')
-    def test_full_batch_load_flow(
-        self, mock_worker_class, core_actions, mock_app_data, song_factory
-    ):
+    @patch("actions.core_actions.LoadUsdxFilesWorker")
+    def test_full_batch_load_flow(self, mock_worker_class, core_actions, mock_app_data, song_factory):
         """Simulate full batch load flow: enqueue → batch → finished."""
         # Setup mock worker
         mock_worker = Mock()
@@ -279,10 +255,8 @@ class TestIntegratedSignalFlow:
         # Verify finished handler was called
         assert mock_app_data.is_loading_songs is False
 
-    @patch('actions.core_actions.LoadUsdxFilesWorker')
-    def test_individual_song_load_flow(
-        self, mock_worker_class, core_actions, mock_app_data, song_factory
-    ):
+    @patch("actions.core_actions.LoadUsdxFilesWorker")
+    def test_individual_song_load_flow(self, mock_worker_class, core_actions, mock_app_data, song_factory):
         """Simulate individual song load flow for single file reload."""
         mock_worker = Mock()
         mock_worker.signals = MockLoadWorkerSignals()

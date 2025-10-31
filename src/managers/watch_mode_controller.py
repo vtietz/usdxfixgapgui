@@ -46,7 +46,7 @@ class WatchModeController(QObject):
         songs_get_by_txt_file,
         songs_get_by_path,
         songs_add,
-        songs_remove_by_txt_file
+        songs_remove_by_txt_file,
     ):
         """
         Initialize WatchModeController.
@@ -72,15 +72,14 @@ class WatchModeController(QObject):
         self._watcher = DirectoryWatcher(ignore_patterns=ignore_patterns)
 
         self._cache_scheduler = CacheUpdateScheduler(
-            worker_queue_add_task=worker_queue_add_task,
-            songs_get_by_txt_file=songs_get_by_txt_file
+            worker_queue_add_task=worker_queue_add_task, songs_get_by_txt_file=songs_get_by_txt_file
         )
 
         self._gap_scheduler = GapDetectionScheduler(
             debounce_ms=debounce_ms,
             start_gap_detection=start_gap_detection,
             songs_get_by_txt_file=songs_get_by_txt_file,
-            songs_get_by_path=songs_get_by_path
+            songs_get_by_path=songs_get_by_path,
         )
 
         # Store callbacks

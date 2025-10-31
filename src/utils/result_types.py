@@ -29,6 +29,7 @@ class DetectionProviderResult:
         detected_gap_ms: Detected gap as float milliseconds (for precision)
         first_note_ms: Position of first note in milliseconds (from USDX file)
     """
+
     detected_gap: Optional[int] = None
     silence_periods: List[Tuple[float, float]] = field(default_factory=list)
     vocals_file: Optional[str] = None
@@ -58,6 +59,7 @@ class DetectGapResult:
         waveform_json_path: Path to waveform JSON data
         detected_gap_ms: Detected gap as float milliseconds
     """
+
     detected_gap: int
     silence_periods: List[Tuple[float, float]]
     vocals_file: str

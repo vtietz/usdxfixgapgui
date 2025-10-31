@@ -7,12 +7,12 @@ from typing import Optional
 
 # Ensure src directory is importable
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
-SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
+SRC_DIR = os.path.join(PROJECT_ROOT, "src")
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 # Add tests directory to path for test utilities
-TESTS_DIR = os.path.join(PROJECT_ROOT, 'tests')
+TESTS_DIR = os.path.join(PROJECT_ROOT, "tests")
 if TESTS_DIR not in sys.path:
     sys.path.append(TESTS_DIR)
 
@@ -27,22 +27,26 @@ from utils.providers.mdx.config import MdxConfig
 # Platform-specific test markers
 # ============================================================================
 
+
 def pytest_collection_modifyitems(config, items):
     """
     Automatically skip Windows-only tests when running on non-Windows platforms.
     """
     skip_on_non_windows = pytest.mark.skipif(
-        sys.platform != 'win32',
-        reason="Windows-only test - requires Windows APIs (os.add_dll_directory, ctypes.WinDLL, os.startfile)"
+        sys.platform != "win32",
+        reason="Windows-only test - requires Windows APIs (os.add_dll_directory, ctypes.WinDLL, os.startfile)",
     )
 
     windows_only_keywords = [
-        '_windows', 'windll', 'startfile', 'dll_director',
-        'enable_gpu_runtime_wheel',  # Uses os.add_dll_directory
-        'feature_flag',  # GPU feature flags use Windows-specific code
-        'url_format_for_python',  # Tests expect Windows URLs
-        'open_config_file',  # Uses os.startfile
-        'no_config_uses_legacy'  # Part of FeatureFlagIntegration, uses os.add_dll_directory
+        "_windows",
+        "windll",
+        "startfile",
+        "dll_director",
+        "enable_gpu_runtime_wheel",  # Uses os.add_dll_directory
+        "feature_flag",  # GPU feature flags use Windows-specific code
+        "url_format_for_python",  # Tests expect Windows URLs
+        "open_config_file",  # Uses os.startfile
+        "no_config_uses_legacy",  # Part of FeatureFlagIntegration, uses os.add_dll_directory
     ]
 
     for item in items:
@@ -97,6 +101,7 @@ def cleanup_asyncio_thread():
     # After all tests complete, shutdown the asyncio thread
     try:
         from utils.run_async import shutdown_asyncio
+
         shutdown_asyncio()
     except Exception as e:
         # Log but don't fail tests if shutdown has issues
@@ -127,7 +132,7 @@ def app_data(tmp_path):
 
     # Configuration
     data.config = Mock()
-    data.config.method = 'mdx'
+    data.config.method = "mdx"
     data.config.auto_normalize = False
 
     # Filesystem access
@@ -147,6 +152,7 @@ def song_factory(tmp_path):
     Returns:
         A callable that creates Song objects
     """
+
     def _create_song(
         txt_file: Optional[str] = None,
         title: str = "Test Song",
@@ -155,7 +161,7 @@ def song_factory(tmp_path):
         bpm: int = 120,
         is_relative: bool = False,
         audio_file: Optional[str] = None,
-        with_notes: bool = True
+        with_notes: bool = True,
     ) -> Song:
         """
         Create a Song object with specified parameters.
@@ -214,6 +220,7 @@ def fake_run_async():
     Returns:
         Callable that executes coroutine synchronously and invokes callback
     """
+
     def _executor(coro, callback=None):
         """Execute coroutine synchronously and invoke optional callback."""
         result = asyncio.run(coro)
@@ -228,6 +235,7 @@ def fake_run_async():
 # Tier-2 Scanner Test Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def patch_separator(monkeypatch):
     """
@@ -238,8 +246,7 @@ def patch_separator(monkeypatch):
     """
     # Patch where it's used, not where it's defined
     monkeypatch.setattr(
-        'utils.providers.mdx.scanner.onset_detector.separate_vocals_chunk',
-        separation_stub.stub_separate_vocals_chunk
+        "utils.providers.mdx.scanner.onset_detector.separate_vocals_chunk", separation_stub.stub_separate_vocals_chunk
     )
     yield  # Allow tests to execute
 
@@ -257,6 +264,7 @@ def mdx_config_tight():
     if os.path.exists(custom_config_path):
         # Load from custom config for experimentation
         from common.config import Config
+
         cfg = Config(custom_config_path=custom_config_path)
         return MdxConfig.from_config(cfg)
 
@@ -270,7 +278,7 @@ def mdx_config_tight():
         initial_radius_ms=7500,
         radius_increment_ms=7500,
         max_expansions=2,
-        early_stop_tolerance_ms=500
+        early_stop_tolerance_ms=500,
     )
 
 
@@ -287,6 +295,7 @@ def mdx_config_loose():
     if os.path.exists(custom_config_path):
         # Load from custom config for experimentation
         from common.config import Config
+
         cfg = Config(custom_config_path=custom_config_path)
         return MdxConfig.from_config(cfg)
 
@@ -300,7 +309,7 @@ def mdx_config_loose():
         initial_radius_ms=10000,
         radius_increment_ms=10000,
         max_expansions=3,
-        early_stop_tolerance_ms=500
+        early_stop_tolerance_ms=500,
     )
 
 
@@ -313,7 +322,7 @@ def model_placeholder():
     """
     model = Mock()
     model.samplerate = 44100
-    model.sources = ['drums', 'bass', 'other', 'vocals']
+    model.sources = ["drums", "bass", "other", "vocals"]
     model.segment = 4.0  # Segment duration in seconds (required by demucs.apply_model)
     return model
 
@@ -321,6 +330,7 @@ def model_placeholder():
 # ============================================================================
 # Tier-3 Fixtures (Pipeline + Worker Integration)
 # ============================================================================
+
 
 @pytest.fixture
 def audio_scenario(tmp_path):
@@ -337,7 +347,7 @@ def audio_scenario(tmp_path):
         fade_in_ms: float = 100,
         amp: float = 0.7,
         noise_floor_db: float = -60.0,
-        filename: str = "test_audio.wav"
+        filename: str = "test_audio.wav",
     ):
         """
         Build audio scenario with given parameters.
@@ -349,10 +359,9 @@ def audio_scenario(tmp_path):
             output_path=tmp_path / filename,
             duration_ms=duration_ms,
             vocal_events=[
-                VocalEvent(onset_ms=onset_ms, duration_ms=duration_ms - onset_ms - 1000,
-                          fade_in_ms=fade_in_ms, amp=amp)
+                VocalEvent(onset_ms=onset_ms, duration_ms=duration_ms - onset_ms - 1000, fade_in_ms=fade_in_ms, amp=amp)
             ],
-            instrument_bed=InstrumentBed(noise_floor_db=noise_floor_db)
+            instrument_bed=InstrumentBed(noise_floor_db=noise_floor_db),
         )
 
         return {
@@ -360,7 +369,7 @@ def audio_scenario(tmp_path):
             "sr": audio_result.sr,
             "truth_onset_ms": onset_ms,
             "duration_ms": audio_result.duration_ms,
-            "tmp_root": str(tmp_path)
+            "tmp_root": str(tmp_path),
         }
 
     return _build_scenario
@@ -382,7 +391,7 @@ def stub_provider_factory():
         raise_on_get_vocals: bool = False,
         raise_on_detect_silence: bool = False,
         raise_on_confidence: bool = False,
-        tmp_root: Optional[str] = None
+        tmp_root: Optional[str] = None,
     ):
         """Create StubProvider with given configuration."""
         config = ConfigStub(tmp_root=tmp_root)
@@ -392,7 +401,7 @@ def stub_provider_factory():
             confidence_value=confidence_value,
             raise_on_get_vocals=raise_on_get_vocals,
             raise_on_detect_silence=raise_on_detect_silence,
-            raise_on_confidence=raise_on_confidence
+            raise_on_confidence=raise_on_confidence,
         )
 
     return _create_provider
@@ -406,13 +415,11 @@ def patch_provider(monkeypatch, stub_provider_factory):
     Returns a function that patches the provider factory to return
     a specific StubProvider instance.
     """
+
     def _patch_with_provider(provider):
         """Patch get_detection_provider to return the given provider."""
         # Patch where it's used (pipeline imports it)
-        monkeypatch.setattr(
-            'utils.gap_detection.pipeline.get_detection_provider',
-            lambda config: provider
-        )
+        monkeypatch.setattr("utils.gap_detection.pipeline.get_detection_provider", lambda config: provider)
         return provider
 
     return _patch_with_provider
@@ -436,4 +443,5 @@ def write_tier3_docs():
     Returns True if GAP_WRITE_DOCS=1 environment variable is set.
     """
     import os
-    return os.environ.get('GAP_WRITE_DOCS', '0') == '1'
+
+    return os.environ.get("GAP_WRITE_DOCS", "0") == "1"

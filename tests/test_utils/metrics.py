@@ -6,7 +6,6 @@ Provides spies/counters for tracking chunk processing behavior.
 
 from contextlib import contextmanager
 from typing import Set
-from unittest.mock import Mock
 
 
 class ChunkMetrics:

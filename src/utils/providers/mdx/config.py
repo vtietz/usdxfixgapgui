@@ -18,6 +18,7 @@ DEFAULT_TF32 = True
 @dataclass
 class MdxConfig:
     """Configuration parameters for MDX provider."""
+
     # Chunked scanning parameters
     chunk_duration_ms: float = 12000
     chunk_overlap_ms: float = 6000
@@ -73,29 +74,29 @@ class MdxConfig:
             raise ValueError(f"noise_floor_duration_ms must be non-negative, got {self.noise_floor_duration_ms}")
 
     @classmethod
-    def from_config(cls, config) -> 'MdxConfig':
+    def from_config(cls, config) -> "MdxConfig":
         """Create MdxConfig from a config object using getattr with defaults."""
         return cls(
-            chunk_duration_ms=getattr(config, 'mdx_chunk_duration_ms', cls.chunk_duration_ms),
-            chunk_overlap_ms=getattr(config, 'mdx_chunk_overlap_ms', cls.chunk_overlap_ms),
-            frame_duration_ms=getattr(config, 'mdx_frame_duration_ms', cls.frame_duration_ms),
-            hop_duration_ms=getattr(config, 'mdx_hop_duration_ms', cls.hop_duration_ms),
-            noise_floor_duration_ms=getattr(config, 'mdx_noise_floor_duration_ms', cls.noise_floor_duration_ms),
-            onset_snr_threshold=getattr(config, 'mdx_onset_snr_threshold', cls.onset_snr_threshold),
-            onset_abs_threshold=getattr(config, 'mdx_onset_abs_threshold', cls.onset_abs_threshold),
-            min_voiced_duration_ms=getattr(config, 'mdx_min_voiced_duration_ms', cls.min_voiced_duration_ms),
-            hysteresis_ms=getattr(config, 'mdx_hysteresis_ms', cls.hysteresis_ms),
-            initial_radius_ms=getattr(config, 'mdx_initial_radius_ms', cls.initial_radius_ms),
-            radius_increment_ms=getattr(config, 'mdx_radius_increment_ms', cls.radius_increment_ms),
-            max_expansions=getattr(config, 'mdx_max_expansions', cls.max_expansions),
-            start_window_ms=int(getattr(config, 'vocal_start_window_sec', 30) or 30) * 1000,
-            start_window_increment_ms=int(getattr(config, 'vocal_window_increment_sec', 15) or 15) * 1000,
-            start_window_max_ms=int(getattr(config, 'vocal_window_max_sec', 90) or 90) * 1000,
-            use_fp16=getattr(config, 'mdx_use_fp16', cls.use_fp16),
-            resample_hz=getattr(config, 'mdx_resample_hz', cls.resample_hz),
-            early_stop_tolerance_ms=getattr(config, 'mdx_early_stop_tolerance_ms', cls.early_stop_tolerance_ms),
-            tf32=getattr(config, 'mdx_tf32', cls.tf32),
-            confidence_threshold=getattr(config, 'mdx_confidence_threshold', cls.confidence_threshold),
-            preview_pre_ms=getattr(config, 'mdx_preview_pre_ms', cls.preview_pre_ms),
-            preview_post_ms=getattr(config, 'mdx_preview_post_ms', cls.preview_post_ms),
+            chunk_duration_ms=getattr(config, "mdx_chunk_duration_ms", cls.chunk_duration_ms),
+            chunk_overlap_ms=getattr(config, "mdx_chunk_overlap_ms", cls.chunk_overlap_ms),
+            frame_duration_ms=getattr(config, "mdx_frame_duration_ms", cls.frame_duration_ms),
+            hop_duration_ms=getattr(config, "mdx_hop_duration_ms", cls.hop_duration_ms),
+            noise_floor_duration_ms=getattr(config, "mdx_noise_floor_duration_ms", cls.noise_floor_duration_ms),
+            onset_snr_threshold=getattr(config, "mdx_onset_snr_threshold", cls.onset_snr_threshold),
+            onset_abs_threshold=getattr(config, "mdx_onset_abs_threshold", cls.onset_abs_threshold),
+            min_voiced_duration_ms=getattr(config, "mdx_min_voiced_duration_ms", cls.min_voiced_duration_ms),
+            hysteresis_ms=getattr(config, "mdx_hysteresis_ms", cls.hysteresis_ms),
+            initial_radius_ms=getattr(config, "mdx_initial_radius_ms", cls.initial_radius_ms),
+            radius_increment_ms=getattr(config, "mdx_radius_increment_ms", cls.radius_increment_ms),
+            max_expansions=getattr(config, "mdx_max_expansions", cls.max_expansions),
+            start_window_ms=int(getattr(config, "vocal_start_window_sec", 30) or 30) * 1000,
+            start_window_increment_ms=int(getattr(config, "vocal_window_increment_sec", 15) or 15) * 1000,
+            start_window_max_ms=int(getattr(config, "vocal_window_max_sec", 90) or 90) * 1000,
+            use_fp16=getattr(config, "mdx_use_fp16", cls.use_fp16),
+            resample_hz=getattr(config, "mdx_resample_hz", cls.resample_hz),
+            early_stop_tolerance_ms=getattr(config, "mdx_early_stop_tolerance_ms", cls.early_stop_tolerance_ms),
+            tf32=getattr(config, "mdx_tf32", cls.tf32),
+            confidence_threshold=getattr(config, "mdx_confidence_threshold", cls.confidence_threshold),
+            preview_pre_ms=getattr(config, "mdx_preview_pre_ms", cls.preview_pre_ms),
+            preview_post_ms=getattr(config, "mdx_preview_post_ms", cls.preview_post_ms),
         )

@@ -7,15 +7,16 @@ import utils.audio as audio
 
 logger = logging.getLogger(__name__)
 
+
 class CreateWaveform(IWorker):
     def __init__(
-            self,
-            song: Song,
-            config: Config,
-            audio_file,
-            waveform_file,
-            is_instant: bool = True  # Default to instant - waveform creation is user-triggered
-        ):
+        self,
+        song: Song,
+        config: Config,
+        audio_file,
+        waveform_file,
+        is_instant: bool = True,  # Default to instant - waveform creation is user-triggered
+    ):
         super().__init__(is_instant=is_instant)
         self.signals = IWorkerSignals()
         self.song = song
@@ -55,15 +56,15 @@ class CreateWaveform(IWorker):
 
         # Guard against missing fields
         notes = song.notes or []
-        gap = song.gap if getattr(song, "gap", None) is not None else 0
+        song.gap if getattr(song, "gap", None) is not None else 0
 
         # gap_info may be missing for some songs; handle gracefully
         gi = getattr(song, "gap_info", None)
-        detected_gap = getattr(gi, "detected_gap", None) if gi else None
+        getattr(gi, "detected_gap", None) if gi else None
         silence_periods = getattr(gi, "silence_periods", []) if gi else []
 
         silence_periods_color = self.config.silence_periods_color
-        detected_gap_color = self.config.detected_gap_color
+        self.config.detected_gap_color
         waveform_color = self.config.waveform_color
 
         # Always (re)create the waveform base image first

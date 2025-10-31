@@ -5,9 +5,8 @@ Verifies that the manifest correctly generates URLs and metadata for different P
 """
 
 import sys
-import pytest
 from unittest.mock import patch
-from utils.gpu_manifest import load_local_manifest, DEFAULT_MANIFESTS, _get_wheel_metadata
+from utils.gpu_manifest import load_local_manifest
 
 
 class TestPythonVersionDetection:
@@ -25,10 +24,11 @@ class TestPythonVersionDetection:
 
     def test_url_format_for_python_312(self):
         """Test URL format for Python 3.12."""
-        with patch('utils.gpu_manifest.sys.version_info', major=3, minor=12):
+        with patch("utils.gpu_manifest.sys.version_info", major=3, minor=12):
             # Re-import to pick up patched version
             import importlib
             import utils.gpu_manifest
+
             importlib.reload(utils.gpu_manifest)
 
             manifests = utils.gpu_manifest.load_local_manifest("1.0.0")
@@ -39,9 +39,10 @@ class TestPythonVersionDetection:
 
     def test_url_format_for_python_38(self):
         """Test URL format for Python 3.8."""
-        with patch('utils.gpu_manifest.sys.version_info', major=3, minor=8):
+        with patch("utils.gpu_manifest.sys.version_info", major=3, minor=8):
             import importlib
             import utils.gpu_manifest
+
             importlib.reload(utils.gpu_manifest)
 
             manifests = utils.gpu_manifest.load_local_manifest("1.0.0")
@@ -52,9 +53,10 @@ class TestPythonVersionDetection:
 
     def test_wheel_metadata_fallback_to_cp38(self):
         """Test that unknown Python versions fallback to cp38 metadata."""
-        with patch('utils.gpu_manifest.sys.version_info', major=3, minor=99):
+        with patch("utils.gpu_manifest.sys.version_info", major=3, minor=99):
             import importlib
             import utils.gpu_manifest
+
             importlib.reload(utils.gpu_manifest)
 
             # Should not raise error, should use cp38 metadata
@@ -71,8 +73,8 @@ class TestPythonVersionDetection:
         manifests = load_local_manifest("1.0.0")
         cu121 = manifests["cu121"]
 
-        assert hasattr(cu121, 'sha256')
-        assert hasattr(cu121, 'size')
+        assert hasattr(cu121, "sha256")
+        assert hasattr(cu121, "size")
         assert isinstance(cu121.sha256, str)
         assert isinstance(cu121.size, int)
         assert cu121.size > 0
@@ -81,7 +83,7 @@ class TestPythonVersionDetection:
         """Test that both cu121 and cu124 support Python version detection."""
         manifests = load_local_manifest("1.0.0")
 
-        expected_py_tag = f"cp{sys.version_info.major}{sys.version_info.minor}"
+        f"cp{sys.version_info.major}{sys.version_info.minor}"
 
         for flavor in ["cu121", "cu124"]:
             manifest = manifests[flavor]

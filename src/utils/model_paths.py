@@ -57,20 +57,17 @@ def setup_model_paths(config=None):
 
     # Configure PyTorch Hub (used by Demucs)
     # This overrides the default ~/.cache/torch/hub/checkpoints/
-    os.environ['TORCH_HOME'] = demucs_dir
+    os.environ["TORCH_HOME"] = demucs_dir
     logger.info(f"Set TORCH_HOME={demucs_dir}")
 
     # Set XDG_CACHE_HOME as fallback for other libraries
     # This is a standard Unix/Linux environment variable
-    if 'XDG_CACHE_HOME' not in os.environ:
+    if "XDG_CACHE_HOME" not in os.environ:
         cache_home = os.path.dirname(demucs_dir)  # models parent directory
-        os.environ['XDG_CACHE_HOME'] = cache_home
+        os.environ["XDG_CACHE_HOME"] = cache_home
         logger.debug(f"Set XDG_CACHE_HOME={cache_home}")
 
-    paths = {
-        'demucs_dir': demucs_dir,
-        'torch_home': os.environ['TORCH_HOME']
-    }
+    paths = {"demucs_dir": demucs_dir, "torch_home": os.environ["TORCH_HOME"]}
 
     logger.info("Model paths configured successfully")
     logger.debug(f"Model paths: {paths}")
@@ -91,9 +88,9 @@ def get_configured_model_paths():
             }
     """
     return {
-        'torch_home': os.environ.get('TORCH_HOME'),
-        'model_path': os.environ.get('MODEL_PATH'),
-        'xdg_cache_home': os.environ.get('XDG_CACHE_HOME')
+        "torch_home": os.environ.get("TORCH_HOME"),
+        "model_path": os.environ.get("MODEL_PATH"),
+        "xdg_cache_home": os.environ.get("XDG_CACHE_HOME"),
     }
 
 
@@ -104,4 +101,4 @@ def is_model_paths_configured():
     Returns:
         bool: True if TORCH_HOME is set, False otherwise
     """
-    return 'TORCH_HOME' in os.environ
+    return "TORCH_HOME" in os.environ

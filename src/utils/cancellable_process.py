@@ -3,9 +3,10 @@ import time
 import subprocess
 import threading
 import platform  # Import platform module to detect the OS
-import shutil   # For checking command availability
+import shutil  # For checking command availability
 
 logger = logging.getLogger(__name__)
+
 
 def run_cancellable_process(command, check_cancellation=None):
     """Run an external process that can be cancelled.
@@ -14,7 +15,7 @@ def run_cancellable_process(command, check_cancellation=None):
     found (e.g. 'spleeter'), which otherwise results in a confusing
     FileNotFoundError that might be mistaken for a missing audio file.
     """
-    logger.debug("Running command: %s", ' '.join(command))
+    logger.debug("Running command: %s", " ".join(command))
 
     if not command or not isinstance(command, (list, tuple)):
         raise ValueError("command must be a non-empty list/tuple")
@@ -22,22 +23,20 @@ def run_cancellable_process(command, check_cancellation=None):
     exe = command[0]
     # On Windows, PATHEXT allows running without extension, shutil.which handles that.
     if shutil.which(exe) is None:
-        raise FileNotFoundError(
-            f"Executable not found: '{exe}'. Is the dependency installed and on PATH?"
-        )
+        raise FileNotFoundError(f"Executable not found: '{exe}'. Is the dependency installed and on PATH?")
 
     # Set up the process creation parameters
     popen_kwargs = {
-        'stdout': subprocess.PIPE,
-        'stderr': subprocess.PIPE,
-        'text': True,
-        'encoding': 'utf-8',  # Specify UTF-8 encoding
-        'errors': 'ignore'    # Ignore decoding errors
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "encoding": "utf-8",  # Specify UTF-8 encoding
+        "errors": "ignore",  # Ignore decoding errors
     }
 
     # Only add creationflags on Windows
-    if platform.system() == 'Windows':
-        popen_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW  # Suppress cmd window
+    if platform.system() == "Windows":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW  # Suppress cmd window
 
     # Create the process with the appropriate arguments
     process = subprocess.Popen(command, **popen_kwargs)
@@ -80,4 +79,4 @@ def run_cancellable_process(command, check_cancellation=None):
     stdout_thread.join()
     stderr_thread.join()
 
-    return process.returncode, ''.join(stdout), ''.join(stderr)
+    return process.returncode, "".join(stdout), "".join(stderr)

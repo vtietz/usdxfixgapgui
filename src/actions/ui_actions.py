@@ -6,6 +6,7 @@ from model.song import Song
 
 logger = logging.getLogger(__name__)
 
+
 class UiActions(BaseActions):
     """UI-related actions like opening URLs and folders"""
 

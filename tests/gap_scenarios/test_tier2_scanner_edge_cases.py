@@ -9,13 +9,10 @@ import sys
 from pathlib import Path
 
 import pytest
-import numpy as np
-from scipy.io import wavfile
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed
-from test_utils import visualize
 from utils.providers.mdx.scanner.pipeline import scan_for_onset
 from utils.providers.mdx.vocals_cache import VocalsCache
 
@@ -24,19 +21,22 @@ from utils.providers.mdx.vocals_cache import VocalsCache
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def artifact_dir(tmp_path):
     """Return docs directory if GAP_WRITE_DOCS=1, else tmp_path."""
-    if os.environ.get('GAP_WRITE_DOCS') == '1':
-        docs_path = Path(__file__).parent.parent.parent / 'docs' / 'gap-tests' / 'tier2'
+    if os.environ.get("GAP_WRITE_DOCS") == "1":
+        docs_path = Path(__file__).parent.parent.parent / "docs" / "gap-tests" / "tier2"
         docs_path.mkdir(parents=True, exist_ok=True)
         return docs_path
     return tmp_path
 
 
-def write_tier2_preview_if_enabled(audio_path, truth_ms, detected_ms, early_noise_ms, expected_gap_ms, scenario_name, artifact_dir):
+def write_tier2_preview_if_enabled(
+    audio_path, truth_ms, detected_ms, early_noise_ms, expected_gap_ms, scenario_name, artifact_dir
+):
     """Write waveform preview if GAP_WRITE_DOCS=1."""
-    if os.environ.get('GAP_WRITE_DOCS') != '1':
+    if os.environ.get("GAP_WRITE_DOCS") != "1":
         return
 
     import soundfile as sf
@@ -70,7 +70,7 @@ def write_tier2_preview_if_enabled(audio_path, truth_ms, detected_ms, early_nois
         detected_ms=detected_ms,
         title=title,
         out_path=str(output_path),
-        rms_overlay=True
+        rms_overlay=True,
     )
 
 
@@ -78,12 +78,8 @@ def write_tier2_preview_if_enabled(audio_path, truth_ms, detected_ms, early_nois
 # Edge Case Tests
 # ============================================================================
 
-def test_06_vocals_at_zero_expected_far(
-    tmp_path,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
-):
+
+def test_06_vocals_at_zero_expected_far(tmp_path, patch_separator, mdx_config_tight, model_placeholder):
     """
     Scenario 6: Very early vocals with expected gap much later.
 
@@ -97,10 +93,8 @@ def test_06_vocals_at_zero_expected_far(
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_vocals_early.wav",
         duration_ms=30000,
-        vocal_events=[
-            VocalEvent(onset_ms=onset_ms, duration_ms=10000, fade_in_ms=100, amp=0.8)  # Strong onset
-        ],
-        instrument_bed=InstrumentBed(noise_floor_db=-60.0)
+        vocal_events=[VocalEvent(onset_ms=onset_ms, duration_ms=10000, fade_in_ms=100, amp=0.8)],  # Strong onset
+        instrument_bed=InstrumentBed(noise_floor_db=-60.0),
     )
 
     detected = scan_for_onset(
@@ -110,22 +104,15 @@ def test_06_vocals_at_zero_expected_far(
         device="cpu",
         config=mdx_config_tight,  # initial_radius_ms=7500
         vocals_cache=VocalsCache(),
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Should detect vocals within first expansion (expected±radius = 8000±7500 = 500-15500ms)
     assert detected is not None
-    assert abs(detected - onset_ms) <= 500, (
-        f"06-vocals-early: Expected detection near {onset_ms}ms, got {detected}ms"
-    )
+    assert abs(detected - onset_ms) <= 500, f"06-vocals-early: Expected detection near {onset_ms}ms, got {detected}ms"
 
 
-def test_07_multiple_onsets_choose_closest(
-    tmp_path,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
-):
+def test_07_multiple_onsets_choose_closest(tmp_path, patch_separator, mdx_config_tight, model_placeholder):
     """
     Scenario 7: Multiple onsets, choose closest to expected.
 
@@ -140,20 +127,21 @@ def test_07_multiple_onsets_choose_closest(
         duration_ms=60000,
         vocal_events=[
             VocalEvent(onset_ms=onset1_ms, duration_ms=8000, fade_in_ms=100, amp=0.7),
-            VocalEvent(onset_ms=onset2_ms, duration_ms=8000, fade_in_ms=100, amp=0.6)
+            VocalEvent(onset_ms=onset2_ms, duration_ms=8000, fade_in_ms=100, amp=0.6),
         ],
-        instrument_bed=InstrumentBed(noise_floor_db=-60.0)
+        instrument_bed=InstrumentBed(noise_floor_db=-60.0),
     )
 
     # Use config that will scan both regions
     from utils.providers.mdx.config import MdxConfig
+
     config_wide = MdxConfig(
         start_window_ms=30000,
         start_window_increment_ms=15000,
         start_window_max_ms=60000,
         initial_radius_ms=10000,
         radius_increment_ms=10000,
-        max_expansions=3
+        max_expansions=3,
     )
 
     detected = scan_for_onset(
@@ -163,22 +151,17 @@ def test_07_multiple_onsets_choose_closest(
         device="cpu",
         config=config_wide,
         vocals_cache=VocalsCache(),
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Should detect onset1 (closest to expected)
     assert detected is not None
-    assert abs(detected - onset1_ms) <= 300, (
-        f"07-multiple-onsets: Expected detection near {onset1_ms}ms, got {detected}ms"
-    )
+    assert (
+        abs(detected - onset1_ms) <= 300
+    ), f"07-multiple-onsets: Expected detection near {onset1_ms}ms, got {detected}ms"
 
 
-def test_08_no_vocals(
-    tmp_path,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
-):
+def test_08_no_vocals(tmp_path, patch_separator, mdx_config_tight, model_placeholder):
     """
     Scenario 8: No vocals present.
 
@@ -189,7 +172,7 @@ def test_08_no_vocals(
         output_path=tmp_path / "test_no_vocals.wav",
         duration_ms=30000,
         vocal_events=[],  # No vocals!
-        instrument_bed=InstrumentBed(noise_floor_db=-40.0)  # Just instruments
+        instrument_bed=InstrumentBed(noise_floor_db=-40.0),  # Just instruments
     )
 
     detected = scan_for_onset(
@@ -199,21 +182,14 @@ def test_08_no_vocals(
         device="cpu",
         config=mdx_config_tight,
         vocals_cache=VocalsCache(),
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Should return None
-    assert detected is None, (
-        f"08-no-vocals: Expected None for silent vocals, got {detected}ms"
-    )
+    assert detected is None, f"08-no-vocals: Expected None for silent vocals, got {detected}ms"
 
 
-def test_09_very_late_vocals(
-    tmp_path,
-    patch_separator,
-    mdx_config_loose,
-    model_placeholder
-):
+def test_09_very_late_vocals(tmp_path, patch_separator, mdx_config_loose, model_placeholder):
     """
     Scenario 9: Very late vocals near start_window_max.
 
@@ -225,10 +201,8 @@ def test_09_very_late_vocals(
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_very_late.wav",
         duration_ms=90000,  # 90 seconds
-        vocal_events=[
-            VocalEvent(onset_ms=onset_ms, duration_ms=10000, fade_in_ms=100, amp=0.7)
-        ],
-        instrument_bed=InstrumentBed(noise_floor_db=-60.0)
+        vocal_events=[VocalEvent(onset_ms=onset_ms, duration_ms=10000, fade_in_ms=100, amp=0.7)],
+        instrument_bed=InstrumentBed(noise_floor_db=-60.0),
     )
 
     detected = scan_for_onset(
@@ -238,23 +212,18 @@ def test_09_very_late_vocals(
         device="cpu",
         config=mdx_config_loose,  # Uses 90s max window
         vocals_cache=VocalsCache(),
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Should detect within tolerance or return None if beyond limit
     if detected is not None:
-        assert abs(detected - onset_ms) <= 500, (
-            f"09-very-late: Onset error too large (detected={detected}ms, truth={onset_ms}ms)"
-        )
+        assert (
+            abs(detected - onset_ms) <= 500
+        ), f"09-very-late: Onset error too large (detected={detected}ms, truth={onset_ms}ms)"
     # If None, that's also acceptable (beyond reasonable search limit)
 
 
-def test_10_quiet_vocals_with_instruments(
-    tmp_path,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
-):
+def test_10_quiet_vocals_with_instruments(tmp_path, patch_separator, mdx_config_tight, model_placeholder):
     """
     Scenario 10: Quiet vocals with loud instrument bed.
 
@@ -265,15 +234,11 @@ def test_10_quiet_vocals_with_instruments(
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_quiet_vocals.wav",
         duration_ms=30000,
-        vocal_events=[
-            VocalEvent(onset_ms=onset_ms, duration_ms=10000, fade_in_ms=200, amp=0.3)  # Quiet
-        ],
+        vocal_events=[VocalEvent(onset_ms=onset_ms, duration_ms=10000, fade_in_ms=200, amp=0.3)],  # Quiet
         instrument_bed=InstrumentBed(
             noise_floor_db=-30.0,  # Loud instruments
-            transients=[
-                {'t_ms': 3000, 'level_db': -18, 'dur_ms': 100}  # Loud transient before vocals
-            ]
-        )
+            transients=[{"t_ms": 3000, "level_db": -18, "dur_ms": 100}],  # Loud transient before vocals
+        ),
     )
 
     detected = scan_for_onset(
@@ -283,23 +248,17 @@ def test_10_quiet_vocals_with_instruments(
         device="cpu",
         config=mdx_config_tight,
         vocals_cache=VocalsCache(),
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Stub returns clean vocals, so should still detect
     assert detected is not None
-    assert abs(detected - onset_ms) <= 300, (
-        f"10-quiet-vocals: Detection failed or inaccurate (detected={detected}ms, truth={onset_ms}ms)"
-    )
+    assert (
+        abs(detected - onset_ms) <= 300
+    ), f"10-quiet-vocals: Detection failed or inaccurate (detected={detected}ms, truth={onset_ms}ms)"
 
 
-def test_11_zero_gap_with_late_vocals(
-    tmp_path,
-    artifact_dir,
-    patch_separator,
-    mdx_config_tight,
-    model_placeholder
-):
+def test_11_zero_gap_with_late_vocals(tmp_path, artifact_dir, patch_separator, mdx_config_tight, model_placeholder):
     """
     Scenario 11: Gap=0ms with instrumental intro before vocals.
 
@@ -324,16 +283,14 @@ def test_11_zero_gap_with_late_vocals(
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_zero_gap_late_vocals.wav",
         duration_ms=30000,
-        vocal_events=[
-            VocalEvent(onset_ms=vocal_onset_ms, duration_ms=15000, fade_in_ms=150, amp=0.7)
-        ],
+        vocal_events=[VocalEvent(onset_ms=vocal_onset_ms, duration_ms=15000, fade_in_ms=150, amp=0.7)],
         instrument_bed=InstrumentBed(
             noise_floor_db=-60.0,
             transients=[
                 # Early instrumental transients that might trigger false detection
-                {'t_ms': instrumental_noise_ms, 'level_db': -24.0, 'dur_ms': 400}
-            ]
-        )
+                {"t_ms": instrumental_noise_ms, "level_db": -24.0, "dur_ms": 400}
+            ],
+        ),
     )
 
     detected = scan_for_onset(
@@ -343,7 +300,7 @@ def test_11_zero_gap_with_late_vocals(
         device="cpu",
         config=mdx_config_tight,
         vocals_cache=VocalsCache(),
-        total_duration_ms=audio_result.duration_ms
+        total_duration_ms=audio_result.duration_ms,
     )
 
     # Write visualization
@@ -354,7 +311,7 @@ def test_11_zero_gap_with_late_vocals(
         instrumental_noise_ms,
         expected_gap_ms,
         "11-zero-gap-with-late-vocals",
-        artifact_dir
+        artifact_dir,
     )
 
     # Import validation helper

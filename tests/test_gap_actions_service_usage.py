@@ -70,13 +70,21 @@ def create_note(start_beat, length, pitch, text):
 class TestUpdateGapValue:
     """Tests for update_gap_value() method"""
 
-    @patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock)
-    @patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock)
-    @patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock)
-    @patch('actions.gap_actions.AudioActions')
-    @patch('actions.gap_actions.run_async')
+    @patch("services.usdx_file_service.USDXFileService.load", new_callable=AsyncMock)
+    @patch("services.usdx_file_service.USDXFileService.write_gap_tag", new_callable=AsyncMock)
+    @patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock)
+    @patch("actions.gap_actions.AudioActions")
+    @patch("actions.gap_actions.run_async")
     def test_update_gap_value_uses_services_not_property(
-        self, mock_run_async, mock_audio_actions, mock_save, mock_write_gap, mock_load, mock_app_data, sample_song, fake_run_async
+        self,
+        mock_run_async,
+        mock_audio_actions,
+        mock_save,
+        mock_write_gap,
+        mock_load,
+        mock_app_data,
+        sample_song,
+        fake_run_async,
     ):
         """Verify update_gap_value uses services instead of song.usdx_file property"""
         # Use centralized async executor fixture
@@ -105,13 +113,21 @@ class TestUpdateGapValue:
         # Verify signal emitted
         mock_app_data.songs.updated.emit.assert_called_once_with(sample_song)
 
-    @patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock)
-    @patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock)
-    @patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock)
-    @patch('actions.gap_actions.AudioActions')
-    @patch('actions.gap_actions.run_async')
+    @patch("services.usdx_file_service.USDXFileService.load", new_callable=AsyncMock)
+    @patch("services.usdx_file_service.USDXFileService.write_gap_tag", new_callable=AsyncMock)
+    @patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock)
+    @patch("actions.gap_actions.AudioActions")
+    @patch("actions.gap_actions.run_async")
     def test_update_gap_value_recalculates_note_times(
-        self, mock_run_async, mock_audio_actions, mock_save, mock_write_gap, mock_load, mock_app_data, sample_song, fake_run_async
+        self,
+        mock_run_async,
+        mock_audio_actions,
+        mock_save,
+        mock_write_gap,
+        mock_load,
+        mock_app_data,
+        sample_song,
+        fake_run_async,
     ):
         """Verify note times are recalculated with new gap value"""
         # Use centralized async executor fixture
@@ -131,7 +147,7 @@ class TestUpdateGapValue:
         for note in sample_song.notes:
             assert note.start_ms != 0 or note.end_ms != 0  # Times were calculated
 
-    @patch('actions.gap_actions.run_async')
+    @patch("actions.gap_actions.run_async")
     def test_update_gap_value_no_song(self, mock_run_async, mock_app_data):
         """Verify graceful handling when no song selected
 
@@ -151,13 +167,21 @@ class TestUpdateGapValue:
 class TestRevertGapValue:
     """Tests for revert_gap_value() method"""
 
-    @patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock)
-    @patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock)
-    @patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock)
-    @patch('actions.gap_actions.AudioActions')
-    @patch('actions.gap_actions.run_async')
+    @patch("services.usdx_file_service.USDXFileService.load", new_callable=AsyncMock)
+    @patch("services.usdx_file_service.USDXFileService.write_gap_tag", new_callable=AsyncMock)
+    @patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock)
+    @patch("actions.gap_actions.AudioActions")
+    @patch("actions.gap_actions.run_async")
     def test_revert_gap_value_uses_services_not_property(
-        self, mock_run_async, mock_audio_actions, mock_save, mock_write_gap, mock_load, mock_app_data, sample_song, fake_run_async
+        self,
+        mock_run_async,
+        mock_audio_actions,
+        mock_save,
+        mock_write_gap,
+        mock_load,
+        mock_app_data,
+        sample_song,
+        fake_run_async,
     ):
         """Verify revert_gap_value uses services instead of song.usdx_file property"""
         # Use centralized async executor fixture
@@ -182,13 +206,21 @@ class TestRevertGapValue:
         # Verify signal emitted
         mock_app_data.songs.updated.emit.assert_called_once_with(sample_song)
 
-    @patch('services.usdx_file_service.USDXFileService.load', new_callable=AsyncMock)
-    @patch('services.usdx_file_service.USDXFileService.write_gap_tag', new_callable=AsyncMock)
-    @patch('services.gap_info_service.GapInfoService.save', new_callable=AsyncMock)
-    @patch('actions.gap_actions.AudioActions')
-    @patch('actions.gap_actions.run_async')
+    @patch("services.usdx_file_service.USDXFileService.load", new_callable=AsyncMock)
+    @patch("services.usdx_file_service.USDXFileService.write_gap_tag", new_callable=AsyncMock)
+    @patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock)
+    @patch("actions.gap_actions.AudioActions")
+    @patch("actions.gap_actions.run_async")
     def test_revert_gap_value_recalculates_note_times(
-        self, mock_run_async, mock_audio_actions, mock_save, mock_write_gap, mock_load, mock_app_data, sample_song, fake_run_async
+        self,
+        mock_run_async,
+        mock_audio_actions,
+        mock_save,
+        mock_write_gap,
+        mock_load,
+        mock_app_data,
+        sample_song,
+        fake_run_async,
     ):
         """Verify note times are recalculated with original gap value"""
         # Use centralized async executor fixture
@@ -263,10 +295,10 @@ class TestNoteTimeCalculation:
 class TestServiceIntegration:
     """Integration tests verifying correct service usage"""
 
-    @patch('actions.gap_actions.USDXFileService')
-    @patch('actions.gap_actions.GapInfoService')
-    @patch('actions.gap_actions.AudioActions')
-    @patch('actions.gap_actions.run_async')
+    @patch("actions.gap_actions.USDXFileService")
+    @patch("actions.gap_actions.GapInfoService")
+    @patch("actions.gap_actions.AudioActions")
+    @patch("actions.gap_actions.run_async")
     def test_gap_info_service_save_called(
         self, mock_run_async, mock_audio_actions, mock_gap_info_service, mock_usdx_service, mock_app_data, sample_song
     ):
@@ -284,7 +316,7 @@ class TestServiceIntegration:
         GapActions(mock_app_data)
 
         # Verify song doesn't have usdx_file property
-        assert not hasattr(sample_song, 'usdx_file')
+        assert not hasattr(sample_song, "usdx_file")
 
         # This would raise AttributeError if code tried to access it
         # The test passing means our refactoring removed all such access

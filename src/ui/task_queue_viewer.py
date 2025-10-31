@@ -5,9 +5,10 @@ from managers.worker_queue_manager import WorkerQueueManager, WorkerStatus
 
 logger = logging.getLogger(__name__)
 
+
 class TaskQueueViewer(QWidget):
 
-    def __init__(self, workerQueueManager:WorkerQueueManager, parent=None):
+    def __init__(self, workerQueueManager: WorkerQueueManager, parent=None):
         super().__init__(parent)
         self.workerQueueManager = workerQueueManager
         self.initUI()

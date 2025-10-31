@@ -6,13 +6,11 @@ new multi-entry format for folders with multiple .txt files.
 """
 
 import sys
-import os
 import json
 import asyncio
 from pathlib import Path
-import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from model.gap_info import GapInfo, GapInfoStatus
 from services.gap_info_service import GapInfoService
@@ -39,7 +37,7 @@ class TestGapInfoMultiEntry:
             "normalized_date": None,
             "normalization_level": None,
             "detection_method": "mdx",
-            "confidence": 0.95
+            "confidence": 0.95,
         }
 
         info_file.write_text(json.dumps(legacy_data, indent=4), encoding="utf-8")
@@ -76,7 +74,7 @@ class TestGapInfoMultiEntry:
                     "normalized_date": None,
                     "normalization_level": None,
                     "detection_method": "mdx",
-                    "confidence": 0.90
+                    "confidence": 0.90,
                 },
                 "SongB.txt": {
                     "status": "MISMATCH",
@@ -92,9 +90,9 @@ class TestGapInfoMultiEntry:
                     "normalized_date": None,
                     "normalization_level": None,
                     "detection_method": "mdx",
-                    "confidence": 0.85
-                }
-            }
+                    "confidence": 0.85,
+                },
+            },
         }
 
         info_file.write_text(json.dumps(multi_data, indent=4), encoding="utf-8")
@@ -137,7 +135,7 @@ class TestGapInfoMultiEntry:
                     "normalized_date": None,
                     "normalization_level": None,
                     "detection_method": "mdx",
-                    "confidence": 0.90
+                    "confidence": 0.90,
                 }
             },
             "default": {
@@ -154,8 +152,8 @@ class TestGapInfoMultiEntry:
                 "normalized_date": None,
                 "normalization_level": None,
                 "detection_method": "mdx",
-                "confidence": None
-            }
+                "confidence": None,
+            },
         }
 
         info_file.write_text(json.dumps(multi_data, indent=4), encoding="utf-8")
@@ -188,9 +186,9 @@ class TestGapInfoMultiEntry:
                     "normalized_date": None,
                     "normalization_level": None,
                     "detection_method": "mdx",
-                    "confidence": 0.90
+                    "confidence": 0.90,
                 }
-            }
+            },
         }
 
         info_file.write_text(json.dumps(multi_data, indent=4), encoding="utf-8")
@@ -224,7 +222,7 @@ class TestGapInfoMultiEntry:
                     "normalized_date": None,
                     "normalization_level": None,
                     "detection_method": "mdx",
-                    "confidence": 0.90
+                    "confidence": 0.90,
                 },
                 "SongB.txt": {
                     "status": "MISMATCH",
@@ -240,9 +238,9 @@ class TestGapInfoMultiEntry:
                     "normalized_date": None,
                     "normalization_level": None,
                     "detection_method": "mdx",
-                    "confidence": 0.85
-                }
-            }
+                    "confidence": 0.85,
+                },
+            },
         }
 
         info_file.write_text(json.dumps(multi_data, indent=4), encoding="utf-8")
@@ -273,7 +271,7 @@ class TestGapInfoMultiEntry:
             "normalized_date": None,
             "normalization_level": None,
             "detection_method": "mdx",
-            "confidence": 0.95
+            "confidence": 0.95,
         }
 
         info_file.write_text(json.dumps(legacy_data, indent=4), encoding="utf-8")
@@ -290,7 +288,7 @@ class TestGapInfoMultiEntry:
         asyncio.run(GapInfoService.save(gap_info))
 
         # Read file and verify structure
-        with open(info_file, 'r', encoding='utf-8') as f:
+        with open(info_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         # Should now have entries structure
@@ -330,7 +328,7 @@ class TestGapInfoMultiEntry:
                     "normalized_date": None,
                     "normalization_level": None,
                     "detection_method": "mdx",
-                    "confidence": 0.90
+                    "confidence": 0.90,
                 },
                 "SongB.txt": {
                     "status": "MISMATCH",
@@ -346,9 +344,9 @@ class TestGapInfoMultiEntry:
                     "normalized_date": None,
                     "normalization_level": None,
                     "detection_method": "mdx",
-                    "confidence": 0.85
-                }
-            }
+                    "confidence": 0.85,
+                },
+            },
         }
 
         info_file.write_text(json.dumps(multi_data, indent=4), encoding="utf-8")
@@ -364,7 +362,7 @@ class TestGapInfoMultiEntry:
         asyncio.run(GapInfoService.save(gap_info_b))
 
         # Read file and verify
-        with open(info_file, 'r', encoding='utf-8') as f:
+        with open(info_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         # SongA should be unchanged
@@ -399,9 +397,9 @@ class TestGapInfoMultiEntry:
                     "normalized_date": None,
                     "normalization_level": None,
                     "detection_method": "mdx",
-                    "confidence": 0.90
+                    "confidence": 0.90,
                 }
-            }
+            },
         }
 
         info_file.write_text(json.dumps(multi_data, indent=4), encoding="utf-8")
@@ -417,7 +415,7 @@ class TestGapInfoMultiEntry:
         asyncio.run(GapInfoService.save(gap_info_c))
 
         # Read file and verify
-        with open(info_file, 'r', encoding='utf-8') as f:
+        with open(info_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         # Should have both entries

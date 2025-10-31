@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QObject, QEvent, Qt
 
+
 class MediaPlayerEventFilter(QObject):
     def __init__(self, component, callback_left, callback_right, callback_play):
         super().__init__()

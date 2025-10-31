@@ -16,7 +16,7 @@ from services.usdx.parsers.handlers import (
     BpmTagHandler,
     StartTagHandler,
     RelativeTagHandler,
-    NoteLineHandler
+    NoteLineHandler,
 )
 
 
@@ -28,31 +28,33 @@ def create_registry() -> TagRegistry:
         TagRegistry: Configured registry ready for parsing USDX content
     """
     registry = TagRegistry()
-    registry.register_all([
-        GapTagHandler(),
-        TitleTagHandler(),
-        ArtistTagHandler(),
-        Mp3TagHandler(),      # Legacy #MP3: tag
-        AudioTagHandler(),    # Modern #AUDIO: tag
-        BpmTagHandler(),
-        StartTagHandler(),
-        RelativeTagHandler(),
-        NoteLineHandler()     # Handles non-tag lines with note data
-    ])
+    registry.register_all(
+        [
+            GapTagHandler(),
+            TitleTagHandler(),
+            ArtistTagHandler(),
+            Mp3TagHandler(),  # Legacy #MP3: tag
+            AudioTagHandler(),  # Modern #AUDIO: tag
+            BpmTagHandler(),
+            StartTagHandler(),
+            RelativeTagHandler(),
+            NoteLineHandler(),  # Handles non-tag lines with note data
+        ]
+    )
     return registry
 
 
 __all__ = [
-    'TagHandler',
-    'TagRegistry',
-    'create_registry',
-    'GapTagHandler',
-    'TitleTagHandler',
-    'ArtistTagHandler',
-    'Mp3TagHandler',
-    'AudioTagHandler',
-    'BpmTagHandler',
-    'StartTagHandler',
-    'RelativeTagHandler',
-    'NoteLineHandler'
+    "TagHandler",
+    "TagRegistry",
+    "create_registry",
+    "GapTagHandler",
+    "TitleTagHandler",
+    "ArtistTagHandler",
+    "Mp3TagHandler",
+    "AudioTagHandler",
+    "BpmTagHandler",
+    "StartTagHandler",
+    "RelativeTagHandler",
+    "NoteLineHandler",
 ]

@@ -11,18 +11,14 @@ from typing import TypeVar, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class RetryPolicy:
     """Exponential backoff retry orchestration."""
 
     def __init__(
-        self,
-        max_retries: int = 5,
-        initial_delay: float = 1.0,
-        max_delay: float = 60.0,
-        backoff_factor: float = 2.0
+        self, max_retries: int = 5, initial_delay: float = 1.0, max_delay: float = 60.0, backoff_factor: float = 2.0
     ):
         """
         Initialize retry policy.
@@ -38,11 +34,7 @@ class RetryPolicy:
         self.max_delay = max_delay
         self.backoff_factor = backoff_factor
 
-    def execute(
-        self,
-        operation: Callable[[], T],
-        on_retry: Optional[Callable[[int, Exception], None]] = None
-    ) -> T:
+    def execute(self, operation: Callable[[], T], on_retry: Optional[Callable[[int, Exception], None]] = None) -> T:
         """
         Execute operation with retry logic.
 
@@ -64,9 +56,7 @@ class RetryPolicy:
                 return operation()
             except Exception as e:
                 last_exception = e
-                logger.warning(
-                    f"Attempt {attempt + 1}/{self.max_retries} failed: {e}"
-                )
+                logger.warning(f"Attempt {attempt + 1}/{self.max_retries} failed: {e}")
 
                 if on_retry:
                     on_retry(attempt, e)

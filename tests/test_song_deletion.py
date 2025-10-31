@@ -19,16 +19,16 @@ class TestSongDeletion:
 
     def test_songs_has_list_changed_method(self):
         """Test that Songs class has the list_changed method"""
-        assert hasattr(self.songs, 'list_changed')
+        assert hasattr(self.songs, "list_changed")
         assert callable(self.songs.list_changed)
 
     def test_songs_emits_signals_on_operations(self):
         """Test that Songs emits proper signals on add/remove/clear"""
         # Mock the signals
-        with patch.object(self.songs, 'listChanged') as mock_list_changed:
-            with patch.object(self.songs, 'added') as mock_added:
-                with patch.object(self.songs, 'deleted') as mock_deleted:
-                    with patch.object(self.songs, 'cleared') as mock_cleared:
+        with patch.object(self.songs, "listChanged") as mock_list_changed:
+            with patch.object(self.songs, "added") as mock_added:
+                with patch.object(self.songs, "deleted") as mock_deleted:
+                    with patch.object(self.songs, "cleared") as mock_cleared:
 
                         # Test add
                         mock_song = Mock(spec=Song)
@@ -54,7 +54,7 @@ class TestSongDeletion:
 
     def test_delete_selected_song_no_selection(self):
         """Test delete when no songs are selected"""
-        with patch('actions.song_actions.logger') as mock_logger:
+        with patch("actions.song_actions.logger") as mock_logger:
             self.song_actions.delete_selected_song()
             mock_logger.error.assert_called_with("No songs selected to delete.")
 
@@ -75,12 +75,12 @@ class TestSongDeletion:
         self.mock_data.selected_songs = [song1, song2]
 
         # Mock the service
-        with patch('actions.song_actions.SongService') as mock_service_class:
+        with patch("actions.song_actions.SongService") as mock_service_class:
             mock_service = mock_service_class.return_value
             mock_service.delete_song.return_value = True  # Successful deletion
 
-            with patch.object(self.songs, 'list_changed') as mock_list_changed:
-                with patch('actions.song_actions.logger') as mock_logger:
+            with patch.object(self.songs, "list_changed") as mock_list_changed:
+                with patch("actions.song_actions.logger") as mock_logger:
                     self.song_actions.delete_selected_song()
 
                     # Verify service was called for both songs
@@ -119,13 +119,13 @@ class TestSongDeletion:
         self.mock_data.selected_songs = [song1, song2]
 
         # Mock the service - song1 succeeds, song2 fails
-        with patch('actions.song_actions.SongService') as mock_service_class:
+        with patch("actions.song_actions.SongService") as mock_service_class:
             mock_service = mock_service_class.return_value
             mock_service.delete_song.side_effect = [True, False]  # First succeeds, second fails
 
-            with patch.object(self.songs, 'list_changed') as mock_list_changed:
-                with patch.object(self.songs, 'updated') as mock_updated:
-                    with patch('actions.song_actions.logger') as mock_logger:
+            with patch.object(self.songs, "list_changed") as mock_list_changed:
+                with patch.object(self.songs, "updated") as mock_updated:
+                    with patch("actions.song_actions.logger") as mock_logger:
                         self.song_actions.delete_selected_song()
 
                         # Verify service was called for both songs
@@ -161,13 +161,13 @@ class TestSongDeletion:
         self.mock_data.selected_songs = [song]
 
         # Mock the service to throw exception
-        with patch('actions.song_actions.SongService') as mock_service_class:
+        with patch("actions.song_actions.SongService") as mock_service_class:
             mock_service = mock_service_class.return_value
             mock_service.delete_song.side_effect = Exception("File system error")
 
-            with patch.object(self.songs, 'list_changed') as mock_list_changed:
-                with patch.object(self.songs, 'updated') as mock_updated:
-                    with patch('actions.song_actions.logger') as mock_logger:
+            with patch.object(self.songs, "list_changed") as mock_list_changed:
+                with patch.object(self.songs, "updated") as mock_updated:
+                    with patch("actions.song_actions.logger") as mock_logger:
                         self.song_actions.delete_selected_song()
 
                         # Verify delete was attempted
@@ -203,7 +203,7 @@ class TestMediaPlayerNoneHandling:
                 return "cleared_player"  # Simulate clearing UI
 
             # This would have caused AttributeError before the fix
-            if not hasattr(song, 'notes') or song.notes is None:
+            if not hasattr(song, "notes") or song.notes is None:
                 return "reload_needed"
 
             return "normal_processing"

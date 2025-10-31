@@ -62,15 +62,11 @@ class AudioActions(BaseActions):
                 if getattr(song, "status", None) != SongStatus.ERROR:
                     self._schedule_deferred_reload(song)
                 else:
-                    logger.debug(
-                        f"Skipping reload due to error status for song: {song}"
-                    )
+                    logger.debug(f"Skipping reload due to error status for song: {song}")
             except Exception as e:
                 # Log exceptions for debugging
-                logger.debug(
-                    f"Exception in reload guard for {song}: {e}",
-                    exc_info=True
-                )
+                logger.debug(f"Exception in reload guard for {song}: {e}", exc_info=True)
+
         worker.signals.finished.connect(_reload_if_success)
 
         # Lock audio file to prevent UI from reloading it or instant waveform tasks from accessing it during normalization
@@ -101,6 +97,7 @@ class AudioActions(BaseActions):
         # Defer adding the task to allow QMediaPlayer to fully release file handles on Windows
         try:
             from PySide6.QtCore import QTimer
+
             # Increase delay to 800 ms to ensure QMediaPlayer has released file handles
             # on all systems including network drives
             QTimer.singleShot(800, lambda: self.worker_queue.add_task(worker, start_now))
@@ -111,6 +108,7 @@ class AudioActions(BaseActions):
     def _schedule_deferred_reload(self, song: Song):
         """Schedule a deferred reload to prevent UI thread blocking."""
         from PySide6.QtCore import QTimer
+
         # Defer reload by 100ms to allow UI to update first
         # This prevents cascading reloads from blocking the UI
         QTimer.singleShot(100, lambda: self.song_actions.reload_song(specific_song=song))
@@ -128,8 +126,10 @@ class AudioActions(BaseActions):
             raise Exception("No song given")
 
         # Check if audio file exists
-        if not hasattr(song, 'audio_file') or not song.audio_file:
-            logger.warning(f"Cannot create waveforms for song '{song.title if hasattr(song, 'title') else 'Unknown'}': Missing audio file")
+        if not hasattr(song, "audio_file") or not song.audio_file:
+            logger.warning(
+                f"Cannot create waveforms for song '{song.title if hasattr(song, 'title') else 'Unknown'}': Missing audio file"
+            )
             # Don't trigger reload - missing audio file is a data issue, not a loading issue
             return
 
@@ -140,13 +140,17 @@ class AudioActions(BaseActions):
         # Use the WaveformPathService to get all paths
         paths = WaveformPathService.get_paths(song, self.data.tmp_path)
         if not paths:
-            logger.error(f"Could not get waveform paths for song: {song.title if hasattr(song, 'title') else 'Unknown'}")
+            logger.error(
+                f"Could not get waveform paths for song: {song.title if hasattr(song, 'title') else 'Unknown'}"
+            )
             return
 
         self._create_waveform(song, paths["audio_file"], paths["audio_waveform_file"], overwrite, use_queue)
         self._create_waveform(song, paths["vocals_file"], paths["vocals_waveform_file"], overwrite, use_queue)
 
-    def _create_waveform(self, song: Song, audio_file: str, waveform_file: str, overwrite: bool = False, use_queue: bool = True):
+    def _create_waveform(
+        self, song: Song, audio_file: str, waveform_file: str, overwrite: bool = False, use_queue: bool = True
+    ):
         """Create a waveform image for the given audio file.
 
         Args:
@@ -173,7 +177,7 @@ class AudioActions(BaseActions):
                 self.config,
                 audio_file,
                 waveform_file,
-                is_instant=True  # Mark as instant task - runs in parallel with standard tasks
+                is_instant=True,  # Mark as instant task - runs in parallel with standard tasks
             )
             worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
             worker.signals.finished.connect(lambda song=song: self.data.songs.updated.emit(song))
@@ -186,15 +190,21 @@ class AudioActions(BaseActions):
                 """Background thread function to create waveform without WorkerQueueManager."""
                 try:
                     # Generate the waveform image directly
-                    waveform_color = self.config.waveform_color if hasattr(self.config, 'waveform_color') else "gray"
+                    waveform_color = self.config.waveform_color if hasattr(self.config, "waveform_color") else "gray"
                     create_waveform_image(audio_file, waveform_file, waveform_color)
 
                     # Apply overlays if gap_info is available
-                    if hasattr(song, 'gap_info') and song.gap_info:
+                    if hasattr(song, "gap_info") and song.gap_info:
                         # Draw silence periods
-                        if hasattr(song.gap_info, 'silence_periods') and song.gap_info.silence_periods:
-                            silence_color = self.config.silence_periods_color if hasattr(self.config, 'silence_periods_color') else (105, 105, 105, 128)
-                            draw_silence_periods(waveform_file, song.gap_info.silence_periods, song.duration_ms, silence_color)
+                        if hasattr(song.gap_info, "silence_periods") and song.gap_info.silence_periods:
+                            silence_color = (
+                                self.config.silence_periods_color
+                                if hasattr(self.config, "silence_periods_color")
+                                else (105, 105, 105, 128)
+                            )
+                            draw_silence_periods(
+                                waveform_file, song.gap_info.silence_periods, song.duration_ms, silence_color
+                            )
 
                         # Gap markers are now drawn dynamically by the overlay system - no need to bake into PNG
                         # # Draw detected gap
@@ -203,7 +213,7 @@ class AudioActions(BaseActions):
                         #     draw_gap(waveform_file, song.gap_info.detected_gap, song.duration_ms, gap_color)
 
                     # Draw notes overlay
-                    if hasattr(song, 'notes') and song.notes:
+                    if hasattr(song, "notes") and song.notes:
                         note_color = "white"  # Standard note color
                         draw_notes(waveform_file, song.notes, song.duration_ms, note_color)
 
