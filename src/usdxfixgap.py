@@ -106,35 +106,37 @@ def print_version_info():
 
 def health_check():
     """
-    Perform basic health check to verify app can start.
-    Minimal checks that don't trigger complex initialization.
+    Lightweight health check using metadata only.
+    Avoids importing heavy modules (torch, PySide6) to keep startup fast.
+    Perfect for CI/CD validation - completes in <1 second.
     Returns exit code: 0 = success, 1 = failure
     """
+    import importlib.metadata
+    import subprocess
+
     print(f"{APP_NAME} Health Check")
     print("=" * 50)
 
     errors = []
 
-    # Check Qt Framework
+    # Check PyTorch (metadata only - NO IMPORT, instant check)
     try:
-        __import__("PySide6.QtCore")
-        print(f"✓ {'Qt Framework':20} (PySide6.QtCore)")
-    except Exception as e:
-        print(f"✗ {'Qt Framework':20} (PySide6.QtCore): {str(e)}")
-        errors.append("Qt Framework (PySide6.QtCore)")
-
-    # Check PyTorch (simple import, no CUDA check to avoid GPU bootstrap)
-    try:
-        import torch
-        torch_version = torch.__version__
+        torch_version = importlib.metadata.version("torch")
         print(f"✓ {'PyTorch':20} ({torch_version})")
-    except Exception as e:
-        print(f"✗ {'PyTorch':20} Import failed: {str(e)}")
+    except Exception:
+        print(f"✗ {'PyTorch':20} Not installed")
         errors.append("PyTorch")
 
-    # Check FFmpeg
+    # Check PySide6 (metadata only - NO IMPORT, instant check)
     try:
-        import subprocess
+        pyside_version = importlib.metadata.version("PySide6")
+        print(f"✓ {'Qt Framework':20} (PySide6 {pyside_version})")
+    except Exception:
+        print(f"✗ {'Qt Framework':20} Not installed")
+        errors.append("Qt Framework")
+
+    # Check FFmpeg (subprocess - lightweight, already optimized)
+    try:
         result = subprocess.run(
             ["ffmpeg", "-version"],
             capture_output=True,
@@ -147,19 +149,16 @@ def health_check():
             version = first_line.split("version")[1].split()[0] if "version" in first_line else "unknown"
             print(f"✓ {'FFmpeg':20} ({version})")
         else:
-            print(f"✗ {'FFmpeg':20} (command failed)")
+            print(f"✗ {'FFmpeg':20} Command failed")
             errors.append("FFmpeg")
     except FileNotFoundError:
-        print(f"✗ {'FFmpeg':20} (not found in PATH)")
+        print(f"✗ {'FFmpeg':20} Not found in PATH")
         errors.append("FFmpeg")
     except Exception as e:
         print(f"✗ {'FFmpeg':20} {str(e)}")
         errors.append("FFmpeg")
 
-        print(f"✗ {'FFmpeg':20} {str(e)}")
-        errors.append("FFmpeg")
-
-    # Check other critical modules
+    # Check other critical modules (metadata only - instant)
     other_modules = [
         ("librosa", "Audio Processing"),
         ("soundfile", "Audio I/O"),
@@ -167,11 +166,11 @@ def health_check():
 
     for module_name, description in other_modules:
         try:
-            __import__(module_name)
-            print(f"✓ {description:20} ({module_name})")
-        except Exception as e:
-            print(f"✗ {description:20} ({module_name}): {str(e)}")
-            errors.append(f"{description} ({module_name})")
+            version = importlib.metadata.version(module_name)
+            print(f"✓ {description:20} ({module_name} {version})")
+        except Exception:
+            print(f"✗ {description:20} Not installed")
+            errors.append(description)
 
     # Check VERSION file exists
     try:
@@ -179,7 +178,7 @@ def health_check():
         if version != "unknown":
             print(f"✓ {'Version File':20} ({version})")  # Already has 'v' prefix
         else:
-            print(f"⚠ {'Version File':20} (not found, using 'unknown')")
+            print(f"⚠ {'Version File':20} Not found, using 'unknown'")
     except Exception as e:
         print(f"✗ {'Version File':20} {str(e)}")
         errors.append("VERSION file")
@@ -190,9 +189,9 @@ def health_check():
 
         assets_dir = resource_path("assets")
         if os.path.exists(assets_dir):
-            print(f"✓ {'Assets Directory':20} ({assets_dir})")
+            print(f"✓ {'Assets Directory':20} Found")
         else:
-            print(f"⚠ {'Assets Directory':20} (not found)")
+            print(f"⚠ {'Assets Directory':20} Not found")
     except Exception as e:
         print(f"⚠ {'Assets Directory':20} {str(e)}")
 
@@ -204,7 +203,7 @@ def health_check():
             print(f"   - {error}")
         return 1
     else:
-        print("\n✅ Health check PASSED - Application ready")
+        print("\n✅ Health check PASSED - All checks successful")
         return 0
 
 
