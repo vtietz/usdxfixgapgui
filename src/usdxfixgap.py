@@ -17,6 +17,47 @@ from common.constants import APP_NAME, APP_DESCRIPTION, APP_LOG_FILENAME
 # from utils.model_paths import setup_model_paths  # Moved to main()
 
 
+def attach_console():
+    """
+    Attach to parent console or allocate new console for CLI output.
+    Required for windowed executables (console=False) to show CLI output.
+    
+    This allows a single executable to behave as both:
+    - GUI application (no console) when launched normally
+    - CLI tool (with console output) when run with flags like --version or --health-check
+    
+    Works by:
+    - Attaching to parent console if run from cmd/PowerShell/CI
+    - Allocating temporary console if run via double-click
+    - Rebinding stdout/stderr to the console device
+    """
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            kernel32 = ctypes.windll.kernel32
+
+            # Try to attach to parent console (cmd, PowerShell, CI environment)
+            # ATTACH_PARENT_CONSOLE = -1
+            if not kernel32.AttachConsole(-1):
+                # No parent console exists - allocate a new one (double-click scenario)
+                kernel32.AllocConsole()
+
+            # Rebind stdout/stderr/stdin to the console device
+            # This is necessary because windowed apps have null streams by default
+            try:
+                sys.stdout = open("CONOUT$", "w", encoding="utf-8")
+                sys.stderr = open("CONOUT$", "w", encoding="utf-8")
+                sys.stdin = open("CONIN$", "r", encoding="utf-8")
+            except OSError:
+                # Console binding failed - continue anyway
+                pass
+        except Exception:
+            # If console attachment fails, continue without it
+            # CLI output will be invisible but app won't crash
+            pass
+
+
 def show_error_dialog(title, message, details=None):
     """Show error dialog for critical startup failures (even before Qt is initialized)"""
     try:
@@ -214,6 +255,10 @@ def main():
     try:
         # Parse CLI arguments
         args = parse_arguments()
+
+        # Attach console for CLI flags (makes output visible in windowed exe)
+        if args.version or args.health_check:
+            attach_console()
 
         # Handle --version flag (exit early)
         if args.version:
