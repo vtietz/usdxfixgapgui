@@ -367,12 +367,14 @@ class StartupDialog(QDialog):
         # Check Python libraries
         try:
             import librosa
+
             self.log(f"  • librosa: {librosa.__version__}")
         except:
             pass
 
         try:
             import soundfile
+
             self.log(f"  • soundfile: {soundfile.__version__}")
         except:
             pass

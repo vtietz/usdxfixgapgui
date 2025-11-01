@@ -21,11 +21,11 @@ def attach_console():
     """
     Attach to parent console or allocate new console for CLI output.
     Required for windowed executables (console=False) to show CLI output.
-    
+
     This allows a single executable to behave as both:
     - GUI application (no console) when launched normally
     - CLI tool (with console output) when run with flags like --version or --health-check
-    
+
     Works by:
     - Attaching to parent console if run from cmd/PowerShell/CI
     - Allocating temporary console if run via double-click
