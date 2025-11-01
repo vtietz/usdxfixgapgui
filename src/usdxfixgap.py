@@ -4,14 +4,17 @@ import logging
 import argparse
 import traceback
 
+# Import only the minimal constants needed for early execution
 from common.constants import APP_NAME, APP_DESCRIPTION, APP_LOG_FILENAME
-from app.app_data import Config
-from cli.gpu_cli_handler import handle_gpu_cli_flags
-from utils import gpu_bootstrap
-from common.utils.async_logging import setup_async_logging
-from utils.files import get_localappdata_dir
-from utils.gpu_startup_logger import log_gpu_status
-from utils.model_paths import setup_model_paths
+
+# Defer other imports until after health check / version check
+# from app.app_data import Config  # Moved to main()
+# from cli.gpu_cli_handler import handle_gpu_cli_flags  # Moved to main()
+# from utils import gpu_bootstrap  # Moved to main()
+# from common.utils.async_logging import setup_async_logging  # Moved to main()
+# from utils.files import get_localappdata_dir  # Moved to main()
+# from utils.gpu_startup_logger import log_gpu_status  # Moved to main()
+# from utils.model_paths import setup_model_paths  # Moved to main()
 
 
 def show_error_dialog(title, message, details=None):
@@ -104,7 +107,7 @@ def print_version_info():
 def health_check():
     """
     Perform basic health check to verify app can start.
-    Uses SystemCapabilities service for consistent capability detection.
+    Minimal checks that don't trigger complex initialization.
     Returns exit code: 0 = success, 1 = failure
     """
     print(f"{APP_NAME} Health Check")
@@ -120,48 +123,41 @@ def health_check():
         print(f"✗ {'Qt Framework':20} (PySide6.QtCore): {str(e)}")
         errors.append("Qt Framework (PySide6.QtCore)")
 
-    # Check system capabilities using centralized service
+    # Check PyTorch (simple import, no CUDA check to avoid GPU bootstrap)
     try:
-        from services.system_capabilities import check_system_capabilities
-
-        caps = check_system_capabilities()
-
-        # PyTorch
-        if caps.has_torch:
-            print(f"✓ {'PyTorch':20} ({caps.torch_version})")
-            # CUDA/GPU
-            if caps.has_cuda:
-                print(f"✓ {'CUDA':20} ({caps.cuda_version} - {caps.gpu_name})")
-            else:
-                print(f"⚠ {'CUDA':20} (not available, CPU mode)")
-        else:
-            print(f"✗ {'PyTorch':20} {caps.torch_error}")
-            errors.append("PyTorch")
-
-        # FFmpeg
-        if caps.has_ffmpeg:
-            print(f"✓ {'FFmpeg':20} ({caps.ffmpeg_version})")
-        else:
-            print(f"✗ {'FFmpeg':20} (not found in PATH)")
-            errors.append("FFmpeg")
-
-        # FFprobe
-        if caps.has_ffprobe:
-            print(f"✓ {'FFprobe':20} (found)")
-        else:
-            print(f"⚠ {'FFprobe':20} (not found)")
-
-        # Detection capability
-        if caps.can_detect:
-            mode = "GPU" if caps.has_cuda else "CPU"
-            print(f"✓ {'Gap Detection':20} (available - {mode} mode)")
-        else:
-            print(f"✗ {'Gap Detection':20} (unavailable)")
-            errors.append("Gap Detection")
-
+        import torch
+        torch_version = torch.__version__
+        print(f"✓ {'PyTorch':20} ({torch_version})")
     except Exception as e:
-        print(f"✗ {'System Capabilities':20} {str(e)}")
-        errors.append("System Capabilities Check")
+        print(f"✗ {'PyTorch':20} Import failed: {str(e)}")
+        errors.append("PyTorch")
+
+    # Check FFmpeg
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["ffmpeg", "-version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+        if result.returncode == 0:
+            first_line = result.stdout.split("\n")[0]
+            version = first_line.split("version")[1].split()[0] if "version" in first_line else "unknown"
+            print(f"✓ {'FFmpeg':20} ({version})")
+        else:
+            print(f"✗ {'FFmpeg':20} (command failed)")
+            errors.append("FFmpeg")
+    except FileNotFoundError:
+        print(f"✗ {'FFmpeg':20} (not found in PATH)")
+        errors.append("FFmpeg")
+    except Exception as e:
+        print(f"✗ {'FFmpeg':20} {str(e)}")
+        errors.append("FFmpeg")
+
+        print(f"✗ {'FFmpeg':20} {str(e)}")
+        errors.append("FFmpeg")
 
     # Check other critical modules
     other_modules = [
@@ -225,10 +221,19 @@ def main():
             print_version_info()
             sys.exit(0)
 
-        # Handle --health-check flag (exit early)
+        # Handle --health-check flag (exit early, before any heavy imports)
         if args.health_check:
             exit_code = health_check()
             sys.exit(exit_code)
+
+        # Now import the rest of the modules (after early exit flags are handled)
+        from app.app_data import Config
+        from cli.gpu_cli_handler import handle_gpu_cli_flags
+        from utils import gpu_bootstrap
+        from common.utils.async_logging import setup_async_logging
+        from utils.files import get_localappdata_dir
+        from utils.gpu_startup_logger import log_gpu_status
+        from utils.model_paths import setup_model_paths
 
         # Create config
         config = Config()
