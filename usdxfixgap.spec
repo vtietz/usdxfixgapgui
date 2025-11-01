@@ -10,6 +10,7 @@ from pathlib import Path
 project_root = Path('.').absolute()
 src_dir = project_root / 'src'
 assets_dir = src_dir / 'assets'
+scripts_dir = project_root / 'scripts'
 
 # Hidden imports (modules that PyInstaller can't auto-detect)
 hidden_imports = [
@@ -124,7 +125,7 @@ a = Analysis(
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[str(project_root / 'hook-rthook-gpu-pack.py')],
+    runtime_hooks=[str(scripts_dir / 'hook-rthook-gpu-pack.py')],
     excludes=exclude_modules,
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
