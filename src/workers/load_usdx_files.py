@@ -1,5 +1,6 @@
 import os
 import logging
+import time
 from PySide6.QtCore import Signal
 from model.song import Song
 from services.song_service import SongService
@@ -83,9 +84,6 @@ class LoadUsdxFilesWorker(IWorker):
             if not hasattr(song, "path") or not os.path.exists(file_path):
                 continue
 
-            # Update USDB ID if needed
-            song.usdb_id = self.path_usdb_id_map.get(song.path, song.usdb_id)
-
             # Add to batch instead of emitting individually
             self._add_to_batch(song)
             self.loaded_paths.add(file_path)
@@ -95,9 +93,15 @@ class LoadUsdxFilesWorker(IWorker):
         self._flush_batch()
 
     async def scan_directory(self):
-        """Scan directory for new or changed songs."""
+        """Scan directory for new or changed songs and USDB metadata."""
         self.description = f"Scanning for new or changed songs in {self.directory}"
-        logger.info(f"Scanning directory {self.directory} for new or changed songs")
+        logger.info(f"Scanning directory {self.directory} for songs and USDB metadata")
+
+        # Throttling: only emit progress every N files or every X seconds
+        file_count = 0
+        last_progress_time = time.time()
+        PROGRESS_FILE_INTERVAL = 50  # Emit every 50 files
+        PROGRESS_TIME_INTERVAL = 0.3  # Or every 300ms
 
         for root, dirs, files in os.walk(self.directory):
             self.description = f"Searching song files in {root}"
@@ -117,7 +121,6 @@ class LoadUsdxFilesWorker(IWorker):
                             usdb_data = json.load(f)
                             if "song_id" in usdb_data:
                                 self.path_usdb_id_map[root] = usdb_data["song_id"]
-                                logger.debug(f"Found USDB ID {usdb_data['song_id']} in {root}")
                     except Exception as e:
                         logger.warning(f"Failed to parse .usdb file {usdb_file_path}: {e}")
                     break  # Only process one .usdb file per directory
@@ -146,12 +149,25 @@ class LoadUsdxFilesWorker(IWorker):
                         self._add_to_batch(song)  # Add to batch instead of emitting
                         self.loaded_paths.add(song_path)
 
-                self.signals.progress.emit()
+                # Throttled progress update
+                file_count += 1
+                current_time = time.time()
+                if file_count % PROGRESS_FILE_INTERVAL == 0 or (current_time - last_progress_time) > PROGRESS_TIME_INTERVAL:
+                    self.signals.progress.emit()
+                    last_progress_time = current_time
 
-            self.signals.progress.emit()
+            # Emit progress on directory change
+            current_time = time.time()
+            if (current_time - last_progress_time) > PROGRESS_TIME_INTERVAL:
+                self.signals.progress.emit()
+                last_progress_time = current_time
 
         # Flush any remaining songs in batch
         self._flush_batch()
+
+        # Log USDB IDs found
+        if self.path_usdb_id_map:
+            logger.info(f"Found {len(self.path_usdb_id_map)} USDB metadata files")
 
     async def cleanup_cache(self):
         """Clean up stale cache entries."""
@@ -178,11 +194,12 @@ class LoadUsdxFilesWorker(IWorker):
             return
 
         # Regular operation - loading all songs
-        # IMPORTANT: Load cache FIRST for fast UI population,
-        # then scan directory for new/changed files
+        # IMPORTANT ORDER:
+        # 1. Load cache for fast UI population
+        # 2. Scan directory for new/changed files AND build USDB ID mapping
         await self.load_from_cache()
 
-        # Then scan directory for new or changed songs
+        # Scan directory for new/changed songs and USDB metadata
         await self.scan_directory()
 
         # Finally clean up stale cache entries

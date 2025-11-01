@@ -152,6 +152,56 @@ class WorkerQueueManager(QObject):
         if self.running_tasks or self.queued_tasks:
             self._mark_ui_update_needed()
 
+    def is_task_queued_for_song(self, song_txt_file: str, worker_class_name: str) -> bool:
+        """
+        Check if a task for a specific song is already queued or running.
+
+        Args:
+            song_txt_file: Path to the song's .txt file
+            worker_class_name: Name of the worker class (e.g., 'DetectGapWorker', 'NormalizeAudioWorker')
+
+        Returns:
+            True if a matching task is queued or running
+        """
+        # Check running tasks (standard lane)
+        for worker in self.running_tasks.values():
+            if worker.__class__.__name__ == worker_class_name:
+                # Check if this worker is for the same song
+                if hasattr(worker, "options") and hasattr(worker.options, "txt_file"):
+                    if worker.options.txt_file == song_txt_file:
+                        return True
+                # For NormalizeAudioWorker, check song_path
+                elif hasattr(worker, "song_path") and worker.song_path == song_txt_file:
+                    return True
+
+        # Check queued tasks (standard lane)
+        for worker in self.queued_tasks:
+            if worker.__class__.__name__ == worker_class_name:
+                if hasattr(worker, "options") and hasattr(worker.options, "txt_file"):
+                    if worker.options.txt_file == song_txt_file:
+                        return True
+                elif hasattr(worker, "song_path") and worker.song_path == song_txt_file:
+                    return True
+
+        # Check running instant task
+        if self.running_instant_task and self.running_instant_task.__class__.__name__ == worker_class_name:
+            if hasattr(self.running_instant_task, "options") and hasattr(self.running_instant_task.options, "txt_file"):
+                if self.running_instant_task.options.txt_file == song_txt_file:
+                    return True
+            elif hasattr(self.running_instant_task, "song_path") and self.running_instant_task.song_path == song_txt_file:
+                return True
+
+        # Check queued instant tasks
+        for worker in self.queued_instant_tasks:
+            if worker.__class__.__name__ == worker_class_name:
+                if hasattr(worker, "options") and hasattr(worker.options, "txt_file"):
+                    if worker.options.txt_file == song_txt_file:
+                        return True
+                elif hasattr(worker, "song_path") and worker.song_path == song_txt_file:
+                    return True
+
+        return False
+
     def add_task(self, worker: IWorker, start_now=False):
         worker.id = self.get_unique_task_id()
         logger.debug(f"Creating task: {worker.description} (instant={worker.is_instant})")

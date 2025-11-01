@@ -184,7 +184,18 @@ class SongListWidget(QWidget):
         # Enable detect if at least one selected song has audio file AND system can detect
         can_detect_songs = has_selection and any(s.audio_file for s in songs)
         system_can_detect = self._data.capabilities and self._data.capabilities.can_detect
-        can_detect = can_detect_songs and system_can_detect
+
+        # Check if any selected song already has a detect task queued/running
+        has_queued_detect = False
+        if can_detect_songs and system_can_detect:
+            for song in songs:
+                if song.audio_file and self._data.worker_queue.is_task_queued_for_song(
+                    song.txt_file, "DetectGapWorker"
+                ):
+                    has_queued_detect = True
+                    break
+
+        can_detect = can_detect_songs and system_can_detect and not has_queued_detect
         self.detectButton.setEnabled(can_detect)
 
         # Update tooltip based on capability status
@@ -202,6 +213,8 @@ class SongListWidget(QWidget):
                 self.detectButton.setToolTip("Gap detection disabled: System requirements not met")
         elif not can_detect_songs:
             self.detectButton.setToolTip("Select songs with audio files to detect gap")
+        elif has_queued_detect:
+            self.detectButton.setToolTip("Gap detection already queued/running for selected song(s)")
         else:
             # Show current detection mode in tooltip
             if self._data.capabilities and self._data.capabilities.has_cuda:
@@ -211,8 +224,26 @@ class SongListWidget(QWidget):
             self.detectButton.setToolTip(f"Run gap detection on selected songs (Mode: {mode})")
 
         # Enable normalize if at least one selected song is suitable
-        can_normalize = has_selection and any(s.audio_file for s in songs)
+        can_normalize_songs = has_selection and any(s.audio_file for s in songs)
+
+        # Check if any selected song already has a normalize task queued/running
+        has_queued_normalize = False
+        if can_normalize_songs:
+            for song in songs:
+                if song.audio_file and self._data.worker_queue.is_task_queued_for_song(
+                    song.txt_file, "NormalizeAudioWorker"
+                ):
+                    has_queued_normalize = True
+                    break
+
+        can_normalize = can_normalize_songs and not has_queued_normalize
         self.normalize_button.setEnabled(can_normalize)
+
+        # Update tooltip for normalize button
+        if has_queued_normalize:
+            self.normalize_button.setToolTip("Audio normalization already queued/running for selected song(s)")
+        else:
+            self.normalize_button.setToolTip("Normalize audio volume of selected songs")
 
         # Enable USDB only if exactly one song is selected and has a valid usdb_id
         # usdb_id is Optional[int], so check for None and 0

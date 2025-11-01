@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QProgressBar,
     QCheckBox,
+    QComboBox,
     QMessageBox,
     QSizePolicy,
 )
@@ -148,6 +149,7 @@ class StartupDialog(QDialog):
         self.startup_mode = startup_mode
         self.capabilities: Optional[SystemCapabilities] = None
         self._download_worker: Optional[GpuDownloadWorker] = None
+        self._download_failure_count = 0  # Track consecutive download failures for flavor fallback
 
         self._setup_ui()
         self._run_health_check()
@@ -156,8 +158,9 @@ class StartupDialog(QDialog):
         """Setup dialog UI."""
         # Window setup
         self.setWindowTitle(f"{APP_NAME} - Starting..." if self.startup_mode else f"{APP_NAME} - About")
-        # Modal only in startup mode, non-modal in About mode
-        self.setModal(self.startup_mode)
+        # Always modal to prevent I/O contention during downloads
+        # Will be set to non-modal temporarily during active download to allow confirmation dialogs
+        self.setModal(True)
         self.setFixedSize(700, 450)
 
         # Window flags - make dialog movable
@@ -269,11 +272,31 @@ class StartupDialog(QDialog):
 
         button_layout.addStretch()
 
-        # Download GPU Pack button (middle, hidden initially)
+        # GPU Pack download section (middle, hidden initially)
+        # Horizontal layout for flavor selector + download button
+        gpu_download_layout = QHBoxLayout()
+        gpu_download_layout.setSpacing(5)
+
+        # CUDA flavor selector (combo box)
+        self.flavor_combo = QComboBox()
+        self.flavor_combo.addItem("CUDA 12.1 (Recommended)", "cu121")
+        self.flavor_combo.addItem("CUDA 12.4 (Alternative)", "cu124")
+        self.flavor_combo.setToolTip(
+            "Select CUDA version:\n"
+            "• CUDA 12.1 - Most compatible (driver ≥531)\n"
+            "• CUDA 12.4 - Newer, may work better for some systems (driver ≥550)"
+        )
+        self.flavor_combo.setVisible(False)
+        self.flavor_combo.setMinimumWidth(180)
+        gpu_download_layout.addWidget(self.flavor_combo)
+
+        # Download GPU Pack button
         self.download_btn = QPushButton("Download GPU Pack")
         self.download_btn.setVisible(False)
         self.download_btn.clicked.connect(self._on_download_clicked)
-        button_layout.addWidget(self.download_btn)
+        gpu_download_layout.addWidget(self.download_btn)
+
+        button_layout.addLayout(gpu_download_layout)
 
         # Close app button (rightmost, startup mode only)
         if self.startup_mode:
@@ -332,8 +355,31 @@ class StartupDialog(QDialog):
                     self.log("💡 Note: You can download the GPU Pack later from the About menu")
                     self.status_label.setText("✅ System Ready (CPU Mode - GPU Available)")
 
-                    # Show download button
+                    # Show download controls (button + flavor selector)
                     self.download_btn.setVisible(True)
+                    self.flavor_combo.setVisible(True)
+
+                    # Set default flavor based on driver or config
+                    if self.config and hasattr(self.config, "gpu_flavor") and self.config.gpu_flavor:
+                        # Restore user's previous choice
+                        idx = self.flavor_combo.findData(self.config.gpu_flavor)
+                        if idx >= 0:
+                            self.flavor_combo.setCurrentIndex(idx)
+                    else:
+                        # Check driver version from capability probe
+                        cap = gpu_bootstrap.capability_probe()
+                        driver_version = cap.get("driver_version") if cap else None
+
+                        if driver_version and driver_version >= "550.00":
+                            # Driver supports both cu121 and cu124 - default to cu121 (more compatible)
+                            self.flavor_combo.setCurrentIndex(0)  # cu121
+                        else:
+                            # Driver only supports cu121 or unknown
+                            self.flavor_combo.setCurrentIndex(0)  # cu121
+                            # Disable cu124 option if driver too old
+                            if driver_version and driver_version < "550.00":
+                                self.flavor_combo.model().item(1).setEnabled(False)
+                                self.flavor_combo.setItemData(1, "Requires driver ≥550.00", Qt.ItemDataRole.ToolTipRole)
                 else:
                     self.log("✅ System ready (CPU mode)")
                     self.status_label.setText("✅ System Ready (CPU Mode)")
@@ -355,6 +401,16 @@ class StartupDialog(QDialog):
 
     def _on_download_clicked(self):
         """Handle Download GPU Pack button click."""
+        # Check if a download is already running
+        if self._download_worker and self._download_worker.isRunning():
+            logger.warning("Download already in progress, ignoring button click")
+            return
+
+        # If there's a previous worker that finished, ensure it's cleaned up
+        if self._download_worker:
+            self._download_worker.wait(5000)  # Wait up to 5 seconds for thread to finish
+            self._download_worker = None
+
         # Disable buttons during download
         self.download_btn.setEnabled(False)
         if hasattr(self, "start_btn"):
@@ -381,12 +437,14 @@ class StartupDialog(QDialog):
             manifests = gpu_manifest.load_local_manifest(app_version)
             cap = gpu_bootstrap.capability_probe()
 
-            # Choose pack based on driver version
-            flavor_override = (
-                self.config.gpu_flavor
-                if self.config and hasattr(self.config, "gpu_flavor") and self.config.gpu_flavor
-                else None
-            )
+            # Get selected flavor from combo box
+            selected_flavor = self.flavor_combo.currentData() if self.flavor_combo.isVisible() else None
+
+            # Use selected flavor or fall back to config
+            flavor_override = selected_flavor
+            if not flavor_override and self.config and hasattr(self.config, "gpu_flavor") and self.config.gpu_flavor:
+                flavor_override = self.config.gpu_flavor
+
             chosen_manifest = gpu_manifest.choose_pack(
                 manifests, cap.get("driver_version") if cap else None, flavor_override
             )
@@ -415,14 +473,29 @@ class StartupDialog(QDialog):
             torch_version_normalized = chosen_manifest.torch_version.replace("+", "-")
             dest_zip = pack_dir.parent / f"gpu_pack_{torch_version_normalized}.zip"
 
-            # CRITICAL: Clean up any corrupt/partial files from previous failed downloads
-            # This prevents "Bad magic number" errors from corrupt ZIP files
+            # CRITICAL: Clean up ALL download files to force fresh download from zero
+            # Resume has proven unreliable (SSL errors, corruption), so we always start fresh
+            # This prevents "Bad magic number" errors and ensures clean downloads
             self._cleanup_download_files(dest_zip)
 
             # Log download destination (both to file and UI)
             logger.info(f"GPU Pack download destination: {pack_dir}")
             logger.info(f"Download ZIP location: {dest_zip}")
             self.log(f"Download destination: {pack_dir}")
+            self.log(f"Starting fresh download (resume disabled for reliability)")
+
+            # Save selected flavor to config for future use
+            if selected_flavor and self.config:
+                self.config.gpu_flavor = selected_flavor
+                try:
+                    self.config.save_config()
+                    logger.info(f"Saved selected GPU flavor: {selected_flavor}")
+                except Exception as e:
+                    logger.warning(f"Failed to save flavor preference: {e}")
+
+            # Make dialog non-modal during download to allow confirmation dialogs
+            # This is needed for retry confirmations to work properly
+            self.setModal(False)
 
             # Start download worker
             self._download_worker = GpuDownloadWorker(
@@ -445,7 +518,13 @@ class StartupDialog(QDialog):
 
     def _on_download_finished(self, success: bool, message: str):
         """Handle download completion."""
+        # Restore modal state after download completes
+        self.setModal(True)
+
         if success:
+            # Reset failure counter on success
+            self._download_failure_count = 0
+
             self.log("")
             self.log("✅ GPU Pack downloaded successfully!")
             self.log("   Restart the application to use GPU acceleration")
@@ -490,6 +569,55 @@ class StartupDialog(QDialog):
             self.log("")
             self.log(f"❌ Download failed: {message}")
 
+            # Increment failure counter
+            self._download_failure_count += 1
+
+            # After 2+ failures with cu121, offer to try cu124
+            current_flavor = self.config.gpu_flavor if self.config and hasattr(self.config, "gpu_flavor") else "cu121"
+
+            # Check driver version from capability probe
+            cap = gpu_bootstrap.capability_probe()
+            driver_version = cap.get("driver_version") if cap else None
+
+            can_switch_flavor = (
+                self._download_failure_count >= 2
+                and current_flavor == "cu121"
+                and driver_version
+                and driver_version >= "550.00"  # cu124 requires driver >=550
+            )
+
+            if can_switch_flavor:
+                # Offer flavor switch
+                reply = QMessageBox.question(
+                    self,
+                    "Try Alternative CUDA Version?",
+                    f"GPU Pack download has failed {self._download_failure_count} times with CUDA 12.1.\n\n"
+                    f"Your driver ({driver_version}) supports CUDA 12.4.\n\n"
+                    "Would you like to try downloading CUDA 12.4 instead?\n"
+                    "(This is a different PyTorch build that may work better)",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes,
+                )
+
+                if reply == QMessageBox.StandardButton.Yes:
+                    # Switch to cu124
+                    self.log("")
+                    self.log("→ Switching to CUDA 12.4 (cu124) flavor...")
+                    if self.config:
+                        self.config.gpu_flavor = "cu124"
+                        try:
+                            self.config.save_config()
+                            logger.info("Switched GPU flavor to cu124")
+                        except Exception as e:
+                            logger.warning(f"Failed to save flavor switch: {e}")
+
+                    # Clean up and retry with new flavor
+                    self._cleanup_download_files_safe()
+                    self._reset_download_ui()
+                    QTimer.singleShot(100, self._on_download_clicked)
+                    return  # Skip the normal retry prompt
+
+            # Normal retry prompt (same flavor)
             # Ask user if they want to retry
             reply = QMessageBox.question(
                 self,
@@ -535,38 +663,84 @@ class StartupDialog(QDialog):
                 self.log("Cleaning up failed download and retrying...")
                 # Small delay to let UI update
                 QTimer.singleShot(100, self._on_download_clicked)
-                return  # Don't reset UI yet, retry is starting
+            else:
+                # User chose not to retry - just reset UI
+                self._reset_download_ui()
 
-        self._reset_download_ui()
+    def _cleanup_download_files_safe(self):
+        """Clean up download files safely (best effort, no errors on failure)."""
+        try:
+            from pathlib import Path
+            from utils.files import get_localappdata_dir
+
+            if self.config and hasattr(self.config, "data_dir") and self.config.data_dir:
+                pack_dir = Path(self.config.data_dir) / "gpu_runtime"
+            else:
+                localappdata = get_localappdata_dir()
+                pack_dir = Path(localappdata) / "gpu_runtime"
+
+            if pack_dir.exists():
+                for pattern in ["*.zip", "*.part", "*.meta"]:
+                    for file_path in pack_dir.glob(pattern):
+                        try:
+                            file_path.unlink()
+                            logger.info(f"Deleted: {file_path}")
+                        except Exception as e:
+                            logger.debug(f"Could not delete {file_path}: {e}")
+        except Exception as e:
+            logger.debug(f"Cleanup failed (non-critical): {e}")
 
     def _cleanup_download_files(self, dest_zip):
         """
-        Clean up corrupt/partial download files.
-        
+        Clean up ALL download files to force fresh download.
+
+        This is intentionally aggressive to prevent resume-related issues:
+        - Corrupt partial downloads
+        - SSL/network errors during resume
+        - "Bad magic number" from incomplete ZIPs
+
         Removes:
-        - .zip file (corrupt/incomplete download)
+        - .zip file (final download, might be corrupt)
         - .part file (partial download)
         - .meta file (download metadata)
-        
+
         Args:
             dest_zip: Path to the destination ZIP file
         """
         from pathlib import Path
-        
+        import time
+
         files_to_clean = [
-            dest_zip,  # Final ZIP file
-            dest_zip.with_suffix(".part"),  # Partial download
+            dest_zip.with_suffix(".part"),  # Partial download - MUST be deleted first
             dest_zip.with_suffix(".meta"),  # Download metadata
+            dest_zip,  # Final ZIP file (might be corrupt)
         ]
-        
+
+        cleaned_count = 0
         for file_path in files_to_clean:
             if file_path.exists():
-                try:
-                    file_path.unlink()
-                    logger.info(f"Cleaned up old download file: {file_path}")
-                    self.log(f"Cleaned up old download file: {file_path.name}")
-                except Exception as e:
-                    logger.warning(f"Failed to delete {file_path}: {e}")
+                # Try multiple times with delay (file might be locked by previous worker thread)
+                for attempt in range(3):
+                    try:
+                        file_path.unlink()
+                        logger.info(f"Deleted download file to force fresh start: {file_path}")
+                        cleaned_count += 1
+                        break  # Success, move to next file
+                    except PermissionError as e:
+                        if attempt < 2:  # Not the last attempt
+                            logger.warning(f"File locked, retrying in 1 second: {file_path}")
+                            time.sleep(1)  # Wait for previous worker to release file
+                        else:
+                            logger.error(f"Failed to delete {file_path} after 3 attempts: {e}")
+                            self.log(f"⚠️ Could not clean up {file_path.name} (file in use)")
+                            self.log(f"   Please close any programs using this file and try again")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete {file_path}: {e}")
+                        break  # Don't retry for other exceptions
+
+        if cleaned_count > 0:
+            logger.info(f"Cleaned up {cleaned_count} download file(s) for fresh start")
+            self.log(f"Cleaned up {cleaned_count} old download file(s)")
 
     def _reset_download_ui(self):
         """Reset download UI elements."""
@@ -632,6 +806,66 @@ class StartupDialog(QDialog):
             event.accept()
         else:
             super().mouseReleaseEvent(event)
+
+    def accept(self):
+        """Override accept to show warning when download is active."""
+        # Check if download is running before allowing acceptance
+        if self._download_worker and self._download_worker.isRunning():
+            reply = QMessageBox.question(
+                self,
+                "Download in Progress",
+                "GPU Pack download is in progress.\n\n"
+                "Do you want to abort the download?\n\n"
+                "Note: Partial download will be deleted. You'll need to restart the download from the beginning.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+
+            if reply == QMessageBox.StandardButton.No:
+                return  # Don't accept, keep dialog open
+
+            # Cancel download
+            if self._download_worker.cancel_token:
+                self._download_worker.cancel_token.cancel()
+                self.log("Download cancelled by user")
+            self._download_worker.wait(2000)  # Wait up to 2 seconds
+
+            # Clean up partial download files
+            if self._download_worker.dest_zip:
+                self._cleanup_download_files(self._download_worker.dest_zip)
+
+        # Now proceed with standard acceptance
+        super().accept()
+
+    def reject(self):
+        """Override reject to show warning when download is active."""
+        # Check if download is running before allowing rejection
+        if self._download_worker and self._download_worker.isRunning():
+            reply = QMessageBox.question(
+                self,
+                "Download in Progress",
+                "GPU Pack download is in progress.\n\n"
+                "Do you want to abort the download?\n\n"
+                "Note: Partial download will be deleted. You'll need to restart the download from the beginning.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+
+            if reply == QMessageBox.StandardButton.No:
+                return  # Don't reject, keep dialog open
+
+            # Cancel download
+            if self._download_worker.cancel_token:
+                self._download_worker.cancel_token.cancel()
+                self.log("Download cancelled by user")
+            self._download_worker.wait(2000)  # Wait up to 2 seconds
+
+            # Clean up partial download files
+            if self._download_worker.dest_zip:
+                self._cleanup_download_files(self._download_worker.dest_zip)
+
+        # Now proceed with standard rejection
+        super().reject()
 
     def closeEvent(self, event):
         """Handle dialog close event."""
@@ -740,11 +974,12 @@ class StartupDialog(QDialog):
     def show_about(parent=None, config=None):
         """
         Show dialog in About mode (no countdown, just informational).
+        Modal to prevent UI freezing during downloads/extraction.
 
         Args:
             parent: Parent widget (main window)
             config: Application config
         """
         dialog = StartupDialog(parent=parent, config=config, startup_mode=False)
-        dialog.show()  # Non-modal: allows interaction with main window
-        return dialog  # Return reference so dialog doesn't get garbage collected
+        dialog.exec()  # Modal: blocks interaction during downloads
+        return dialog.capabilities
