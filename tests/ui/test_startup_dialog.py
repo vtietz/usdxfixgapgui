@@ -276,6 +276,8 @@ class TestDownloadWorker:
     @patch("PySide6.QtWidgets.QMessageBox.question")
     def test_download_retry_on_failure(self, mock_question, mock_check, qtbot, mock_config, gpu_available_capabilities):
         """Test that user can retry download after failure."""
+        from ui.handlers.gpu_download_handler import on_download_finished
+
         mock_check.return_value = gpu_available_capabilities
 
         dialog = StartupDialog(parent=None, config=mock_config, startup_mode=True)
@@ -288,7 +290,7 @@ class TestDownloadWorker:
         mock_question.return_value = QMessageBox.StandardButton.Yes
 
         # Simulate download failure directly
-        dialog._on_download_finished(success=False, message="Bad magic number for file header")
+        on_download_finished(dialog, success=False, message="Bad magic number for file header")
 
         # Question dialog should have been shown
         mock_question.assert_called_once()
@@ -302,6 +304,8 @@ class TestDownloadWorker:
         self, mock_question, mock_check, qtbot, mock_config, gpu_available_capabilities
     ):
         """Test that download UI resets when user declines retry."""
+        from ui.handlers.gpu_download_handler import on_download_finished
+
         mock_check.return_value = gpu_available_capabilities
 
         dialog = StartupDialog(parent=None, config=mock_config, startup_mode=True)
@@ -314,7 +318,7 @@ class TestDownloadWorker:
         mock_question.return_value = QMessageBox.StandardButton.No
 
         # Simulate download failure directly
-        dialog._on_download_finished(success=False, message="Download error")
+        on_download_finished(dialog, success=False, message="Download error")
 
         # Question dialog should have been shown
         mock_question.assert_called_once()
