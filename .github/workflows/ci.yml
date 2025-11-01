@@ -81,6 +81,13 @@ jobs:
           print('✅ Entry point smoke test passed')
           "
 
+      - name: Health Check - Verify Dependencies
+        run: |
+          cd src
+          python usdxfixgap.py --health-check
+        env:
+          DISPLAY: :99
+
       - name: Run tests
         run: |
           python -m pytest tests/ -v --tb=short
