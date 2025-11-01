@@ -177,8 +177,8 @@ watch_ignore_patterns = .tmp,~,.crdownload,.part  # Comma-separated patterns to 
 
 1. Download the latest release for your platform:
    - [Windows Release](https://github.com/vtietz/usdxfixgapgui/releases) (.exe) - **Fully tested and supported**
-   - [Linux Release](https://github.com/vtietz/usdxfixgapgui/releases) (AppImage) - ⚠️ **Experimental** (not extensively tested)
-   - macOS - ⚠️ **Experimental** (not extensively tested, no pre-built releases yet)
+   - [Linux Release](https://github.com/vtietz/usdxfixgapgui/releases) (AppImage) - ⚠️ **Experimental** (not tested)
+   - macOS - ⚠️ **Experimental** (not tested, no pre-built releases yet)
 
    > **Note:** Linux and macOS versions are provided as-is with limited testing. GPU acceleration on these platforms is experimental. Please report any issues on GitHub.
 
