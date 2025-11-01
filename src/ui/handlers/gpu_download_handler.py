@@ -39,7 +39,7 @@ def on_download_clicked(dialog):
     """Handle Download GPU Pack button click."""
     # Safety check: ensure dialog and its widgets are still valid
     try:
-        if not dialog or not hasattr(dialog, 'download_btn'):
+        if not dialog or not hasattr(dialog, "download_btn"):
             return
         # Quick test to ensure C++ object is still alive
         _ = dialog.download_btn.isEnabled()

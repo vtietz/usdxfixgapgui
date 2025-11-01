@@ -264,12 +264,13 @@ class StartupDialog(QDialog):
                 if self.config:
                     import os
                     from utils.files import get_localappdata_dir, get_demucs_models_dir
+
                     data_dir = get_localappdata_dir()
                     models_dir = get_demucs_models_dir(self.config)
                     self.log("Configuration:")
                     self.log(f"  • Data directory: {data_dir}")
                     self.log(f"  • Models directory: {models_dir}")
-                    if hasattr(self.config, 'gpu_pack_path') and self.config.gpu_pack_path:
+                    if hasattr(self.config, "gpu_pack_path") and self.config.gpu_pack_path:
                         self.log(f"  • GPU Pack: {self.config.gpu_pack_path}")
                 self.status_label.setText("✅ System Ready (GPU Mode)")
                 self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")

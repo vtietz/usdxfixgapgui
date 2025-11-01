@@ -152,7 +152,10 @@ class LoadUsdxFilesWorker(IWorker):
                 # Throttled progress update
                 file_count += 1
                 current_time = time.time()
-                if file_count % PROGRESS_FILE_INTERVAL == 0 or (current_time - last_progress_time) > PROGRESS_TIME_INTERVAL:
+                if (
+                    file_count % PROGRESS_FILE_INTERVAL == 0
+                    or (current_time - last_progress_time) > PROGRESS_TIME_INTERVAL
+                ):
                     self.signals.progress.emit()
                     last_progress_time = current_time
 

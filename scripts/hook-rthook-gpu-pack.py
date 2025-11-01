@@ -6,6 +6,7 @@ It manipulates sys.path to prioritize GPU Pack over bundled torch if available.
 
 This must be registered in the .spec file as a runtime_hook.
 """
+
 import sys
 import os
 from pathlib import Path

@@ -324,7 +324,9 @@ class MediaPlayerComponent(QWidget):
         # Check if song has notes attribute but don't prevent playback
         # This is normal during initial song loading from cache
         if not hasattr(song, "notes") or song.notes is None:
-            logger.debug(f"Song '{song.title}' does not have notes data yet (loading in progress), will play audio anyway")
+            logger.debug(
+                f"Song '{song.title}' does not have notes data yet (loading in progress), will play audio anyway"
+            )
 
         # Get paths using WaveformPathService
         paths = WaveformPathService.get_paths(song, self._data.tmp_path)

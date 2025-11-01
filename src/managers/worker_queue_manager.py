@@ -188,7 +188,9 @@ class WorkerQueueManager(QObject):
             if hasattr(self.running_instant_task, "options") and hasattr(self.running_instant_task.options, "txt_file"):
                 if self.running_instant_task.options.txt_file == song_txt_file:
                     return True
-            elif hasattr(self.running_instant_task, "song_path") and self.running_instant_task.song_path == song_txt_file:
+            elif (
+                hasattr(self.running_instant_task, "song_path") and self.running_instant_task.song_path == song_txt_file
+            ):
                 return True
 
         # Check queued instant tasks
