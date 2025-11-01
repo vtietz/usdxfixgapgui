@@ -28,48 +28,50 @@ jobs:
           pip install --index-url https://download.pytorch.org/whl/cpu torch==2.4.1+cpu torchaudio==2.4.1+cpu
           pip install -r requirements-build.txt
 
-      - name: Build Windows EXE (One-File)
+      - name: Build Windows Onedir (Fast CI Validation)
+        run: python -m PyInstaller --clean --noconfirm usdxfixgap-onedir.spec
+
+      - name: Verify Windows Onedir Executable (Fast)
+        run: |
+          echo "Testing onedir build (fast - no extraction overhead)..."
+          dist\usdxfixgap\usdxfixgap.exe --version
+          dist\usdxfixgap\usdxfixgap.exe --health-check
+          if ($LASTEXITCODE -ne 0) {
+            echo "❌ Onedir health check failed!"
+            exit 1
+          }
+          echo "✅ Windows onedir executable verified"
+        timeout-minutes: 2
+
+      - name: Build Windows Onefile (Release Artifact)
         run: python -m PyInstaller --clean --noconfirm usdxfixgap.spec
 
-      - name: Verify Windows One-File Executable
+      - name: Verify Windows Onefile Executable (First Run - Extraction)
         run: |
-          echo "Testing one-file executable..."
+          echo "Testing onefile build (first run includes extraction)..."
           dist\usdxfixgap.exe --version
           dist\usdxfixgap.exe --health-check
           if ($LASTEXITCODE -ne 0) {
-            echo "❌ Health check failed!"
+            echo "❌ Onefile health check failed!"
             exit 1
           }
-          echo "✅ Windows one-file executable verified"
+          echo "✅ Windows onefile executable verified"
+        timeout-minutes: 15
 
-      - name: Build Windows Portable (Directory)
-        run: python -m PyInstaller --clean --noconfirm usdxfixgap-portable.spec
-
-      - name: Verify Windows Portable Executable
-        run: |
-          echo "Testing portable executable..."
-          dist\usdxfixgap-portable\usdxfixgap.exe --version
-          dist\usdxfixgap-portable\usdxfixgap.exe --health-check
-          if ($LASTEXITCODE -ne 0) {
-            echo "❌ Portable health check failed!"
-            exit 1
-          }
-          echo "✅ Windows portable executable verified"
-
-      - name: Package Windows Portable
+      - name: Package Windows Portable (Onedir)
         run: |
           cd dist
-          Compress-Archive -Path usdxfixgap-portable -DestinationPath usdxfixgap-portable-windows.zip
+          Compress-Archive -Path usdxfixgap -DestinationPath usdxfixgap-portable-windows.zip
           cd ..
 
-      - name: Upload Windows One-File Artifact
+      - name: Upload Windows Onefile Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
           path: dist/usdxfixgap.exe
           retention-days: 7
 
-      - name: Upload Windows Portable Artifact
+      - name: Upload Windows Portable Artifact (Onedir)
         uses: actions/upload-artifact@v4
         with:
           name: windows-portable
