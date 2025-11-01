@@ -176,8 +176,11 @@ watch_ignore_patterns = .tmp,~,.crdownload,.part  # Comma-separated patterns to 
 ### **Option 1: Download Executable (Easiest)**
 
 1. Download the latest release for your platform:
-   - [Windows Release](https://github.com/vtietz/usdxfixgapgui/releases) (.exe)
-   - [Linux Release](https://github.com/vtietz/usdxfixgapgui/releases) (AppImage)
+   - [Windows Release](https://github.com/vtietz/usdxfixgapgui/releases) (.exe) - **Fully tested and supported**
+   - [Linux Release](https://github.com/vtietz/usdxfixgapgui/releases) (AppImage) - ⚠️ **Experimental** (not extensively tested)
+   - macOS - ⚠️ **Experimental** (not extensively tested, no pre-built releases yet)
+
+   > **Note:** Linux and macOS versions are provided as-is with limited testing. GPU acceleration on these platforms is experimental. Please report any issues on GitHub.
 
 2. **Windows Defender Notice**: The executable may trigger a false positive warning (common with PyInstaller applications). This is safe - the source code is open for inspection. If concerned, [scan the file on VirusTotal](https://www.virustotal.com/) or build from source yourself.
 

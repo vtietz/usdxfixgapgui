@@ -251,6 +251,26 @@ class StartupDialog(QDialog):
 
             if detection_mode == "gpu":
                 self.log("✅ Gap detection ready (GPU acceleration enabled)")
+                self.log("")
+                # Show GPU and system details
+                if self.capabilities.gpu_name:
+                    self.log(f"  GPU: {self.capabilities.gpu_name}")
+                if self.capabilities.cuda_version:
+                    self.log(f"  CUDA: {self.capabilities.cuda_version}")
+                if self.capabilities.torch_version:
+                    self.log(f"  PyTorch: {self.capabilities.torch_version}")
+                self.log("")
+                # Show important paths
+                if self.config:
+                    import os
+                    from utils.files import get_localappdata_dir, get_demucs_models_dir
+                    data_dir = get_localappdata_dir()
+                    models_dir = get_demucs_models_dir(self.config)
+                    self.log("Configuration:")
+                    self.log(f"  • Data directory: {data_dir}")
+                    self.log(f"  • Models directory: {models_dir}")
+                    if hasattr(self.config, 'gpu_pack_path') and self.config.gpu_pack_path:
+                        self.log(f"  • GPU Pack: {self.config.gpu_pack_path}")
                 self.status_label.setText("✅ System Ready (GPU Mode)")
                 self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
             elif detection_mode == "cpu":

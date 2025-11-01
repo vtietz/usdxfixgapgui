@@ -245,8 +245,26 @@ def main():
                 show_error_dialog("Configuration Error", error_msg, error_details)
                 sys.exit(1)
 
-        # Setup model paths BEFORE importing any AI libraries (PyTorch, TensorFlow, etc.)
+        # Setup async logging EARLY (before GPU bootstrap so we can log it)
+        log_file_path = os.path.join(get_localappdata_dir(), APP_LOG_FILENAME)
+        setup_async_logging(
+            log_level=config.log_level, log_file_path=log_file_path, max_bytes=10 * 1024 * 1024, backup_count=3  # 10MB
+        )
+
+        logger = logging.getLogger(__name__)
+        logger.info(f"Application started with log level: {config.log_level_str}")
+
+        # Log configuration file location now that logging is ready
+        config.log_config_location()
+
+        # Bootstrap GPU Pack BEFORE setup_model_paths (which imports torch!)
+        # This ensures torch imports from GPU Pack instead of venv
+        gpu_enabled = gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
+        logger.info(f"GPU bootstrap completed: enabled={gpu_enabled}")
+
+        # Setup model paths AFTER GPU bootstrap but BEFORE other imports
         # This ensures Demucs and Spleeter download models to our centralized location
+        # Note: setup_model_paths imports torch, so GPU bootstrap must happen first!
         setup_model_paths(config)
 
         # Handle GPU CLI flags (may exit early)
@@ -258,18 +276,6 @@ def main():
 
                 shutdown_asyncio()
                 sys.exit(0)
-
-        # Setup async logging BEFORE splash screen
-        log_file_path = os.path.join(get_localappdata_dir(), APP_LOG_FILENAME)
-        setup_async_logging(
-            log_level=config.log_level, log_file_path=log_file_path, max_bytes=10 * 1024 * 1024, backup_count=3  # 10MB
-        )
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"Application started with log level: {config.log_level_str}")
-
-        # Log configuration file location now that logging is ready
-        config.log_config_location()
 
         # Create QApplication BEFORE splash (needed for Qt dialogs)
         from PySide6.QtWidgets import QApplication
@@ -300,9 +306,6 @@ def main():
             f"cuda={capabilities.has_cuda}, ffmpeg={capabilities.has_ffmpeg}, "
             f"can_detect={capabilities.can_detect}"
         )
-
-        # Bootstrap GPU Pack if needed (based on capabilities and config)
-        gpu_enabled = gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
 
         # GPU Status Logging (Console Only)
         log_gpu_status(config, gpu_enabled, show_gui_dialog=False)

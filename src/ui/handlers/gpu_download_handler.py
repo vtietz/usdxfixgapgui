@@ -190,13 +190,18 @@ def on_download_finished(dialog, success: bool, message: str):
         dialog.status_label.setText("⚠️ GPU Pack Installed - Please Restart Application")
         dialog.status_label.setStyleSheet("color: #FFA500; font-weight: bold;")
 
+        # Hide progress bar and status after successful download
+        dialog.progress_bar.setVisible(False)
+        dialog.progress_label.setVisible(False)
+
         # Disable Start App button - user MUST restart
         if hasattr(dialog, "start_btn"):
             dialog.start_btn.setEnabled(False)
             dialog.start_btn.setText("Restart Required")
 
-        # Hide download button
+        # Hide download UI elements (button and flavor selector)
         dialog.download_btn.setVisible(False)
+        dialog.flavor_combo.setVisible(False)
 
         # Clean up worker reference
         dialog._download_worker = None
