@@ -252,10 +252,10 @@ class StartupDialog(QDialog):
             if detection_mode == "gpu":
                 self.log("✅ Gap detection ready (GPU acceleration enabled)")
                 self.log("")
-                
+
                 # Show comprehensive system information
                 self._log_system_details()
-                
+
                 self.status_label.setText("✅ System Ready (GPU Mode)")
                 self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
             elif detection_mode == "cpu":
@@ -303,10 +303,10 @@ class StartupDialog(QDialog):
                 else:
                     self.log("✅ System ready (CPU mode)")
                     self.log("")
-                    
+
                     # Show comprehensive system information
                     self._log_system_details()
-                    
+
                     self.status_label.setText("✅ System Ready (CPU Mode)")
 
                 self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
@@ -326,14 +326,30 @@ class StartupDialog(QDialog):
 
     def _log_system_details(self):
         """Log comprehensive system information (for About dialog and detailed startup info)."""
-        from common.constants import APP_VERSION
-        from PySide6 import __version__ as pyside_version
-        
+        from utils.files import resource_path
+        import os
+
+        # Get version from VERSION file
+        app_version = "unknown"
+        try:
+            version_file = resource_path("VERSION")
+            if os.path.exists(version_file):
+                with open(version_file, "r") as f:
+                    app_version = f.read().strip()
+        except Exception:
+            pass
+
+        # Get Qt version
+        try:
+            from PySide6 import __version__ as pyside_version
+        except Exception:
+            pyside_version = "unknown"
+
         # System Components
         self.log("System Components:")
-        self.log(f"  • Application: {APP_VERSION}")
+        self.log(f"  • Application: {app_version}")
         self.log(f"  • Qt Framework: {pyside_version}")
-        
+
         # PyTorch & GPU
         if self.capabilities.torch_version:
             self.log(f"  • PyTorch: {self.capabilities.torch_version}")
@@ -341,41 +357,45 @@ class StartupDialog(QDialog):
             self.log(f"  • CUDA: {self.capabilities.cuda_version}")
         if self.capabilities.gpu_name:
             self.log(f"  • GPU: {self.capabilities.gpu_name}")
-        
+
         # Audio Processing
         if self.capabilities.ffmpeg_version:
             self.log(f"  • FFmpeg: {self.capabilities.ffmpeg_version}")
         if self.capabilities.has_ffprobe:
             self.log(f"  • FFprobe: Available")
-        
+
         # Check Python libraries
         try:
             import librosa
             self.log(f"  • librosa: {librosa.__version__}")
         except:
             pass
-        
+
         try:
             import soundfile
             self.log(f"  • soundfile: {soundfile.__version__}")
         except:
             pass
-        
+
         self.log("")
-        
+
         # Configuration Paths
         if self.config:
-            from utils.files import get_localappdata_dir, get_demucs_models_dir
-            
-            data_dir = get_localappdata_dir()
-            models_dir = get_demucs_models_dir(self.config)
-            
-            self.log("Configuration:")
-            self.log(f"  • Data directory: {data_dir}")
-            self.log(f"  • Models directory: {models_dir}")
-            if hasattr(self.config, "gpu_pack_path") and self.config.gpu_pack_path:
-                self.log(f"  • GPU Pack: {self.config.gpu_pack_path}")
-        
+            try:
+                from utils.files import get_localappdata_dir, get_demucs_models_dir
+
+                data_dir = get_localappdata_dir()
+                models_dir = get_demucs_models_dir(self.config)
+
+                self.log("Configuration:")
+                self.log(f"  • Data directory: {data_dir}")
+                self.log(f"  • Models directory: {models_dir}")
+                if hasattr(self.config, "gpu_pack_path") and self.config.gpu_pack_path:
+                    self.log(f"  • GPU Pack: {self.config.gpu_pack_path}")
+            except Exception:
+                # Skip path display if config is mocked or paths unavailable
+                pass
+
         self.log("")
 
     def _on_start_clicked(self):
