@@ -224,6 +224,47 @@ def analyze_style(files: Optional[List[str]] = None) -> tuple:
         return 1, output
 
 
+def analyze_formatting(files: Optional[List[str]] = None) -> tuple:
+    """Run Black code formatting check.
+
+    Args:
+        files: Specific files to analyze, or None for all
+
+    Returns:
+        Tuple of (exit_code, output_text)
+    """
+    # Check if Black is available
+    try:
+        subprocess.run([sys.executable, "-m", "black", "--version"], capture_output=True, check=True)
+    except subprocess.CalledProcessError:
+        print(f"{SYMBOL_WARNING} black not installed, skipping formatting check")
+        print("   Install with: pip install black")
+        return 0, ""
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "black",
+        "--check",
+        "--diff",
+    ]
+
+    if files:
+        cmd.extend(files)
+    else:
+        cmd.extend(PYTHON_DIRS)
+
+    exit_code, output = run_command(cmd, "Code Formatting (black)")
+
+    if exit_code == 0:
+        print(f"{SYMBOL_SUCCESS} All files are properly formatted!")
+        return 0, output
+    else:
+        print(f"{SYMBOL_WARNING} Found formatting issues")
+        print(f"{SYMBOL_INFO} Run 'python -m black src/ tests/ scripts/' to auto-fix")
+        return 1, output
+
+
 def analyze_types(files: Optional[List[str]] = None) -> tuple:
     """Run mypy type checking (optional).
 
@@ -553,6 +594,7 @@ Examples:
     parser.add_argument("mode", choices=["all", "changed", "files"], help="Analysis mode")
     parser.add_argument("files", nargs="*", help='Specific files to analyze (only for "files" mode)')
     parser.add_argument("--skip-style", action="store_true", help="Skip flake8 style analysis")
+    parser.add_argument("--skip-formatting", action="store_true", help="Skip Black code formatting check")
     parser.add_argument("--skip-complexity", action="store_true", help="Skip Lizard complexity analysis")
     parser.add_argument("--skip-types", action="store_true", help="Skip mypy type analysis")
     parser.add_argument("--skip-length", action="store_true", help="Skip file length analysis")
@@ -595,6 +637,10 @@ Examples:
         exit_code, output = analyze_style(files_to_analyze)
         results["Style"] = exit_code
         style_output = output
+
+    if not args.skip_formatting:
+        exit_code, _ = analyze_formatting(files_to_analyze)
+        results["Formatting"] = exit_code
 
     if not args.skip_length:
         exit_code, output = analyze_file_length(files_to_analyze)
