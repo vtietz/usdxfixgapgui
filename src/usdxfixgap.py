@@ -199,7 +199,7 @@ def health_check():
         print(f"✗ {'FFmpeg':20} {str(e)}")
         errors.append("FFmpeg")
 
-    # Check other critical modules (metadata only - instant)
+    # Check other critical modules (metadata with fallback to import for frozen exes)
     other_modules = [
         ("librosa", "Audio Processing"),
         ("soundfile", "Audio I/O"),
@@ -207,11 +207,18 @@ def health_check():
 
     for module_name, description in other_modules:
         try:
+            # Try metadata first (fast)
             version = importlib.metadata.version(module_name)
             print(f"✓ {description:20} ({module_name} {version})")
         except Exception:
-            print(f"✗ {description:20} Not installed")
-            errors.append(description)
+            # Fallback: try to import module (works in frozen exes)
+            try:
+                module = __import__(module_name)
+                version = getattr(module, "__version__", "installed")
+                print(f"✓ {description:20} ({module_name} {version})")
+            except Exception:
+                print(f"✗ {description:20} Not installed")
+                errors.append(description)
 
     # Check VERSION file exists
     try:
