@@ -53,8 +53,8 @@ hidden_imports = [
 
 # Data files to include
 datas = [
-    (str(assets_dir), 'assets'),
-    (str(project_root / 'VERSION'), '.'),  # Include VERSION file at root
+    ('VERSION', '.'),  # Include VERSION file at root
+    ('src/assets', 'assets'),  # Include assets directory
 ]
 
 # Binaries to exclude (reduce size)
@@ -153,7 +153,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,  # Disable UPX compression
-    console=False,  # Windowed mode; console attached dynamically for CLI flags
+    console=True,  # Console subsystem - enables CLI output capture, hidden in GUI mode
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

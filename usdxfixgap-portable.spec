@@ -3,47 +3,35 @@
 PyInstaller spec file for USDXFixGap - PORTABLE DIRECTORY BUILD
 Creates a directory with exe + dependencies (no extraction needed = instant startup)
 """
-import sys
+import os
 from pathlib import Path
 
-# Import configuration from main spec
-spec_path = Path(__file__).parent / 'usdxfixgap.spec'
-spec_globals = {}
-with open(spec_path) as f:
-    exec(f.read(), spec_globals)
+block_cipher = None
 
-# Reuse configuration from main spec
-project_root = spec_globals['project_root']
-src_dir = spec_globals['src_dir']
-assets_dir = spec_globals['assets_dir']
-hidden_imports = spec_globals['hidden_imports']
-datas = spec_globals['datas']
-exclude_binaries = spec_globals['exclude_binaries']
-exclude_modules = spec_globals['exclude_modules']
-block_cipher = spec_globals['block_cipher']
+# Project paths
+MAIN_SCRIPT = 'src/usdxfixgap.py'
+ICON_PATH = 'src/assets/usdxfixgap-icon.ico'
+if not os.path.exists(ICON_PATH):
+    ICON_PATH = None
 
 # Create Analysis
 a = Analysis(
-    [str(src_dir / 'usdxfixgap.py')],
-    pathex=[str(project_root)],
+    [MAIN_SCRIPT],
+    pathex=['.'],
     binaries=[],
-    datas=datas,
-    hiddenimports=hidden_imports,
+    datas=[
+        ('VERSION', '.'),
+        ('src/assets', 'assets'),
+    ],
+    hiddenimports=[],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=exclude_modules,
+    excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
-    cipher=block_cipher,
     noarchive=False,
 )
-
-# Filter out excluded binaries
-a.binaries = TOC([
-    x for x in a.binaries
-    if not any(pattern in x[0].lower() for pattern in exclude_binaries)
-])
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
@@ -58,13 +46,13 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,  # No compression needed for directory build
-    console=False,
+    console=True,  # Console subsystem - enables CLI output capture, hidden in GUI mode
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(assets_dir / 'usdxfixgap-icon.ico') if (assets_dir / 'usdxfixgap-icon.ico').exists() else None,
+    icon=ICON_PATH,
 )
 
 # COLLECT: Create directory structure
