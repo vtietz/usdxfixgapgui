@@ -17,45 +17,46 @@ from common.constants import APP_NAME, APP_DESCRIPTION, APP_LOG_FILENAME
 # from utils.model_paths import setup_model_paths  # Moved to main()
 
 
-def attach_console():
+def hide_console_window_on_gui_mode():
     """
-    Attach to parent console or allocate new console for CLI output.
-    Required for windowed executables (console=False) to show CLI output.
+    Hide the console window when running in GUI mode on Windows.
 
-    This allows a single executable to behave as both:
-    - GUI application (no console) when launched normally
-    - CLI tool (with console output) when run with flags like --version or --health-check
+    This allows a single console=True executable to work as both:
+    - CLI tool (console visible, output captured)
+    - GUI application (console hidden immediately)
 
-    Works by:
-    - Attaching to parent console if run from cmd/PowerShell/CI
-    - Allocating temporary console if run via double-click
-    - Rebinding stdout/stderr to the console device
+    Only hides the console if it was created for this process (not inherited
+    from a parent console like cmd.exe or PowerShell).
+
+    Platform-specific:
+    - Windows: Uses Windows API to hide the console window
+    - Linux/macOS: No action (standard terminal behavior)
     """
-    if sys.platform == "win32":
-        try:
-            import ctypes
+    if os.name != "nt":
+        return  # Only on Windows
 
-            kernel32 = ctypes.windll.kernel32
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
 
-            # Try to attach to parent console (cmd, PowerShell, CI environment)
-            # ATTACH_PARENT_CONSOLE = -1
-            if not kernel32.AttachConsole(-1):
-                # No parent console exists - allocate a new one (double-click scenario)
-                kernel32.AllocConsole()
+        # Get console window handle
+        hwnd = kernel32.GetConsoleWindow()
+        if not hwnd:
+            return  # No console window
 
-            # Rebind stdout/stderr/stdin to the console device
-            # This is necessary because windowed apps have null streams by default
-            try:
-                sys.stdout = open("CONOUT$", "w", encoding="utf-8")
-                sys.stderr = open("CONOUT$", "w", encoding="utf-8")
-                sys.stdin = open("CONIN$", "r", encoding="utf-8")
-            except OSError:
-                # Console binding failed - continue anyway
-                pass
-        except Exception:
-            # If console attachment fails, continue without it
-            # CLI output will be invisible but app won't crash
-            pass
+        # Check if console was created for this process (not inherited)
+        # GetConsoleProcessList returns the number of processes attached
+        process_list = (ctypes.c_uint32 * 4)()
+        process_count = kernel32.GetConsoleProcessList(process_list, 4)
+
+        # If only 1 process attached, this console was created for us
+        # If multiple processes, we inherited an existing console (cmd/PowerShell)
+        if process_count == 1:
+            # SW_HIDE = 0
+            ctypes.windll.user32.ShowWindow(hwnd, 0)
+    except Exception:
+        # Best effort - continue even if hiding fails
+        pass
 
 
 def show_error_dialog(title, message, details=None):
@@ -263,9 +264,20 @@ def main():
         # Parse CLI arguments
         args = parse_arguments()
 
-        # Attach console for CLI flags (makes output visible in windowed exe)
-        if args.version or args.health_check:
-            attach_console()
+        # Determine if any CLI flags are active
+        cli_flags_active = any([
+            args.version,
+            args.health_check,
+            args.setup_gpu,
+            args.setup_gpu_zip is not None,
+            args.gpu_enable,
+            args.gpu_disable,
+            args.gpu_diagnostics,
+        ])
+
+        # If this is GUI mode (no CLI flags), hide the console window
+        if not cli_flags_active:
+            hide_console_window_on_gui_mode()
 
         # Handle --version flag (exit early)
         if args.version:
