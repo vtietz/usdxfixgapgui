@@ -166,22 +166,28 @@ def health_check():
             if os.path.exists("VERSION"):
                 with open("VERSION", "r") as f:
                     version = f.read().strip()
-        except Exception:
-            pass
+                print(f"DEBUG: Found VERSION file at: {os.path.abspath('VERSION')}")
+            else:
+                print(f"DEBUG: VERSION file not found at: {os.path.abspath('VERSION')}")
+                print(f"DEBUG: Current working directory: {os.getcwd()}")
+                print(f"DEBUG: Files in current dir: {os.listdir('.')[:10]}")
+        except Exception as e:
+            print(f"DEBUG: Error reading VERSION: {e}")
         
         print(f"✓ Executable runs successfully")
         print(f"✓ Version: {version}")
         
         print("=" * 50)
         print("\n✅ Health check PASSED")
-        return 0
+        print("DEBUG: About to call sys.exit(0)")
+        sys.stdout.flush()  # Ensure output is written
+        sys.exit(0)  # Explicit exit!
 
     except Exception as e:
         print("=" * 50)
         print(f"\n❌ Health check FAILED: {e}")
-        return 1
-
-
+        print(f"DEBUG: About to call sys.exit(1)")
+        sys.exit(1)
 def main():
     """Main entry point for USDXFixGap application"""
     log_file_path = None
