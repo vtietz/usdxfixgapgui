@@ -66,7 +66,7 @@ jobs:
       - name: Upload Windows Onefile Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-exe
+          name: windows-onefile
           path: dist/usdxfixgap.exe
           retention-days: 7
 
@@ -136,10 +136,18 @@ jobs:
           fi
           echo "✅ No CUDA dependencies found - build will be CPU-only"
 
-      - name: Build Linux Executable
+      - name: Build Linux Portable (Onedir)
         run: |
-          # Use system Python directly - it already has CPU-only PyTorch installed
-          # Don't use ./run.sh build which would create a new venv with wrong packages
+          python -m PyInstaller --clean --noconfirm usdxfixgap-onedir.spec
+
+      - name: Package Linux Portable
+        run: |
+          cd dist
+          tar -czf usdxfixgap-portable-linux.tar.gz usdxfixgap
+          cd ..
+
+      - name: Build Linux Onefile
+        run: |
           python -m PyInstaller --clean --noconfirm usdxfixgap.spec
 
       - name: Verify Linux Executable
@@ -149,11 +157,18 @@ jobs:
           dist/usdxfixgap --version || exit 1
           echo "✅ Linux executable verified"
 
-      - name: Upload Linux Artifact
+      - name: Upload Linux Onefile Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-exe
+          name: linux-onefile
           path: dist/usdxfixgap
+          retention-days: 7
+
+      - name: Upload Linux Portable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-portable
+          path: dist/usdxfixgap-portable-linux.tar.gz
           retention-days: 7
 
   build-macos:
@@ -183,8 +198,19 @@ jobs:
       - name: Make build script executable
         run: chmod +x run.sh
 
-      - name: Build macOS Executable
-        run: ./run.sh build
+      - name: Build macOS Portable (Onedir)
+        run: |
+          pyinstaller --clean --noconfirm usdxfixgap-onedir.spec
+
+      - name: Package macOS Portable
+        run: |
+          cd dist
+          tar -czf usdxfixgap-portable-macos.tar.gz usdxfixgap
+          cd ..
+
+      - name: Build macOS Onefile
+        run: |
+          pyinstaller --clean --noconfirm usdxfixgap.spec
 
       - name: Verify macOS Executable
         run: |
@@ -193,11 +219,18 @@ jobs:
           dist/usdxfixgap --version || exit 1
           echo "✅ macOS executable verified"
 
-      - name: Upload macOS Artifact
+      - name: Upload macOS Onefile Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-exe
+          name: macos-onefile
           path: dist/usdxfixgap
+          retention-days: 7
+
+      - name: Upload macOS Portable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-portable
+          path: dist/usdxfixgap-portable-macos.tar.gz
           retention-days: 7
 
   release:
@@ -247,11 +280,11 @@ jobs:
             echo "Creating default release notes..."
           fi
 
-      - name: Download Windows Artifact
+      - name: Download Windows Onefile Artifact
         uses: actions/download-artifact@v4
         with:
-          name: windows-exe
-          path: ./artifacts/windows
+          name: windows-onefile
+          path: ./artifacts/windows-onefile
 
       - name: Download Windows Portable Artifact
         uses: actions/download-artifact@v4
@@ -259,36 +292,55 @@ jobs:
           name: windows-portable
           path: ./artifacts/windows-portable
 
-      - name: Download Linux Artifact
+      - name: Download Linux Onefile Artifact
         uses: actions/download-artifact@v4
         with:
-          name: linux-exe
-          path: ./artifacts/linux
+          name: linux-onefile
+          path: ./artifacts/linux-onefile
 
-      - name: Download macOS Artifact
+      - name: Download Linux Portable Artifact
         uses: actions/download-artifact@v4
         with:
-          name: macos-exe
-          path: ./artifacts/macos
+          name: linux-portable
+          path: ./artifacts/linux-portable
+
+      - name: Download macOS Onefile Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-onefile
+          path: ./artifacts/macos-onefile
+
+      - name: Download macOS Portable Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-portable
+          path: ./artifacts/macos-portable
 
       - name: Prepare release artifacts
         run: |
           mkdir -p release
 
           # Use TAG_NAME for filenames (includes -rc1, -beta, etc.)
-          # Windows (one-file)
-          cp artifacts/windows/usdxfixgap.exe release/usdxfixgap-${TAG_NAME}-windows.exe
+          
+          # Windows onefile
+          cp artifacts/windows-onefile/usdxfixgap.exe release/usdxfixgap-${TAG_NAME}-windows.exe
 
-          # Windows (portable)
+          # Windows portable
           cp artifacts/windows-portable/usdxfixgap-portable-windows.zip release/usdxfixgap-${TAG_NAME}-windows-portable.zip
 
-          # Linux - create tar.gz
-          chmod +x artifacts/linux/usdxfixgap
-          tar -czf release/usdxfixgap-${TAG_NAME}-linux.tar.gz -C artifacts/linux usdxfixgap
+          # Linux onefile
+          chmod +x artifacts/linux-onefile/usdxfixgap
+          tar -czf release/usdxfixgap-${TAG_NAME}-linux.tar.gz -C artifacts/linux-onefile usdxfixgap
 
-          # macOS - create tar.gz
-          chmod +x artifacts/macos/usdxfixgap
-          tar -czf release/usdxfixgap-${TAG_NAME}-macos.tar.gz -C artifacts/macos usdxfixgap
+          # Linux portable
+          cp artifacts/linux-portable/usdxfixgap-portable-linux.tar.gz release/usdxfixgap-${TAG_NAME}-linux-portable.tar.gz
+
+          # macOS onefile
+          chmod +x artifacts/macos-onefile/usdxfixgap
+          tar -czf release/usdxfixgap-${TAG_NAME}-macos.tar.gz -C artifacts/macos-onefile usdxfixgap
+
+          # macOS portable
+          cp artifacts/macos-portable/usdxfixgap-portable-macos.tar.gz release/usdxfixgap-${TAG_NAME}-macos-portable.tar.gz
 
           ls -lh release/
 
@@ -310,9 +362,13 @@ jobs:
           - **One-File**: \`usdxfixgap-${TAG_NAME}-windows.exe\` (~450MB, ~10s first launch)
           - **Portable**: \`usdxfixgap-${TAG_NAME}-windows-portable.zip\` (instant startup)
 
-          ### Linux & macOS
-          - **Linux**: \`usdxfixgap-${TAG_NAME}-linux.tar.gz\`
-          - **macOS**: \`usdxfixgap-${TAG_NAME}-macos.tar.gz\`
+          ### Linux
+          - **One-File**: \`usdxfixgap-${TAG_NAME}-linux.tar.gz\` (~10s first launch)
+          - **Portable**: \`usdxfixgap-${TAG_NAME}-linux-portable.tar.gz\` (instant startup)
+
+          ### macOS
+          - **One-File**: \`usdxfixgap-${TAG_NAME}-macos.tar.gz\` (~10s first launch)
+          - **Portable**: \`usdxfixgap-${TAG_NAME}-macos-portable.tar.gz\` (instant startup)
 
           ## Installation
 
@@ -324,24 +380,38 @@ jobs:
           2. Run \`usdxfixgap.exe\` from the extracted folder
           3. Instant startup, no extraction delay
 
-          ### Linux
+          ### Linux (One-File)
           \`\`\`bash
           tar -xzf usdxfixgap-${TAG_NAME}-linux.tar.gz
           chmod +x usdxfixgap
           ./usdxfixgap
           \`\`\`
 
-          ### macOS
+          ### Linux (Portable)
+          \`\`\`bash
+          tar -xzf usdxfixgap-${TAG_NAME}-linux-portable.tar.gz
+          cd usdxfixgap
+          ./usdxfixgap
+          \`\`\`
+
+          ### macOS (One-File)
           \`\`\`bash
           tar -xzf usdxfixgap-${TAG_NAME}-macos.tar.gz
           chmod +x usdxfixgap
           ./usdxfixgap
           \`\`\`
 
+          ### macOS (Portable)
+          \`\`\`bash
+          tar -xzf usdxfixgap-${TAG_NAME}-macos-portable.tar.gz
+          cd usdxfixgap
+          ./usdxfixgap
+          \`\`\`
+
           ## Distribution Formats
 
           **One-File Executable**: Convenient single file, but extracts on every launch (~10s first time).
-          **Portable ZIP**: Extract once, instant startup forever. Recommended for power users.
+          **Portable Archive**: Extract once, instant startup forever. Recommended for power users.
 
           ## Notes
 
@@ -385,6 +455,8 @@ jobs:
             release/usdxfixgap-${{ env.TAG_NAME }}-windows.exe
             release/usdxfixgap-${{ env.TAG_NAME }}-windows-portable.zip
             release/usdxfixgap-${{ env.TAG_NAME }}-linux.tar.gz
+            release/usdxfixgap-${{ env.TAG_NAME }}-linux-portable.tar.gz
             release/usdxfixgap-${{ env.TAG_NAME }}-macos.tar.gz
+            release/usdxfixgap-${{ env.TAG_NAME }}-macos-portable.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
