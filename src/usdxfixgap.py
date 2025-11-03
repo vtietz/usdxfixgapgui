@@ -211,9 +211,8 @@ def _check_ffmpeg():
 
 def health_check():
     """
-    Lightweight health check using metadata only.
-    Avoids importing heavy modules (torch, PySide6) to keep startup fast.
-    Perfect for CI/CD validation - completes in <1 second.
+    Lightweight health check with import fallback for frozen executables.
+    Uses metadata when available, falls back to actual imports in PyInstaller bundles.
     Returns exit code: 0 = success, 1 = failure
     """
     print(f"{APP_NAME} Health Check")
@@ -221,12 +220,12 @@ def health_check():
 
     errors = []
 
-    # Check PyTorch
-    if not _check_metadata_package("torch", "PyTorch"):
+    # Check PyTorch - use fallback for frozen exe compatibility
+    if not _check_module_with_fallback("torch", "PyTorch"):
         errors.append("PyTorch")
 
-    # Check PySide6
-    if not _check_metadata_package("PySide6", "Qt Framework"):
+    # Check PySide6 - use fallback for frozen exe compatibility
+    if not _check_module_with_fallback("PySide6", "Qt Framework"):
         errors.append("Qt Framework")
 
     # Check FFmpeg
