@@ -238,14 +238,15 @@ class TestReorderSyspathForGpuPack:
             if hasattr(sys, '_MEIPASS'):
                 delattr(sys, '_MEIPASS')
     
-    def test_removes_and_readds_meipass(self, hook_functions):
-        """Test that _MEIPASS paths are moved to end."""
+    def test_moves_meipass_to_end(self, hook_functions):
+        """Test that _MEIPASS directory itself is moved to end (not derived paths)."""
         pack_dir = Path('/opt/gpu_pack')
         meipass = '/tmp/_MEI12345'
         
-        # Setup
+        # Setup: include both _MEIPASS and a derived path (like base_library.zip)
         sys._MEIPASS = meipass
-        original_path = ['/some/path', meipass, '/another/path']
+        base_lib = meipass + '/base_library.zip'
+        original_path = [base_lib, '/some/path', meipass, '/another/path']
         sys.path[:] = original_path.copy()
         
         try:
@@ -253,9 +254,11 @@ class TestReorderSyspathForGpuPack:
             
             # GPU Pack should be first
             assert sys.path[0] == str(pack_dir)
-            # _MEIPASS should be last
+            # _MEIPASS directory should be last
             assert sys.path[-1] == meipass
-            # _MEIPASS should not appear in middle
+            # base_library.zip should still be in its original position (not moved)
+            assert base_lib in sys.path
+            # _MEIPASS should appear only once
             assert sys.path.count(meipass) == 1
         finally:
             sys.path[:] = original_path

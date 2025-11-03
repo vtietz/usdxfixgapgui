@@ -91,14 +91,12 @@ def reorder_syspath_for_gpu_pack(pack_dir):
     if pack_dir_str not in sys.path:
         sys.path.insert(0, pack_dir_str)
     
-    # Remove _MEIPASS paths and re-add at end
+    # Move _MEIPASS directory (not derived paths like base_library.zip) to end
+    # This ensures GPU Pack loads before bundled torch, but stdlib still works
     meipass = sys._MEIPASS
-    meipass_paths = [p for p in sys.path if meipass in p]
-    for p in meipass_paths:
-        sys.path.remove(p)
-    
-    # Re-add _MEIPASS at end for other bundled modules
-    sys.path.append(meipass)
+    if meipass in sys.path:
+        sys.path.remove(meipass)
+        sys.path.append(meipass)
 
 
 def setup_gpu_pack():
