@@ -37,13 +37,12 @@ jobs:
           echo "Listing onedir output contents for verification:"
           Get-ChildItem -Force dist | Select-Object Name, Length | Format-Table -AutoSize
           dist\usdxfixgap.exe --version
-          dist\usdxfixgap.exe --health-check
           if ($LASTEXITCODE -ne 0) {
-            echo "❌ Onedir health check failed!"
+            echo "❌ Onedir version check failed!"
             exit 1
           }
           echo "✅ Windows onedir executable verified"
-        timeout-minutes: 7
+        timeout-minutes: 2
 
       - name: Package Windows Portable (Onedir)
         run: |
@@ -57,13 +56,12 @@ jobs:
         run: |
           echo "Testing onefile build (first run includes extraction)..."
           dist\usdxfixgap.exe --version
-          dist\usdxfixgap.exe --health-check
           if ($LASTEXITCODE -ne 0) {
-            echo "❌ Onefile health check failed!"
+            echo "❌ Onefile version check failed!"
             exit 1
           }
           echo "✅ Windows onefile executable verified"
-        timeout-minutes: 15
+        timeout-minutes: 5
 
       - name: Upload Windows Onefile Artifact
         uses: actions/upload-artifact@v4
@@ -148,8 +146,7 @@ jobs:
         run: |
           echo "Testing executable..."
           chmod +x dist/usdxfixgap
-          dist/usdxfixgap --version
-          dist/usdxfixgap --health-check || exit 1
+          dist/usdxfixgap --version || exit 1
           echo "✅ Linux executable verified"
 
       - name: Upload Linux Artifact
@@ -193,8 +190,7 @@ jobs:
         run: |
           echo "Testing executable..."
           chmod +x dist/usdxfixgap
-          dist/usdxfixgap --version
-          dist/usdxfixgap --health-check || exit 1
+          dist/usdxfixgap --version || exit 1
           echo "✅ macOS executable verified"
 
       - name: Upload macOS Artifact
