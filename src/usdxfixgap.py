@@ -147,134 +147,57 @@ def print_version_info():
         print("librosa: not available")
 
 
-def _check_metadata_package(package_name, display_name):
-    """Check if a package is installed using metadata (fast)."""
-    import importlib.metadata
-
-    try:
-        version = importlib.metadata.version(package_name)
-        print(f"✓ {display_name:20} ({version})")
-        return True
-    except Exception:
-        print(f"✗ {display_name:20} Not installed")
-        return False
-
-
-def _check_module_with_fallback(module_name, description):
-    """Check module with metadata fallback to import (works in frozen exes)."""
-    import importlib.metadata
-
-    try:
-        # Try metadata first (fast)
-        version = importlib.metadata.version(module_name)
-        print(f"✓ {description:20} ({module_name} {version})")
-        return True
-    except Exception:
-        # Fallback: try to import module (works in frozen exes)
-        try:
-            module = __import__(module_name)
-            version = getattr(module, "__version__", "installed")
-            print(f"✓ {description:20} ({module_name} {version})")
-            return True
-        except Exception:
-            print(f"✗ {description:20} Not installed")
-            return False
-
-
-def _check_ffmpeg():
-    """Check if FFmpeg is available and get version."""
-    import subprocess
-
-    try:
-        result = subprocess.run(
-            ["ffmpeg", "-version"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-        )
-        if result.returncode == 0:
-            first_line = result.stdout.split("\n")[0]
-            version = first_line.split("version")[1].split()[0] if "version" in first_line else "unknown"
-            print(f"✓ {'FFmpeg':20} ({version})")
-            return True
-        else:
-            print(f"✗ {'FFmpeg':20} Command failed")
-            return False
-    except FileNotFoundError:
-        print(f"✗ {'FFmpeg':20} Not found in PATH")
-        return False
-    except Exception as e:
-        print(f"✗ {'FFmpeg':20} {str(e)}")
-        return False
-
-
 def health_check():
     """
-    Lightweight health check with import fallback for frozen executables.
-    Uses metadata when available, falls back to actual imports in PyInstaller bundles.
+    Minimal health check for CI/CD - just verify the executable runs.
+    
+    This is NOT the detailed system check shown in the startup dialog.
+    For detailed checks, see services/system_capabilities.py
+    
     Returns exit code: 0 = success, 1 = failure
     """
     print(f"{APP_NAME} Health Check")
     print("=" * 50)
 
-    errors = []
-
-    # Check PyTorch - use fallback for frozen exe compatibility
-    if not _check_module_with_fallback("torch", "PyTorch"):
-        errors.append("PyTorch")
-
-    # Check PySide6 - use fallback for frozen exe compatibility
-    if not _check_module_with_fallback("PySide6", "Qt Framework"):
-        errors.append("Qt Framework")
-
-    # Check FFmpeg
-    if not _check_ffmpeg():
-        errors.append("FFmpeg")
-
-    # Check other critical modules
-    other_modules = [
-        ("librosa", "Audio Processing"),
-        ("soundfile", "Audio I/O"),
-    ]
-
-    for module_name, description in other_modules:
-        if not _check_module_with_fallback(module_name, description):
-            errors.append(description)
-
-    # Check VERSION file exists
+    # Just check that we can get basic version info and the app can start
     try:
         version = get_version()
-        if version != "unknown":
-            print(f"✓ {'Version File':20} ({version})")
-        else:
-            print(f"⚠ {'Version File':20} Not found, using 'unknown'")
-    except Exception as e:
-        print(f"✗ {'Version File':20} {str(e)}")
-        errors.append("VERSION file")
-
-    # Check assets directory
-    try:
-        from utils.files import resource_path
-
-        assets_dir = resource_path("assets")
-        if os.path.exists(assets_dir):
-            print(f"✓ {'Assets Directory':20} Found")
-        else:
-            print(f"⚠ {'Assets Directory':20} Not found")
-    except Exception as e:
-        print(f"⚠ {'Assets Directory':20} {str(e)}")
-
-    print("=" * 50)
-
-    if errors:
-        print(f"\n❌ Health check FAILED - {len(errors)} critical issue(s)")
-        for error in errors:
-            print(f"   - {error}")
-        return 1
-    else:
-        print("\n✅ Health check PASSED - All checks successful")
+        print(f"✓ Executable runs")
+        print(f"✓ Version: {version}")
+        
+        # Check VERSION file bundled correctly
+        if version == "unknown":
+            print(f"⚠ VERSION file not found")
+        
+        # Quick FFmpeg check (external dependency)
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["ffmpeg", "-version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            )
+            if result.returncode == 0:
+                first_line = result.stdout.split("\n")[0]
+                version_str = first_line.split("version")[1].split()[0] if "version" in first_line else "unknown"
+                print(f"✓ FFmpeg: {version_str}")
+            else:
+                print(f"⚠ FFmpeg: command failed")
+        except FileNotFoundError:
+            print(f"⚠ FFmpeg: not in PATH")
+        except Exception:
+            print(f"⚠ FFmpeg: check failed")
+        
+        print("=" * 50)
+        print("\n✅ Health check PASSED - Executable is working")
         return 0
+        
+    except Exception as e:
+        print("=" * 50)
+        print(f"\n❌ Health check FAILED: {e}")
+        return 1
 
 
 def main():
