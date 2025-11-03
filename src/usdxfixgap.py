@@ -37,6 +37,7 @@ def hide_console_window_on_gui_mode():
 
     try:
         import ctypes
+
         kernel32 = ctypes.windll.kernel32
 
         # Get console window handle
@@ -146,38 +147,44 @@ def print_version_info():
         print("librosa: not available")
 
 
-def health_check():
-    """
-    Lightweight health check using metadata only.
-    Avoids importing heavy modules (torch, PySide6) to keep startup fast.
-    Perfect for CI/CD validation - completes in <1 second.
-    Returns exit code: 0 = success, 1 = failure
-    """
+def _check_metadata_package(package_name, display_name):
+    """Check if a package is installed using metadata (fast)."""
     import importlib.metadata
+
+    try:
+        version = importlib.metadata.version(package_name)
+        print(f"✓ {display_name:20} ({version})")
+        return True
+    except Exception:
+        print(f"✗ {display_name:20} Not installed")
+        return False
+
+
+def _check_module_with_fallback(module_name, description):
+    """Check module with metadata fallback to import (works in frozen exes)."""
+    import importlib.metadata
+
+    try:
+        # Try metadata first (fast)
+        version = importlib.metadata.version(module_name)
+        print(f"✓ {description:20} ({module_name} {version})")
+        return True
+    except Exception:
+        # Fallback: try to import module (works in frozen exes)
+        try:
+            module = __import__(module_name)
+            version = getattr(module, "__version__", "installed")
+            print(f"✓ {description:20} ({module_name} {version})")
+            return True
+        except Exception:
+            print(f"✗ {description:20} Not installed")
+            return False
+
+
+def _check_ffmpeg():
+    """Check if FFmpeg is available and get version."""
     import subprocess
 
-    print(f"{APP_NAME} Health Check")
-    print("=" * 50)
-
-    errors = []
-
-    # Check PyTorch (metadata only - NO IMPORT, instant check)
-    try:
-        torch_version = importlib.metadata.version("torch")
-        print(f"✓ {'PyTorch':20} ({torch_version})")
-    except Exception:
-        print(f"✗ {'PyTorch':20} Not installed")
-        errors.append("PyTorch")
-
-    # Check PySide6 (metadata only - NO IMPORT, instant check)
-    try:
-        pyside_version = importlib.metadata.version("PySide6")
-        print(f"✓ {'Qt Framework':20} (PySide6 {pyside_version})")
-    except Exception:
-        print(f"✗ {'Qt Framework':20} Not installed")
-        errors.append("Qt Framework")
-
-    # Check FFmpeg (subprocess - lightweight, already optimized)
     try:
         result = subprocess.run(
             ["ffmpeg", "-version"],
@@ -190,42 +197,57 @@ def health_check():
             first_line = result.stdout.split("\n")[0]
             version = first_line.split("version")[1].split()[0] if "version" in first_line else "unknown"
             print(f"✓ {'FFmpeg':20} ({version})")
+            return True
         else:
             print(f"✗ {'FFmpeg':20} Command failed")
-            errors.append("FFmpeg")
+            return False
     except FileNotFoundError:
         print(f"✗ {'FFmpeg':20} Not found in PATH")
-        errors.append("FFmpeg")
+        return False
     except Exception as e:
         print(f"✗ {'FFmpeg':20} {str(e)}")
+        return False
+
+
+def health_check():
+    """
+    Lightweight health check using metadata only.
+    Avoids importing heavy modules (torch, PySide6) to keep startup fast.
+    Perfect for CI/CD validation - completes in <1 second.
+    Returns exit code: 0 = success, 1 = failure
+    """
+    print(f"{APP_NAME} Health Check")
+    print("=" * 50)
+
+    errors = []
+
+    # Check PyTorch
+    if not _check_metadata_package("torch", "PyTorch"):
+        errors.append("PyTorch")
+
+    # Check PySide6
+    if not _check_metadata_package("PySide6", "Qt Framework"):
+        errors.append("Qt Framework")
+
+    # Check FFmpeg
+    if not _check_ffmpeg():
         errors.append("FFmpeg")
 
-    # Check other critical modules (metadata with fallback to import for frozen exes)
+    # Check other critical modules
     other_modules = [
         ("librosa", "Audio Processing"),
         ("soundfile", "Audio I/O"),
     ]
 
     for module_name, description in other_modules:
-        try:
-            # Try metadata first (fast)
-            version = importlib.metadata.version(module_name)
-            print(f"✓ {description:20} ({module_name} {version})")
-        except Exception:
-            # Fallback: try to import module (works in frozen exes)
-            try:
-                module = __import__(module_name)
-                version = getattr(module, "__version__", "installed")
-                print(f"✓ {description:20} ({module_name} {version})")
-            except Exception:
-                print(f"✗ {description:20} Not installed")
-                errors.append(description)
+        if not _check_module_with_fallback(module_name, description):
+            errors.append(description)
 
     # Check VERSION file exists
     try:
         version = get_version()
         if version != "unknown":
-            print(f"✓ {'Version File':20} ({version})")  # Already has 'v' prefix
+            print(f"✓ {'Version File':20} ({version})")
         else:
             print(f"⚠ {'Version File':20} Not found, using 'unknown'")
     except Exception as e:
@@ -265,15 +287,17 @@ def main():
         args = parse_arguments()
 
         # Determine if any CLI flags are active
-        cli_flags_active = any([
-            args.version,
-            args.health_check,
-            args.setup_gpu,
-            args.setup_gpu_zip is not None,
-            args.gpu_enable,
-            args.gpu_disable,
-            args.gpu_diagnostics,
-        ])
+        cli_flags_active = any(
+            [
+                args.version,
+                args.health_check,
+                args.setup_gpu,
+                args.setup_gpu_zip is not None,
+                args.gpu_enable,
+                args.gpu_disable,
+                args.gpu_diagnostics,
+            ]
+        )
 
         # If this is GUI mode (no CLI flags), hide the console window
         if not cli_flags_active:
@@ -308,7 +332,10 @@ def main():
         if validation_errors:
             print_validation_report(validation_errors)
             if not is_valid:
-                error_msg = "Critical configuration errors detected!\n\nPlease review and fix config.ini, then restart the application."
+                error_msg = (
+                    "Critical configuration errors detected!\n\n"
+                    "Please review and fix config.ini, then restart the application."
+                )
                 error_details = "\n".join([f"- {err}" for err in validation_errors])
                 show_error_dialog("Configuration Error", error_msg, error_details)
                 sys.exit(1)
@@ -394,11 +421,11 @@ def main():
         if log_file_path:
             try:
                 with open(log_file_path, "a", encoding="utf-8") as f:
-                    f.write(f"\n{'='*60}\n")
-                    f.write(f"CRITICAL STARTUP ERROR\n")
-                    f.write(f"{'='*60}\n")
+                    f.write("\n" + "=" * 60 + "\n")
+                    f.write("CRITICAL STARTUP ERROR\n")
+                    f.write("=" * 60 + "\n")
                     f.write(error_details)
-                    f.write(f"\n{'='*60}\n\n")
+                    f.write("\n" + "=" * 60 + "\n\n")
                 error_msg += f"\n\nError details have been logged to:\n{log_file_path}"
             except Exception:
                 pass
