@@ -1,39 +1,46 @@
 """
-GPU Bootstrap Module - Clean Typed API
+GPU Bootstrap Module - Clean API
 
-Provides:
-- Staged facade: enable() returning BootstrapResult
-- Legacy compatibility: enable_gpu_runtime, bootstrap_and_maybe_enable_gpu
-- Modular components: LayoutDetector, PathCalculator, LibPathManager
-- Typed results: PathConfig, InstallationResult, ValidationResult, BootstrapResult
+Main exports:
+- bootstrap_and_maybe_enable_gpu(): Main entry point
+- enable_gpu_runtime(): Enable GPU Pack paths
+- validate_cuda_torch(), validate_torchaudio(): Validation functions
+- capability_probe(): Hardware detection
+- ADDED_DLL_DIRS: Diagnostic tracking
 
-No global mutable state; explicit imports only.
+Typed facade:
+- enable(): Returns BootstrapResult
 """
 
-# Refactored modular components
+# Main API from bootstrap module
+from .bootstrap import (
+    bootstrap_and_maybe_enable_gpu,
+    enable_gpu_runtime,
+    validate_cuda_torch,
+    validate_torchaudio,
+    ADDED_DLL_DIRS,
+)
+
+# Staged facade API
+from .facade import enable
+
+# Typed results
+from .types import (
+    PathConfig as TypedPathConfig,
+    InstallationResult,
+    ValidationResult,
+    BootstrapResult,
+)
+
+# Modular components
 from .layout_detector import LayoutDetector, PackLayout
 from .path_calculator import PathCalculator, PathConfig
 from .path_installer import PathInstaller, InstallationResult as PathInstallerResult
 from .runtime_validator import RuntimeValidator
+from .lib_path_manager import LibPathManager
 from .orchestrator import enable_runtime
 
-# New typed API
-from .types import PathConfig as TypedPathConfig, InstallationResult, ValidationResult, BootstrapResult
-from .lib_path_manager import LibPathManager
-from .facade import enable, enable_legacy, bootstrap_and_maybe_enable_gpu_legacy
-
-# Legacy functions for backward compatibility
-from .legacy import (
-    bootstrap_and_maybe_enable_gpu,
-    enable_gpu_runtime,
-    validate_cuda_torch,
-    validate_torch_cpu,
-    child_process_min_bootstrap,
-    ADDED_DLL_DIRS,
-)
-
-# Import utility functions
-# These are now in the submodule and work in both dev and frozen contexts
+# Utility functions
 from .capability_utils import capability_probe, probe_nvml, probe_nvidia_smi
 from .system_pytorch_detector import detect_system_pytorch_cuda
 from .pack_utils import (
@@ -44,10 +51,14 @@ from .pack_utils import (
 )
 
 __all__ = [
-    # Staged facade API (primary interface)
+    # Main API
+    "bootstrap_and_maybe_enable_gpu",
+    "enable_gpu_runtime",
+    "validate_cuda_torch",
+    "validate_torchaudio",
+    "ADDED_DLL_DIRS",
+    # Staged facade API
     "enable",
-    "enable_legacy",
-    "bootstrap_and_maybe_enable_gpu_legacy",
     # Typed results
     "BootstrapResult",
     "InstallationResult",
@@ -63,14 +74,7 @@ __all__ = [
     "RuntimeValidator",
     "LibPathManager",
     "enable_runtime",
-    # Legacy functions (backward compatibility)
-    "bootstrap_and_maybe_enable_gpu",
-    "enable_gpu_runtime",
-    "validate_cuda_torch",
-    "validate_torch_cpu",
-    "child_process_min_bootstrap",
-    "ADDED_DLL_DIRS",
-    # Utility functions from parent module
+    # Utility functions
     "capability_probe",
     "resolve_pack_dir",
     "probe_nvml",

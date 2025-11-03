@@ -121,7 +121,7 @@ class Config(QObject):
                 "gpu_pack_dialog_dont_show": False,
                 "gpu_pack_dont_ask": False,
                 "splash_dont_show_health": False,
-                "prefer_system_pytorch": True,
+                "prefer_system_pytorch": False,
                 "song_list_batch_size": 25,
             },
             "Audio": {"default_volume": 0.5, "auto_play": False},

@@ -22,6 +22,10 @@
 block_cipher = None
 
 import os
+from pathlib import Path
+
+# Project paths
+scripts_dir = Path('.').absolute() / 'scripts'
 
 # Path to main entry script
 MAIN_SCRIPT = 'src/usdxfixgap.py'
@@ -45,7 +49,7 @@ a = Analysis(
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=[str(scripts_dir / 'hook-rthook-gpu-pack.py')],
     excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

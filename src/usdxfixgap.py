@@ -150,10 +150,10 @@ def print_version_info():
 def health_check():
     """
     Ultra-minimal health check - just verify the executable runs.
-    
+
     This is NOT the detailed system check shown in the startup dialog.
     For detailed checks, see services/system_capabilities.py
-    
+
     Returns exit code: 0 = success, 1 = failure
     """
     print(f"{APP_NAME} Health Check")
@@ -168,10 +168,10 @@ def health_check():
                     version = f.read().strip()
         except Exception:
             pass
-        
+
         print(f"✓ Executable runs successfully")
         print(f"✓ Version: {version}")
-        
+
         print("=" * 50)
         print("\n✅ Health check PASSED")
         sys.exit(0)

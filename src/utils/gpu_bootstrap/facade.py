@@ -8,13 +8,70 @@ Eliminates global mutable state and provides clear phase separation.
 import os
 import logging
 from pathlib import Path
+from typing import Tuple
 from .types import BootstrapResult, ValidationResult
 from .layout_detector import LayoutDetector
 from .path_calculator import PathCalculator
 from .lib_path_manager import LibPathManager
-from .legacy import validate_cuda_torch, validate_torch_cpu, _check_vcruntime
 
 logger = logging.getLogger(__name__)
+
+
+def validate_cuda_torch(expected_cuda: str = "12") -> Tuple[bool, str]:
+    """Validate torch.cuda availability and version."""
+    try:
+        import torch
+        if not torch.cuda.is_available():
+            return False, "torch.cuda.is_available() returned False"
+        cuda_version = torch.version.cuda
+        if not cuda_version:
+            return False, "CUDA version is None"
+        if not cuda_version.startswith(expected_cuda.split(".")[0]):
+            return False, f"CUDA version mismatch: expected {expected_cuda}, got {cuda_version}"
+        # Smoke test
+        device = torch.device("cuda:0")
+        test_tensor = torch.zeros(10, 10, device=device)
+        if test_tensor.sum().item() != 0.0:
+            return False, "CUDA smoke test failed"
+        return True, ""
+    except Exception as e:
+        return False, f"Failed to validate CUDA: {e}"
+
+
+def validate_torch_cpu() -> Tuple[bool, str]:
+    """Validate torch CPU-only mode."""
+    try:
+        import torch
+        # CPU smoke test
+        test_tensor = torch.zeros(10, 10)
+        if test_tensor.sum().item() != 0.0:
+            return False, "CPU smoke test failed"
+        return True, ""
+    except Exception as e:
+        return False, f"Failed to validate torch CPU: {e}"
+
+
+def _check_vcruntime() -> None:
+    """Check for VC++ runtime DLLs on Windows."""
+    import sys
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        required_dlls = ["vcruntime140_1.dll", "msvcp140.dll"]
+        missing_dlls = []
+        for dll_name in required_dlls:
+            try:
+                ctypes.WinDLL(dll_name)
+            except (OSError, FileNotFoundError):
+                missing_dlls.append(dll_name)
+        if missing_dlls:
+            logger.warning(
+                f"Microsoft Visual C++ Redistributable DLLs missing: {', '.join(missing_dlls)}. "
+                "Install from: https://aka.ms/vs/17/release/vc_redist.x64.exe"
+            )
+    except Exception as e:
+        logger.debug(f"Could not check VC++ runtime: {e}")
 
 
 def enable(pack_dir: Path, expected_cuda: str = "12.1") -> BootstrapResult:
@@ -152,34 +209,3 @@ def enable(pack_dir: Path, expected_cuda: str = "12.1") -> BootstrapResult:
         diagnostics=diagnostics,
         pack_dir=pack_dir,
     )
-
-
-def enable_legacy(pack_dir: Path, config=None) -> bool:
-    """
-    Legacy wrapper for backward compatibility.
-
-    Args:
-        pack_dir: Path to GPU Pack installation
-        config: Optional config object
-
-    Returns:
-        True if successful, False otherwise
-    """
-    from .legacy import enable_gpu_runtime
-
-    return enable_gpu_runtime(pack_dir, config)
-
-
-def bootstrap_and_maybe_enable_gpu_legacy(config) -> bool:
-    """
-    Legacy orchestration wrapper for backward compatibility.
-
-    Args:
-        config: Application config object
-
-    Returns:
-        True if GPU is enabled and validated, False otherwise
-    """
-    from .legacy import bootstrap_and_maybe_enable_gpu
-
-    return bootstrap_and_maybe_enable_gpu(config)

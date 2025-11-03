@@ -6,7 +6,7 @@ Auto-fixes invalid configurations with warnings.
 """
 
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -211,39 +211,64 @@ def validate_config(config, auto_fix: bool = True) -> Tuple[bool, List[ConfigVal
     return is_valid, all_errors
 
 
-def print_validation_report(errors: List[ConfigValidationError]):
+def print_validation_report(errors: List[Dict[str, Any]]):
     """
-    Print a human-readable validation report.
+    Print a user-friendly validation report grouped by severity.
 
     Args:
-        errors: List of validation errors/warnings
+        errors: List of validation errors with severity, field, and message
     """
     if not errors:
-        logger.info("✓ Configuration validation passed - no issues found")
         return
 
+    # Group errors by severity
     errors_by_severity = {"error": [], "warning": [], "info": []}
     for error in errors:
-        errors_by_severity[error.severity].append(error)
+        # ConfigValidationError is an object, not a dict
+        severity = getattr(error, "severity", "warning")
+        key = getattr(error, "key", "unknown")
+        reason = getattr(error, "reason", "")
+        current = getattr(error, "current_value", "")
+        recommended = getattr(error, "recommended_value", "")
 
-    print("\n" + "=" * 70)
-    print("CONFIGURATION VALIDATION REPORT")
-    print("=" * 70)
+        # Format message with key, current value, and reason
+        if recommended:
+            msg = f"{key}={current} (recommended: {recommended}) - {reason}"
+        else:
+            msg = f"{key}={current} - {reason}"
 
-    if errors_by_severity["error"]:
-        print(f"\n❌ ERRORS ({len(errors_by_severity['error'])}):")
-        for error in errors_by_severity["error"]:
-            print(f"  • {error}")
+        errors_by_severity[severity].append(msg)
 
-    if errors_by_severity["warning"]:
-        print(f"\n⚠️  WARNINGS ({len(errors_by_severity['warning'])}):")
-        for warning in errors_by_severity["warning"]:
-            print(f"  • {warning}")
+    # Use ASCII-safe symbols for console compatibility (Windows cp1252)
+    # Emoji can't be encoded in cp1252 which is the default console encoding
+    try:
+        print()
+        print("=" * 70)
+        print("CONFIGURATION VALIDATION REPORT")
+        print("=" * 70)
 
-    if errors_by_severity["info"]:
-        print(f"\nℹ️  INFO ({len(errors_by_severity['info'])}):")
-        for info in errors_by_severity["info"]:
-            print(f"  • {info}")
+        if errors_by_severity["error"]:
+            print(f"\nX ERRORS ({len(errors_by_severity['error'])}):")
+            for error in errors_by_severity["error"]:
+                # Use safe printing to handle unicode characters
+                safe_error = error.encode('ascii', 'replace').decode('ascii')
+                print(f"  - [ERROR] {safe_error}")
 
-    print("\nSee docs/mdx-detection-tuning.md for parameter guidance")
-    print("=" * 70 + "\n")
+        if errors_by_severity["warning"]:
+            print(f"\n! WARNINGS ({len(errors_by_severity['warning'])}):")
+            for warning in errors_by_severity["warning"]:
+                safe_warning = warning.encode('ascii', 'replace').decode('ascii')
+                print(f"  - [WARNING] {safe_warning}")
+
+        if errors_by_severity["info"]:
+            print(f"\ni INFO ({len(errors_by_severity['info'])}):")
+            for info in errors_by_severity["info"]:
+                safe_info = info.encode('ascii', 'replace').decode('ascii')
+                print(f"  - [INFO] {safe_info}")
+
+        print("\nSee docs/mdx-detection-tuning.md for parameter guidance")
+        print("=" * 70 + "\n")
+    except Exception as e:
+        # Fallback: if printing fails, write to stderr
+        import sys
+        sys.stderr.write(f"Configuration validation completed with {len(errors)} issue(s). Check log file for details.\n")

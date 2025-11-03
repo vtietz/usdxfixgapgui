@@ -590,8 +590,14 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
             return False
 
         # STEP 1: Try system PyTorch+CUDA first if enabled
+        # CRITICAL: Skip system PyTorch check in frozen exes to avoid importing bundled CPU-only torch
+        # before GPU Pack paths are added. Once torch is imported, it cannot be replaced.
         prefer_system = getattr(config, "prefer_system_pytorch", True)
-        if prefer_system and gpu_opt_in is not False:
+        is_frozen = getattr(sys, "frozen", False)
+
+        logger.debug(f"GPU bootstrap: prefer_system={prefer_system}, is_frozen={is_frozen}, gpu_opt_in={gpu_opt_in}")
+
+        if prefer_system and gpu_opt_in is not False and not is_frozen:
             logger.debug("Checking for system PyTorch with CUDA...")
             system_pytorch = detect_system_pytorch_cuda()
 
@@ -619,6 +625,8 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
                     logger.info("Falling back to GPU Pack...")
             else:
                 logger.debug("System PyTorch with CUDA not found, trying GPU Pack...")
+        elif is_frozen:
+            logger.debug("Running in frozen exe - skipping system PyTorch check to allow GPU Pack activation")
 
         # STEP 2: Try GPU Pack if configured
         pack_path = getattr(config, "gpu_pack_path", "")

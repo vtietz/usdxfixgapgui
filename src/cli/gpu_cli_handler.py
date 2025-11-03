@@ -45,21 +45,17 @@ def handle_gpu_disable(config):
     print("GPU acceleration disabled (gpu_opt_in=false)")
 
 
-def _print_gpu_capability_info(cap):
-    """Print GPU capability information."""
-    print(f"NVIDIA GPU detected: {cap['has_nvidia']}")
-    if cap["has_nvidia"]:
-        print(f"Driver version: {cap['driver_version']}")
-        print(f"GPU(s): {', '.join(cap['gpu_names'])}")
-
-
 def _print_gpu_pack_info(config):
     """Print GPU Pack installation information."""
     if is_gpu_pack_installed(config):
         pack_info = get_gpu_pack_info(config)
         if pack_info:
             version, path = pack_info
-            print(f"GPU Pack installed: {version}")
+            # Only print version if it's not "unknown"
+            if version and version != "unknown":
+                print(f"GPU Pack version: {version}")
+            else:
+                print("GPU Pack: Installed")
             print(f"GPU Pack path: {path}")
 
             pack_dir = Path(path)
@@ -67,9 +63,13 @@ def _print_gpu_pack_info(config):
             if install_json.exists():
                 with open(install_json, "r") as f:
                     info = json.load(f)
-                print(f"Installed on: {info.get('install_timestamp', 'unknown')}")
-                print(f"CUDA version: {info.get('cuda_version', 'unknown')}")
-                print(f"PyTorch version: {info.get('torch_version', 'unknown')}")
+                # Only print values that exist
+                if info.get('install_timestamp'):
+                    print(f"Installed on: {info['install_timestamp']}")
+                if info.get('cuda_version'):
+                    print(f"CUDA version: {info['cuda_version']}")
+                if info.get('torch_version'):
+                    print(f"PyTorch version: {info['torch_version']}")
     else:
         print("GPU Pack: Not installed")
         if config.gpu_pack_path:
@@ -114,59 +114,26 @@ def _print_python_path_diagnostics():
 def _print_environment_variables():
     """Print relevant environment variables."""
     print("\n=== Environment Variables ===")
-    env_vars = ["USDXFIXGAP_GPU_PACK_DIR", "CUDA_PATH", "PATH"]
-    for var in env_vars:
-        value = os.environ.get(var, "Not set")
-        if var == "PATH":
-            path_entries = value.split(os.pathsep)
-            cuda_paths = [p for p in path_entries if "cuda" in p.lower() or "torch" in p.lower()]
-            if cuda_paths:
-                print(f"{var} (CUDA/torch entries):")
-                for p in cuda_paths[:5]:
-                    print(f"  - {p}")
-            else:
-                print(f"{var}: No CUDA/torch entries found")
-        else:
-            print(f"{var}: {value}")
 
+    # CUDA_PATH - only print if set
+    cuda_path = os.environ.get("CUDA_PATH")
+    if cuda_path:
+        print(f"CUDA_PATH: {cuda_path}")
 
-def _run_torch_smoke_test():
-    """Run PyTorch smoke tests for CPU and GPU."""
-    print("\n=== Torch Smoke Test ===")
-    try:
-        import torch
+    # PATH - only print CUDA/torch entries if they exist
+    path_value = os.environ.get("PATH", "")
+    if path_value:
+        path_entries = path_value.split(os.pathsep)
+        cuda_paths = [p for p in path_entries if "cuda" in p.lower() or "torch" in p.lower()]
+        if cuda_paths:
+            print("PATH (CUDA/torch entries):")
+            for p in cuda_paths[:5]:
+                print(f"  - {p}")
 
-        print(f"PyTorch version: {torch.__version__}")
-        print(f"CUDA available: {torch.cuda.is_available()}")
-        if torch.cuda.is_available():
-            print(f"CUDA version: {torch.version.cuda}")
-            print(f"cuDNN version: {torch.backends.cudnn.version()}")
-            print(f"Device count: {torch.cuda.device_count()}")
-            for i in range(torch.cuda.device_count()):
-                print(f"  Device {i}: {torch.cuda.get_device_name(i)}")
-
-        # Test CPU matmul
-        try:
-            a = torch.randn(10, 10)
-            b = torch.randn(10, 10)
-            torch.matmul(a, b)
-            print("CPU matmul: OK")
-        except Exception as e:
-            print(f"CPU matmul: FAILED - {e}")
-
-        # Test GPU matmul if available
-        if torch.cuda.is_available():
-            try:
-                a_gpu = torch.randn(10, 10).cuda()
-                b_gpu = torch.randn(10, 10).cuda()
-                torch.matmul(a_gpu, b_gpu)
-                print("GPU matmul: OK")
-            except Exception as e:
-                print(f"GPU matmul: FAILED - {e}")
-    except ImportError as e:
-        print(f"Failed to import torch: {e}")
-    except Exception as e:
-        print(f"Unexpected error during smoke test: {e}")
+    # GPU Pack specific env var
+    gpu_pack_dir = os.environ.get("USDXFIXGAP_GPU_PACK_DIR")
+    if gpu_pack_dir:
+        print(f"USDXFIXGAP_GPU_PACK_DIR: {gpu_pack_dir}")
 
 
 def _write_diagnostics_file(config, cap, torch_paths):
@@ -208,24 +175,41 @@ def _write_diagnostics_file(config, cap, torch_paths):
 
 def handle_gpu_diagnostics(config):
     """Show GPU diagnostics and write to file."""
-    print("=== GPU Diagnostics ===")
+    print("=== GPU Diagnostics ===\n")
 
-    # Probe GPU
-    cap = gpu_bootstrap.capability_probe()
-    _print_gpu_capability_info(cap)
+    # Use SystemCapabilities as single source of truth
+    from services.system_capabilities import check_system_capabilities
+    capabilities = check_system_capabilities()
 
-    # Check installed pack
-    get_app_version()
+    # Print system capabilities summary
+    print("=== System Status ===")
+    print(f"PyTorch: {capabilities.torch_version or 'Not available'}")
+    if capabilities.has_torch:
+        if capabilities.has_cuda:
+            print(f"CUDA: {capabilities.cuda_version}")
+            if capabilities.gpu_name:
+                print(f"GPU: {capabilities.gpu_name}")
+        else:
+            print("CUDA: Not available")
+
+    print(f"FFmpeg: {'Available' if capabilities.has_ffmpeg else 'Not available'}")
+    print(f"Detection mode: {capabilities.get_detection_mode()}")
+
+    # GPU Pack installation info
+    print("\n=== GPU Pack ===")
     _print_gpu_pack_info(config)
+
+    # Configuration status
+    print("\n=== Configuration ===")
     _print_config_status(config)
 
-    # Enhanced diagnostics
+    # Technical details for troubleshooting
     _print_dll_diagnostics()
     torch_paths = _print_python_path_diagnostics()
     _print_environment_variables()
-    _run_torch_smoke_test()
 
-    # Write to file
+    # Write detailed diagnostics to file
+    cap = gpu_bootstrap.capability_probe()
     _write_diagnostics_file(config, cap, torch_paths)
 
 

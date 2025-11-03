@@ -95,7 +95,8 @@ if "%1"=="" (
 if /i "%1"=="start" (
     echo Starting USDX FixGap application...
     cd /d "%SCRIPT_DIR%src"
-    "%VENV_PYTHON%" usdxfixgap.py
+    :: Forward all arguments after "start" to the Python script
+    "%VENV_PYTHON%" usdxfixgap.py %2 %3 %4 %5 %6 %7 %8 %9
     goto :end
 )
 
