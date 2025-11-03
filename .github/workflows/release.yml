@@ -34,14 +34,21 @@ jobs:
       - name: Verify Windows Onedir Executable (Fast)
         run: |
           echo "Testing onedir build (fast - no extraction overhead)..."
-          dist\usdxfixgap\usdxfixgap.exe --version
-          dist\usdxfixgap\usdxfixgap.exe --health-check
+          echo "Listing onedir output contents for verification:"
+          Get-ChildItem -Force dist | Select-Object Name, Length | Format-Table -AutoSize
+          dist\usdxfixgap.exe --version
+          dist\usdxfixgap.exe --health-check
           if ($LASTEXITCODE -ne 0) {
             echo "❌ Onedir health check failed!"
             exit 1
           }
           echo "✅ Windows onedir executable verified"
-        timeout-minutes: 2
+        timeout-minutes: 7
+
+      - name: Package Windows Portable (Onedir)
+        run: |
+          # Package the onedir build before building onefile
+          Compress-Archive -Path dist\* -DestinationPath usdxfixgap-portable-windows.zip -Force
 
       - name: Build Windows Onefile (Release Artifact)
         run: python -m PyInstaller --clean --noconfirm usdxfixgap.spec
@@ -58,12 +65,6 @@ jobs:
           echo "✅ Windows onefile executable verified"
         timeout-minutes: 15
 
-      - name: Package Windows Portable (Onedir)
-        run: |
-          cd dist
-          Compress-Archive -Path usdxfixgap -DestinationPath usdxfixgap-portable-windows.zip
-          cd ..
-
       - name: Upload Windows Onefile Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -75,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-portable
-          path: dist/usdxfixgap-portable-windows.zip
+          path: usdxfixgap-portable-windows.zip
           retention-days: 7
 
   build-linux:

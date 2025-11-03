@@ -170,5 +170,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='usdxfixgap',
+    name='.',  # Output directly to dist/ instead of dist/usdxfixgap/
 )
