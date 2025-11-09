@@ -170,5 +170,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='.',  # Output directly to dist/ instead of dist/usdxfixgap/
+    name='usdxfixgap',  # Output to dist/usdxfixgap/ for portable build
 )
