@@ -38,10 +38,21 @@ jobs:
           Get-ChildItem -Force dist | Select-Object Name, Length | Format-Table -AutoSize
           .\dist\usdxfixgap\usdxfixgap.exe --version
           if ($LASTEXITCODE -ne 0) {
-            echo "❌ Onedir version check failed!"
+            echo "[x] Onedir version check failed!"
             exit 1
           }
-          echo "✅ Windows onedir executable verified"
+          echo "[ok] Windows onedir executable verified"
+        timeout-minutes: 2
+
+      - name: Smoke Test - Verify CPU PyTorch Import (Bundled)
+        run: |
+          echo "Testing bundled CPU PyTorch import..."
+          .\dist\usdxfixgap\usdxfixgap.exe --health-check
+          if ($LASTEXITCODE -ne 0) {
+            echo "[x] CPU PyTorch import failed!"
+            exit 1
+          }
+          echo "[ok] Bundled CPU PyTorch imports successfully"
         timeout-minutes: 2
 
       - name: Package Windows Portable (Onedir)
@@ -57,10 +68,10 @@ jobs:
           echo "Testing onefile build (first run includes extraction)..."
           .\dist\usdxfixgap.exe --version
           if ($LASTEXITCODE -ne 0) {
-            echo "❌ Onefile version check failed!"
+            echo "[x] Onefile version check failed!"
             exit 1
           }
-          echo "✅ Windows onefile executable verified"
+          echo "[ok] Windows onefile executable verified"
         timeout-minutes: 5
 
       - name: Upload Windows Onefile Artifact
@@ -155,7 +166,7 @@ jobs:
           echo "Testing executable..."
           chmod +x dist/usdxfixgap
           dist/usdxfixgap --version || exit 1
-          echo "✅ Linux executable verified"
+          echo "[ok] Linux executable verified"
 
       - name: Upload Linux Onefile Artifact
         uses: actions/upload-artifact@v4
@@ -217,7 +228,7 @@ jobs:
           echo "Testing executable..."
           chmod +x dist/usdxfixgap
           dist/usdxfixgap --version || exit 1
-          echo "✅ macOS executable verified"
+          echo "[ok] macOS executable verified"
 
       - name: Upload macOS Onefile Artifact
         uses: actions/upload-artifact@v4
@@ -321,7 +332,7 @@ jobs:
           mkdir -p release
 
           # Use TAG_NAME for filenames (includes -rc1, -beta, etc.)
-          
+
           # Windows onefile
           cp artifacts/windows-onefile/usdxfixgap.exe release/usdxfixgap-${TAG_NAME}-windows.exe
 

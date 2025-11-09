@@ -67,6 +67,24 @@ def temp_gpu_pack(tmp_path):
     return pack_dir
 
 
+@pytest.fixture(autouse=True)
+def clean_gpu_env():
+    """Clean up GPU Pack environment variable before each test."""
+    # Save original
+    original = os.environ.get("USDXFIXGAP_GPU_PACK_DIR")
+    
+    # Clear before test
+    os.environ.pop("USDXFIXGAP_GPU_PACK_DIR", None)
+    
+    yield
+    
+    # Restore after test
+    if original:
+        os.environ["USDXFIXGAP_GPU_PACK_DIR"] = original
+    else:
+        os.environ.pop("USDXFIXGAP_GPU_PACK_DIR", None)
+
+
 class TestGetConfigDir:
     """Test get_config_dir function."""
 
@@ -105,21 +123,26 @@ class TestGetConfigDir:
 class TestReadGpuPackPath:
     """Test read_gpu_pack_path function."""
 
-    def test_gpu_enabled_with_valid_path(self, hook_functions, temp_config_dir):
+    def test_gpu_enabled_with_valid_path(self, hook_module, temp_config_dir, tmp_path):
         """Test reading GPU Pack path when GPU is enabled."""
+        # Create actual GPU Pack directory
+        gpu_pack = tmp_path / "gpu_pack"
+        gpu_pack.mkdir()
+        (gpu_pack / "torch").mkdir()
+        
         config_file = temp_config_dir / "config.ini"
         config_file.write_text(
-            """
+            f"""
 [General]
 gpu_opt_in = true
-gpu_pack_path = /path/to/gpu/pack
+gpu_pack_path = {gpu_pack}
 """
         )
 
-        result = hook_functions["read_gpu_pack_path"](config_file)
-        assert result == Path("/path/to/gpu/pack")
+        result = hook_module.read_gpu_pack_path(config_file)
+        assert result == gpu_pack
 
-    def test_gpu_disabled(self, hook_functions, temp_config_dir):
+    def test_gpu_disabled(self, hook_module, temp_config_dir):
         """Test that None is returned when GPU is disabled."""
         config_file = temp_config_dir / "config.ini"
         config_file.write_text(
@@ -130,10 +153,10 @@ gpu_pack_path = /path/to/gpu/pack
 """
         )
 
-        result = hook_functions["read_gpu_pack_path"](config_file)
+        result = hook_module.read_gpu_pack_path(config_file)
         assert result is None
 
-    def test_no_gpu_pack_path(self, hook_functions, temp_config_dir):
+    def test_no_gpu_pack_path(self, hook_module, temp_config_dir):
         """Test that None is returned when no gpu_pack_path is found."""
         config_file = temp_config_dir / "config.ini"
         config_file.write_text(
@@ -143,10 +166,11 @@ gpu_opt_in = true
 """
         )
 
-        result = hook_functions["read_gpu_pack_path"](config_file)
+        # Auto-discovery disabled in non-frozen mode, so returns None
+        result = hook_module.read_gpu_pack_path(config_file)
         assert result is None
 
-    def test_empty_gpu_pack_path(self, hook_functions, temp_config_dir):
+    def test_empty_gpu_pack_path(self, hook_module, temp_config_dir):
         """Test that None is returned when gpu_pack_path is empty."""
         config_file = temp_config_dir / "config.ini"
         config_file.write_text(
@@ -157,25 +181,30 @@ gpu_pack_path =
 """
         )
 
-        result = hook_functions["read_gpu_pack_path"](config_file)
+        result = hook_module.read_gpu_pack_path(config_file)
         assert result is None
 
-    def test_quoted_path(self, hook_functions, temp_config_dir):
+    def test_quoted_path(self, hook_module, temp_config_dir, tmp_path):
         """Test that quoted paths are handled correctly."""
+        # Create actual GPU Pack directory
+        gpu_pack = tmp_path / "gpu_pack_quoted"
+        gpu_pack.mkdir()
+        (gpu_pack / "torch").mkdir()
+        
         config_file = temp_config_dir / "config.ini"
         config_file.write_text(
-            """
+            f"""
 [General]
-gpu_pack_path = "/path/to/gpu/pack"
+gpu_pack_path = "{gpu_pack}"
 """
         )
 
-        result = hook_functions["read_gpu_pack_path"](config_file)
-        assert result == Path("/path/to/gpu/pack")
+        result = hook_module.read_gpu_pack_path(config_file)
+        assert result == gpu_pack
 
-    def test_file_read_error(self, hook_functions):
+    def test_file_read_error(self, hook_module, temp_config_dir):
         """Test that None is returned on file read error."""
-        result = hook_functions["read_gpu_pack_path"](Path("/nonexistent/file.ini"))
+        result = hook_module.read_gpu_pack_path(Path("/nonexistent/file.ini"))
         assert result is None
 
 
@@ -303,6 +332,10 @@ class TestSetupGpuPack:
 
     def test_full_setup_success(self, hook_module, temp_config_dir, temp_gpu_pack):
         """Test successful full GPU Pack setup."""
+        # Create ABI-compatible torch/_C file for Windows
+        torch_c = temp_gpu_pack / "torch" / "_C.cp311-win_amd64.pyd"
+        torch_c.touch()
+        
         # Create config
         config_file = temp_config_dir / "config.ini"
         config_file.write_text(
@@ -316,6 +349,7 @@ gpu_pack_path = {temp_gpu_pack}
         sys._MEIPASS = "/tmp/_MEI12345"
         sys.path.append(sys._MEIPASS)
         original_path = sys.path.copy()
+        original_meta_path = sys.meta_path.copy()
 
         try:
             with (
@@ -328,21 +362,24 @@ gpu_pack_path = {temp_gpu_pack}
             assert sys.path[0] == str(temp_gpu_pack)
             # _MEIPASS should be at end
             assert sys.path[-1] == sys._MEIPASS
+            # MetaPathFinder should be inserted at sys.meta_path[0]
+            assert sys.meta_path[0].__class__.__name__ == "GPUPackImportFinder"
         finally:
             sys.path[:] = original_path
+            sys.meta_path[:] = original_meta_path
             delattr(sys, "_MEIPASS")
 
 
 class TestErrorHandling:
     """Test error handling and edge cases."""
 
-    def test_malformed_config_file(self, hook_functions, temp_config_dir):
+    def test_malformed_config_file(self, hook_module, temp_config_dir):
         """Test that malformed config doesn't break setup."""
         config_file = temp_config_dir / "config.ini"
         config_file.write_bytes(b"\xff\xfe\x00invalid UTF-8")
 
         # Should not raise
-        result = hook_functions["read_gpu_pack_path"](config_file)
+        result = hook_module.read_gpu_pack_path(config_file)
         assert result is None
 
     def test_nonexistent_pack_directory(self, hook_module, temp_config_dir):
@@ -360,9 +397,8 @@ gpu_pack_path = /nonexistent/path
         original_path = sys.path.copy()
 
         try:
-            with patch.object(hook_module, "get_config_dir", return_value=temp_config_dir):
-                # Should not raise
-                hook_module.setup_gpu_pack()
+            # Should not raise
+            hook_module.setup_gpu_pack()
 
             # sys.path should be unchanged (except for _MEIPASS we added)
             assert len(sys.path) == len(original_path)

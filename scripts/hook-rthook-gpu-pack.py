@@ -1,8 +1,12 @@
 """
-PyInstaller Runtime Hook for GPU Pack Support
+PyInstaller Runtime Hook for GPU Pack Support (Hybrid CPU/GPU Runtime)
 
 This hook runs VERY EARLY during PyInstaller startup, BEFORE torch is imported.
-It manipulates sys.path to prioritize GPU Pack over bundled torch if available.
+
+Architecture:
+- CPU torch/torchaudio bundled in EXE (works out-of-the-box for all users)
+- Optional GPU Pack: when present and enabled, intercepts torch/torchaudio imports
+  and redirects to external GPU Pack using a MetaPathFinder (beats FrozenImporter)
 
 This must be registered in the .spec file as a runtime_hook.
 """
@@ -10,6 +14,8 @@ This must be registered in the .spec file as a runtime_hook.
 import sys
 import os
 from pathlib import Path
+import importlib.util
+import importlib.machinery
 
 
 def get_config_dir():
@@ -23,38 +29,85 @@ def get_config_dir():
         return Path(xdg_config) / "usdxfixgap"
 
 
+def find_gpu_pack_in_default_location():
+    """Auto-discover GPU Pack in standard location.
+    
+    Looks in: <config_dir>/gpu_runtime/ for any subfolder containing torch/
+    This allows users to extract GPU Pack without editing config.
+    
+    Only works in frozen (EXE) mode - prevents test pollution in development.
+    
+    Returns:
+        Path to GPU Pack if found, None otherwise
+    """
+    # Only auto-discover in frozen mode (prevents finding test artifacts)
+    if not hasattr(sys, "_MEIPASS"):
+        return None
+    
+    config_dir = get_config_dir()
+    gpu_runtime_dir = config_dir / "gpu_runtime"
+    
+    if not gpu_runtime_dir.exists():
+        return None
+    
+    # Find first valid GPU Pack (any subfolder with torch/)
+    try:
+        for entry in gpu_runtime_dir.iterdir():
+            if entry.is_dir() and (entry / "torch").exists():
+                return entry
+    except Exception:
+        pass
+    
+    return None
+
+
 def read_gpu_pack_path(config_file):
-    """Read GPU Pack path from config file.
+    """Read GPU Pack path from config, environment, or auto-discover.
+
+    Priority:
+    1. USDXFIXGAP_GPU_PACK_DIR environment variable (for testing/advanced users)
+    2. config.ini gpu_pack_path setting (explicit user configuration)
+    3. Auto-discovery in <config_dir>/gpu_runtime/ (convenience, no config needed)
 
     Returns:
-        Path object if GPU Pack is enabled and configured, None otherwise
+        Path object if GPU Pack is enabled and found, None otherwise
     """
+    # Priority 1: Environment variable
+    env_pack_dir = os.environ.get("USDXFIXGAP_GPU_PACK_DIR")
+    if env_pack_dir:
+        pack_path = Path(env_pack_dir)
+        if pack_path.exists() and (pack_path / "torch").exists():
+            return pack_path
+    
+    # Priority 2: Config file
     try:
         with open(config_file, "r", encoding="utf-8") as f:
             config_text = f.read()
     except Exception:
+        config_text = ""
+
+    # Early exit: GPU explicitly disabled
+    if config_text and "gpu_opt_in = false" in config_text.lower():
         return None
 
-    # Early exit: GPU disabled
-    if "gpu_opt_in = false" in config_text.lower():
-        return None
+    # Check for explicit path in config
+    if config_text:
+        for line in config_text.split("\n"):
+            if not line.strip().startswith("gpu_pack_path"):
+                continue
 
-    # Find gpu_pack_path line
-    for line in config_text.split("\n"):
-        if not line.strip().startswith("gpu_pack_path"):
-            continue
+            parts = line.split("=", 1)
+            if len(parts) != 2:
+                continue
 
-        parts = line.split("=", 1)
-        if len(parts) != 2:
-            continue
-
-        pack_path = parts[1].strip().strip('"').strip("'")
-        if not pack_path:
-            continue
-
-        return Path(pack_path)
-
-    return None
+            pack_path_str = parts[1].strip().strip('"').strip("'")
+            if pack_path_str:
+                path_obj = Path(pack_path_str)
+                if path_obj.exists() and (path_obj / "torch").exists():
+                    return path_obj
+    
+    # Priority 3: Auto-discovery (convenience - no config editing needed)
+    return find_gpu_pack_in_default_location()
 
 
 def add_dll_directory(lib_dir):
@@ -66,6 +119,12 @@ def add_dll_directory(lib_dir):
     if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
         try:
             os.add_dll_directory(str(lib_dir))
+            
+            # Also prepend to PATH for DLLs that aren't found via add_dll_directory
+            current_path = os.environ.get("PATH", "")
+            lib_dir_str = str(lib_dir)
+            if lib_dir_str not in current_path:
+                os.environ["PATH"] = f"{lib_dir_str}{os.pathsep}{current_path}"
         except Exception:
             pass  # Best effort - don't break startup
 
@@ -99,21 +158,113 @@ def reorder_syspath_for_gpu_pack(pack_dir):
         sys.path.append(meipass)
 
 
+class GPUPackImportFinder:
+    """MetaPathFinder to redirect torch/torchaudio imports to GPU Pack.
+    
+    This finder beats PyInstaller's FrozenImporter by being inserted at
+    sys.meta_path[0], ensuring GPU Pack modules are loaded instead of
+    bundled CPU-only versions when GPU Pack is enabled.
+    """
+    
+    def __init__(self, pack_dir):
+        """Initialize with GPU Pack directory.
+        
+        Args:
+            pack_dir: Path to GPU Pack root directory
+        """
+        self.pack_dir = Path(pack_dir)
+        self.redirected_modules = {"torch", "torchaudio"}
+    
+    def find_spec(self, fullname, path, target=None):
+        """Find module spec for torch/torchaudio from GPU Pack.
+        
+        Args:
+            fullname: Full module name (e.g., 'torch', 'torch.nn')
+            path: Module search path
+            target: Module target (unused)
+            
+        Returns:
+            ModuleSpec if found in GPU Pack, None otherwise
+        """
+        # Only intercept top-level torch/torchaudio imports
+        top_module = fullname.split(".")[0]
+        if top_module not in self.redirected_modules:
+            return None
+        
+        # Use PathFinder with GPU Pack directory
+        try:
+            search_path = [str(self.pack_dir)]
+            spec = importlib.machinery.PathFinder.find_spec(fullname, search_path)
+            if spec is not None:
+                return spec
+        except Exception:
+            pass
+        
+        # Not found in GPU Pack - let other finders handle it
+        return None
+    
+    def invalidate_caches(self):
+        """Invalidate import caches (required by import protocol)."""
+        pass
+
+
+def write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified):
+    """Write runtime hook diagnostics to log file.
+    
+    Args:
+        pack_dir: Path to GPU Pack directory
+        finder_inserted: Whether MetaPathFinder was inserted
+        dll_added: Whether DLL directory was added
+        path_modified: Whether PATH was modified
+    """
+    try:
+        config_dir = get_config_dir()
+        log_file = config_dir / "hook_diagnostics.log"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        
+        with open(log_file, "w", encoding="utf-8") as f:
+            f.write("=== GPU Pack Runtime Hook Diagnostics ===\n\n")
+            f.write(f"Pack directory: {pack_dir}\n")
+            f.write(f"Pack/torch exists: {(pack_dir / 'torch').exists()}\n")
+            f.write(f"Pack/torch/lib exists: {(pack_dir / 'torch' / 'lib').exists()}\n\n")
+            
+            f.write(f"MetaPathFinder inserted: {finder_inserted}\n")
+            f.write(f"DLL directory added: {dll_added}\n")
+            f.write(f"PATH modified: {path_modified}\n\n")
+            
+            f.write(f"sys.meta_path[0]: {sys.meta_path[0] if sys.meta_path else 'empty'}\n")
+            f.write(f"sys.path[0]: {sys.path[0] if sys.path else 'empty'}\n\n")
+            
+            # Check for ABI compatibility (Python 3.11)
+            torch_c = pack_dir / "torch" / "_C.cp311-win_amd64.pyd"
+            f.write(f"torch/_C.cp311-win_amd64.pyd exists: {torch_c.exists()}\n")
+            
+    except Exception as e:
+        # Don't break startup on diagnostic failure
+        pass
+
+
 def setup_gpu_pack():
-    """Main setup function - called only in frozen mode."""
+    """Main setup function - called only in frozen mode.
+    
+    Sets up hybrid CPU/GPU runtime:
+    - CPU torch/torchaudio bundled in EXE (default)
+    - GPU Pack: when present, intercepts imports via MetaPathFinder
+    """
     # Early exit: not frozen
     if not hasattr(sys, "_MEIPASS"):
+        return
+
+    # Early exit: force CPU mode (ignore GPU Pack even if present)
+    if os.environ.get("USDXFIXGAP_FORCE_CPU", "").lower() in ("1", "true", "yes"):
         return
 
     # Get config directory
     config_dir = get_config_dir()
     config_file = config_dir / "config.ini"
 
-    # Early exit: config doesn't exist
-    if not config_file.exists():
-        return
-
-    # Read GPU Pack path from config
+    # Read GPU Pack path from config/env/default location
+    # (returns None if GPU is disabled or pack not found)
     pack_dir = read_gpu_pack_path(config_file)
     if not pack_dir:
         return
@@ -124,13 +275,33 @@ def setup_gpu_pack():
     if not (pack_dir / "torch").exists():
         return
 
-    # Setup sys.path to prioritize GPU Pack
+    # Validate ABI compatibility (Python 3.11 on Windows)
+    if sys.platform == "win32":
+        torch_c = pack_dir / "torch" / "_C.cp311-win_amd64.pyd"
+        if not torch_c.exists():
+            # ABI mismatch - skip GPU Pack and use bundled CPU torch
+            write_hook_diagnostics(pack_dir, False, False, False)
+            return
+
+    # Insert MetaPathFinder at index 0 to beat FrozenImporter
+    finder = GPUPackImportFinder(pack_dir)
+    sys.meta_path.insert(0, finder)
+    finder_inserted = True
+
+    # Setup sys.path to prioritize GPU Pack (belt-and-suspenders with MetaPathFinder)
     reorder_syspath_for_gpu_pack(pack_dir)
 
     # Add library directory for DLLs
+    dll_added = False
+    path_modified = False
     lib_dir = pack_dir / "torch" / "lib"
     if lib_dir.exists():
         add_dll_directory(lib_dir)
+        dll_added = True
+        path_modified = True
+
+    # Write diagnostics
+    write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified)
 
 
 # Execute setup

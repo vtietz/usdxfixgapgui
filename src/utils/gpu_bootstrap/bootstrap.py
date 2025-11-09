@@ -216,15 +216,28 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
                 config.save_config()
                 return False
         else:
-            # CUDA validation failed
+            # CUDA validation failed - add torch import source diagnostics
             logger.warning(f"GPU Pack validation failed: {cuda_error}")
+            
+            # Diagnostic: where did torch come from?
+            torch_source = "unknown"
+            torch_cuda_version = "unknown"
+            try:
+                import torch
+                torch_source = getattr(torch, "__file__", "unknown")
+                torch_cuda_version = getattr(torch.version, "cuda", "None")
+            except Exception as import_err:
+                torch_source = f"import failed: {import_err}"
+            
             diagnostic_info = (
                 f"GPU Pack validation failed: {cuda_error} | "
                 f"Pack path: {pack_dir} | "
                 f"Pack flavor: {gpu_flavor} | "
                 f"Expected CUDA: {expected_cuda} | "
                 f"DLL directories added: {', '.join(ADDED_DLL_DIRS)} | "
-                f"USDXFIXGAP_GPU_PACK_DIR: {pack_dir}"
+                f"USDXFIXGAP_GPU_PACK_DIR: {pack_dir} | "
+                f"torch.__file__: {torch_source} | "
+                f"torch.version.cuda: {torch_cuda_version}"
             )
             config.gpu_last_error = diagnostic_info
             config.gpu_last_health = "failed"
