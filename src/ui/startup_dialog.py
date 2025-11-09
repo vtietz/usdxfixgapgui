@@ -258,7 +258,7 @@ class StartupDialog(QDialog):
 
                 self.status_label.setText("✅ System Ready (GPU Mode)")
                 self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
-                
+
                 # Auto-check "don't show" for GPU mode (system is fully configured)
                 if hasattr(self, "dont_show_checkbox"):
                     self.dont_show_checkbox.setChecked(True)
@@ -312,7 +312,7 @@ class StartupDialog(QDialog):
                     self._log_system_details()
 
                     self.status_label.setText("✅ System Ready (CPU Mode)")
-                    
+
                     # Auto-check "don't show" for CPU-only mode (no GPU hardware, nothing to configure)
                     if hasattr(self, "dont_show_checkbox"):
                         self.dont_show_checkbox.setChecked(True)
