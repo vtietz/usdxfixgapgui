@@ -12,9 +12,9 @@ class WaveformWidget(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet("padding: 0px; margin: 0px;")
-        self.setFixedHeight(150)  # Set a fixed height for the waveform display area
+        self.setMinimumHeight(100)  # Minimum height instead of fixed
         self.setScaledContents(True)
-        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)  # Allow vertical expansion
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         # Placeholder text state

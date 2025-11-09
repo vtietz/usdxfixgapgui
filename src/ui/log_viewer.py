@@ -59,7 +59,7 @@ class LogViewerWidget(QWidget):
         self.text_edit = QTextEdit()
         self.text_edit.setReadOnly(True)
         self.text_edit.setMinimumHeight(80)  # Minimum height for visibility
-        self.text_edit.setMaximumHeight(150)  # Allow more space for scrolling
+        # Remove setMaximumHeight to allow splitter control
         self.text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 

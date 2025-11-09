@@ -125,7 +125,7 @@ class Config(QObject):
                 "song_list_batch_size": 25,
             },
             "Audio": {"default_volume": 0.5, "auto_play": False},
-            "Window": {"width": 1024, "height": 768, "x": -1, "y": -1, "maximized": False},
+            "Window": {"width": 1024, "height": 768, "x": -1, "y": -1, "maximized": False, "main_splitter_pos": "2,1", "second_splitter_pos": "1,1"},
             "WatchMode": {
                 "watch_mode_default": False,
                 "watch_debounce_ms": 500,
@@ -313,6 +313,11 @@ class Config(QObject):
         self.window_x = self._config.getint("Window", "x", fallback=window_defaults["x"])
         self.window_y = self._config.getint("Window", "y", fallback=window_defaults["y"])
         self.window_maximized = self._config.getboolean("Window", "maximized", fallback=window_defaults["maximized"])
+        # Splitter position (stored as comma-separated list)
+        splitter_pos_str = self._config.get("Window", "main_splitter_pos", fallback=window_defaults["main_splitter_pos"])
+        self.main_splitter_pos = [int(x.strip()) for x in splitter_pos_str.split(",")]
+        second_splitter_pos_str = self._config.get("Window", "second_splitter_pos", fallback=window_defaults["second_splitter_pos"])
+        self.second_splitter_pos = [int(x.strip()) for x in second_splitter_pos_str.split(",")]
 
         # WatchMode
         watch_mode_defaults = defaults["WatchMode"]
@@ -465,6 +470,8 @@ class Config(QObject):
         current["Window"]["x"] = str(self.window_x)
         current["Window"]["y"] = str(self.window_y)
         current["Window"]["maximized"] = "true" if self.window_maximized else "false"
+        current["Window"]["main_splitter_pos"] = ",".join(str(x) for x in self.main_splitter_pos)
+        current["Window"]["second_splitter_pos"] = ",".join(str(x) for x in self.second_splitter_pos)
 
         # Write back to file
         try:

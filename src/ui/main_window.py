@@ -8,10 +8,10 @@ Separated from main entry point for better code organization.
 import sys
 import logging
 
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMessageBox
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMessageBox, QSplitter
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Qt
 
 from actions import Actions
 from app.app_data import AppData
@@ -207,10 +207,67 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
     status_row.addWidget(detection_label)
 
     layout.addLayout(status_row)
-    layout.addWidget(songListView, 2)
-    layout.addWidget(mediaPlayerComponent, 1)
-    layout.addWidget(taskQueueViewer, 1)
-    layout.addWidget(logViewer)
+
+    # Create main splitter to divide song list from bottom panel
+    main_splitter = QSplitter(Qt.Orientation.Vertical)
+    main_splitter.setChildrenCollapsible(False)  # Prevent panels from collapsing
+
+    # Top section: song list
+    main_splitter.addWidget(songListView)
+
+    # Bottom section: nested splitter for media player vs task/log panel
+    second_splitter = QSplitter(Qt.Orientation.Vertical)
+    second_splitter.setChildrenCollapsible(False)
+
+    # Media player (waveform is now flexible)
+    second_splitter.addWidget(mediaPlayerComponent)
+
+    # Task/Log panel (equal height)
+    task_log_panel = QWidget()
+    task_log_layout = QVBoxLayout(task_log_panel)
+    task_log_layout.setContentsMargins(0, 0, 0, 0)
+    task_log_layout.setSpacing(2)
+    task_log_layout.addWidget(taskQueueViewer, 1)  # Equal stretch
+    task_log_layout.addWidget(logViewer, 1)  # Equal stretch
+    task_log_panel.setLayout(task_log_layout)
+
+    second_splitter.addWidget(task_log_panel)
+
+    # Restore second splitter position from config (default 1:1 ratio for media vs task/log)
+    if config.second_splitter_pos:
+        second_splitter.setSizes(config.second_splitter_pos)
+    else:
+        # Fallback default: 1:1 ratio
+        second_splitter.setSizes([200, 200])
+
+    # Save second splitter position on move
+    def save_second_splitter_position():
+        config.second_splitter_pos = second_splitter.sizes()
+        config.save()
+        logger.debug(f"Second splitter position saved: {config.second_splitter_pos}")
+
+    second_splitter.splitterMoved.connect(save_second_splitter_position)
+
+    # Add second splitter to main splitter
+    main_splitter.addWidget(second_splitter)
+
+    # Restore main splitter position from config (default 2:1 ratio)
+    if config.main_splitter_pos:
+        main_splitter.setSizes(config.main_splitter_pos)
+    else:
+        # Fallback default: 2:1 ratio
+        total_height = 900  # Approximate default window height
+        main_splitter.setSizes([int(total_height * 0.66), int(total_height * 0.34)])
+
+    # Save main splitter position on move
+    def save_splitter_position():
+        config.main_splitter_pos = main_splitter.sizes()
+        config.save()
+        logger.debug(f"Main splitter position saved: {config.main_splitter_pos}")
+
+    main_splitter.splitterMoved.connect(save_splitter_position)
+
+    layout.addWidget(main_splitter)
 
     window.setLayout(layout)
 
