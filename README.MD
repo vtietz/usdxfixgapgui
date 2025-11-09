@@ -182,7 +182,6 @@ See [Configuration Reference](docs/configuration.md) for all settings.
 - [Architecture Guide](docs/architecture.md) - System design, patterns
 - [Coding Standards](docs/coding-standards.md) - Code quality guidelines
 - [Configuration Reference](docs/configuration.md) - Complete settings documentation
-- [Portable Mode Guide](docs/portable-mode.md) - Deployment options
 
 **Quick Start**:
 ```bash
