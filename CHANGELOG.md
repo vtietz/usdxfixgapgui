@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.2.0-rc5] - 2025-11-09
+
+### Added
+- **Resizable UI Panels**: Two dynamic splitters for complete layout control
+  - Main splitter divides song list from bottom panel (waveform + task/log)
+  - Second splitter divides waveform from task/log panel
+  - Both positions saved to `config.ini` and restored on restart
+  - Task queue viewer and log viewer now equal height by default
+- **Flexible Waveform Height**: Removed fixed 150px height constraint
+  - Minimum height: 100px
+  - Expands vertically with splitter adjustment
+  - Maintains aspect ratio and scaling
+- **Smart Startup Dialog**: Auto-checks "Don't show again" checkbox in appropriate scenarios
+  - Auto-checked for GPU mode (system fully configured)
+  - Auto-checked for CPU-only mode (no GPU hardware available)
+  - Remains unchecked when GPU exists but Pack not installed (offers download)
+- **Version Display**: RC appendix now shown in startup dialog title (e.g., "v1.2.0-rc5")
+
+### Changed
+- **Config Schema**: Added `main_splitter_pos` and `second_splitter_pos` to Window section
+- **Log Viewer Height**: Removed 150px maximum height to allow flexible expansion
+
+### Fixed
+- **UI Layout**: Improved space distribution between panels for better workflow
+
+---
+
+## [1.2.0-rc4] - 2025-11-08
+
 ### Added
 - **Wizard-Based Startup Splash**: Modern multi-page startup experience with smart navigation
   - **Health Check Page**: Auto-detects PyTorch, CUDA, FFmpeg availability with visual feedback

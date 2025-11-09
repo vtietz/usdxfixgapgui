@@ -2,7 +2,7 @@ import os
 import configparser
 import logging
 from PySide6.QtCore import QObject
-from utils.files import get_localappdata_dir
+from utils.files import get_localappdata_dir, is_portable_mode, get_app_dir
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +125,15 @@ class Config(QObject):
                 "song_list_batch_size": 25,
             },
             "Audio": {"default_volume": 0.5, "auto_play": False},
-            "Window": {"width": 1024, "height": 768, "x": -1, "y": -1, "maximized": False, "main_splitter_pos": "2,1", "second_splitter_pos": "1,1"},
+            "Window": {
+                "width": 1024,
+                "height": 768,
+                "x": -1,
+                "y": -1,
+                "maximized": False,
+                "main_splitter_pos": "2,1",
+                "second_splitter_pos": "1,1",
+            },
             "WatchMode": {
                 "watch_mode_default": False,
                 "watch_debounce_ms": 500,
@@ -146,16 +154,68 @@ class Config(QObject):
                 else:
                     self._config[section][key] = str(value)
 
+    def _make_path_portable(self, path: str) -> str:
+        """Convert absolute path to relative path in portable mode.
+
+        Args:
+            path: Absolute path or empty string
+
+        Returns:
+            Relative path if in portable mode and path is under app_dir, otherwise absolute path
+        """
+        if not path or not is_portable_mode():
+            return path
+
+        app_dir = get_app_dir()
+        abs_path = os.path.abspath(path)
+
+        # If path is under app_dir, make it relative
+        try:
+            rel_path = os.path.relpath(abs_path, app_dir)
+            # Check if it's actually relative (doesn't start with ..)
+            if not rel_path.startswith(".."):
+                logger.debug(f"Portable mode: Converting '{abs_path}' → './{rel_path}'")
+                return f"./{rel_path}"
+        except (ValueError, OSError):
+            # Different drives on Windows or other issues
+            pass
+
+        return path
+
+    def _resolve_path_from_config(self, path: str) -> str:
+        """Resolve path loaded from config (may be relative in portable mode).
+
+        Args:
+            path: Path from config file (may be relative like ./models)
+
+        Returns:
+            Absolute path
+        """
+        if not path:
+            return path
+
+        # If path starts with ./ or .\\ it's relative to app dir in portable mode
+        if path.startswith("./") or path.startswith(".\\"):
+            if is_portable_mode():
+                app_dir = get_app_dir()
+                abs_path = os.path.abspath(os.path.join(app_dir, path[2:]))
+                logger.debug(f"Portable mode: Resolving '{path}' → '{abs_path}'")
+                return abs_path
+
+        return path
+
     def _initialize_properties(self):
         """Initialize class properties from config values with fallbacks."""
         defaults = self._get_defaults()
 
-        # Paths
+        # Paths (resolve relative paths in portable mode)
         self.tmp_root = self._config.get("Paths", "tmp_root", fallback=defaults["Paths"]["tmp_root"])
         self.default_directory = self._config.get(
             "Paths", "default_directory", fallback=defaults["Paths"]["default_directory"]
         )
-        self.last_directory = self._config.get("Paths", "last_directory", fallback=defaults["Paths"]["last_directory"])
+        self.last_directory = self._resolve_path_from_config(
+            self._config.get("Paths", "last_directory", fallback=defaults["Paths"]["last_directory"])
+        )
         self.models_directory = self._config.get(
             "Paths", "models_directory", fallback=defaults["Paths"]["models_directory"]
         )
@@ -278,7 +338,9 @@ class Config(QObject):
         self.gpu_pack_installed_version = self._config.get(
             "General", "gpu_pack_installed_version", fallback=general_defaults["gpu_pack_installed_version"]
         )
-        self.gpu_pack_path = self._config.get("General", "gpu_pack_path", fallback=general_defaults["gpu_pack_path"])
+        self.gpu_pack_path = self._resolve_path_from_config(
+            self._config.get("General", "gpu_pack_path", fallback=general_defaults["gpu_pack_path"])
+        )
         self.gpu_last_health = self._config.get(
             "General", "gpu_last_health", fallback=general_defaults["gpu_last_health"]
         )
@@ -314,9 +376,13 @@ class Config(QObject):
         self.window_y = self._config.getint("Window", "y", fallback=window_defaults["y"])
         self.window_maximized = self._config.getboolean("Window", "maximized", fallback=window_defaults["maximized"])
         # Splitter position (stored as comma-separated list)
-        splitter_pos_str = self._config.get("Window", "main_splitter_pos", fallback=window_defaults["main_splitter_pos"])
+        splitter_pos_str = self._config.get(
+            "Window", "main_splitter_pos", fallback=window_defaults["main_splitter_pos"]
+        )
         self.main_splitter_pos = [int(x.strip()) for x in splitter_pos_str.split(",")]
-        second_splitter_pos_str = self._config.get("Window", "second_splitter_pos", fallback=window_defaults["second_splitter_pos"])
+        second_splitter_pos_str = self._config.get(
+            "Window", "second_splitter_pos", fallback=window_defaults["second_splitter_pos"]
+        )
         self.second_splitter_pos = [int(x.strip()) for x in second_splitter_pos_str.split(",")]
 
         # WatchMode
@@ -438,22 +504,22 @@ class Config(QObject):
                 logger.warning(f"Failed to create backup: {e}")
 
         # Update ONLY managed keys (minimal mutation)
-        # 1. Paths section - last_directory
+        # 1. Paths section - last_directory (make relative in portable mode)
         if not current.has_section("Paths"):
             current.add_section("Paths")
         old_last_dir = current.get("Paths", "last_directory", fallback="")
-        new_last_dir = self.last_directory or ""
+        new_last_dir = self._make_path_portable(self.last_directory or "")
         if old_last_dir != new_last_dir:
             logger.debug(f"Config.save(): Updating last_directory: '{old_last_dir}' → '{new_last_dir}'")
         current["Paths"]["last_directory"] = new_last_dir
 
-        # 2. General section - GPU Pack settings
+        # 2. General section - GPU Pack settings (make gpu_pack_path relative in portable mode)
         if not current.has_section("General"):
             current.add_section("General")
         current["General"]["gpu_opt_in"] = "true" if self.gpu_opt_in else "false"
         current["General"]["gpu_flavor"] = self.gpu_flavor
         current["General"]["gpu_pack_installed_version"] = self.gpu_pack_installed_version
-        current["General"]["gpu_pack_path"] = self.gpu_pack_path
+        current["General"]["gpu_pack_path"] = self._make_path_portable(self.gpu_pack_path)
         current["General"]["gpu_last_health"] = self.gpu_last_health
         current["General"]["gpu_last_error"] = self.gpu_last_error
         current["General"]["gpu_pack_dialog_dont_show"] = "true" if self.gpu_pack_dialog_dont_show else "false"
