@@ -62,6 +62,10 @@ _WHEEL_METADATA = {
             "sha256": "a48b991cd861266523cbed4705f89bef09669d5d2bbfa2524486156f74a222a8",
             "size": 2444894201,  # ~2.44GB
         },
+        "cp311": {
+            "sha256": "TBD",  # Will be computed on first successful download
+            "size": 2444893595,  # Actual size of torch-2.4.1+cu121-cp311-cp311-win_amd64.whl
+        },
         "cp312": {
             "sha256": "TBD",  # Will be computed on first successful download
             "size": 2444846875,  # Actual size of torch-2.4.1+cu121-cp312-cp312-win_amd64.whl
@@ -69,6 +73,7 @@ _WHEEL_METADATA = {
     },
     "cu124": {
         "cp38": {"sha256": "TBD", "size": 2444894201},
+        "cp311": {"sha256": "TBD", "size": 2444894201},  # Approximate, will be corrected on first download
         "cp312": {"sha256": "TBD", "size": 2444894201},  # Approximate, will be corrected on first download
     },
 }
