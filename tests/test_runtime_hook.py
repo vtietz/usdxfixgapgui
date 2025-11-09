@@ -332,8 +332,9 @@ class TestSetupGpuPack:
 
     def test_full_setup_success(self, hook_module, temp_config_dir, temp_gpu_pack):
         """Test successful full GPU Pack setup."""
-        # Create ABI-compatible torch/_C file for Windows
-        torch_c = temp_gpu_pack / "torch" / "_C.cp311-win_amd64.pyd"
+        # Create ABI-compatible torch/_C file for current Python version
+        py_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
+        torch_c = temp_gpu_pack / "torch" / f"_C.{py_version}-win_amd64.pyd"
         torch_c.touch()
 
         # Create config
@@ -397,8 +398,9 @@ gpu_pack_path = /nonexistent/path
         original_path = sys.path.copy()
 
         try:
-            # Should not raise
-            hook_module.setup_gpu_pack()
+            # Should not raise - mock get_config_dir to prevent auto-discovery
+            with patch.object(hook_module, "get_config_dir", return_value=temp_config_dir):
+                hook_module.setup_gpu_pack()
 
             # sys.path should be unchanged (except for _MEIPASS we added)
             assert len(sys.path) == len(original_path)

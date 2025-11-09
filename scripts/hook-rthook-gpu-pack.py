@@ -268,10 +268,13 @@ def write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified):
             f.write(f"sys.path[0]: {sys.path[0] if sys.path else 'empty'}\n\n")
 
             # Platform-specific ABI checks
+            py_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
             f.write(f"Platform: {sys.platform}\n")
+            f.write(f"Python version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} ({py_version})\n")
+            
             if sys.platform == "win32":
-                torch_c = pack_dir / "torch" / "_C.cp311-win_amd64.pyd"
-                f.write(f"torch/_C.cp311-win_amd64.pyd exists: {torch_c.exists()}\n")
+                torch_c = pack_dir / "torch" / f"_C.{py_version}-win_amd64.pyd"
+                f.write(f"torch/_C.{py_version}-win_amd64.pyd exists: {torch_c.exists()}\n")
             elif sys.platform.startswith("linux"):
                 f.write(f"torch/lib/libtorch_cpu.so exists: {(pack_dir / 'torch' / 'lib' / 'libtorch_cpu.so').exists()}\n")
                 f.write(f"torch/lib/libc10.so exists: {(pack_dir / 'torch' / 'lib' / 'libc10.so').exists()}\n")
@@ -330,9 +333,12 @@ def setup_gpu_pack():
     # Validate ABI compatibility (platform-specific checks)
     abi_compatible = False
     
+    # Detect Python version from bundled interpreter
+    py_version = f"cp{sys.version_info.major}{sys.version_info.minor}"  # e.g., cp312
+    
     if sys.platform == "win32":
-        # Windows: Check for Python 3.11 extension
-        torch_c = pack_dir / "torch" / "_C.cp311-win_amd64.pyd"
+        # Windows: Check for Python version-specific extension
+        torch_c = pack_dir / "torch" / f"_C.{py_version}-win_amd64.pyd"
         abi_compatible = torch_c.exists()
     
     elif sys.platform.startswith("linux"):
@@ -342,8 +348,8 @@ def setup_gpu_pack():
             torch_lib / "libtorch_cpu.so",
             torch_lib / "libc10.so",
         ]
-        # Python extension pattern: _C.cpython-311-x86_64-linux-gnu.so
-        torch_extensions = list((pack_dir / "torch").glob("_C.cpython-311*.so"))
+        # Python extension pattern: _C.cpython-312-x86_64-linux-gnu.so
+        torch_extensions = list((pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so"))
         abi_compatible = all(lib.exists() for lib in required_libs) and len(torch_extensions) > 0
     
     elif sys.platform == "darwin":
@@ -353,8 +359,8 @@ def setup_gpu_pack():
             torch_lib / "libtorch_cpu.dylib",
             torch_lib / "libc10.dylib",
         ]
-        # Python extension pattern: _C.cpython-311-darwin.so
-        torch_extensions = list((pack_dir / "torch").glob("_C.cpython-311*.so"))
+        # Python extension pattern: _C.cpython-312-darwin.so
+        torch_extensions = list((pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so"))
         abi_compatible = all(lib.exists() for lib in required_libs) and len(torch_extensions) > 0
     
     if not abi_compatible:
