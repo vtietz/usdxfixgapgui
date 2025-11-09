@@ -36,7 +36,7 @@ jobs:
           echo "Testing onedir build (fast - no extraction overhead)..."
           echo "Listing onedir output contents for verification:"
           Get-ChildItem -Force dist | Select-Object Name, Length | Format-Table -AutoSize
-          dist\usdxfixgap.exe --version
+          .\dist\usdxfixgap\usdxfixgap.exe --version
           if ($LASTEXITCODE -ne 0) {
             echo "❌ Onedir version check failed!"
             exit 1
@@ -55,7 +55,7 @@ jobs:
       - name: Verify Windows Onefile Executable (First Run - Extraction)
         run: |
           echo "Testing onefile build (first run includes extraction)..."
-          dist\usdxfixgap.exe --version
+          .\dist\usdxfixgap.exe --version
           if ($LASTEXITCODE -ne 0) {
             echo "❌ Onefile version check failed!"
             exit 1
