@@ -218,7 +218,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
         else:
             # CUDA validation failed - add torch import source diagnostics
             logger.warning(f"GPU Pack validation failed: {cuda_error}")
-            
+
             # Diagnostic: where did torch come from?
             torch_source = "unknown"
             torch_cuda_version = "unknown"
@@ -228,7 +228,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
                 torch_cuda_version = getattr(torch.version, "cuda", "None")
             except Exception as import_err:
                 torch_source = f"import failed: {import_err}"
-            
+
             diagnostic_info = (
                 f"GPU Pack validation failed: {cuda_error} | "
                 f"Pack path: {pack_dir} | "

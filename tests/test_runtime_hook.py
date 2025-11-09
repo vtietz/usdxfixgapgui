@@ -72,12 +72,12 @@ def clean_gpu_env():
     """Clean up GPU Pack environment variable before each test."""
     # Save original
     original = os.environ.get("USDXFIXGAP_GPU_PACK_DIR")
-    
+
     # Clear before test
     os.environ.pop("USDXFIXGAP_GPU_PACK_DIR", None)
-    
+
     yield
-    
+
     # Restore after test
     if original:
         os.environ["USDXFIXGAP_GPU_PACK_DIR"] = original
@@ -129,7 +129,7 @@ class TestReadGpuPackPath:
         gpu_pack = tmp_path / "gpu_pack"
         gpu_pack.mkdir()
         (gpu_pack / "torch").mkdir()
-        
+
         config_file = temp_config_dir / "config.ini"
         config_file.write_text(
             f"""
@@ -190,7 +190,7 @@ gpu_pack_path =
         gpu_pack = tmp_path / "gpu_pack_quoted"
         gpu_pack.mkdir()
         (gpu_pack / "torch").mkdir()
-        
+
         config_file = temp_config_dir / "config.ini"
         config_file.write_text(
             f"""
@@ -335,7 +335,7 @@ class TestSetupGpuPack:
         # Create ABI-compatible torch/_C file for Windows
         torch_c = temp_gpu_pack / "torch" / "_C.cp311-win_amd64.pyd"
         torch_c.touch()
-        
+
         # Create config
         config_file = temp_config_dir / "config.ini"
         config_file.write_text(

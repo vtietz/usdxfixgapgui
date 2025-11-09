@@ -26,6 +26,18 @@ def log_gpu_status(config, gpu_enabled, show_gui_dialog=True):
     print("=" * 70)
     print("GPU ACCELERATION STATUS")
     print("=" * 70)
+    
+    # Check if runtime hook activated GPU Pack
+    hook_status = _read_hook_status()
+    if hook_status:
+        status, pack_path = hook_status
+        if status == "ACTIVE":
+            print(f"[ok] GPU Pack activated via runtime hook")
+            print(f"  Import redirection: torch/torchaudio → {pack_path}")
+        elif status == "FAILED":
+            print(f"[!] GPU Pack found but activation failed")
+            print(f"  Pack location: {pack_path}")
+            print(f"  Check hook_diagnostics.log for details")
 
     # Probe for NVIDIA GPU
     cap = gpu_bootstrap.capability_probe()
@@ -36,6 +48,37 @@ def log_gpu_status(config, gpu_enabled, show_gui_dialog=True):
         _log_no_nvidia_gpu()
 
     print("=" * 70)
+
+
+def _read_hook_status():
+    """Read GPU Pack hook status file if present.
+    
+    Returns:
+        Tuple of (status, pack_path) if file exists, None otherwise
+        status is "ACTIVE" or "FAILED"
+    """
+    try:
+        import os
+        from pathlib import Path
+        
+        if sys.platform == "win32":
+            config_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "USDXFixGap"
+        elif sys.platform == "darwin":
+            config_dir = Path.home() / "Library" / "Application Support" / "USDXFixGap"
+        else:  # Linux
+            xdg_config = os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
+            config_dir = Path(xdg_config) / "usdxfixgap"
+        
+        status_file = config_dir / "gpu_pack_hook_status.txt"
+        if status_file.exists():
+            content = status_file.read_text(encoding="utf-8").strip()
+            if "|" in content:
+                status, pack_path = content.split("|", 1)
+                return (status, pack_path)
+    except Exception:
+        pass
+    
+    return None
 
 
 def _log_nvidia_gpu_detected(cap, config, gpu_enabled, show_gui_dialog):

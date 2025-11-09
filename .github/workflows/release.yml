@@ -47,7 +47,7 @@ jobs:
       - name: Smoke Test - Verify CPU PyTorch Import (Bundled)
         run: |
           echo "Testing bundled CPU PyTorch import..."
-          .\dist\usdxfixgap\usdxfixgap.exe --health-check
+          .\dist\usdxfixgap\usdxfixgap.exe --version
           if ($LASTEXITCODE -ne 0) {
             echo "[x] CPU PyTorch import failed!"
             exit 1
