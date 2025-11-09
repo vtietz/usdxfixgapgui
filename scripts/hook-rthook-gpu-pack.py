@@ -8,6 +8,12 @@ Architecture:
 - Optional GPU Pack: when present and enabled, intercepts torch/torchaudio imports
   and redirects to external GPU Pack using a MetaPathFinder (beats FrozenImporter)
 
+Portable Mode (Strict):
+- Portable build: one-folder with _internal/ subdirectory
+- In portable mode: uses app directory for config/GPU Pack (not user profile)
+- Keeps portable build self-contained and predictable
+- Override: USDXFIXGAP_GPU_PACK_DIR env var for explicit external pack path
+
 This must be registered in the .spec file as a runtime_hook.
 """
 
@@ -18,8 +24,46 @@ import importlib.util
 import importlib.machinery
 
 
+def is_portable_mode():
+    """Detect if running in portable mode (one-folder build).
+    
+    Portable detection: app has _internal/ subdirectory next to executable.
+    This is minimal detection without importing project code.
+    
+    Returns:
+        True if portable mode detected, False otherwise
+    """
+    if not hasattr(sys, "_MEIPASS"):
+        return False  # Not frozen
+    
+    try:
+        app_dir = Path(sys.executable).parent
+        internal_dir = app_dir / "_internal"
+        return internal_dir.is_dir()
+    except Exception:
+        return False
+
+
 def get_config_dir():
-    """Get platform-specific config directory."""
+    """Get config directory (portable-aware).
+    
+    In portable mode: returns app directory (next to executable)
+    In regular mode: returns platform-specific user profile directory
+    Override: Honors USDXFIXGAP_DATA_DIR env var if set
+    """
+    # Priority 1: Explicit override via env var
+    data_dir_override = os.environ.get("USDXFIXGAP_DATA_DIR")
+    if data_dir_override:
+        return Path(data_dir_override)
+    
+    # Priority 2: Portable mode - use app directory
+    if is_portable_mode():
+        try:
+            return Path(sys.executable).parent
+        except Exception:
+            pass  # Fall through to default
+    
+    # Priority 3: Platform-specific user profile directories
     if sys.platform == "win32":
         return Path(os.environ.get("LOCALAPPDATA", ""), "USDXFixGap")
     elif sys.platform == "darwin":
@@ -30,14 +74,15 @@ def get_config_dir():
 
 
 def find_gpu_pack_in_default_location():
-    """Auto-discover GPU Pack in standard location.
+    """Auto-discover GPU Pack in default location (portable-aware).
 
-    Looks in: <config_dir>/gpu_runtime/ for any subfolder containing torch/
-    This allows users to extract GPU Pack without editing config.
-
-    Only works in frozen (EXE) mode - prevents test pollution in development.
+    Portable mode: Looks in <app_dir>/gpu_runtime/ only
+    Regular mode: Looks in <config_dir>/gpu_runtime/ (user profile)
     
-    Prefers packs matching CUDA flavor (cu121, cu124, etc.) and newer versions.
+    Searches for any subfolder containing torch/ directory.
+    Prefers packs matching CUDA flavor (cu124 > cu121 > others) and newer versions.
+    
+    Only works in frozen (EXE) mode - prevents test pollution in development.
 
     Returns:
         Path to GPU Pack if found, None otherwise
@@ -60,15 +105,15 @@ def find_gpu_pack_in_default_location():
                 candidates.append(entry)
     except Exception:
         return None
-    
+
     if not candidates:
         return None
-    
+
     # Sort candidates: prefer cu124 > cu121 > others, then by version descending
     # Expected format: v{version}-{flavor} (e.g., v2.0.0-cu121)
     def sort_key(path):
         name = path.name.lower()
-        
+
         # Extract CUDA flavor (cu121, cu124, etc.)
         flavor_priority = 0
         if "cu124" in name:
@@ -78,11 +123,11 @@ def find_gpu_pack_in_default_location():
         elif "cu" in name:  # Other CUDA flavors
             flavor_priority = 1
         # CPU-only packs get priority 0
-        
+
         # Extract version for secondary sort (use lexicographic on name)
         # This handles v2.0.0 > v1.4.0 naturally
         return (flavor_priority, name)
-    
+
     candidates.sort(key=sort_key, reverse=True)
     return candidates[0]
 
@@ -253,8 +298,10 @@ def write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified):
             f.write("=== GPU Pack Runtime Hook Diagnostics ===\n\n")
             f.write(f"Frozen mode (sys._MEIPASS): {hasattr(sys, '_MEIPASS')}\n")
             if hasattr(sys, "_MEIPASS"):
-                f.write(f"_MEIPASS path: {sys._MEIPASS}\n\n")
-            
+                f.write(f"_MEIPASS path: {sys._MEIPASS}\n")
+            f.write(f"Portable mode: {is_portable_mode()}\n")
+            f.write(f"Config directory: {config_dir}\n\n")
+
             f.write(f"Pack directory: {pack_dir}\n")
             f.write(f"Pack/torch exists: {(pack_dir / 'torch').exists()}\n")
             f.write(f"Pack/torchaudio exists: {(pack_dir / 'torchaudio').exists()}\n")
@@ -271,7 +318,7 @@ def write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified):
             py_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
             f.write(f"Platform: {sys.platform}\n")
             f.write(f"Python version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} ({py_version})\n")
-            
+
             if sys.platform == "win32":
                 torch_c = pack_dir / "torch" / f"_C.{py_version}-win_amd64.pyd"
                 f.write(f"torch/_C.{py_version}-win_amd64.pyd exists: {torch_c.exists()}\n")
@@ -281,7 +328,7 @@ def write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified):
             elif sys.platform == "darwin":
                 f.write(f"torch/lib/libtorch_cpu.dylib exists: {(pack_dir / 'torch' / 'lib' / 'libtorch_cpu.dylib').exists()}\n")
                 f.write(f"torch/lib/libc10.dylib exists: {(pack_dir / 'torch' / 'lib' / 'libc10.dylib').exists()}\n")
-        
+
         # Write simple status file for GUI startup logger
         status_file = config_dir / "gpu_pack_hook_status.txt"
         with open(status_file, "w", encoding="utf-8") as f:
@@ -329,18 +376,18 @@ def setup_gpu_pack():
     # Validate torchaudio presence to avoid ABI mismatch
     # (If torchaudio missing, it falls back to bundled CPU version → crash)
     has_torchaudio = (pack_dir / "torchaudio").exists()
-    
+
     # Validate ABI compatibility (platform-specific checks)
     abi_compatible = False
-    
+
     # Detect Python version from bundled interpreter
     py_version = f"cp{sys.version_info.major}{sys.version_info.minor}"  # e.g., cp312
-    
+
     if sys.platform == "win32":
         # Windows: Check for Python version-specific extension
         torch_c = pack_dir / "torch" / f"_C.{py_version}-win_amd64.pyd"
         abi_compatible = torch_c.exists()
-    
+
     elif sys.platform.startswith("linux"):
         # Linux: Check for core shared libraries and Python extension
         torch_lib = pack_dir / "torch" / "lib"
@@ -351,7 +398,7 @@ def setup_gpu_pack():
         # Python extension pattern: _C.cpython-312-x86_64-linux-gnu.so
         torch_extensions = list((pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so"))
         abi_compatible = all(lib.exists() for lib in required_libs) and len(torch_extensions) > 0
-    
+
     elif sys.platform == "darwin":
         # macOS: Check for dylibs and Python extension
         torch_lib = pack_dir / "torch" / "lib"
@@ -362,7 +409,7 @@ def setup_gpu_pack():
         # Python extension pattern: _C.cpython-312-darwin.so
         torch_extensions = list((pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so"))
         abi_compatible = all(lib.exists() for lib in required_libs) and len(torch_extensions) > 0
-    
+
     if not abi_compatible:
         # ABI mismatch - skip GPU Pack and use bundled CPU torch
         write_hook_diagnostics(pack_dir, False, False, False)

@@ -69,20 +69,27 @@ def temp_gpu_pack(tmp_path):
 
 @pytest.fixture(autouse=True)
 def clean_gpu_env():
-    """Clean up GPU Pack environment variable before each test."""
-    # Save original
-    original = os.environ.get("USDXFIXGAP_GPU_PACK_DIR")
+    """Clean up GPU Pack environment variables before each test."""
+    # Save originals
+    original_pack = os.environ.get("USDXFIXGAP_GPU_PACK_DIR")
+    original_data = os.environ.get("USDXFIXGAP_DATA_DIR")
 
     # Clear before test
     os.environ.pop("USDXFIXGAP_GPU_PACK_DIR", None)
+    os.environ.pop("USDXFIXGAP_DATA_DIR", None)
 
     yield
 
     # Restore after test
-    if original:
-        os.environ["USDXFIXGAP_GPU_PACK_DIR"] = original
+    if original_pack is not None:
+        os.environ["USDXFIXGAP_GPU_PACK_DIR"] = original_pack
     else:
         os.environ.pop("USDXFIXGAP_GPU_PACK_DIR", None)
+
+    if original_data is not None:
+        os.environ["USDXFIXGAP_DATA_DIR"] = original_data
+    else:
+        os.environ.pop("USDXFIXGAP_DATA_DIR", None)
 
 
 class TestGetConfigDir:
@@ -437,5 +444,116 @@ gpu_pack_path = {pack_dir}
             delattr(sys, "_MEIPASS")
 
 
+class TestPortableMode:
+    """Tests for portable mode detection and behavior."""
+
+    def test_portable_mode_not_frozen(self, hook_module):
+        """Test portable mode returns False when not frozen."""
+        assert not hasattr(sys, "_MEIPASS")
+        assert not hook_module.is_portable_mode()
+
+    def test_portable_mode_onedir_detected(self, hook_module, tmp_path):
+        """Test portable mode detected with _internal directory."""
+        # Create onedir structure
+        app_dir = tmp_path / "app"
+        app_dir.mkdir()
+        internal_dir = app_dir / "_internal"
+        internal_dir.mkdir()
+        exe_path = app_dir / "usdxfixgap.exe"
+        exe_path.touch()
+
+        try:
+            sys._MEIPASS = str(internal_dir)  # Frozen mode
+            with patch("sys.executable", str(exe_path)):
+                assert hook_module.is_portable_mode()
+        finally:
+            if hasattr(sys, "_MEIPASS"):
+                delattr(sys, "_MEIPASS")
+
+    def test_portable_mode_onefile_not_detected(self, hook_module, tmp_path):
+        """Test portable mode False for onefile (no _internal directory)."""
+        # Create onefile structure (no _internal)
+        app_dir = tmp_path / "app"
+        app_dir.mkdir()
+        exe_path = app_dir / "usdxfixgap.exe"
+        exe_path.touch()
+
+        try:
+            sys._MEIPASS = str(tmp_path / "_MEIPASS_temp")  # Frozen mode
+            with patch("sys.executable", str(exe_path)):
+                assert not hook_module.is_portable_mode()
+        finally:
+            if hasattr(sys, "_MEIPASS"):
+                delattr(sys, "_MEIPASS")
+
+    def test_get_config_dir_portable_mode(self, hook_module, tmp_path):
+        """Test config_dir returns app directory in portable mode."""
+        app_dir = tmp_path / "app"
+        app_dir.mkdir()
+        internal_dir = app_dir / "_internal"
+        internal_dir.mkdir()
+        exe_path = app_dir / "usdxfixgap.exe"
+        exe_path.touch()
+
+        try:
+            sys._MEIPASS = str(internal_dir)
+            with patch("sys.executable", str(exe_path)):
+                config_dir = hook_module.get_config_dir()
+                assert config_dir == app_dir
+        finally:
+            if hasattr(sys, "_MEIPASS"):
+                delattr(sys, "_MEIPASS")
+
+    def test_get_config_dir_env_override_portable(self, hook_module, tmp_path):
+        """Test USDXFIXGAP_DATA_DIR overrides portable mode."""
+        override_dir = tmp_path / "override"
+        override_dir.mkdir()
+
+        app_dir = tmp_path / "app"
+        app_dir.mkdir()
+        internal_dir = app_dir / "_internal"
+        internal_dir.mkdir()
+        exe_path = app_dir / "usdxfixgap.exe"
+        exe_path.touch()
+
+        try:
+            sys._MEIPASS = str(internal_dir)
+            os.environ["USDXFIXGAP_DATA_DIR"] = str(override_dir)
+            with patch("sys.executable", str(exe_path)):
+                config_dir = hook_module.get_config_dir()
+                assert config_dir == override_dir
+        finally:
+            os.environ.pop("USDXFIXGAP_DATA_DIR", None)
+            if hasattr(sys, "_MEIPASS"):
+                delattr(sys, "_MEIPASS")
+
+    def test_auto_discovery_portable_mode(self, hook_module, tmp_path):
+        """Test GPU Pack auto-discovery uses app directory in portable mode."""
+        # Create portable structure with GPU Pack
+        app_dir = tmp_path / "app"
+        app_dir.mkdir()
+        internal_dir = app_dir / "_internal"
+        internal_dir.mkdir()
+        exe_path = app_dir / "usdxfixgap.exe"
+        exe_path.touch()
+
+        gpu_runtime_dir = app_dir / "gpu_runtime"
+        gpu_runtime_dir.mkdir()
+        pack_dir = gpu_runtime_dir / "torch-2.4.1-cu121"
+        pack_dir.mkdir()
+        torch_dir = pack_dir / "torch"
+        torch_dir.mkdir()
+
+        try:
+            sys._MEIPASS = str(internal_dir)
+            with patch("sys.executable", str(exe_path)):
+                found_pack = hook_module.find_gpu_pack_in_default_location()
+                assert found_pack == pack_dir
+        finally:
+            if hasattr(sys, "_MEIPASS"):
+                delattr(sys, "_MEIPASS")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
