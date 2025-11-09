@@ -26,16 +26,16 @@ import importlib.machinery
 
 def is_portable_mode():
     """Detect if running in portable mode (one-folder build).
-    
+
     Portable detection: app has _internal/ subdirectory next to executable.
     This is minimal detection without importing project code.
-    
+
     Returns:
         True if portable mode detected, False otherwise
     """
     if not hasattr(sys, "_MEIPASS"):
         return False  # Not frozen
-    
+
     try:
         app_dir = Path(sys.executable).parent
         internal_dir = app_dir / "_internal"
@@ -46,7 +46,7 @@ def is_portable_mode():
 
 def get_config_dir():
     """Get config directory (portable-aware).
-    
+
     In portable mode: returns app directory (next to executable)
     In regular mode: returns platform-specific user profile directory
     Override: Honors USDXFIXGAP_DATA_DIR env var if set
@@ -55,14 +55,14 @@ def get_config_dir():
     data_dir_override = os.environ.get("USDXFIXGAP_DATA_DIR")
     if data_dir_override:
         return Path(data_dir_override)
-    
+
     # Priority 2: Portable mode - use app directory
     if is_portable_mode():
         try:
             return Path(sys.executable).parent
         except Exception:
             pass  # Fall through to default
-    
+
     # Priority 3: Platform-specific user profile directories
     if sys.platform == "win32":
         return Path(os.environ.get("LOCALAPPDATA", ""), "USDXFixGap")
@@ -78,10 +78,10 @@ def find_gpu_pack_in_default_location():
 
     Portable mode: Looks in <app_dir>/gpu_runtime/ only
     Regular mode: Looks in <config_dir>/gpu_runtime/ (user profile)
-    
+
     Searches for any subfolder containing torch/ directory.
     Prefers packs matching CUDA flavor (cu124 > cu121 > others) and newer versions.
-    
+
     Only works in frozen (EXE) mode - prevents test pollution in development.
 
     Returns:
