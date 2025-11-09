@@ -1,6 +1,6 @@
 # Portable Mode - Strict Self-Contained Architecture
 
-**Status:** Implemented in v1.2.0  
+**Status:** Implemented in v1.2.0
 **Applies to:** Runtime hook (`hook-rthook-gpu-pack.py`)
 
 ---
@@ -120,7 +120,7 @@ def is_portable_mode():
     """Detect if running in portable mode (one-folder build)."""
     if not hasattr(sys, "_MEIPASS"):
         return False  # Not frozen
-    
+
     try:
         app_dir = Path(sys.executable).parent
         internal_dir = app_dir / "_internal"
@@ -137,11 +137,11 @@ def get_config_dir():
     data_dir_override = os.environ.get("USDXFIXGAP_DATA_DIR")
     if data_dir_override:
         return Path(data_dir_override)
-    
+
     # Priority 2: Portable mode
     if is_portable_mode():
         return Path(sys.executable).parent
-    
+
     # Priority 3: Platform defaults (user profile)
     # ... platform-specific logic
 ```
@@ -308,4 +308,4 @@ No changes needed to `src/utils/files.py` - it already implements portable detec
 
 ---
 
-**Last Updated:** 2025-01-XX (v1.2.0)
+**Last Updated:** November 2025 (v1.2.0)

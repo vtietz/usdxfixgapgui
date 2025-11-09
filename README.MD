@@ -318,6 +318,38 @@ watch_debounce_ms = 500            # Milliseconds to wait after file changes bef
 watch_ignore_patterns = .tmp,~,.crdownload,.part  # File patterns to ignore
 ```
 
+### **Advanced Configuration (Environment Variables)**
+
+For power users and portable deployments, the runtime hook supports environment variables:
+
+**`USDXFIXGAP_GPU_PACK_DIR`** - Override GPU Pack location:
+```bash
+# Windows
+set USDXFIXGAP_GPU_PACK_DIR=E:\GPUPacks\torch-2.4.1-cu121
+usdxfixgap.exe
+
+# Linux/macOS
+export USDXFIXGAP_GPU_PACK_DIR=/path/to/gpu/pack
+./usdxfixgap
+```
+
+**`USDXFIXGAP_DATA_DIR`** - Override config directory:
+```bash
+# Use custom data location (overrides portable mode detection)
+set USDXFIXGAP_DATA_DIR=D:\MyCustomConfig
+```
+
+**`USDXFIXGAP_FORCE_CPU`** - Disable GPU Pack entirely:
+```bash
+# Force CPU mode (useful for troubleshooting)
+set USDXFIXGAP_FORCE_CPU=1
+```
+
+**Portable Mode** (onedir builds automatically self-contained):
+- Onedir builds (folder with `_internal/` subdirectory) automatically use app directory for all files
+- No user profile access unless explicitly overridden via environment variables
+- See **[Portable Mode Guide](docs/portable-mode.md)** for deployment details
+
 See **[Configuration Reference](docs/configuration.md)** for all available settings and their valid values.
 
 ## 🛠️ For Developers
@@ -330,6 +362,7 @@ Want to contribute or understand how the code works?
 - **[Architecture Guide](docs/architecture.md)** - System design, component responsibilities, signal patterns
 - **[Coding Standards](docs/coding-standards.md)** - DRY principles, SOLID patterns, testing guidelines
 - **[Configuration Reference](docs/configuration.md)** - Complete config.ini settings documentation (includes GPU setup)
+- **[Portable Mode Guide](docs/portable-mode.md)** - Portable deployment, environment variables, GPU Pack priority system
 - **[Performance Optimization](docs/performance-optimization.md)** - Qt TableView optimization patterns
 
 ### **Development Setup**
