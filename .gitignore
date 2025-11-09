@@ -1,13 +1,20 @@
-.tmp
+# Portable mode / development files (stored in project root)
+.tmp/
 temp/
-samples
-__pycache__
-pretrained_models
-dist/
-build/
+samples/
+pretrained_models/
 *.db
 data/
 *.log*
+config.ini
+gpu_pack/
+
+# Build artifacts
+dist/
+build/
+
+# Python cache
+__pycache__
 
 # Virtual environments
 .venv/

@@ -67,12 +67,23 @@ class Config(QObject):
     def _get_defaults(self):
         """Get default configuration values as a dictionary structure."""
         localappdata = get_localappdata_dir()
+
+        # In portable mode, use relative paths for app-internal directories
+        if is_portable_mode():
+            tmp_root = "./.tmp"
+            default_directory = "./samples"
+            models_directory = ""
+        else:
+            tmp_root = os.path.join(localappdata, ".tmp")
+            default_directory = os.path.join(localappdata, "samples")
+            models_directory = ""
+
         return {
             "Paths": {
-                "tmp_root": os.path.join(localappdata, ".tmp"),
-                "default_directory": os.path.join(localappdata, "samples"),
+                "tmp_root": tmp_root,
+                "default_directory": default_directory,
                 "last_directory": "",
-                "models_directory": "",
+                "models_directory": models_directory,
             },
             "Detection": {
                 "default_detection_time": 30,
@@ -209,15 +220,17 @@ class Config(QObject):
         defaults = self._get_defaults()
 
         # Paths (resolve relative paths in portable mode)
-        self.tmp_root = self._config.get("Paths", "tmp_root", fallback=defaults["Paths"]["tmp_root"])
-        self.default_directory = self._config.get(
-            "Paths", "default_directory", fallback=defaults["Paths"]["default_directory"]
+        self.tmp_root = self._resolve_path_from_config(
+            self._config.get("Paths", "tmp_root", fallback=defaults["Paths"]["tmp_root"])
+        )
+        self.default_directory = self._resolve_path_from_config(
+            self._config.get("Paths", "default_directory", fallback=defaults["Paths"]["default_directory"])
         )
         self.last_directory = self._resolve_path_from_config(
             self._config.get("Paths", "last_directory", fallback=defaults["Paths"]["last_directory"])
         )
-        self.models_directory = self._config.get(
-            "Paths", "models_directory", fallback=defaults["Paths"]["models_directory"]
+        self.models_directory = self._resolve_path_from_config(
+            self._config.get("Paths", "models_directory", fallback=defaults["Paths"]["models_directory"])
         )
 
         # Detection
@@ -479,8 +492,15 @@ class Config(QObject):
         """Update Paths section in config."""
         if not config.has_section("Paths"):
             config.add_section("Paths")
+
+        # Convert paths to relative in portable mode
+        config["Paths"]["tmp_root"] = self._make_path_portable(self.tmp_root or "")
+        config["Paths"]["default_directory"] = self._make_path_portable(self.default_directory or "")
+        config["Paths"]["models_directory"] = self._make_path_portable(self.models_directory or "")
+
+        # last_directory can be absolute (user's external song folders)
         old_last_dir = config.get("Paths", "last_directory", fallback="")
-        new_last_dir = self._make_path_portable(self.last_directory or "")
+        new_last_dir = self.last_directory or ""
         if old_last_dir != new_last_dir:
             logger.debug(f"Config.save(): Updating last_directory: '{old_last_dir}' → '{new_last_dir}'")
         config["Paths"]["last_directory"] = new_last_dir

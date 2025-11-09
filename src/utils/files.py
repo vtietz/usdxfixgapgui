@@ -50,20 +50,27 @@ def is_portable_mode():
     """
     Detect if running in portable mode (directory build vs one-file exe).
 
-    Portable mode = PyInstaller directory build with _internal folder alongside exe.
-    One-file mode = PyInstaller one-file exe that extracts to temp.
+    Portable mode includes:
+    - PyInstaller directory build with _internal folder alongside exe
+    - Development mode (running as Python script) - stores data in project root
+
+    One-file mode = PyInstaller one-file exe that extracts to temp (uses system dirs).
 
     Returns:
-        bool: True if portable mode, False otherwise
+        bool: True if portable mode or development mode, False otherwise
     """
     if not getattr(sys, "frozen", False):
-        # Not frozen = running as script = use system directories
-        return False
+        # Not frozen = running as script = development mode = use portable-like behavior
+        logger.debug("Development mode detected (not frozen), using portable-like behavior")
+        return True
 
     app_dir = os.path.dirname(sys.executable)
     # Check for _internal directory (PyInstaller directory build marker)
     internal_dir = os.path.join(app_dir, "_internal")
-    return os.path.isdir(internal_dir)
+    is_portable = os.path.isdir(internal_dir)
+    if is_portable:
+        logger.debug(f"Portable mode detected (_internal directory found at {internal_dir})")
+    return is_portable
 
 
 def get_localappdata_dir():
@@ -123,6 +130,9 @@ def get_app_dir():
     """
     Get the directory of the executable or script.
 
+    In development mode (running as script), returns the project root directory,
+    not the src/ directory where the script is located.
+
     Note: For user data storage, prefer get_localappdata_dir() instead.
     This function is mainly for resource loading and portable mode fallback.
     """
@@ -130,8 +140,15 @@ def get_app_dir():
     if meipass:
         # Running in a PyInstaller bundle
         return os.path.dirname(sys.executable)
-    # Running as a script
-    return os.path.dirname(os.path.abspath(sys.argv[0]))
+    
+    # Running as a script - return project root, not src/ directory
+    script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    
+    # If script is in src/ subdirectory, return parent directory (project root)
+    if os.path.basename(script_dir) == "src":
+        return os.path.dirname(script_dir)
+    
+    return script_dir
 
 
 def get_models_dir(config=None):

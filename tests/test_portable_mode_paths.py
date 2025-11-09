@@ -126,9 +126,13 @@ class TestPortableModePathConversion:
                 # Set paths under app_dir
                 models_path = os.path.join(app_dir, "models")
                 gpu_path = os.path.join(app_dir, "gpu_pack")
+                tmp_path = os.path.join(app_dir, ".tmp")
+                samples_path = os.path.join(app_dir, "samples")
 
                 config.last_directory = models_path
                 config.gpu_pack_path = gpu_path
+                config.tmp_root = tmp_path
+                config.default_directory = samples_path
                 config.save()
 
                 # Verify paths were saved as relative in config file
@@ -139,20 +143,28 @@ class TestPortableModePathConversion:
 
                 saved_last_dir = saved_config.get("Paths", "last_directory")
                 saved_gpu_path = saved_config.get("General", "gpu_pack_path")
+                saved_tmp_root = saved_config.get("Paths", "tmp_root")
+                saved_default_dir = saved_config.get("Paths", "default_directory")
 
-                # Should be relative
-                assert saved_last_dir.startswith("./")
+                # last_directory stays absolute (user's external folders)
+                assert os.path.isabs(saved_last_dir) or saved_last_dir == ""
+
+                # App-internal paths should be relative
                 assert saved_gpu_path.startswith("./")
+                assert saved_tmp_root.startswith("./")
+                assert saved_default_dir.startswith("./")
 
                 # Load config again - paths should be resolved to absolute
                 config2 = Config(custom_config_path=config_path)
 
                 # Should be absolute
-                assert os.path.isabs(config2.last_directory)
+                assert os.path.isabs(config2.tmp_root)
+                assert os.path.isabs(config2.default_directory)
                 assert os.path.isabs(config2.gpu_pack_path)
 
                 # Should match original absolute paths
-                assert config2.last_directory == models_path
+                assert config2.tmp_root == tmp_path
+                assert config2.default_directory == samples_path
                 assert config2.gpu_pack_path == gpu_path
 
     def test_empty_paths_handled_correctly(self):
@@ -166,3 +178,68 @@ class TestPortableModePathConversion:
                 # Empty path
                 assert config._make_path_portable("") == ""
                 assert config._resolve_path_from_config("") == ""
+
+    def test_defaults_use_relative_paths_in_portable_mode(self):
+        """Default paths should be relative in portable mode."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = os.path.join(tmp_dir, "config.ini")
+
+            # Mock portable mode
+            app_dir = tmp_dir
+            with (
+                mock.patch("common.config.is_portable_mode", return_value=True),
+                mock.patch("common.config.get_app_dir", return_value=app_dir),
+                mock.patch("common.config.get_localappdata_dir", return_value=app_dir),
+            ):
+
+                # Create config - should get relative defaults
+                config = Config(custom_config_path=config_path)
+
+                # tmp_root and default_directory should be resolved to absolute at runtime
+                assert os.path.isabs(config.tmp_root)
+                assert os.path.isabs(config.default_directory)
+
+                # Save config
+                config.save()
+
+                # Check saved values are relative
+                import configparser
+
+                saved_config = configparser.ConfigParser()
+                saved_config.read(config_path)
+
+                saved_tmp = saved_config.get("Paths", "tmp_root")
+                saved_default = saved_config.get("Paths", "default_directory")
+
+                # Should be relative in config file
+                assert saved_tmp.startswith("./")
+                assert saved_default.startswith("./")
+
+    def test_defaults_use_absolute_paths_in_nonportable_mode(self):
+        """Default paths should be absolute in non-portable mode."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = os.path.join(tmp_dir, "config.ini")
+
+            with mock.patch("common.config.is_portable_mode", return_value=False):
+                # Create config - should get absolute defaults
+                config = Config(custom_config_path=config_path)
+
+                # tmp_root and default_directory should be absolute
+                assert os.path.isabs(config.tmp_root)
+                assert os.path.isabs(config.default_directory)
+
+                # Save config
+                config.save()
+
+                # Check saved values are absolute
+                import configparser
+
+                saved_config = configparser.ConfigParser()
+                saved_config.read(config_path)
+
+                saved_tmp = saved_config.get("Paths", "tmp_root")
+                saved_default = saved_config.get("Paths", "default_directory")
+
+                # Should be absolute in config file
+                assert os.path.isabs(saved_tmp)
+                assert os.path.isabs(saved_default)

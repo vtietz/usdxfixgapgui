@@ -13,10 +13,10 @@ from utils.files import is_portable_mode, get_localappdata_dir
 class TestPortableModeDetection:
     """Test portable mode detection logic."""
 
-    def test_not_frozen_returns_false(self):
-        """Non-frozen (script) mode should never be portable."""
+    def test_not_frozen_returns_true_for_development(self):
+        """Non-frozen (script) mode should use portable-like behavior for development."""
         with patch.object(sys, "frozen", False, create=True):
-            assert is_portable_mode() is False
+            assert is_portable_mode() is True
 
     def test_frozen_without_internal_dir_returns_false(self):
         """One-file exe (no _internal dir) is not portable mode."""
