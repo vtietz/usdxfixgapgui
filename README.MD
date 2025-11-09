@@ -34,36 +34,14 @@ The app uses state-of-the-art AI vocal separation (Meta's Demucs) with smart chu
 
 ## ✨ Key Features
 
-- 🎯 **AI-Powered Detection** - Uses Meta's Demucs for accurate vocal onset detection
-- ⚡ **GPU Acceleration** - Optional NVIDIA GPU support for 5-10x faster processing ([Setup Guide](docs/configuration.md#gpu-acceleration-settings))
-- 🧙 **Smart Startup Wizard** - Guided startup experience with automatic system health checks and GPU Pack offers
+- 🎯 **AI-Powered Detection** - Uses Meta's Demucs (MDX) for accurate vocal onset detection
+- ⚡ **GPU Acceleration** - Optional NVIDIA GPU support for 5-10x faster processing
+- 🧙 **Smart Startup Wizard** - Guided setup with automatic system health checks
 - 📊 **Visual Waveforms** - See exactly where vocals start with clear visualizations
 - 🎚️ **Audio Normalization** - Automatic volume adjustment for consistent playback
-- 📈 **Confidence Scoring** - Know how reliable each detection is
 - 🔄 **Batch Processing** - Fix hundreds of songs automatically
-- 🎵 **Preview Generation** - Listen to detected timing before applying changes
 - 💾 **Smart Caching** - Re-analyze only what changed, save time on re-runs
-- 👁️ **Watch Mode** - Automatically monitor your song directory for changes and keep cache up-to-date
-
-### **Detection Methods**
-
-Choose the detection method that fits your needs:
-
-- **MDX** (Recommended) - Fast GPU-accelerated chunked scanning with Meta's Demucs
-  - ⚡ 10-30 seconds per song with GPU
-  - 🎯 Smart early-stop when onset found
-  - 🆕 Latest AI technology
-
-- **Spleeter** (Legacy) - Full stem separation
-  - ⚠️ Deprecated (unmaintained since 2020)
-  - ~30-60 seconds per song
-  - Requires TensorFlow dependencies
-
-- **HQ Segment** (Legacy) - Windowed Spleeter
-  - ⚠️ Deprecated (wrapper around unmaintained Spleeter)
-  - ~15-25 seconds per song
-
-> 💡 **Tip**: Use MDX with GPU acceleration for best performance. See [GPU Acceleration Guide](docs/configuration.md#gpu-acceleration-settings) for setup instructions.
+- 👁️ **Watch Mode** - Automatically monitor your song directory for changes
 
 ## 📖 User Guide
 
@@ -72,224 +50,104 @@ Choose the detection method that fits your needs:
 1. **Load Songs**
    - Click "Load Songs" or File → Open Directory
    - Select your UltraStar songs folder
-   - Songs are scanned and displayed in the table
+   - Songs appear in the table with their current GAP values
 
 2. **Detect Gaps**
-   - Select songs (or use "Detect All")
+   - Select songs to analyze (or use "Detect All")
    - Click "Detect Gap" button
    - AI analyzes audio and finds vocal onset timing
-   - Results show: detected GAP, difference, confidence, status (MATCH/MISMATCH)
+   - Results show: detected GAP, difference (ms), status
 
 3. **Review Results**
-   - Click any song to see its waveform
-   - Green line = detected GAP
-   - Red line = original GAP
-   - Shaded area = confidence region
-   - Listen to preview audio
+   - Click any song to see its waveform visualization
+   - **Green line** = AI-detected GAP (where vocals actually start)
+   - **Red line** = original GAP (current value in .txt file)
+   - Listen to preview audio to verify timing
 
 4. **Apply Changes**
-   - **Keep Original** - Dismiss detection, keep current value
    - **Save Detected** - Accept AI-suggested GAP
-   - **Save Player Position** - Manually set GAP to current playback position
+   - **Keep Original** - Dismiss detection, keep current value
+   - **Save Player Position** - Manually set GAP to playback position
    - **Revert** - Undo changes, restore original GAP
-
-5. **(Optional) Enable Watch Mode**
-   - After loading songs, click the "Watch Mode" button
-   - The app will monitor your song directory for changes:
-     - New songs added → automatically scanned and added to the list
-     - Songs deleted → removed from cache and list
-     - Songs moved/renamed → cache updated with new paths
-     - .txt/.mp3/.wav modified → gap detection automatically queued
-   - Changes are debounced (500ms default) to avoid processing storms
-   - Watch mode persists until manually disabled or app is closed
-
-### **Interface Overview**
-
-| Component | Description |
-|-----------|-------------|
-| **Song Table** | Shows all loaded songs with detection results |
-| **Waveform Display** | Visual representation of audio with GAP markers |
-| **Media Player** | Preview audio and navigate to specific timestamps |
-| **Task Queue** | View ongoing/queued detection tasks |
-| **Log Viewer** | Troubleshoot issues and monitor processing |
-| **Watch Mode Button** | Toggle filesystem monitoring for automatic updates |
 
 ### **Understanding Results**
 
 **Status Column**:
-- ✅ **MATCH** - Detected GAP matches original (within tolerance)
+- ✅ **MATCH** - Detected GAP matches original (within 500ms tolerance)
 - ⚠️ **MISMATCH** - Significant difference detected, review recommended
 - 🔄 **PROCESSING** - Detection in progress
 - ❌ **ERROR** - Detection failed, check logs
 
-**Confidence Score**:
-- **0.8-1.0** - Very confident, safe to auto-apply
-- **0.6-0.8** - Good, manual review recommended
-- **0.4-0.6** - Uncertain, definitely review
-- **<0.4** - Low confidence, consider re-detecting or manual timing
+**Diff Column**: Shows timing difference in milliseconds
+- Positive value = detected GAP is later than original
+- Negative value = detected GAP is earlier than original
+- Large differences (>1000ms) usually indicate wrong original GAP
 
 > 💡 **Tip**: Sort by "Diff" column to find songs with largest timing errors first!
 
 ### **Watch Mode**
 
-Watch Mode provides real-time monitoring of your song directory, automatically keeping your cache and gap detections up-to-date as you add, modify, or remove songs.
+Watch Mode automatically monitors your song directory for changes:
 
-**Features**:
-- 🔍 **Automatic Discovery** - New songs are instantly scanned and added
-- 🔄 **Smart Updates** - Modified .txt or audio files trigger targeted gap detection
-- 🗑️ **Cache Sync** - Deleted or moved songs are removed from cache
-- ⚡ **Debouncing** - Rapid changes are coalesced to prevent processing storms
-- 🎯 **Targeted Scanning** - Only changed songs are processed, not the entire directory
-
-**How to Use**:
 1. Load your song directory normally
-2. Wait for initial scan to complete
-3. Click "Watch Mode" button to enable (button becomes checkable and highlighted)
-4. Make changes to your song directory (add/edit/delete songs)
-5. Changes are automatically detected and processed
-6. Click "Watch Mode" again to disable when done
-
-**What's Monitored**:
-- **Created** - New .txt files or folders → scheduled for scanning and cache update
-- **Modified** - .txt/.mp3/.wav files → gap detection automatically queued
-- **Deleted** - Songs removed → cache entries deleted, UI updated
-- **Moved/Renamed** - Songs relocated → treated as delete + create
-
-**Performance**:
-- Uses OS-native filesystem monitoring (Windows ReadDirectoryChangesW, macOS FSEvents, Linux inotify)
-- Default 500ms debounce prevents excessive processing during bulk operations
-- Ignored patterns (.tmp, ~, .crdownload, .part) filter out temporary files
-- At-most-one detection task per song prevents duplicates
+2. Click "Watch Mode" button to enable
+3. App automatically detects:
+   - **New songs** → scanned and added
+   - **Modified files** → gap detection queued
+   - **Deleted songs** → removed from cache
+4. Click "Watch Mode" again to disable
 
 **Configuration** (`config.ini`):
 ```ini
 [WatchMode]
-watch_mode_default = false         # Set to true to auto-enable on directory load
-watch_debounce_ms = 500            # Wait time after last change before processing
-watch_ignore_patterns = .tmp,~,.crdownload,.part  # Comma-separated patterns to ignore
+watch_mode_default = false         # Auto-enable on directory load
+watch_debounce_ms = 500            # Wait time after changes before processing
 ```
-
-> ⚠️ **Note**: Watch Mode requires the `watchdog` library. This is included in the standard installation and executables.
 
 ## 🚀 Quick Start
 
-### **Option 1: Download Executable (Easiest)**
+### **Download & Install**
 
-1. Download the latest release for your platform:
-   - [Windows Release](https://github.com/vtietz/usdxfixgapgui/releases) (.exe) - **Fully tested and supported**
-   - [Linux Release](https://github.com/vtietz/usdxfixgapgui/releases) (AppImage) - ⚠️ **Experimental** (not tested)
-   - macOS - ⚠️ **Experimental** (not tested, no pre-built releases yet)
+1. **Download** the latest release for your platform:
+   - [**Windows**](https://github.com/vtietz/usdxfixgapgui/releases) - Fully tested and supported
+   - [Linux/macOS](https://github.com/vtietz/usdxfixgapgui/releases) - Experimental builds
 
-   > **Note:** Linux and macOS versions are provided as-is with limited testing. GPU acceleration on these platforms is experimental. Please report any issues on GitHub.
+2. **Install FFmpeg** (required for audio processing):
+   - **Windows**: Download from [ffmpeg.org](https://www.ffmpeg.org/download.html) and add to PATH
+   - **Linux**: `sudo apt install ffmpeg` or `sudo pacman -S ffmpeg`
+   - **macOS**: `brew install ffmpeg`
 
-2. **Windows Defender Notice**: The executable may trigger a false positive warning (common with PyInstaller applications). This is safe - the source code is open for inspection. If concerned, [scan the file on VirusTotal](https://www.virustotal.com/) or build from source yourself.
+3. **Run the application**:
+   - Windows: Extract and run `usdxfixgap.exe`
+   - Linux: Make executable (`chmod +x`) and run the AppImage
+   - First launch shows health check - verifying PyTorch, GPU, and FFmpeg
+   - App starts automatically when ready
 
-3. **Install FFmpeg** (required):
-   - Windows: Download from [ffmpeg.org](https://www.ffmpeg.org/download.html) and add to PATH
-   - Linux: `sudo apt install ffmpeg` or `sudo pacman -S ffmpeg`
-   - macOS: `brew install ffmpeg`
-
-4. **Run the application**:
-   - On first launch, you'll see a startup check verifying system requirements
-   - The splash screen shows:
-     - ✓ PyTorch availability (bundled with exe)
-     - ✓ CUDA/GPU detection
-     - ✓ FFmpeg availability
-     - Detection mode (GPU/CPU/Disabled)
-   - If requirements are missing, you'll see clear instructions
-   - The app will start automatically when ready
-
-5. **(Optional) Enable GPU Acceleration**:
+4. **(Optional) Enable GPU Acceleration**:
    - Have an NVIDIA GPU with driver ≥531?
-   - The app will automatically offer to download GPU Pack (~1GB) for 5-10x faster processing
-   - [→ GPU Acceleration Guide](docs/configuration.md#gpu-acceleration-settings)
+   - App will offer to download GPU Pack (~1GB) for 5-10x faster processing
+   - See [GPU Setup Guide](docs/configuration.md#gpu-acceleration-settings)
 
-### **Option 2: Run from Source (For Developers)**
-
-#### **Easy Way (Recommended)**
-
-```bash
-# Windows
-.\run.bat start
-
-# Linux/macOS
-./run.sh start
-```
-
-The run script automatically handles environment setup and dependencies!
-
-#### **Manual Setup**
-
-<details>
-<summary>Click to expand manual installation steps</summary>
-
-1. **Create virtual environment:**
-   ```bash
-   # Windows (prefer py launcher)
-   py -3.10 -m venv .venv
-   # Or fallback to:
-   python -m venv .venv
-
-   # Linux/macOS
-   python3 -m venv .venv
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   # Windows
-   .venv\Scripts\pip.exe install -r requirements.txt
-
-   # Linux/macOS
-   .venv/bin/pip install -r requirements.txt
-   ```
-
-3. **Run the application:**
-   ```bash
-   # Windows
-   cd src
-   .venv\Scripts\python.exe usdxfixgap.py
-
-   # Linux/macOS
-   cd src
-   .venv/bin/python usdxfixgap.py
-   ```
-
-4. **(Optional) GPU Setup:**
-   - See [GPU Acceleration Guide](docs/configuration.md#gpu-acceleration-settings) for CUDA installation
-
-</details>
-
-### **Using the Run Scripts**
-
-The provided run scripts (`run.bat` / `run.sh`) make development easy:
-
-```bash
-# Show available commands
-.\run.bat          # Windows
-./run.sh           # Linux/macOS
-
-# Common commands
-.\run.bat start    # Start the application
-.\run.bat test     # Run tests
-.\run.bat install  # Install/update dependencies
-.\run.bat clean    # Clean cache files
-.\run.bat info     # Show environment info
-```
-
-> 💡 **Note**: Run scripts automatically detect NVIDIA GPU and install CUDA support if available!
+> **Note**: Windows Defender may show a false positive (common with PyInstaller). The executable is safe - source code is open for inspection.
 
 ## ⚙️ Configuration
 
-Configuration is stored in `config.ini` (location: `%LOCALAPPDATA%\USDXFixGap\config.ini` on Windows, `~/.local/share/USDXFixGap/config.ini` on Linux).
+Configuration file: `%LOCALAPPDATA%\USDXFixGap\config.ini` (Windows) or `~/.local/share/USDXFixGap/config.ini` (Linux)
 
-Most settings can be adjusted through the GUI (File → Preferences). For detailed explanation of all configuration options, see the **[Configuration Reference](docs/configuration.md)**.
+Most settings can be adjusted through **File → Preferences** in the GUI.
 
-### **Quick Configuration Tips**
+### **Common Settings**
 
-**Enable GPU Acceleration** (5-10x faster):
+**Enable GPU Acceleration**:
 ```ini
 [General]
-GpuOptIn = true
+gpu_opt_in = true
+```
+
+**Adjust Gap Tolerance** (default: 500ms):
+```ini
+[Detection]
+gap_tolerance = 500    # Milliseconds
 ```
 
 **Change Detection Method**:
@@ -298,172 +156,57 @@ GpuOptIn = true
 method = mdx    # Recommended: mdx, spleeter (legacy), hq_segment (legacy)
 ```
 
-**Adjust Gap Tolerance** (default: 500ms):
-```ini
-[Detection]
-gap_tolerance = 500    # Milliseconds - gaps larger than this are flagged as MISMATCH
-```
+### **Advanced: Environment Variables**
 
-**Suppress GPU Pack Dialog** (if you don't want GPU acceleration):
-```ini
-[General]
-GpuPackDialogDontShow = true
-```
+For portable deployments or power users:
 
-**Watch Mode Settings**:
-```ini
-[WatchMode]
-watch_mode_default = false         # Auto-enable watch mode on directory load
-watch_debounce_ms = 500            # Milliseconds to wait after file changes before processing
-watch_ignore_patterns = .tmp,~,.crdownload,.part  # File patterns to ignore
-```
-
-### **Advanced Configuration (Environment Variables)**
-
-For power users and portable deployments, the runtime hook supports environment variables:
-
-**`USDXFIXGAP_GPU_PACK_DIR`** - Override GPU Pack location:
 ```bash
-# Windows
+# Override GPU Pack location
 set USDXFIXGAP_GPU_PACK_DIR=E:\GPUPacks\torch-2.4.1-cu121
-usdxfixgap.exe
 
-# Linux/macOS
-export USDXFIXGAP_GPU_PACK_DIR=/path/to/gpu/pack
-./usdxfixgap
-```
-
-**`USDXFIXGAP_DATA_DIR`** - Override config directory:
-```bash
-# Use custom data location (overrides portable mode detection)
+# Override config directory
 set USDXFIXGAP_DATA_DIR=D:\MyCustomConfig
-```
 
-**`USDXFIXGAP_FORCE_CPU`** - Disable GPU Pack entirely:
-```bash
-# Force CPU mode (useful for troubleshooting)
+# Force CPU mode (disable GPU)
 set USDXFIXGAP_FORCE_CPU=1
 ```
 
-**Portable Mode** (onedir builds automatically self-contained):
-- Onedir builds (folder with `_internal/` subdirectory) automatically use app directory for all files
-- No user profile access unless explicitly overridden via environment variables
-- See **[Portable Mode Guide](docs/portable-mode.md)** for deployment details
+**Portable Mode**: Onedir builds (folder with `_internal/` subdirectory) automatically use app directory for all files instead of user profile.
 
-See **[Configuration Reference](docs/configuration.md)** for all available settings and their valid values.
+See [Configuration Reference](docs/configuration.md) for all settings.
 
 ## 🛠️ For Developers
 
-Want to contribute or understand how the code works?
+**Documentation**:
+- [Development Guide](docs/DEVELOPMENT.md) - Setup, testing, building
+- [Architecture Guide](docs/architecture.md) - System design, patterns
+- [Coding Standards](docs/coding-standards.md) - Code quality guidelines
+- [Configuration Reference](docs/configuration.md) - Complete settings documentation
+- [Portable Mode Guide](docs/portable-mode.md) - Deployment options
 
-### **Documentation**
-
-- **[Development Guide](docs/DEVELOPMENT.md)** - Setup, testing, code quality tools, building executables
-- **[Architecture Guide](docs/architecture.md)** - System design, component responsibilities, signal patterns
-- **[Coding Standards](docs/coding-standards.md)** - DRY principles, SOLID patterns, testing guidelines
-- **[Configuration Reference](docs/configuration.md)** - Complete config.ini settings documentation (includes GPU setup)
-- **[Portable Mode Guide](docs/portable-mode.md)** - Portable deployment, environment variables, GPU Pack priority system
-- **[Performance Optimization](docs/performance-optimization.md)** - Qt TableView optimization patterns
-
-### **Development Setup**
-
+**Quick Start**:
 ```bash
-# Clone repository
 git clone https://github.com/vtietz/usdxfixgapgui.git
 cd usdxfixgapgui
-
-# Install dependencies (auto-detects GPU)
 .\run.bat install     # Windows
 ./run.sh install      # Linux/macOS
-
-# Install development tools (testing, code analysis)
-.\run.bat install-dev # Windows
-./run.sh install-dev  # Linux/macOS
-
-# Run tests
-.\run.bat test        # 78 tests should pass
-
-# Run code quality analysis
-.\run.bat analyze     # Check complexity and style
-
-# Start development
-.\run.bat start
+.\run.bat test        # Run tests
+.\run.bat start       # Start development
 ```
 
-**For detailed setup and workflow**, see the **[Development Guide](docs/DEVELOPMENT.md)**.
-
-### **Project Structure**
-
+**Project Structure**:
 ```
 src/
-├── actions/       # Orchestration layer (business workflow)
-├── services/      # Business logic (stateless operations)
+├── actions/       # Business workflow orchestration
+├── services/      # Stateless business logic
 ├── model/         # Data structures and state
-├── ui/            # PySide6 user interface components
-├── workers/       # Background tasks and async operations
-├── utils/         # Shared utilities and helpers
-└── app/           # Application state and DI container
+├── ui/            # PySide6 interface components
+├── workers/       # Background tasks
+├── utils/         # Shared utilities
+└── app/           # Application state (DI container)
 ```
 
-### **Architecture Highlights**
-
-- **Layered Architecture**: Models → Services → Actions → UI
-- **Dependency Injection**: AppData container for loose coupling
-- **Signal-Based Communication**: Asynchronous event-driven updates
-- **Worker Queue**: Background task management with cancellation
-- **Provider Pattern**: Pluggable detection methods (MDX, Spleeter, HQ Segment)
-
-### **Testing**
-
-All code changes should include tests:
-
-```bash
-# Run all tests
-.\run.bat test
-
-# Run specific test file
-.\run.bat pytest tests/test_gap_actions_detect_gap_finished.py -v
-
-# Check test coverage
-.\run.bat pytest --cov=src tests/
-```
-
-See [Coding Standards](docs/coding-standards.md) for testing guidelines.
-
-### **Building Executables**
-
-```bash
-# Windows
-build.bat
-
-# Linux/macOS
-./build_linux.sh    # or ./build_macos.sh
-```
-
-Output in `build/usdxfixgap/` directory.
-
-## 🤝 Contributing
-
-Contributions are welcome! Whether it's bug reports, feature requests, or code contributions:
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make your changes** (follow [Coding Standards](docs/coding-standards.md))
-4. **Run tests**: `.\run.bat test` (all tests must pass)
-5. **Commit your changes**: `git commit -m 'Add amazing feature'`
-6. **Push to branch**: `git push origin feature/amazing-feature`
-7. **Open a Pull Request**
-
-### **Reporting Issues**
-
-Found a bug? Have a suggestion?
-
-1. Check [existing issues](https://github.com/vtietz/usdxfixgapgui/issues)
-2. Create a new issue with:
-   - Clear description of the problem/request
-   - Steps to reproduce (for bugs)
-   - Your environment (OS, Python version, GPU if relevant)
-   - Relevant logs (from log viewer or `gpu_diagnostics.txt`)
+See [Development Guide](docs/DEVELOPMENT.md) for complete details.
 
 ## 📄 License
 
@@ -471,20 +214,18 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## 🙏 Acknowledgements
 
-This project wouldn't be possible without these amazing open-source projects:
+Built with these amazing open-source projects:
+- [**Demucs**](https://github.com/facebookresearch/demucs) by Meta Research - AI music source separation
+- [**PyTorch**](https://pytorch.org/) - Deep learning framework
+- [**FFmpeg**](https://github.com/FFmpeg/FFmpeg) - Audio processing
+- [**PySide6**](https://www.qt.io/qt-for-python) - Cross-platform GUI
+- [**USDB**](https://usdb.animux.de/) - Community karaoke database
+- [**USDB Syncer**](https://github.com/bohning/usdb_syncer) - Song download tool
 
-- **[Demucs](https://github.com/facebookresearch/demucs)** by Meta Research - State-of-the-art music source separation
-- **[PyTorch](https://pytorch.org/)** - Deep learning framework powering AI detection
-- **[Spleeter](https://github.com/deezer/spleeter)** by Deezer - Original vocal separation (legacy support)
-- **[FFmpeg](https://github.com/FFmpeg/FFmpeg)** - Audio processing and normalization
-- **[PySide6](https://www.qt.io/qt-for-python)** - Cross-platform GUI framework
-- **[USDB](https://usdb.animux.de/)** - Community karaoke song database
-- **[USDB Syncer](https://github.com/bohning/usdb_syncer)** - Download tool for USDB songs
-
-Special thanks to the UltraStar Deluxe community for keeping karaoke alive! 🎤
+Special thanks to the UltraStar Deluxe community! 🎤
 
 ---
 
 **Made with ❤️ for the UltraStar community**
 
-If this tool helped you fix your songs, consider ⭐ starring the repo!
+⭐ Star the repo if this tool helped you!
