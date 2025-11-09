@@ -475,14 +475,62 @@ class Config(QObject):
         }
         return levels.get(level_str.upper(), logging.INFO)  # Default to INFO if invalid
 
+    def _update_paths_section(self, config: configparser.ConfigParser):
+        """Update Paths section in config."""
+        if not config.has_section("Paths"):
+            config.add_section("Paths")
+        old_last_dir = config.get("Paths", "last_directory", fallback="")
+        new_last_dir = self._make_path_portable(self.last_directory or "")
+        if old_last_dir != new_last_dir:
+            logger.debug(f"Config.save(): Updating last_directory: '{old_last_dir}' → '{new_last_dir}'")
+        config["Paths"]["last_directory"] = new_last_dir
+
+    def _update_general_section(self, config: configparser.ConfigParser):
+        """Update General section in config."""
+        if not config.has_section("General"):
+            config.add_section("General")
+        config["General"]["gpu_opt_in"] = "true" if self.gpu_opt_in else "false"
+        config["General"]["gpu_flavor"] = self.gpu_flavor
+        config["General"]["gpu_pack_installed_version"] = self.gpu_pack_installed_version
+        config["General"]["gpu_pack_path"] = self._make_path_portable(self.gpu_pack_path)
+        config["General"]["gpu_last_health"] = self.gpu_last_health
+        config["General"]["gpu_last_error"] = self.gpu_last_error
+        config["General"]["gpu_pack_dialog_dont_show"] = "true" if self.gpu_pack_dialog_dont_show else "false"
+        config["General"]["gpu_pack_dont_ask"] = "true" if self.gpu_pack_dont_ask else "false"
+        config["General"]["splash_dont_show_health"] = "true" if self.splash_dont_show_health else "false"
+        config["General"]["prefer_system_pytorch"] = "true" if self.prefer_system_pytorch else "false"
+        config["General"]["song_list_batch_size"] = str(self.song_list_batch_size)
+
+    def _update_window_section(self, config: configparser.ConfigParser):
+        """Update Window section in config."""
+        if not config.has_section("Window"):
+            config.add_section("Window")
+        config["Window"]["width"] = str(self.window_width)
+        config["Window"]["height"] = str(self.window_height)
+        config["Window"]["x"] = str(self.window_x)
+        config["Window"]["y"] = str(self.window_y)
+        config["Window"]["maximized"] = "true" if self.window_maximized else "false"
+        config["Window"]["main_splitter_pos"] = ",".join(str(x) for x in self.main_splitter_pos)
+        config["Window"]["second_splitter_pos"] = ",".join(str(x) for x in self.second_splitter_pos)
+
+    def _create_backup(self):
+        """Create backup of config file before modifying."""
+        import shutil
+
+        if os.path.exists(self.config_path):
+            backup_path = self.config_path + ".bak"
+            try:
+                shutil.copy2(self.config_path, backup_path)
+                logger.debug(f"Created backup at {backup_path}")
+            except Exception as e:
+                logger.warning(f"Failed to create backup: {e}")
+
     def save(self):
         """Save current configuration to file with minimal mutation.
 
         Re-reads the existing config file, updates ONLY managed keys,
         creates a backup, and preserves all unrelated sections/keys.
         """
-        import shutil
-
         logger.debug(f"Config.save() called: last_directory property = '{self.last_directory}'")
 
         # Create a fresh ConfigParser to read the current file state
@@ -495,49 +543,12 @@ class Config(QObject):
                 logger.warning(f"Failed to re-read config file: {e}. Will create fresh config.")
 
         # Create backup before modifying
-        if os.path.exists(self.config_path):
-            backup_path = self.config_path + ".bak"
-            try:
-                shutil.copy2(self.config_path, backup_path)
-                logger.debug(f"Created backup at {backup_path}")
-            except Exception as e:
-                logger.warning(f"Failed to create backup: {e}")
+        self._create_backup()
 
-        # Update ONLY managed keys (minimal mutation)
-        # 1. Paths section - last_directory (make relative in portable mode)
-        if not current.has_section("Paths"):
-            current.add_section("Paths")
-        old_last_dir = current.get("Paths", "last_directory", fallback="")
-        new_last_dir = self._make_path_portable(self.last_directory or "")
-        if old_last_dir != new_last_dir:
-            logger.debug(f"Config.save(): Updating last_directory: '{old_last_dir}' → '{new_last_dir}'")
-        current["Paths"]["last_directory"] = new_last_dir
-
-        # 2. General section - GPU Pack settings (make gpu_pack_path relative in portable mode)
-        if not current.has_section("General"):
-            current.add_section("General")
-        current["General"]["gpu_opt_in"] = "true" if self.gpu_opt_in else "false"
-        current["General"]["gpu_flavor"] = self.gpu_flavor
-        current["General"]["gpu_pack_installed_version"] = self.gpu_pack_installed_version
-        current["General"]["gpu_pack_path"] = self._make_path_portable(self.gpu_pack_path)
-        current["General"]["gpu_last_health"] = self.gpu_last_health
-        current["General"]["gpu_last_error"] = self.gpu_last_error
-        current["General"]["gpu_pack_dialog_dont_show"] = "true" if self.gpu_pack_dialog_dont_show else "false"
-        current["General"]["gpu_pack_dont_ask"] = "true" if self.gpu_pack_dont_ask else "false"
-        current["General"]["splash_dont_show_health"] = "true" if self.splash_dont_show_health else "false"
-        current["General"]["prefer_system_pytorch"] = "true" if self.prefer_system_pytorch else "false"
-        current["General"]["song_list_batch_size"] = str(self.song_list_batch_size)
-
-        # 3. Window section - geometry
-        if not current.has_section("Window"):
-            current.add_section("Window")
-        current["Window"]["width"] = str(self.window_width)
-        current["Window"]["height"] = str(self.window_height)
-        current["Window"]["x"] = str(self.window_x)
-        current["Window"]["y"] = str(self.window_y)
-        current["Window"]["maximized"] = "true" if self.window_maximized else "false"
-        current["Window"]["main_splitter_pos"] = ",".join(str(x) for x in self.main_splitter_pos)
-        current["Window"]["second_splitter_pos"] = ",".join(str(x) for x in self.second_splitter_pos)
+        # Update managed sections
+        self._update_paths_section(current)
+        self._update_general_section(current)
+        self._update_window_section(current)
 
         # Write back to file
         try:
