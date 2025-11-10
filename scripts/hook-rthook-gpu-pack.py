@@ -421,6 +421,12 @@ def setup_gpu_pack():
     if has_torchaudio:
         redirected_modules.add("torchaudio")
 
+    # Disable PyTorch compilation features that cause circular imports in frozen apps
+    # This must be done BEFORE torch is imported to prevent einops/dynamo issues
+    os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # macOS compatibility
+    os.environ["TORCH_COMPILE_DISABLE"] = "1"  # Disable torch.compile
+    os.environ["TORCHDYNAMO_DISABLE"] = "1"  # Disable dynamo (prevents circular import)
+
     # Insert MetaPathFinder at index 0 to beat FrozenImporter
     finder = GPUPackImportFinder(pack_dir, redirected_modules)
     sys.meta_path.insert(0, finder)
