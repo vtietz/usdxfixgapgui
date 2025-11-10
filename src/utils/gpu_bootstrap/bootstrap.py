@@ -12,6 +12,8 @@ from typing import Tuple, List
 from .orchestrator import enable_runtime
 from .system_pytorch_detector import detect_system_pytorch_cuda
 from .pack_utils import auto_recover_gpu_pack_config
+from .types import GPUStatus
+from .validation import validate_cuda_torch, validate_torchaudio
 
 logger = logging.getLogger(__name__)
 
@@ -175,83 +177,40 @@ def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
     return success
 
 
-def validate_cuda_torch(expected_cuda: str = "12") -> Tuple[bool, str]:
-    """
-    Validate that torch.cuda is available and matches expected CUDA version.
+## moved to validation.py
 
-    Args:
-        expected_cuda: Expected CUDA version (e.g., "12.1" or "12" for any 12.x)
 
-    Returns:
-        Tuple of (success, error_message)
-    """
+def _to_gpu_status_from_context(source: str, pack_dir: Path | None, error: str | None = None) -> GPUStatus:
+    """Build a GPUStatus snapshot from current torch context."""
+    torch_version = None
+    cuda_version = None
+    cuda_available = False
     try:
         import torch
 
-        if not torch.cuda.is_available():
-            return False, "torch.cuda.is_available() returned False"
+        torch_version = getattr(torch, "__version__", None)
+        cuda_version = getattr(torch.version, "cuda", None)
+        cuda_available = bool(getattr(torch.cuda, "is_available", lambda: False)())
+    except Exception:
+        pass
 
-        cuda_version = torch.version.cuda
-        if not cuda_version:
-            return False, "CUDA version is None"
-
-        # Check version match (allow "12" to match "12.1", "12.4", etc.)
-        if not cuda_version.startswith(expected_cuda.split(".")[0]):
-            return False, f"CUDA version mismatch: expected {expected_cuda}, got {cuda_version}"
-
-        # Run smoke test
-        try:
-            device = torch.device("cuda:0")
-            test_tensor = torch.zeros(10, 10, device=device)
-            result = test_tensor.sum().item()
-            if result != 0.0:
-                return False, f"CUDA smoke test failed: expected 0.0, got {result}"
-        except Exception as e:
-            return False, f"CUDA smoke test error: {e}"
-
-        return True, ""
-
-    except Exception as e:
-        return False, f"Failed to validate CUDA: {e}"
+    enabled = bool(cuda_available)
+    return GPUStatus(
+        enabled=enabled,
+        source=source,
+        cuda_available=cuda_available,
+        torch_version=torch_version,
+        cuda_version=cuda_version,
+        error=error,
+        pack_dir=pack_dir,
+    )
 
 
-def validate_torchaudio() -> Tuple[bool, str]:
+def bootstrap_gpu(config) -> GPUStatus:
     """
-    Validate that torchaudio can be imported and its DLLs load correctly.
+    Centralized GPU bootstrap returning a GPUStatus.
 
-    This is critical for MDX gap detection which uses torchaudio spectrogram.
-
-    Returns:
-        Tuple of (success, error_message)
-    """
-    try:
-        import torchaudio
-
-        # Try to access a function that requires DLL loading
-        _ = torchaudio.transforms.Spectrogram
-
-        return True, ""
-
-    except Exception as e:
-        return False, f"torchaudio import/DLL error: {e}"
-
-
-def bootstrap_and_maybe_enable_gpu(config) -> bool:
-    """
-    Main GPU bootstrap entry point - orchestrates GPU Pack activation and validation.
-
-    Workflow:
-    1. Skip if GPU explicitly disabled
-    2. **Add GPU Pack to sys.path FIRST** if configured (before any torch imports)
-    3. Try system PyTorch+CUDA (only if prefer_system_pytorch=true AND not frozen)
-    4. Validate CUDA and torchaudio
-    5. Fall back to CPU if GPU Pack fails
-
-    Args:
-        config: Application config object
-
-    Returns:
-        True if GPU is enabled and validated, False otherwise
+    Preserves existing behavior: GPU if available; CPU fallback if not.
     """
     global ADDED_DLL_DIRS
 
@@ -263,7 +222,9 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
         gpu_opt_in = getattr(config, "gpu_opt_in", None)
         if _is_gpu_disabled(config):
             logger.debug("GPU acceleration explicitly disabled (gpu_opt_in=false)")
-            return False
+            status = _to_gpu_status_from_context("cpu", None)
+            logger.info(status.as_structured_log())
+            return status
 
         # CRITICAL: Add GPU Pack to sys.path IMMEDIATELY if configured
         # This must happen BEFORE any torch imports (including system check)
@@ -287,15 +248,33 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
         # Note: GPU Pack paths are already in sys.path, so if GPU Pack exists,
         # its torch will be imported here instead of venv's torch
         if _try_system_pytorch_if_enabled(config, gpu_opt_in):
-            return True
+            status = _to_gpu_status_from_context("system", pack_dir)
+            logger.info(status.as_structured_log())
+            return status
 
         # STEP 2: Validate GPU Pack (paths already added above)
         if not pack_dir or not pack_dir.exists():
             logger.debug("No GPU Pack configured or pack directory not found")
-            return False
+            status = _to_gpu_status_from_context("cpu", None)
+            logger.info(status.as_structured_log())
+            return status
 
-        return _validate_pack_and_update_config(config, pack_dir, gpu_flavor, expected_cuda)
+        success = _validate_pack_and_update_config(config, pack_dir, gpu_flavor, expected_cuda)
+        if success:
+            status = _to_gpu_status_from_context("pack", pack_dir)
+        else:
+            status = _to_gpu_status_from_context("cpu", pack_dir, error=getattr(config, "gpu_last_error", None))
+        logger.info(status.as_structured_log())
+        return status
 
     except Exception as e:
         logger.error(f"GPU bootstrap error: {e}", exc_info=True)
-        return False
+        status = _to_gpu_status_from_context("cpu", None, error=str(e))
+        logger.info(status.as_structured_log())
+        return status
+
+
+def bootstrap_and_maybe_enable_gpu(config) -> bool:
+    """Backward-compatible wrapper returning bool for existing callers."""
+    status = bootstrap_gpu(config)
+    return status.enabled

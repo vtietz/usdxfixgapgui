@@ -70,3 +70,28 @@ class BootstrapResult:
             errors.extend(self.diagnostics)
 
         return " | ".join(errors) if errors else "No errors"
+
+
+@dataclass
+class GPUStatus:
+    """Concise status object for high-level app usage.
+
+    This is a simplified view derived from BootstrapResult so callers (e.g. main app)
+    can make decisions without parsing multiple structures.
+    """
+
+    enabled: bool                # True if GPU (CUDA torch) validated
+    source: str                  # 'pack' | 'system' | 'cpu'
+    cuda_available: bool         # torch.cuda.is_available() outcome when torch imported
+    torch_version: Optional[str] = None
+    cuda_version: Optional[str] = None
+    error: Optional[str] = None
+    pack_dir: Optional[Path] = None
+    diagnostics: List[str] = field(default_factory=list)
+
+    def as_structured_log(self) -> str:
+        return (
+            f"GPUStatus enabled={self.enabled} source={self.source} cuda_available={self.cuda_available} "
+            f"torch_version={self.torch_version} cuda_version={self.cuda_version} pack_dir={self.pack_dir} "
+            f"error={self.error} diagnostics={'||'.join(self.diagnostics) if self.diagnostics else 'none'}"
+        )

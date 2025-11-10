@@ -16,10 +16,9 @@ Typed facade:
 from .bootstrap import (
     bootstrap_and_maybe_enable_gpu,
     enable_gpu_runtime,
-    validate_cuda_torch,
-    validate_torchaudio,
     ADDED_DLL_DIRS,
 )
+from .validation import validate_cuda_torch, validate_torchaudio
 
 # Staged facade API
 from .facade import enable
