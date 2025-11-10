@@ -1,8 +1,11 @@
 import os
+import logging
 from PySide6.QtWidgets import QLabel, QWidget, QSizePolicy
 from PySide6.QtGui import QPainter, QPen, QPixmap, QColor
 from PySide6.QtCore import Qt, Signal, QEvent
 from ui.mediaplayer.gap_marker_colors import PLAYHEAD_COLOR, DETECTED_GAP_COLOR, REVERT_GAP_COLOR
+
+logger = logging.getLogger(__name__)
 
 
 class WaveformWidget(QLabel):
@@ -52,17 +55,17 @@ class WaveformWidget(QLabel):
 
         # 2. Draw gap markers if duration is known
         if self.duration_ms > 0:
-            # Draw revert/original gap marker (gray, dashed, decent)
+            # Draw revert/original gap marker (gray, dashed)
             if self.original_gap_ms is not None:
                 original_x = int((self.original_gap_ms / self.duration_ms) * overlay_width)
-                pen = QPen(REVERT_GAP_COLOR, 2, Qt.PenStyle.DashLine)  # Gray dashed
+                pen = QPen(REVERT_GAP_COLOR, 2, Qt.PenStyle.DashLine)
                 painter.setPen(pen)
                 painter.drawLine(original_x, 0, original_x, overlay_height)
 
-            # Draw detected gap marker (green, solid, visible)
+            # Draw detected gap marker (blue, solid, thicker)
             if self.detected_gap_ms is not None:
                 detected_x = int((self.detected_gap_ms / self.duration_ms) * overlay_width)
-                pen = QPen(DETECTED_GAP_COLOR, 3)  # Green solid, thicker
+                pen = QPen(DETECTED_GAP_COLOR, 3)
                 painter.setPen(pen)
                 painter.drawLine(detected_x, 0, detected_x, overlay_height)
 
@@ -110,7 +113,7 @@ class WaveformWidget(QLabel):
 
     def update_position(self, position, duration):
         """Update playhead position without affecting gap marker duration.
-        
+
         Args:
             position: Current playback position in milliseconds
             duration: Current media duration in milliseconds (for playhead normalization only)
@@ -129,9 +132,14 @@ class WaveformWidget(QLabel):
             original_gap_ms: Original/revert gap position in milliseconds (gray dashed marker)
             detected_gap_ms: AI-detected gap position in milliseconds (green solid marker)
         """
+        logger.debug(
+            f"[MARKER DEBUG] set_gap_markers() called: original={original_gap_ms}, detected={detected_gap_ms}, "
+            f"current duration_ms={self.duration_ms}"
+        )
         self.original_gap_ms = original_gap_ms
         self.detected_gap_ms = detected_gap_ms
         self.overlay.update()  # Trigger repaint to show markers
+        self.update()  # Also update the main widget to ensure proper sync
 
     def load_waveform(self, file: str | None):
         if file and os.path.exists(file):

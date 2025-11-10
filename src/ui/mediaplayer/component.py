@@ -239,22 +239,16 @@ class MediaPlayerComponent(QWidget):
         self.update_ui()
         self.update_player_files()
 
-        # Track B: Set waveform duration immediately for correct gap marker positioning
-        # Use song metadata to avoid waiting for waveform files to load
-        if song.duration_ms and song.duration_ms > 0:
-            self.waveform_widget.duration_ms = song.duration_ms
-        elif song.gap_info and song.gap_info.duration and song.gap_info.duration > 0:
-            self.waveform_widget.duration_ms = song.gap_info.duration
-
-        # Track B: Update gap markers from GapState
-        if hasattr(self._data, "gap_state") and self._data.gap_state:
+        # Update gap markers from current song's gap_info
+        # Note: Always read from song.gap_info, never from global gap_state which may be stale
+        if song.gap_info:
             self.waveform_widget.set_gap_markers(
-                original_gap_ms=self._data.gap_state.saved_gap_ms, detected_gap_ms=self._data.gap_state.detected_gap_ms
+                original_gap_ms=song.gap_info.original_gap, detected_gap_ms=song.gap_info.detected_gap
             )
         else:
-            self.waveform_widget.set_gap_markers(None, None)
-
-        # Defer async operations slightly to let UI render selection first
+            self.waveform_widget.set_gap_markers(
+                None, None
+            )  # Defer async operations slightly to let UI render selection first
         # This eliminates any perceived lag from event loop contention
         from PySide6.QtCore import QTimer
 
@@ -296,121 +290,125 @@ class MediaPlayerComponent(QWidget):
         self.update_ui()
         self.update_player_files()
 
-        # Track B: Update GapState when song data changes (e.g., after metadata reload)
-        if hasattr(self._data, "gap_state") and self._data.gap_state:
-            # Update GapState with latest gap_info data
-            if updated_song.gap_info:
-                # Use detected_gap (beat-corrected integer) for waveform display, not detected_gap_ms (raw float)
-                self._data.gap_state.detected_gap_ms = updated_song.gap_info.detected_gap
-                self._data.gap_state.saved_gap_ms = updated_song.gap_info.original_gap
-
-            # Refresh gap markers on waveform
+        # Update gap markers from updated song's gap_info
+        if updated_song.gap_info:
             self.waveform_widget.set_gap_markers(
-                original_gap_ms=self._data.gap_state.saved_gap_ms, detected_gap_ms=self._data.gap_state.detected_gap_ms
+                original_gap_ms=updated_song.gap_info.original_gap, detected_gap_ms=updated_song.gap_info.detected_gap
             )
+        else:
+            self.waveform_widget.set_gap_markers(None, None)
 
     def update_player_files(self):
         """Load the appropriate media files based on current state"""
-        song: Song | None = self._song
+        song = self._song
         if not song:
-            logger.debug("No song - not loading media")
-            self.player.load_media(None)
-            self.waveform_widget.load_waveform(None)
-            self.waveform_widget.clear_placeholder()
+            self._clear_player_ui()
             return
 
-        # Avoid re-loading media while a processing task has just been queued or is running.
-        # The QUEUED state is emitted immediately before starting normalization and can
-        # cause the player to re-open the file, leading to Windows file locks.
-        # PROCESSING state means a worker is actively modifying the file.
-        # Skip loading during QUEUED/PROCESSING to allow background workers to operate safely.
+        if self._should_skip_loading(song):
+            return
+
+        paths = self._get_song_paths(song)
+        if not paths:
+            return
+
+        audio_status = self.player.get_audio_status()
+        if audio_status == AudioFileStatus.AUDIO:
+            self._load_audio_mode(song, paths)
+        else:
+            self._load_vocals_mode(paths)
+
+    def _clear_player_ui(self):
+        """Clear all player UI elements"""
+        logger.debug("No song - not loading media")
+        self.player.load_media(None)
+        self.waveform_widget.load_waveform(None)
+        self.waveform_widget.clear_placeholder()
+
+    def _should_skip_loading(self, song: Song) -> bool:
+        """Check if media loading should be skipped"""
+        # Skip during QUEUED/PROCESSING to prevent file locks
         if song.status in (SongStatus.QUEUED, SongStatus.PROCESSING):
             logger.debug(f"Song is {song.status.name}; not loading media to prevent file locks during processing")
             self.player.load_media(None)
-            # Keep waveform as-is; do not reload here
-            return
-        # Check if song has notes attribute but don't prevent playback
-        # This is normal during initial song loading from cache
-        if not hasattr(song, "notes") or song.notes is None:
-            logger.debug(
-                f"Song '{song.title}' does not have notes data yet (loading in progress), will play audio anyway"
-            )
+            return True
 
-        # Get paths using WaveformPathService
+        # Log if notes not loaded yet, but allow playback
+        if not hasattr(song, "notes") or song.notes is None:
+            logger.debug(f"Song '{song.title}' does not have notes data yet (loading in progress), will play anyway")
+
+        return False
+
+    def _get_song_paths(self, song: Song) -> dict | None:
+        """Get file paths for song, return None on error"""
         paths = WaveformPathService.get_paths(song, self._data.tmp_path)
         if not paths:
             logger.error(f"Could not get waveform paths for song: {song.title}")
-            self.player.load_media(None)
-            self.waveform_widget.load_waveform(None)
-            self.waveform_widget.clear_placeholder()
+            self._clear_player_ui()
+        return paths
+
+    def _load_audio_mode(self, song: Song, paths: dict):
+        """Load audio file and waveform"""
+        logger.debug(f"Loading audio file: {paths['audio_file']}")
+        self.player.load_media(paths["audio_file"])
+
+        if os.path.exists(paths["audio_waveform_file"]):
+            self._load_audio_waveform(paths)
+        else:
+            self._show_waveform_placeholder(song)
+
+        self.vocals_btn.setToolTip("")
+
+    def _load_audio_waveform(self, paths: dict):
+        """Load audio waveform and set duration"""
+        from utils.audio import get_audio_duration
+
+        self.waveform_widget.load_waveform(paths["audio_waveform_file"])
+        duration_f = get_audio_duration(paths["audio_file"])
+        if duration_f is not None:
+            self.waveform_widget.duration_ms = int(duration_f)
+
+    def _show_waveform_placeholder(self, song: Song):
+        """Show appropriate placeholder message"""
+        self.waveform_widget.load_waveform(None)
+        if song.status == SongStatus.PROCESSING:
+            self.waveform_widget.set_placeholder("Gap detection in progress…")
+        else:
+            self.waveform_widget.set_placeholder("Loading waveform…")
+
+    def _load_vocals_mode(self, paths: dict):
+        """Load vocals file and waveform"""
+        if not os.path.exists(paths["vocals_file"]):
+            self._show_vocals_missing()
             return
 
-        logger.debug(f"Updating player files. Audio status: {self.player.get_audio_status()}")
+        logger.debug(f"Loading vocals file: {paths['vocals_file']}")
+        self.player.load_media(paths["vocals_file"])
 
-        # Determine which files to load based on audio mode
-        audio_status = self.player.get_audio_status()
+        if os.path.exists(paths["vocals_waveform_file"]):
+            self._load_vocals_waveform(paths)
+        else:
+            self.waveform_widget.load_waveform(None)
+            self.waveform_widget.set_placeholder("Loading waveform…")
 
-        if audio_status == AudioFileStatus.AUDIO:
-            logger.debug(f"Loading audio file: {paths['audio_file']}")
-            # Keep audio playback available even during gap detection (PROCESSING status)
-            self.player.load_media(paths["audio_file"])
+        self.vocals_btn.setToolTip("")
 
-            # Check if audio waveform exists
-            if os.path.exists(paths["audio_waveform_file"]):
-                self.waveform_widget.load_waveform(paths["audio_waveform_file"])
+    def _show_vocals_missing(self):
+        """Show UI for missing vocals file"""
+        logger.debug("Vocals file does not exist")
+        self.player.load_media(None)
+        self.waveform_widget.load_waveform(None)
+        self.waveform_widget.set_placeholder("Run gap detection to generate the vocals waveform.")
+        self.vocals_btn.setToolTip("Run gap detection to extract vocals and generate a waveform.")
 
-                # Track B: Set waveform duration for gap markers from the actual audio file
-                from utils.audio import get_audio_duration
+    def _load_vocals_waveform(self, paths: dict):
+        """Load vocals waveform and set duration"""
+        from utils.audio import get_audio_duration
 
-                duration_f = get_audio_duration(paths["audio_file"])
-                if duration_f is not None:
-                    self.waveform_widget.duration_ms = int(duration_f)
-                    self.waveform_widget.overlay.update()  # Trigger marker redraw
-            else:
-                self.waveform_widget.load_waveform(None)
-                # Show different message during gap detection
-                if song.status == SongStatus.PROCESSING:
-                    self.waveform_widget.set_placeholder("Gap detection in progress…")
-                else:
-                    self.waveform_widget.set_placeholder("Loading waveform…")
-
-            # Clear vocals button tooltip in audio mode
-            self.vocals_btn.setToolTip("")
-
-        else:  # VOCALS mode
-            # Check if vocals file exists
-            vocals_file_exists = os.path.exists(paths["vocals_file"])
-
-            if not vocals_file_exists:
-                # Vocals not extracted yet
-                logger.debug("Vocals file does not exist")
-                self.player.load_media(None)
-                self.waveform_widget.load_waveform(None)
-                self.waveform_widget.set_placeholder("Run gap detection to generate the vocals waveform.")
-                self.vocals_btn.setToolTip("Run gap detection to extract vocals and generate a waveform.")
-            else:
-                # Vocals file exists, load it
-                logger.debug(f"Loading vocals file: {paths['vocals_file']}")
-                self.player.load_media(paths["vocals_file"])
-
-                # Check if vocals waveform exists
-                if os.path.exists(paths["vocals_waveform_file"]):
-                    self.waveform_widget.load_waveform(paths["vocals_waveform_file"])
-
-                    # Track B: Set waveform duration for gap markers from the ORIGINAL audio file
-                    # Gap markers are relative to full song duration, not vocals preview duration
-                    from utils.audio import get_audio_duration
-
-                    duration_f = get_audio_duration(paths["audio_file"])
-                    if duration_f is not None:
-                        self.waveform_widget.duration_ms = int(duration_f)
-                        self.waveform_widget.overlay.update()  # Trigger marker redraw
-                else:
-                    self.waveform_widget.load_waveform(None)
-                    self.waveform_widget.set_placeholder("Loading waveform…")
-
-                # Clear tooltip when vocals exist
-                self.vocals_btn.setToolTip("")
+        self.waveform_widget.load_waveform(paths["vocals_waveform_file"])
+        vocals_duration_f = get_audio_duration(paths["vocals_file"])
+        if vocals_duration_f is not None:
+            self.waveform_widget.duration_ms = int(vocals_duration_f)
 
     def on_selected_songs_changed(self, songs: list):
         """Disable player when multiple songs are selected"""
