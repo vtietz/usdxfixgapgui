@@ -431,22 +431,30 @@ case "$1" in
         git add "$SCRIPT_DIR/VERSION"
         print_success "[2/6] Staged VERSION file"
 
-        git commit -m "Chore: Set version to $VERSION"
-        if [[ $? -ne 0 ]]; then
-            print_error "Failed to commit VERSION file"
-            echo "Note: File may already be committed with this version"
-            exit 1
+        # Check if there are changes to commit
+        if git diff --cached --quiet; then
+            echo "[3/6] VERSION file already committed with this version, skipping commit"
+        else
+            git commit -m "Chore: Set version to $VERSION"
+            if [[ $? -ne 0 ]]; then
+                print_error "Failed to commit VERSION file"
+                exit 1
+            fi
+            print_success "[3/6] Committed VERSION file"
         fi
-        print_success "[3/6] Committed VERSION file"
 
-        # Push commit before creating tag
-        print_info "Pushing commit to remote..."
-        git push
-        if [[ $? -ne 0 ]]; then
-            print_error "Failed to push commit"
-            exit 1
+        # Push commit before creating tag (only if there are unpushed commits)
+        if ! git diff @{upstream}.. --quiet 2>/dev/null; then
+            print_info "Pushing commit to remote..."
+            git push
+            if [[ $? -ne 0 ]]; then
+                print_error "Failed to push commit"
+                exit 1
+            fi
+            print_success "[4/6] Pushed commit to remote"
+        else
+            echo "[4/6] No new commits to push"
         fi
-        print_success "[4/6] Pushed commit to remote"
 
         # Create or overwrite tag (force)
         git tag -f "$VERSION" -m "Release $VERSION"

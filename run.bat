@@ -416,22 +416,32 @@ if /i "%1"=="set-version" (
     git add "%SCRIPT_DIR%VERSION"
     echo [2/5] Staged VERSION file
 
-    git commit -m "Chore: Set version to !VERSION!"
-    if !errorlevel! neq 0 (
-        echo ERROR: Failed to commit VERSION file
-        echo Note: File may already be committed with this version
-        exit /b 1
+    :: Check if there are changes to commit
+    git diff --cached --quiet
+    if !errorlevel! equ 0 (
+        echo [3/5] VERSION file already committed with this version, skipping commit
+    ) else (
+        git commit -m "Chore: Set version to !VERSION!"
+        if !errorlevel! neq 0 (
+            echo ERROR: Failed to commit VERSION file
+            exit /b 1
+        )
+        echo [3/5] Committed VERSION file
     )
-    echo [3/5] Committed VERSION file
 
-    :: Push commit before creating tag
-    echo Pushing commit to remote...
-    git push
+    :: Push commit before creating tag (only if there were changes)
+    git diff @{upstream}.. --quiet >nul 2>nul
     if !errorlevel! neq 0 (
-        echo ERROR: Failed to push commit
-        exit /b 1
+        echo Pushing commit to remote...
+        git push
+        if !errorlevel! neq 0 (
+            echo ERROR: Failed to push commit
+            exit /b 1
+        )
+        echo [4/5] Pushed commit to remote
+    ) else (
+        echo [4/5] No new commits to push
     )
-    echo [4/5] Pushed commit to remote
 
     :: Create or overwrite tag (force)
     git tag -f !VERSION! -m "Release !VERSION!"
