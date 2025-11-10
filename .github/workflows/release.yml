@@ -154,7 +154,7 @@ jobs:
       - name: Package Linux Portable
         run: |
           cd dist
-          tar -czf usdxfixgap-portable-linux.tar.gz usdxfixgap
+          tar -czf ../usdxfixgap-portable-linux.tar.gz usdxfixgap
           cd ..
 
       - name: Build Linux Onefile
@@ -179,7 +179,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-portable
-          path: dist/usdxfixgap-portable-linux.tar.gz
+          path: usdxfixgap-portable-linux.tar.gz
           retention-days: 7
 
   build-macos:
@@ -216,7 +216,7 @@ jobs:
       - name: Package macOS Portable
         run: |
           cd dist
-          tar -czf usdxfixgap-portable-macos.tar.gz usdxfixgap
+          tar -czf ../usdxfixgap-portable-macos.tar.gz usdxfixgap
           cd ..
 
       - name: Build macOS Onefile
@@ -241,7 +241,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-portable
-          path: dist/usdxfixgap-portable-macos.tar.gz
+          path: usdxfixgap-portable-macos.tar.gz
           retention-days: 7
 
   release:
