@@ -141,12 +141,30 @@ pip install -r requirements-dev.txt
 Build scripts **automatically detect and use platform-specific requirements files** to ensure optimal executable sizes:
 
 ```bash
-# Windows
+# Windows - Build onefile executable (single .exe)
 .\run.bat build
 
-# Linux/macOS
+# Windows - Build portable onedir executable (directory with _internal folder)
+.\run.bat build portable
+
+# Linux/macOS - Build onefile
 ./run.sh build
+
+# Linux/macOS - Build portable onedir
+./run.sh build portable
 ```
+
+**Build Modes:**
+- **Onefile** (`build`): Single executable that extracts to temp directory
+  - Output: `dist/onefile/usdxfixgap.exe` (Windows) or `dist/onefile/usdxfixgap` (Linux/macOS)
+  - Best for: Easy distribution, single-file portability
+  - Uses: System directories for config and data storage
+
+- **Portable/Onedir** (`build portable`): Directory with `_internal` folder
+  - Output: `dist/portable/` directory (contains `usdxfixgap.exe` + `_internal/` folder)
+  - Best for: Portable installations, relative path storage
+  - Uses: Relative paths for config and data (e.g., `./.tmp`, `./samples`)
+  - All application data stored alongside executable
 
 **Platform-Specific Requirements:**
 - **Windows**: `requirements-build.txt` - CPU-only PyTorch (standard wheel)
@@ -176,9 +194,15 @@ This approach provides immediate functionality while enabling optional 10x GPU a
 
 ### Build Output
 
-- Windows: `dist/usdxfixgap.exe`
-- Linux: `dist/usdxfixgap`
-- macOS: `dist/usdxfixgap`
+**Onefile builds:**
+- Windows: `dist/onefile/usdxfixgap.exe`
+- Linux: `dist/onefile/usdxfixgap`
+- macOS: `dist/onefile/usdxfixgap`
+
+**Portable/Onedir builds:**
+- Windows: `dist/portable/` (contains `usdxfixgap.exe` + `_internal/` folder)
+- Linux: `dist/portable/` (contains `usdxfixgap` + `_internal/` folder)
+- macOS: `dist/portable/` (contains `usdxfixgap` + `_internal/` folder)
 
 ## Code Formatting with Black
 

@@ -170,5 +170,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='usdxfixgap',  # Output to dist/usdxfixgap/ for portable build
+    name='usdxfixgap-portable',  # PyInstaller outputs to dist/usdxfixgap-portable/
 )

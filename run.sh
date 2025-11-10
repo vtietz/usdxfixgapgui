@@ -98,7 +98,8 @@ if [[ $# -eq 0 ]]; then
     echo "  cleanup     - Clean code (whitespace, unused imports)"
     echo "  cleanup all - Clean entire project"
     echo "  cleanup --dry-run  - Preview cleanup without changes"
-    echo "  build       - Build executable with PyInstaller"
+    echo "  build       - Build onefile executable with PyInstaller"
+    echo "  build portable - Build portable onedir executable with _internal folder"
     echo ""
     echo "Or run any Python command directly:"
     echo "  $0 python script.py"
@@ -279,8 +280,19 @@ case "$1" in
         "$VENV_PYTHON" scripts/cleanup_code.py "$CLEANUP_MODE" "${@:2}"
         ;;
     "build")
+        # Determine build mode and spec file
+        BUILD_MODE="onefile"
+        SPEC_FILE="usdxfixgap.spec"
+        OUTPUT_DESC="dist/usdxfixgap"
+
+        if [[ "$2" == "portable" ]]; then
+            BUILD_MODE="portable"
+            SPEC_FILE="usdxfixgap-onedir.spec"
+            OUTPUT_DESC="dist/portable/ (directory with _internal folder)"
+        fi
+
         echo "=========================================="
-        echo "Building USDXFixGap Executable"
+        echo "Building USDXFixGap Executable ($BUILD_MODE)"
         echo "=========================================="
         echo ""
         cd "$SCRIPT_DIR"
@@ -349,13 +361,13 @@ case "$1" in
         print_info "NOTE: Bundling CPU-only PyTorch. Users can upgrade to GPU via GPU Pack download."
 
         # Check if spec file exists
-        if [[ ! -f "$SCRIPT_DIR/usdxfixgap.spec" ]]; then
-            print_error "usdxfixgap.spec not found"
+        if [[ ! -f "$SCRIPT_DIR/$SPEC_FILE" ]]; then
+            print_error "$SPEC_FILE not found"
             print_error "Please make sure the spec file exists in the project root"
             exit 1
         fi
 
-        "$VENV_PYTHON" -m PyInstaller --clean --noconfirm "$SCRIPT_DIR/usdxfixgap.spec"
+        "$VENV_PYTHON" -m PyInstaller --clean --noconfirm "$SCRIPT_DIR/$SPEC_FILE"
 
         if [[ $? -eq 0 ]]; then
             echo ""
@@ -363,7 +375,24 @@ case "$1" in
             print_success "Build completed successfully!"
             echo "=========================================="
             echo ""
-            echo "Executable: $SCRIPT_DIR/dist/usdxfixgap"
+
+            # Organize builds into subdirectories
+            if [[ "$BUILD_MODE" == "onefile" ]]; then
+                mkdir -p "$SCRIPT_DIR/dist/onefile"
+                if [[ -f "$SCRIPT_DIR/dist/usdxfixgap" ]]; then
+                    mv "$SCRIPT_DIR/dist/usdxfixgap" "$SCRIPT_DIR/dist/onefile/usdxfixgap"
+                    echo "Output: $SCRIPT_DIR/dist/onefile/usdxfixgap"
+                fi
+            else
+                # Move portable build contents directly into dist/portable/
+                if [[ -d "$SCRIPT_DIR/dist/usdxfixgap-portable" ]]; then
+                    mkdir -p "$SCRIPT_DIR/dist/portable"
+                    # Move all contents from usdxfixgap-portable to portable
+                    mv "$SCRIPT_DIR/dist/usdxfixgap-portable/"* "$SCRIPT_DIR/dist/portable/"
+                    rmdir "$SCRIPT_DIR/dist/usdxfixgap-portable"
+                    echo "Output: $SCRIPT_DIR/dist/portable/ (with _internal folder)"
+                fi
+            fi
         else
             echo ""
             echo "=========================================="

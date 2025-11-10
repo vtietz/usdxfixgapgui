@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushBu
 from PySide6.QtCore import QSortFilterProxyModel, QTimer
 from actions import Actions
 from app.app_data import AppData
-from model.song import Song
+from model.song import Song, SongStatus
 from model.songs import Songs
 from ui.songlist.songlist_view import SongListView
 from ui.songlist.songlist_model import SongTableModel
@@ -68,10 +68,13 @@ class SongListWidget(QWidget):
         self.tableModel.dataChanged.connect(lambda *args: self.proxyModel.invalidate())
         self.proxyModel.dataChanged.connect(lambda *args: self.tableView.reset_viewport_loading())
         self.tableModel.dataChanged.connect(lambda *args: self.tableView.reset_viewport_loading())
+        # Also refresh action buttons when any data changes (status updates etc.)
+        self.tableModel.dataChanged.connect(lambda *args: self._refresh_action_buttons())
 
         # Create action buttons (moved from MenuBar)
         self.detectButton = QPushButton("Detect")
-        self.detectButton.clicked.connect(lambda: self._actions.detect_gap(overwrite=True))
+        # Wrap detect in a handler so we can unload media first (prevents player locks/freezes)
+        self.detectButton.clicked.connect(self.onDetectClicked)
         # Initial tooltip (will be updated based on capabilities in updateButtonStates)
         self.detectButton.setToolTip("Run gap detection on selected songs")
 
@@ -137,6 +140,8 @@ class SongListWidget(QWidget):
 
         # Connect to selected songs changed signal
         self._data.selected_songs_changed.connect(self.onSelectedSongsChanged)
+        # Update buttons when any song is updated (e.g., status changes to/from QUEUED/PROCESSING)
+        self.songs_model.updated.connect(self._on_song_updated)
 
         # Streaming state
         self._streaming_songs: List[Song] = []
@@ -147,6 +152,39 @@ class SongListWidget(QWidget):
         # Initial update of the count label and button states
         self.updateCountLabel()
         self.onSelectedSongsChanged([])  # Initial state
+
+    def _refresh_action_buttons(self):
+        """Recompute and apply action button enabled/tooltip states for current selection."""
+        self.onSelectedSongsChanged(self._selected_songs)
+
+    def _on_song_updated(self, song: Song):
+        """Refresh buttons if an updated song is currently selected (status change, etc.)."""
+        if not self._selected_songs:
+            return
+        # Compare by identity or stable key (txt_file) to detect if affected
+        sel_txts = {s.txt_file for s in self._selected_songs if getattr(s, 'txt_file', None)}
+        if (song in self._selected_songs) or (getattr(song, 'txt_file', None) in sel_txts):
+            # If status transitioned to PROCESSING for any selected song, request media unload
+            try:
+                if hasattr(song, 'status') and song.status == SongStatus.PROCESSING:
+                    # Emit unload signal once (idempotent for multiple songs)
+                    self._data.media_unload_requested.emit()
+            except Exception:
+                pass
+            self._refresh_action_buttons()
+
+    def onDetectClicked(self):
+        """Handle Detect button: unload current media then start gap detection.
+
+        Unloading first prevents the player holding file handles while workers
+        read/normalize audio, reducing freeze risk on Windows file locks.
+        """
+        try:
+            self._data.media_unload_requested.emit()
+        except Exception:
+            pass
+        # Proceed with gap detection (overwrite=True keeps previous results logic)
+        self._actions.detect_gap(overwrite=True)
 
     def onDeleteButtonClicked(self):
         """Handle delete button click with confirmation dialog."""
@@ -177,9 +215,23 @@ class SongListWidget(QWidget):
 
         # Enable buttons if at least one song is selected
         has_selection = num_selected > 0
-        self.openFolderButton.setEnabled(has_selection)
-        self.reload_button.setEnabled(has_selection)
-        self.delete_button.setEnabled(has_selection)
+        # Disable actions if any selected song is queued or processing
+        is_busy_selection = has_selection and any(
+            s.status in (SongStatus.QUEUED, SongStatus.PROCESSING) for s in songs
+        )
+
+        self.openFolderButton.setEnabled(has_selection and not is_busy_selection)
+        self.reload_button.setEnabled(has_selection and not is_busy_selection)
+        self.delete_button.setEnabled(has_selection and not is_busy_selection)
+
+        # Update tooltips to clarify busy state for disabled actions
+        if is_busy_selection:
+            busy_tip = "Disabled while selected song(s) are queued or processing"
+            self.reload_button.setToolTip(busy_tip)
+            self.delete_button.setToolTip(busy_tip)
+        else:
+            self.reload_button.setToolTip("Reload song data from file")
+            self.delete_button.setToolTip("Delete selected song directories (permanently)")
 
         # Enable detect if at least one selected song has audio file AND system can detect
         can_detect_songs = has_selection and any(s.audio_file for s in songs)
@@ -195,11 +247,13 @@ class SongListWidget(QWidget):
                     has_queued_detect = True
                     break
 
-        can_detect = can_detect_songs and system_can_detect and not has_queued_detect
+        can_detect = can_detect_songs and system_can_detect and not has_queued_detect and not is_busy_selection
         self.detectButton.setEnabled(can_detect)
 
         # Update tooltip based on capability status
-        if not system_can_detect:
+        if is_busy_selection:
+            self.detectButton.setToolTip("Gap detection disabled: selected song(s) are queued or processing")
+        elif not system_can_detect:
             if self._data.capabilities and not self._data.capabilities.has_torch:
                 self.detectButton.setToolTip(
                     "Gap detection disabled: PyTorch not available\n"
@@ -236,11 +290,13 @@ class SongListWidget(QWidget):
                     has_queued_normalize = True
                     break
 
-        can_normalize = can_normalize_songs and not has_queued_normalize
+        can_normalize = can_normalize_songs and not has_queued_normalize and not is_busy_selection
         self.normalize_button.setEnabled(can_normalize)
 
         # Update tooltip for normalize button
-        if has_queued_normalize:
+        if is_busy_selection:
+            self.normalize_button.setToolTip("Audio normalization disabled: selected song(s) are queued or processing")
+        elif has_queued_normalize:
             self.normalize_button.setToolTip("Audio normalization already queued/running for selected song(s)")
         else:
             self.normalize_button.setToolTip("Normalize audio volume of selected songs")

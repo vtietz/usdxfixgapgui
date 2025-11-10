@@ -24,6 +24,7 @@ env/
 
 # Config files (user-specific, auto-generated from defaults)
 config.ini
+*.bak
 src/config.ini
 
 # Test custom configs (developer-specific experimentation)
@@ -34,3 +35,5 @@ check_cuda.py
 debug_*.py
 
 analysis_output.txt
+
+models/

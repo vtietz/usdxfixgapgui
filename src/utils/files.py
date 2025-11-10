@@ -140,14 +140,14 @@ def get_app_dir():
     if meipass:
         # Running in a PyInstaller bundle
         return os.path.dirname(sys.executable)
-    
+
     # Running as a script - return project root, not src/ directory
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    
+
     # If script is in src/ subdirectory, return parent directory (project root)
     if os.path.basename(script_dir) == "src":
         return os.path.dirname(script_dir)
-    
+
     return script_dir
 
 

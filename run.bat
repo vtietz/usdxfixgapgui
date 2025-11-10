@@ -84,7 +84,8 @@ if "%1"=="" (
     echo   cleanup     - Clean code ^(whitespace, unused imports^)
     echo   cleanup all - Clean entire project
     echo   cleanup --dry-run  - Preview cleanup without changes
-    echo   build       - Build Windows executable with PyInstaller
+    echo   build       - Build Windows onefile executable with PyInstaller
+    echo   build portable - Build portable onedir executable with _internal folder
     echo.
     echo Or run any Python command directly:
     echo   %0 python script.py
@@ -292,8 +293,19 @@ if /i "%1"=="cleanup" (
 )
 
 if /i "%1"=="build" (
+    :: Determine build mode and spec file
+    set BUILD_MODE=onefile
+    set SPEC_FILE=usdxfixgap.spec
+    set OUTPUT_DESC=dist\usdxfixgap.exe
+
+    if /i "%2"=="portable" (
+        set BUILD_MODE=portable
+        set SPEC_FILE=usdxfixgap-onedir.spec
+        set OUTPUT_DESC=dist\portable\ ^(directory with _internal folder^)
+    )
+
     echo ==========================================
-    echo Building USDX FixGap Executable
+    echo Building USDX FixGap Executable ^(!BUILD_MODE!^)
     echo ==========================================
     echo.
     cd /d "%SCRIPT_DIR%"
@@ -331,13 +343,13 @@ if /i "%1"=="build" (
     echo NOTE: Bundling CPU-only PyTorch. Users can upgrade to GPU via GPU Pack download.
 
     :: Check if spec file exists
-    if not exist "%SCRIPT_DIR%usdxfixgap.spec" (
-        echo ERROR: usdxfixgap.spec not found
+    if not exist "%SCRIPT_DIR%!SPEC_FILE!" (
+        echo ERROR: !SPEC_FILE! not found
         echo Please make sure the spec file exists in the project root
         exit /b 1
     )
 
-    "%VENV_PYTHON%" -m PyInstaller --clean --noconfirm "%SCRIPT_DIR%usdxfixgap.spec"
+    "%VENV_PYTHON%" -m PyInstaller --clean --noconfirm "%SCRIPT_DIR%!SPEC_FILE!"
 
     if !errorlevel! equ 0 (
         echo.
@@ -345,7 +357,24 @@ if /i "%1"=="build" (
         echo Build completed successfully!
         echo ==========================================
         echo.
-        echo Executable: %SCRIPT_DIR%dist\usdxfixgap.exe
+
+        REM Organize builds into subdirectories
+        if /i "!BUILD_MODE!"=="onefile" (
+            if not exist "%SCRIPT_DIR%dist\onefile" mkdir "%SCRIPT_DIR%dist\onefile"
+            if exist "%SCRIPT_DIR%dist\usdxfixgap.exe" (
+                move /Y "%SCRIPT_DIR%dist\usdxfixgap.exe" "%SCRIPT_DIR%dist\onefile\usdxfixgap.exe" >nul
+                echo Output: %SCRIPT_DIR%dist\onefile\usdxfixgap.exe
+            )
+        ) else (
+            REM Move portable build contents directly into dist\portable\
+            if exist "%SCRIPT_DIR%dist\usdxfixgap-portable" (
+                if not exist "%SCRIPT_DIR%dist\portable" mkdir "%SCRIPT_DIR%dist\portable"
+                REM Move all contents from usdxfixgap-portable to portable
+                xcopy /E /I /Y "%SCRIPT_DIR%dist\usdxfixgap-portable\*" "%SCRIPT_DIR%dist\portable\" >nul
+                rmdir /S /Q "%SCRIPT_DIR%dist\usdxfixgap-portable"
+                echo Output: %SCRIPT_DIR%dist\portable\ ^(with _internal folder^)
+            )
+        )
     ) else (
         echo.
         echo ==========================================
