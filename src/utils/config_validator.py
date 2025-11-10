@@ -6,6 +6,7 @@ Auto-fixes invalid configurations with warnings.
 """
 
 import logging
+import sys
 from typing import List, Tuple, Dict, Any
 
 logger = logging.getLogger(__name__)
@@ -129,24 +130,26 @@ def validate_mdx_config(config) -> List[ConfigValidationError]:
                 )
             )
 
-    # Check TF32 only used on CUDA
+    # Check TF32 only used on CUDA, but avoid importing torch prematurely.
+    # Only perform the check if torch is already imported by this point.
     if hasattr(config, "mdx_tf32") and config.mdx_tf32:
         try:
-            import torch
+            if "torch" in sys.modules:
+                import torch
 
-            if not torch.cuda.is_available():
-                errors.append(
-                    ConfigValidationError(
-                        key="mdx.tf32",
-                        current_value=True,
-                        recommended_value=False,
-                        reason="TF32 only works on CUDA - no GPU detected",
-                        severity="info",
+                if not torch.cuda.is_available():
+                    errors.append(
+                        ConfigValidationError(
+                            key="mdx.tf32",
+                            current_value=True,
+                            recommended_value=False,
+                            reason="TF32 only works on CUDA - no GPU detected",
+                            severity="info",
+                        )
                     )
-                )
-        except (ImportError, OSError):
-            # ImportError: PyTorch not available yet
-            # OSError: PyInstaller frozen exe trying to load excluded CUDA DLLs
+            # If torch is not yet imported, defer the check to avoid forcing CPU torch to load.
+        except Exception:
+            # Best-effort: don't block startup if any import/check fails here.
             pass
 
     return errors

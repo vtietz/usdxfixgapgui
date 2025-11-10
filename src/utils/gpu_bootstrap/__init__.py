@@ -48,6 +48,8 @@ from .pack_utils import (
     find_installed_pack_dirs,
     select_best_existing_pack,
     auto_recover_gpu_pack_config,
+    detect_existing_gpu_pack,
+    activate_existing_gpu_pack,
 )
 
 __all__ = [
@@ -82,5 +84,7 @@ __all__ = [
     "find_installed_pack_dirs",
     "select_best_existing_pack",
     "auto_recover_gpu_pack_config",
+    "detect_existing_gpu_pack",
+    "activate_existing_gpu_pack",
     "detect_system_pytorch_cuda",
 ]

@@ -47,25 +47,37 @@ def find_installed_pack_dirs() -> List[Dict[str, Any]]:
     Returns:
         List of dictionaries with keys: path, app_version, flavor, has_install_json
     """
-    local_app_data = os.getenv("LOCALAPPDATA")
-    if not local_app_data:
-        local_app_data = os.path.expanduser("~/.local/share")
+    # Use portable-aware path detection
+    try:
+        from utils.files import get_localappdata_dir
 
-    runtime_root = Path(local_app_data) / "USDXFixGap" / "gpu_runtime"
+        local_app_data = get_localappdata_dir()
+    except ImportError:
+        # Fallback if utils.files not available
+        local_app_data = os.getenv("LOCALAPPDATA")
+        if not local_app_data:
+            local_app_data = os.path.expanduser("~/.local/share")
+
+    runtime_root = Path(local_app_data) / "gpu_runtime"
 
     if not runtime_root.exists():
         return []
 
     candidates = []
-    version_pattern = re.compile(r"^v([\d.]+)-(cu\d+)$")
+    # Match both old format (v1.4.0-cu121) and new format (torch-2.4.1-cu121)
+    old_pattern = re.compile(r"^v([\d.]+)-(cu\d+)$")
+    new_pattern = re.compile(r"^torch-([\d.]+)-(cu\d+)$")
 
     try:
         for item in runtime_root.iterdir():
             if not item.is_dir():
                 continue
 
-            # Try to parse folder name (e.g., v1.4.0-cu121)
-            match = version_pattern.match(item.name)
+            # Try to parse folder name
+            match = new_pattern.match(item.name)
+            if not match:
+                match = old_pattern.match(item.name)
+
             app_version = None
             flavor = None
             has_install_json = False
@@ -147,9 +159,95 @@ def select_best_existing_pack(candidates: List[Dict[str, Any]], config_flavor: O
     return candidates[0]["path"] if candidates else None
 
 
+def detect_existing_gpu_pack(config) -> Optional[Path]:
+    """
+    Detect if GPU Pack exists on disk without enabling it.
+
+    Args:
+        config: Application config object
+
+    Returns:
+        Path to GPU Pack if found AND not enabled, None otherwise
+    """
+    # If GPU is already enabled, no need to detect/activate
+    if getattr(config, "gpu_opt_in", False):
+        return None
+
+    # Check if pack path is already set and valid
+    pack_path = getattr(config, "gpu_pack_path", "")
+    if pack_path and Path(pack_path).exists():
+        return Path(pack_path)
+
+    # Scan for existing packs
+    candidates = find_installed_pack_dirs()
+    if not candidates:
+        return None
+
+    # Select best pack
+    config_flavor = getattr(config, "gpu_flavor", None)
+    best_pack = select_best_existing_pack(candidates, config_flavor)
+
+    return best_pack
+
+
+def activate_existing_gpu_pack(config, pack_path: Path) -> bool:
+    """
+    Activate an existing GPU Pack by updating config.
+
+    Args:
+        config: Application config object
+        pack_path: Path to the GPU Pack to activate
+
+    Returns:
+        True if activation succeeded, False otherwise
+    """
+    if not pack_path.exists():
+        logger.error(f"GPU Pack path does not exist: {pack_path}")
+        return False
+
+    logger.info(f"Activating existing GPU Pack at {pack_path}")
+
+    # Update config with pack path
+    config.gpu_pack_path = str(pack_path)
+
+    # Try to read install.json for metadata
+    install_json_path = pack_path / "install.json"
+    if install_json_path.exists():
+        try:
+            with open(install_json_path, "r") as f:
+                install_data = json.load(f)
+                if "app_version" in install_data:
+                    config.gpu_pack_installed_version = install_data["app_version"]
+                if "flavor" in install_data:
+                    config.gpu_flavor = install_data["flavor"]
+                logger.debug(
+                    f"Loaded installation metadata: version={install_data.get('app_version')}, "
+                    f"flavor={install_data.get('flavor')}"
+                )
+        except Exception as e:
+            logger.debug(f"Could not read install.json: {e}")
+
+    # Enable GPU
+    config.gpu_opt_in = True
+    logger.info("GPU Pack enabled in config")
+
+    # Save config
+    try:
+        config.save_config()
+        logger.info("Config updated and saved")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to save config: {e}")
+        return False
+
+
 def auto_recover_gpu_pack_config(config) -> bool:
     """
     Auto-detect and recover GPU Pack configuration if pack exists on disk.
+
+    DEPRECATED: This function auto-enables GPU Pack without user consent.
+    Use detect_existing_gpu_pack() + activate_existing_gpu_pack() instead
+    to prompt user first.
 
     If config.gpu_pack_path is empty but a valid pack is found on disk,
     this function will update the config and optionally enable GPU.
@@ -167,52 +265,12 @@ def auto_recover_gpu_pack_config(config) -> bool:
 
     logger.debug("GPU Pack path empty in config, scanning for existing installations...")
 
-    # Scan for existing packs
-    candidates = find_installed_pack_dirs()
-    if not candidates:
-        logger.debug("No existing GPU Pack installations found")
-        return False
-
-    # Select best pack
-    config_flavor = getattr(config, "gpu_flavor", None)
-    best_pack = select_best_existing_pack(candidates, config_flavor)
-
+    # Detect existing pack
+    best_pack = detect_existing_gpu_pack(config)
     if not best_pack:
         logger.debug("No suitable GPU Pack found")
         return False
 
+    # Activate the pack (auto-enable without prompt - deprecated behavior)
     logger.info(f"Auto-recovery: Found existing GPU Pack at {best_pack}")
-
-    # Update config with found pack
-    config.gpu_pack_path = str(best_pack)
-
-    # Try to read install.json for version info
-    install_json_path = best_pack / "install.json"
-    if install_json_path.exists():
-        try:
-            with open(install_json_path, "r") as f:
-                install_data = json.load(f)
-                if "app_version" in install_data:
-                    config.gpu_pack_installed_version = install_data["app_version"]
-                if "flavor" in install_data and not config_flavor:
-                    config.gpu_flavor = install_data["flavor"]
-                logger.debug(
-                    f"Loaded installation metadata: version={install_data.get('app_version')}, "
-                    f"flavor={install_data.get('flavor')}"
-                )
-        except Exception as e:
-            logger.debug(f"Could not read install.json: {e}")
-
-    # Auto-enable GPU if pack is found (silent recovery)
-    # This ensures bootstrap proceeds to validate CUDA
-    config.gpu_opt_in = True
-    logger.info("Auto-recovery: Enabled GPU opt-in for existing pack")
-
-    # Save config
-    try:
-        config.save_config()
-        logger.info("Auto-recovery: Config updated and saved")
-        return True
-    except Exception as e:
-        logger.warning(f"Could not save config after auto-recovery: {e}")
-        return True  # Still return True since recovery succeeded
+    return activate_existing_gpu_pack(config, best_pack)

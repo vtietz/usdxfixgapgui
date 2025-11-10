@@ -227,7 +227,7 @@ class SongTableModel(QAbstractTableModel):
                 "Length",
                 "BPM",
                 "Gap",
-                "Detected Gap",
+                "Detected",
                 "Diff",
                 "Notes",
                 "Time",

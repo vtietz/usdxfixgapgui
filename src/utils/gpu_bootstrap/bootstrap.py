@@ -19,6 +19,142 @@ logger = logging.getLogger(__name__)
 ADDED_DLL_DIRS: List[str] = []
 
 
+# ---- Small helpers to keep control-flow flat and readable ----
+
+def _is_gpu_disabled(config) -> bool:
+    """Return True if user explicitly disabled GPU in config."""
+    return getattr(config, "gpu_opt_in", None) is False
+
+
+def _expected_cuda_from_flavor(gpu_flavor: str) -> str:
+    """Map flavor to expected CUDA version string."""
+    return "12.1" if gpu_flavor == "cu121" else "12.4"
+
+
+def _torch_from_dir(module_name: str, base_dir: Path) -> bool:
+    """Check if an already-imported module originates from a given directory."""
+    try:
+        import sys as _sys
+
+        m = _sys.modules.get(module_name)
+        src = getattr(m, "__file__", None) if m else None
+        return bool(src and str(base_dir) in src)
+    except Exception:
+        return False
+
+
+def _add_pack_and_swap_torch_if_needed(pack_dir: Path) -> None:
+    """Ensure GPU Pack is on sys.path so that subsequent torch imports resolve there.
+
+    Safety change: If torch is already imported (likely CPU build), we DO NOT purge and re-import
+    to avoid duplicate native registration errors (e.g., 'Key already registered: C10').
+    Instead we log a diagnostic and allow CPU fallback; user can restart with clean state if needed.
+    """
+    try:
+        enable_gpu_runtime(pack_dir, None)
+
+        import sys as _sys
+        if "torch" in _sys.modules:
+            if _torch_from_dir("torch", pack_dir):
+                logger.debug("torch already imported from GPU Pack path; no action needed")
+            else:
+                logger.info(
+                    "torch pre-imported from non-GPU location; skipping destructive swap to avoid native registration conflicts; CPU fallback may occur"
+                )
+        # If torch not yet imported, normal import later will pick GPU Pack.
+    except Exception as swap_err:
+        logger.debug(f"GPU Pack path addition encountered error (continuing with CPU fallback if needed): {swap_err}")
+
+
+def _try_system_pytorch_if_enabled(config, gpu_opt_in) -> bool:
+    """Optionally try system PyTorch with CUDA; return True if validated and used."""
+    prefer_system = getattr(config, "prefer_system_pytorch", False)
+    is_frozen = getattr(sys, "frozen", False)
+    logger.debug(f"GPU bootstrap: prefer_system={prefer_system}, is_frozen={is_frozen}, gpu_opt_in={gpu_opt_in}")
+
+    if not (prefer_system and gpu_opt_in is not False and not is_frozen):
+        if is_frozen:
+            logger.debug("Running in frozen exe - skipping system PyTorch check to allow GPU Pack activation")
+        return False
+
+    logger.debug("Checking for system PyTorch with CUDA...")
+    system_pytorch = detect_system_pytorch_cuda()
+    if not system_pytorch:
+        logger.debug("System PyTorch with CUDA not found, trying GPU Pack...")
+        return False
+
+    logger.info(
+        f"Found system PyTorch {system_pytorch['torch_version']} "
+        f"with CUDA {system_pytorch['cuda_version']} "
+        f"({system_pytorch['device_name']})"
+    )
+    try:
+        success, error_msg = validate_cuda_torch(expected_cuda="12")  # Accept CUDA 12.x
+        if success:
+            logger.info("✓ System PyTorch validated successfully - using it instead of GPU Pack")
+            config.gpu_last_health = "healthy (system)"
+            config.gpu_last_error = ""
+            config.save_config()
+            return True
+        logger.warning(f"System PyTorch validation failed: {error_msg}")
+        logger.info("Falling back to GPU Pack...")
+        return False
+    except Exception as e:
+        logger.warning(f"System PyTorch validation error: {e}")
+        logger.info("Falling back to GPU Pack...")
+        return False
+
+
+def _validate_pack_and_update_config(config, pack_dir: Path, gpu_flavor: str, expected_cuda: str) -> bool:
+    """Validate CUDA and torchaudio from GPU Pack; update config accordingly."""
+    cuda_success, cuda_error = validate_cuda_torch(expected_cuda)
+    if cuda_success:
+        audio_success, audio_error = validate_torchaudio()
+        if audio_success:
+            config.gpu_last_health = "healthy"
+            config.gpu_last_error = ""
+            config.save_config()
+            logger.info("GPU Pack activated successfully (PyTorch + torchaudio validated)")
+            return True
+        logger.error(f"GPU Pack torchaudio validation failed: {audio_error}")
+        diagnostic_info = (
+            f"GPU Pack is broken (torchaudio DLL error).\n\n"
+            f"Location: {pack_dir}\n"
+            f"Error: {audio_error}\n\n"
+            f"SOLUTION: Delete the GPU Pack folder and restart to download a fresh copy."
+        )
+        config.gpu_last_error = diagnostic_info
+        config.gpu_last_health = "failed"
+        config.save_config()
+        return False
+
+    # CUDA validation failed - add torch import source diagnostics
+    logger.warning(f"GPU Pack validation failed: {cuda_error}")
+    torch_source = "unknown"
+    torch_cuda_version = "unknown"
+    try:
+        import torch
+        torch_source = getattr(torch, "__file__", "unknown")
+        torch_cuda_version = getattr(torch.version, "cuda", "None")
+    except Exception as import_err:
+        torch_source = f"import failed: {import_err}"
+
+    diagnostic_info = (
+        f"GPU Pack validation failed: {cuda_error} | "
+        f"Pack path: {pack_dir} | "
+        f"Pack flavor: {gpu_flavor} | "
+        f"Expected CUDA: {expected_cuda} | "
+        f"DLL directories added: {', '.join(ADDED_DLL_DIRS)} | "
+        f"USDXFIXGAP_GPU_PACK_DIR: {pack_dir} | "
+        f"torch.__file__: {torch_source} | "
+        f"torch.version.cuda: {torch_cuda_version}"
+    )
+    config.gpu_last_error = diagnostic_info
+    config.gpu_last_health = "failed"
+    config.save_config()
+    return False
+
+
 def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
     """
     Enable GPU Pack runtime by modifying sys.path and DLL search paths.
@@ -125,7 +261,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
 
         # Check if user has explicitly disabled GPU
         gpu_opt_in = getattr(config, "gpu_opt_in", None)
-        if gpu_opt_in is False:
+        if _is_gpu_disabled(config):
             logger.debug("GPU acceleration explicitly disabled (gpu_opt_in=false)")
             return False
 
@@ -135,116 +271,30 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
         pack_path = getattr(config, "gpu_pack_path", "")
         pack_dir = None
         gpu_flavor = getattr(config, "gpu_flavor", "cu121")
-        expected_cuda = "12.1" if gpu_flavor == "cu121" else "12.4"
+        expected_cuda = _expected_cuda_from_flavor(gpu_flavor)
 
         if pack_path:
             pack_dir = Path(pack_path)
             if pack_dir.exists():
-                logger.debug(f"GPU Pack found at {pack_dir} - adding to sys.path BEFORE any imports")
-                enable_gpu_runtime(pack_dir, config)
+                logger.debug(
+                    f"GPU Pack found at {pack_dir} - adding to sys.path BEFORE any torch imports (if not yet imported)"
+                )
+                _add_pack_and_swap_torch_if_needed(pack_dir)
             else:
                 logger.debug(f"GPU Pack path configured but directory not found: {pack_dir}")
 
         # STEP 1: Try system PyTorch+CUDA (ONLY if explicitly enabled AND not frozen)
         # Note: GPU Pack paths are already in sys.path, so if GPU Pack exists,
         # its torch will be imported here instead of venv's torch
-        prefer_system = getattr(config, "prefer_system_pytorch", False)
-        is_frozen = getattr(sys, "frozen", False)
-
-        logger.debug(f"GPU bootstrap: prefer_system={prefer_system}, is_frozen={is_frozen}, gpu_opt_in={gpu_opt_in}")
-
-        if prefer_system and gpu_opt_in is not False and not is_frozen:
-            logger.debug("Checking for system PyTorch with CUDA...")
-            system_pytorch = detect_system_pytorch_cuda()
-
-            if system_pytorch:
-                logger.info(
-                    f"Found system PyTorch {system_pytorch['torch_version']} "
-                    f"with CUDA {system_pytorch['cuda_version']} "
-                    f"({system_pytorch['device_name']})"
-                )
-
-                # Validate it works properly
-                try:
-                    success, error_msg = validate_cuda_torch(expected_cuda="12")  # Accept CUDA 12.x
-                    if success:
-                        logger.info("✓ System PyTorch validated successfully - using it instead of GPU Pack")
-                        config.gpu_last_health = "healthy (system)"
-                        config.gpu_last_error = ""
-                        config.save_config()
-                        return True
-                    else:
-                        logger.warning(f"System PyTorch validation failed: {error_msg}")
-                        logger.info("Falling back to GPU Pack...")
-                except Exception as e:
-                    logger.warning(f"System PyTorch validation error: {e}")
-                    logger.info("Falling back to GPU Pack...")
-            else:
-                logger.debug("System PyTorch with CUDA not found, trying GPU Pack...")
-        elif is_frozen:
-            logger.debug("Running in frozen exe - skipping system PyTorch check to allow GPU Pack activation")
+        if _try_system_pytorch_if_enabled(config, gpu_opt_in):
+            return True
 
         # STEP 2: Validate GPU Pack (paths already added above)
         if not pack_dir or not pack_dir.exists():
             logger.debug("No GPU Pack configured or pack directory not found")
             return False
 
-        # Validate CUDA first
-        cuda_success, cuda_error = validate_cuda_torch(expected_cuda)
-
-        if cuda_success:
-            # CUDA works - now validate torchaudio (critical for MDX gap detection)
-            audio_success, audio_error = validate_torchaudio()
-
-            if audio_success:
-                config.gpu_last_health = "healthy"
-                config.gpu_last_error = ""
-                config.save_config()
-                logger.info("GPU Pack activated successfully (PyTorch + torchaudio validated)")
-                return True
-            else:
-                # torchaudio broken - this breaks gap detection!
-                logger.error(f"GPU Pack torchaudio validation failed: {audio_error}")
-                diagnostic_info = (
-                    f"GPU Pack is broken (torchaudio DLL error).\n\n"
-                    f"Location: {pack_dir}\n"
-                    f"Error: {audio_error}\n\n"
-                    f"SOLUTION: Delete the GPU Pack folder and restart to download a fresh copy."
-                )
-                config.gpu_last_error = diagnostic_info
-                config.gpu_last_health = "failed"
-                config.save_config()
-                return False
-        else:
-            # CUDA validation failed - add torch import source diagnostics
-            logger.warning(f"GPU Pack validation failed: {cuda_error}")
-
-            # Diagnostic: where did torch come from?
-            torch_source = "unknown"
-            torch_cuda_version = "unknown"
-            try:
-                import torch
-                torch_source = getattr(torch, "__file__", "unknown")
-                torch_cuda_version = getattr(torch.version, "cuda", "None")
-            except Exception as import_err:
-                torch_source = f"import failed: {import_err}"
-
-            diagnostic_info = (
-                f"GPU Pack validation failed: {cuda_error} | "
-                f"Pack path: {pack_dir} | "
-                f"Pack flavor: {gpu_flavor} | "
-                f"Expected CUDA: {expected_cuda} | "
-                f"DLL directories added: {', '.join(ADDED_DLL_DIRS)} | "
-                f"USDXFIXGAP_GPU_PACK_DIR: {pack_dir} | "
-                f"torch.__file__: {torch_source} | "
-                f"torch.version.cuda: {torch_cuda_version}"
-            )
-            config.gpu_last_error = diagnostic_info
-            config.gpu_last_health = "failed"
-            config.save_config()
-            return False
-
-        return False
+        return _validate_pack_and_update_config(config, pack_dir, gpu_flavor, expected_cuda)
 
     except Exception as e:
         logger.error(f"GPU bootstrap error: {e}", exc_info=True)

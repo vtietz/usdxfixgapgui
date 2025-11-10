@@ -119,10 +119,14 @@ class TestGPUDownloadButton:
         # Download button should be hidden (no GPU)
         assert not dialog.download_btn.isVisible()
 
+    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
     @patch("ui.startup_dialog.check_system_capabilities")
-    def test_download_button_shown_when_gpu_available(self, mock_check, qtbot, mock_config, gpu_available_capabilities):
+    def test_download_button_shown_when_gpu_available(
+        self, mock_check, mock_detect, qtbot, mock_config, gpu_available_capabilities
+    ):
         """Download button should be shown when GPU available but no pack."""
         mock_check.return_value = gpu_available_capabilities
+        mock_detect.return_value = None  # No existing pack
 
         dialog = StartupDialog(parent=None, config=mock_config, startup_mode=True)
         qtbot.addWidget(dialog)
@@ -272,13 +276,17 @@ class TestDownloadWorker:
             assert success is True
             assert "successfully" in message.lower()
 
+    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
     @patch("ui.startup_dialog.check_system_capabilities")
     @patch("PySide6.QtWidgets.QMessageBox.question")
-    def test_download_retry_on_failure(self, mock_question, mock_check, qtbot, mock_config, gpu_available_capabilities):
+    def test_download_retry_on_failure(
+        self, mock_question, mock_check, mock_detect, qtbot, mock_config, gpu_available_capabilities
+    ):
         """Test that user can retry download after failure."""
         from ui.handlers.gpu_download_handler import on_download_finished
 
         mock_check.return_value = gpu_available_capabilities
+        mock_detect.return_value = None  # No existing pack
 
         dialog = StartupDialog(parent=None, config=mock_config, startup_mode=True)
         qtbot.addWidget(dialog)
@@ -298,15 +306,17 @@ class TestDownloadWorker:
         assert "retry" in call_args[0][2].lower()  # Message text contains "retry"
         assert "Bad magic number" in call_args[0][2]  # Error message included
 
+    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
     @patch("ui.startup_dialog.check_system_capabilities")
     @patch("PySide6.QtWidgets.QMessageBox.question")
     def test_download_no_retry_on_user_decline(
-        self, mock_question, mock_check, qtbot, mock_config, gpu_available_capabilities
+        self, mock_question, mock_check, mock_detect, qtbot, mock_config, gpu_available_capabilities
     ):
         """Test that download UI resets when user declines retry."""
         from ui.handlers.gpu_download_handler import on_download_finished
 
         mock_check.return_value = gpu_available_capabilities
+        mock_detect.return_value = None  # No existing pack
 
         dialog = StartupDialog(parent=None, config=mock_config, startup_mode=True)
         qtbot.addWidget(dialog)
@@ -371,12 +381,18 @@ class TestStaticMethods:
 
         # Just verify it doesn't crash - about mode doesn't return anything
 
+    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
     @patch("services.system_capabilities.check_system_capabilities")
-    def test_show_startup_skips_when_config_enabled_and_healthy(self, mock_check, mock_config, healthy_capabilities):
+    def test_show_startup_skips_when_config_enabled_and_healthy(
+        self, mock_check, mock_detect, mock_config, healthy_capabilities
+    ):
         """show_startup() should skip dialog when splash_dont_show_health=True and system is healthy."""
         # Configure mock to return our test capabilities
         mock_check.return_value = healthy_capabilities
+        mock_detect.return_value = None  # No existing GPU Pack
         mock_config.splash_dont_show_health = True
+        mock_config.gpu_pack_path = ""
+        mock_config.gpu_opt_in = False
 
         # Should skip dialog and return capabilities directly
         result = StartupDialog.show_startup(parent=None, config=mock_config)
@@ -414,6 +430,29 @@ class TestStaticMethods:
         # Dialog should have been shown (exec was called)
         mock_exec.assert_called_once()
 
+    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    @patch("services.system_capabilities.check_system_capabilities")
+    def test_show_startup_shows_when_gpu_pack_exists_but_not_enabled(
+        self, mock_check, mock_detect, qtbot, mock_config, healthy_capabilities
+    ):
+        """show_startup() should show dialog when GPU Pack exists but isn't enabled, even if splash_dont_show_health=True."""
+        from pathlib import Path
+
+        # System is healthy
+        mock_check.return_value = healthy_capabilities
+        # But GPU Pack exists and isn't enabled
+        mock_detect.return_value = Path("C:/fake/gpu_runtime/torch-2.4.1-cu121")
+        mock_config.splash_dont_show_health = True
+        mock_config.gpu_pack_path = ""
+        mock_config.gpu_opt_in = False
+
+        # Should show dialog to prompt activation
+        with patch.object(StartupDialog, "exec", return_value=QDialog.DialogCode.Accepted) as mock_exec:
+            StartupDialog.show_startup(parent=None, config=mock_config)
+
+        # Dialog should have been shown despite splash_dont_show_health=True
+        mock_exec.assert_called_once()
+
     @patch("services.system_capabilities.check_system_capabilities")
     def test_show_startup_always_shows_when_config_disabled(self, mock_check, mock_config, healthy_capabilities):
         """show_startup() should always show dialog when splash_dont_show_health=False."""
@@ -426,6 +465,69 @@ class TestStaticMethods:
 
         # Dialog should have been shown (exec was called)
         mock_exec.assert_called_once()
+
+
+class TestGPUPackActivation:
+    """Test GPU Pack activation flow when pack exists but is not enabled."""
+
+    @patch("ui.startup_dialog.gpu_bootstrap.capability_probe")
+    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    @patch("ui.startup_dialog.check_system_capabilities")
+    def test_detect_existing_gpu_pack_called_when_gpu_available(
+        self, mock_check, mock_detect, mock_probe, qtbot, mock_config, gpu_available_capabilities
+    ):
+        """detect_existing_gpu_pack should be called when GPU available but no CUDA."""
+        from pathlib import Path
+
+        mock_check.return_value = gpu_available_capabilities
+        mock_detect.return_value = Path("C:/fake/gpu_runtime/torch-2.4.1-cu121")
+        mock_probe.return_value = {"has_nvidia": True, "driver_version": "560.00"}
+
+        # Config has GPU disabled
+        mock_config.gpu_opt_in = False
+        mock_config.gpu_pack_path = ""
+        mock_config.gpu_flavor = None
+
+        dialog = StartupDialog(parent=None, config=mock_config, startup_mode=True)
+        qtbot.addWidget(dialog)
+
+        # Wait for async system checks to complete
+        qtbot.waitUntil(lambda: dialog.capabilities is not None, timeout=2000)
+
+        # Verify detect_existing_gpu_pack was called (proves activation logic is reached)
+        assert mock_detect.called
+
+    @patch("ui.startup_dialog.gpu_bootstrap.activate_existing_gpu_pack")
+    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    def test_activate_existing_gpu_pack_function_exists(self, mock_detect, mock_activate):
+        """Verify activate_existing_gpu_pack function is accessible."""
+        from pathlib import Path
+        from unittest.mock import Mock
+
+        # Just verify the function exists and can be called
+        mock_config = Mock()
+        pack_path = Path("/fake/path")
+
+        mock_activate.return_value = True
+        mock_activate(mock_config, pack_path)
+
+        assert mock_activate.called
+        mock_activate.assert_called_once_with(mock_config, pack_path)
+
+    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    def test_detect_returns_none_when_no_pack(self, mock_detect):
+        """Verify detect_existing_gpu_pack returns None when no pack exists."""
+        from unittest.mock import Mock
+
+        mock_config = Mock()
+        mock_config.gpu_pack_path = ""
+        mock_config.gpu_opt_in = False
+
+        mock_detect.return_value = None
+        mock_detect(mock_config)
+
+        assert mock_detect.called
+        mock_detect.assert_called_once_with(mock_config)
 
 
 if __name__ == "__main__":

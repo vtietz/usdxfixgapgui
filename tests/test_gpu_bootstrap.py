@@ -426,7 +426,7 @@ class TestAutoRecovery:
         pack_dir = runtime_root / "v1.4.0-cu121"
         pack_dir.mkdir()
 
-        with patch.dict(os.environ, {"LOCALAPPDATA": str(tmp_path)}):
+        with patch("utils.files.get_localappdata_dir", return_value=str(tmp_path / "USDXFixGap")):
             candidates = find_installed_pack_dirs()
             assert len(candidates) == 1
             assert candidates[0]["path"] == pack_dir
@@ -449,7 +449,7 @@ class TestAutoRecovery:
         with open(install_json, "w") as f:
             json.dump({"app_version": "1.4.0", "flavor": "cu121", "torch_version": "2.1.0", "cuda_version": "12.1"}, f)
 
-        with patch.dict(os.environ, {"LOCALAPPDATA": str(tmp_path)}):
+        with patch("utils.files.get_localappdata_dir", return_value=str(tmp_path / "USDXFixGap")):
             candidates = find_installed_pack_dirs()
             assert len(candidates) == 1
             assert candidates[0]["has_install_json"] is True
@@ -512,8 +512,9 @@ class TestAutoRecovery:
         mock_config = Mock()
         mock_config.gpu_pack_path = ""
         mock_config.gpu_flavor = "cu121"
+        mock_config.gpu_opt_in = False  # GPU not enabled initially
 
-        with patch.dict(os.environ, {"LOCALAPPDATA": str(tmp_path)}):
+        with patch("utils.files.get_localappdata_dir", return_value=str(tmp_path / "USDXFixGap")):
             recovered = auto_recover_gpu_pack_config(mock_config)
 
         assert recovered is True

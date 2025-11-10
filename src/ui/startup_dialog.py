@@ -12,7 +12,6 @@ No wizard, no pagination - just one simple dialog.
 import os
 import logging
 from typing import Optional
-from pathlib import Path
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -26,15 +25,15 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QSizePolicy,
 )
-from PySide6.QtCore import Qt, QTimer, Signal, QThread
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QFont
 
 from common.constants import APP_NAME
 from services.system_capabilities import SystemCapabilities, check_system_capabilities
-from utils import gpu_bootstrap, gpu_manifest, gpu_downloader
-from utils.download_cleanup import cleanup_download_files, cleanup_download_files_safe
+from utils import gpu_bootstrap, gpu_downloader
+from utils.download_cleanup import cleanup_download_files
 from ui.workers.gpu_download_worker import GpuDownloadWorker
-from ui.handlers.gpu_download_handler import on_download_clicked, on_download_progress, on_download_finished
+from ui.handlers.gpu_download_handler import on_download_clicked
 
 logger = logging.getLogger(__name__)
 
@@ -265,23 +264,57 @@ class StartupDialog(QDialog):
             elif detection_mode == "cpu":
                 # Check if GPU is available but pack not installed
                 if self.capabilities.gpu_name and not self.capabilities.has_cuda:
-                    self.log("⚡ GPU Pack Available for Download")
-                    self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
-                    self.log(f"  • Current mode: CPU (GPU Pack not installed)")
-                    self.log("")
-                    self.log("Benefits of GPU Pack:")
-                    self.log("  • 5-10x faster gap detection")
-                    self.log("  • Process songs in 10-30 seconds (vs 2-3 minutes)")
-                    self.log("  • Download size: ~2.5 GB")
-                    self.log("")
-                    self.log("→ Click 'Download GPU Pack' button below to enable GPU acceleration")
-                    self.log("")
-                    self.log("💡 Note: You can download the GPU Pack later from the About menu")
-                    self.status_label.setText("✅ System Ready (CPU Mode - GPU Available)")
+                    # Check if GPU Pack exists on disk but is not enabled
+                    existing_pack = gpu_bootstrap.detect_existing_gpu_pack(self.config)
 
-                    # Show download controls (button + flavor selector)
-                    self.download_btn.setVisible(True)
-                    self.flavor_combo.setVisible(True)
+                    if existing_pack:
+                        # GPU Pack exists but not enabled - offer to activate
+                        self.log("⚡ GPU Pack Detected (Not Activated)")
+                        self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
+                        self.log(f"  • GPU Pack found at: {existing_pack}")
+                        self.log(f"  • Current mode: CPU")
+                        self.log("")
+                        self.log("A GPU Pack is already installed but not activated.")
+                        self.log("")
+                        self.log("Benefits of activating:")
+                        self.log("  • 5-10x faster gap detection")
+                        self.log("  • Process songs in 10-30 seconds (vs 2-3 minutes)")
+                        self.log("  • No download required - activation is instant")
+                        self.log("")
+                        self.log("→ Click 'Activate GPU Pack' button below to enable GPU acceleration")
+                        self.status_label.setText("✅ System Ready (CPU Mode - GPU Pack Available)")
+
+                        # Show activation button (no flavor selector needed)
+                        self.download_btn.setText("Activate GPU Pack")
+                        self.download_btn.setVisible(True)
+                        self.flavor_combo.setVisible(False)
+
+                        # Store pack path for activation
+                        self._existing_pack_path = existing_pack
+
+                        # Change button action to activate instead of download
+                        self.download_btn.clicked.disconnect()
+                        self.download_btn.clicked.connect(self._on_activate_gpu_pack)
+                    else:
+                        # No GPU Pack - offer to download
+                        self.log("⚡ GPU Pack Available for Download")
+                        self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
+                        self.log(f"  • Current mode: CPU (GPU Pack not installed)")
+                        self.log("")
+                        self.log("Benefits of GPU Pack:")
+                        self.log("  • 5-10x faster gap detection")
+                        self.log("  • Process songs in 10-30 seconds (vs 2-3 minutes)")
+                        self.log("  • Download size: ~2.5 GB")
+                        self.log("")
+                        self.log("→ Click 'Download GPU Pack' button below to enable GPU acceleration")
+                        self.log("")
+                        self.log("💡 Note: You can download the GPU Pack later from the About menu")
+                        self.status_label.setText("✅ System Ready (CPU Mode - GPU Available)")
+
+                        # Show download controls (button + flavor selector)
+                        self.download_btn.setText("Download GPU Pack")
+                        self.download_btn.setVisible(True)
+                        self.flavor_combo.setVisible(True)
 
                     # Set default flavor based on driver or config
                     if self.config and hasattr(self.config, "gpu_flavor") and self.config.gpu_flavor:
@@ -407,6 +440,72 @@ class StartupDialog(QDialog):
                 pass
 
         self.log("")
+
+    def _on_activate_gpu_pack(self):
+        """Handle Activate GPU Pack button click."""
+        if not hasattr(self, "_existing_pack_path"):
+            logger.error("No existing pack path stored")
+            return
+
+        pack_path = self._existing_pack_path
+
+        self.log("")
+        self.log(f"Activating GPU Pack at {pack_path}...")
+
+        # Disable button during activation
+        self.download_btn.setEnabled(False)
+        self.download_btn.setText("Activating...")
+
+        # Activate the pack
+        success = gpu_bootstrap.activate_existing_gpu_pack(self.config, pack_path)
+
+        if success:
+            self.log("✅ GPU Pack activated successfully!")
+            self.log("")
+            self.log("⚠️ Please restart the application for changes to take effect.")
+            self.log("")
+            self.status_label.setText("✅ GPU Pack Activated (Restart Required)")
+            self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+
+            # Change button to close/restart prompt
+            self.download_btn.setText("Restart App")
+            self.download_btn.setEnabled(True)
+            self.download_btn.clicked.disconnect()
+            self.download_btn.clicked.connect(self._on_restart_for_gpu)
+        else:
+            self.log("❌ Failed to activate GPU Pack")
+            self.log("")
+            self.status_label.setText("❌ Activation Failed")
+            self.status_label.setStyleSheet("color: #f44336; font-weight: bold;")
+
+            # Re-enable button
+            self.download_btn.setText("Activate GPU Pack")
+            self.download_btn.setEnabled(True)
+
+    def _on_restart_for_gpu(self):
+        """Handle restart request after GPU Pack activation."""
+        from PySide6.QtWidgets import QMessageBox
+
+        reply = QMessageBox.question(
+            self,
+            "Restart Required",
+            "GPU Pack has been activated. The application needs to restart to use GPU acceleration.\n\n" "Restart now?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            logger.info("User confirmed restart after GPU Pack activation")
+            import sys
+            import os
+
+            # Use sys.executable to restart Python interpreter with same script
+            os.execl(sys.executable, sys.executable, *sys.argv)
+        else:
+            # User chose not to restart - close dialog
+            if self.startup_mode:
+                self.completed.emit(self.capabilities)
+            self.accept()
 
     def _on_start_clicked(self):
         """Handle Start App button click."""
@@ -612,13 +711,22 @@ class StartupDialog(QDialog):
 
             capabilities = check_system_capabilities()
 
-            # Only show dialog if there's a critical error
+            # Check if there's an existing GPU Pack that needs activation
+            # (this takes precedence over health check - user should be prompted)
             if capabilities and capabilities.can_detect:
-                logger.info("Health check passed - skipping startup dialog (splash_dont_show_health=True)")
-                return capabilities
-
-            # Critical error - show dialog anyway
-            logger.warning("Health check failed - showing startup dialog despite splash_dont_show_health=True")
+                existing_pack = gpu_bootstrap.detect_existing_gpu_pack(config)
+                if existing_pack:
+                    logger.info(
+                        f"GPU Pack detected at {existing_pack} but not enabled - "
+                        "showing startup dialog to prompt activation"
+                    )
+                    # Fall through to show dialog
+                else:
+                    logger.info("Health check passed - skipping startup dialog (splash_dont_show_health=True)")
+                    return capabilities
+            else:
+                # Critical error - show dialog anyway
+                logger.warning("Health check failed - showing startup dialog despite splash_dont_show_health=True")
 
         # Show the dialog
         dialog = StartupDialog(parent=parent, config=config, startup_mode=True)
