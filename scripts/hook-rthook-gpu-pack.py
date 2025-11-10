@@ -421,23 +421,13 @@ def setup_gpu_pack():
     if has_torchaudio:
         redirected_modules.add("torchaudio")
 
-    # Disable PyTorch compilation features that cause circular imports in frozen apps
-    # This must be done BEFORE torch is imported to prevent einops/dynamo issues
-    os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # macOS compatibility
-    os.environ["TORCH_COMPILE_DISABLE"] = "1"  # Disable torch.compile
-    os.environ["TORCHDYNAMO_DISABLE"] = "1"  # Disable dynamo (prevents circular import)
-
-    # Create a stub torch._dynamo module to prevent circular import
-    # einops tries to import torch._dynamo.allow_in_graph, which triggers circular import
-    # We need to provide a fake module BEFORE einops tries to import it
+    # Prevent torch._dynamo circular import in frozen apps with external GPU pack
+    # einops (used by Demucs) imports torch._dynamo.allow_in_graph, causing circular import.
+    # Solution: Create stub module in sys.modules BEFORE any imports happen.
     import types
-    
-    # Create fake torch._dynamo module with minimal API
     fake_dynamo = types.ModuleType('torch._dynamo')
     fake_dynamo.allow_in_graph = lambda *args, **kwargs: lambda fn: fn  # No-op decorator
     fake_dynamo.disable = lambda *args, **kwargs: lambda fn: fn  # No-op decorator
-    
-    # Pre-populate sys.modules to prevent real dynamo from loading
     sys.modules['torch._dynamo'] = fake_dynamo
 
     # Insert MetaPathFinder at index 0 to beat FrozenImporter
