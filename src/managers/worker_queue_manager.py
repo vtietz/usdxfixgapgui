@@ -111,7 +111,7 @@ class WorkerQueueManager(QObject):
     task_id_counter = 0
     on_task_list_changed = pyqtSignal()
 
-    def __init__(self, ui_update_interval=1.0):
+    def __init__(self, ui_update_interval=0.25):
         super().__init__()
         # Standard task lane (sequential, long-running) - using deque for O(1) FIFO
         self.queued_tasks = deque()
@@ -224,17 +224,14 @@ class WorkerQueueManager(QObject):
             if self.running_instant_task is None:
                 self.start_next_instant_task()
             else:
-                # Only emit if we're actually queuing (not starting immediately)
-                # This prevents UI flicker showing WAITING state before transitioning to RUNNING
-                self.on_task_list_changed.emit()
+                # Queue update; let heartbeat coalesce UI refresh to avoid WAITING flicker
                 self._mark_ui_update_needed()
         else:
             # Standard lane: long-running sequential tasks
             worker.status = WorkerStatus.WAITING
             self.queued_tasks.append(worker)
 
-            # Emit immediately so TaskQueueViewer updates right away, and also mark for coalesced refresh
-            self.on_task_list_changed.emit()
+            # Mark UI update needed; heartbeat will coalesce refresh
             self._mark_ui_update_needed()
 
             # Start immediately if requested or if nothing is running
@@ -297,10 +294,8 @@ class WorkerQueueManager(QObject):
         if self.queued_tasks and not self.running_tasks:
             worker = self.queued_tasks.popleft()  # FIFO: remove from head
             logger.info(f"Starting task: {worker.description}")
+            # Defer UI update until _start_worker sets RUNNING state
             run_async(self._start_worker(worker))
-            # Reflect the change right away in the TaskQueueViewer
-            self.on_task_list_changed.emit()
-            self._mark_ui_update_needed()
 
     def start_next_instant_task(self):
         """Start the next instant task if the instant slot is available"""
@@ -308,10 +303,8 @@ class WorkerQueueManager(QObject):
             worker = self.queued_instant_tasks.popleft()  # FIFO: remove from head
             logger.info(f"Starting task: {worker.description}")
             self.running_instant_task = worker
+            # Defer UI update until _start_instant_worker sets RUNNING state
             run_async(self._start_instant_worker(worker))
-            # Reflect the change right away in the TaskQueueViewer
-            self.on_task_list_changed.emit()
-            self._mark_ui_update_needed()
 
     async def _start_instant_worker(self, worker: IWorker):
         """Start an instant worker in the instant lane"""
@@ -349,24 +342,24 @@ class WorkerQueueManager(QObject):
         worker = self.get_worker(task_id)
         if worker:
             worker.cancel()
-            # Force an immediate UI update when cancelling
-            self.on_task_list_changed.emit()
+            # Mark UI update; viewer updates button immediately
+            self._mark_ui_update_needed()
         else:
             # Check if it's in the standard queue
             for worker in list(self.queued_tasks):  # Convert to list for safe iteration
                 if worker.id == task_id:
                     worker.cancel()
                     self.queued_tasks.remove(worker)  # Remove by value instead of index
-                    # Force an immediate UI update
-                    self.on_task_list_changed.emit()
+                    # Mark UI update; heartbeat will emit
+                    self._mark_ui_update_needed()
                     return
             # Check if it's in the instant queue
             for worker in list(self.queued_instant_tasks):  # Convert to list for safe iteration
                 if worker.id == task_id:
                     worker.cancel()
                     self.queued_instant_tasks.remove(worker)  # Remove by value instead of index
-                    # Force an immediate UI update
-                    self.on_task_list_changed.emit()
+                    # Mark UI update; heartbeat will emit
+                    self._mark_ui_update_needed()
                     return
 
     def cancel_queue(self):
@@ -398,9 +391,7 @@ class WorkerQueueManager(QObject):
         self.on_task_finished(task_id)
 
     def on_task_updated(self, task_id):
-        # Emit immediate update so status changes are visible promptly,
-        # and also mark for coalesced refresh via heartbeat
-        self.on_task_list_changed.emit()
+        # Coalesce updates via heartbeat to avoid flicker
         self._mark_ui_update_needed()
 
     def set_update_interval(self, seconds):
