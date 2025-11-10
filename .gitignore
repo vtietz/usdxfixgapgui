@@ -8,6 +8,7 @@ data/
 *.log*
 config.ini
 gpu_pack/
+gpu_runtime/
 
 # Build artifacts
 dist/

@@ -427,6 +427,19 @@ def setup_gpu_pack():
     os.environ["TORCH_COMPILE_DISABLE"] = "1"  # Disable torch.compile
     os.environ["TORCHDYNAMO_DISABLE"] = "1"  # Disable dynamo (prevents circular import)
 
+    # Create a stub torch._dynamo module to prevent circular import
+    # einops tries to import torch._dynamo.allow_in_graph, which triggers circular import
+    # We need to provide a fake module BEFORE einops tries to import it
+    import types
+    
+    # Create fake torch._dynamo module with minimal API
+    fake_dynamo = types.ModuleType('torch._dynamo')
+    fake_dynamo.allow_in_graph = lambda *args, **kwargs: lambda fn: fn  # No-op decorator
+    fake_dynamo.disable = lambda *args, **kwargs: lambda fn: fn  # No-op decorator
+    
+    # Pre-populate sys.modules to prevent real dynamo from loading
+    sys.modules['torch._dynamo'] = fake_dynamo
+
     # Insert MetaPathFinder at index 0 to beat FrozenImporter
     finder = GPUPackImportFinder(pack_dir, redirected_modules)
     sys.meta_path.insert(0, finder)

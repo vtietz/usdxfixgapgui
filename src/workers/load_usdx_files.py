@@ -104,7 +104,7 @@ class LoadUsdxFilesWorker(IWorker):
         PROGRESS_TIME_INTERVAL = 0.3  # Or every 300ms
 
         for root, dirs, files in os.walk(self.directory):
-            self.description = f"Searching song files in {root}"
+            self.description = f"Searching for updates in {root}"
             if self.is_cancelled():
                 self._flush_batch()  # Flush any remaining songs
                 return
