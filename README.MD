@@ -193,6 +193,25 @@ cd usdxfixgapgui
 .\run.bat start       # Start development
 ```
 
+**Dependency Profiles**:
+
+| Profile | File | Purpose | PyTorch Variant |
+|---------|------|---------|-----------------|
+| Runtime (dev/portable CPU default) | `requirements.txt` | Flexible versions + CPU torch for universal run | Ranges (CPU) |
+| Shared base | `requirements-base.txt` | Common non-PyTorch libs (librosa, demucs, PySide6, etc.) | n/a |
+| Windows build | `requirements-build.txt` | Pinned for reproducible PyInstaller build, CPU torch | torch==2.4.1 / torchaudio==2.4.1 |
+| Linux build | `requirements-build-linux.txt` | Pinned + `+cpu` suffix to avoid CUDA wheels | torch==2.4.1+cpu / torchaudio==2.4.1+cpu |
+| macOS build | `requirements-build-macos.txt` | Pinned standard (includes MPS acceleration) | torch==2.4.1 / torchaudio==2.4.1 |
+
+**GPU Development (Optional)**:
+Install CUDA-enabled PyTorch into the venv (does not affect builds):
+```bash
+run.bat install --gpu        # Windows
+./run.sh install --gpu       # Linux/macOS (if supported)
+```
+The executable distributes CPU-only PyTorch. End users opt-in to the GPU Pack through the app UI or `--setup-gpu` CLI.
+
+
 **Project Structure**:
 ```
 src/

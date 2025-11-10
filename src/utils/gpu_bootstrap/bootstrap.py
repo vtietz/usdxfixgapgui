@@ -29,8 +29,21 @@ def _is_gpu_disabled(config) -> bool:
 
 
 def _expected_cuda_from_flavor(gpu_flavor: str) -> str:
-    """Map flavor to expected CUDA version string."""
-    return "12.1" if gpu_flavor == "cu121" else "12.4"
+    """Derive expected CUDA version from flavor name.
+
+    Supports patterns like cu121, cu124, future cuXYZ where XYZ = major minor digits.
+    Returns major.minor (e.g. cu121 -> 12.1, cu124 -> 12.4).
+    Falls back to '12' (broad match) if parsing fails.
+    """
+    if not gpu_flavor or not gpu_flavor.startswith("cu"):
+        return "12"  # broad match
+    digits = gpu_flavor[2:]
+    if len(digits) < 3 or not digits.isdigit():
+        return "12"  # fallback broad match
+    # first two digits = major, last digit = minor (cu121 -> 12.1)
+    major = digits[0:2]
+    minor = digits[2]
+    return f"{major}.{minor}"
 
 
 def _torch_from_dir(module_name: str, base_dir: Path) -> bool:

@@ -1,22 +1,7 @@
-# Runtime dependencies (included in executable builds)
-aiofiles==24.1.0
-pillow==10.4.0
-PySide6==6.6.3.1
-PySide6_Addons==6.6.3.1
-PySide6_Essentials==6.6.3.1
-shiboken6==6.6.3.1
-librosa==0.10.1
-demucs==4.0.1
-numpy>=1.24.0,<2.0.0
-scipy>=1.10.0
-soundfile>=0.12.1
-watchdog>=4.0.0
+# Runtime dependencies (includes shared base + flexible torch entries)
+-r requirements-base.txt
 
-# PyTorch - CPU-only by default (smaller downloads, works everywhere)
-# Bundled in executables for immediate CPU-based gap detection
-# For 10x faster GPU acceleration: Download GPU Pack via Settings or --setup-gpu
-# Development with GPU: run.bat install --gpu
+# PyTorch (CPU by default) - allow GPU pack override at runtime.
 torch>=2.0.0,<2.5.0
 torchaudio>=2.0.0,<2.5.0
-torchcodec>=0.1.0
-matplotlib>=3.5.0
+

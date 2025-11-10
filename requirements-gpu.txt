@@ -1,0 +1,15 @@
+# GPU development convenience file (optional)
+#
+# Use together with the CUDA wheel index URL to install CUDA-enabled PyTorch.
+# This should NOT be used for building the distributable; builds use CPU-only.
+#
+# Example install:
+#   pip install -r requirements-gpu.txt --index-url https://download.pytorch.org/whl/cu121
+#
+# If your GPU Pack uses CUDA 12.4, change cu121 -> cu124 and version suffixes accordingly.
+
+-r requirements-base.txt
+
+# Pin to the same versions used by the GPU Pack for consistency
+torch==2.4.1+cu121
+torchaudio==2.4.1+cu121
