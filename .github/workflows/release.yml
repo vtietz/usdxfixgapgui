@@ -36,7 +36,7 @@ jobs:
           echo "Testing onedir build (fast - no extraction overhead)..."
           echo "Listing onedir output contents for verification:"
           Get-ChildItem -Force dist | Select-Object Name, Length | Format-Table -AutoSize
-          .\dist\usdxfixgap\usdxfixgap.exe --version
+          .\dist\usdxfixgap-portable\usdxfixgap.exe --version
           if ($LASTEXITCODE -ne 0) {
             echo "[x] Onedir version check failed!"
             exit 1
@@ -47,7 +47,7 @@ jobs:
       - name: Smoke Test - Verify CPU PyTorch Import (Bundled)
         run: |
           echo "Testing bundled CPU PyTorch import..."
-          .\dist\usdxfixgap\usdxfixgap.exe --version
+          .\dist\usdxfixgap-portable\usdxfixgap.exe --version
           if ($LASTEXITCODE -ne 0) {
             echo "[x] CPU PyTorch import failed!"
             exit 1
@@ -154,7 +154,7 @@ jobs:
       - name: Package Linux Portable
         run: |
           cd dist
-          tar -czf ../usdxfixgap-portable-linux.tar.gz usdxfixgap
+          tar -czf ../usdxfixgap-portable-linux.tar.gz usdxfixgap-portable
           cd ..
 
       - name: Build Linux Onefile
@@ -216,7 +216,7 @@ jobs:
       - name: Package macOS Portable
         run: |
           cd dist
-          tar -czf ../usdxfixgap-portable-macos.tar.gz usdxfixgap
+          tar -czf ../usdxfixgap-portable-macos.tar.gz usdxfixgap-portable
           cd ..
 
       - name: Build macOS Onefile
