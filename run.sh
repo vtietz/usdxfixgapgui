@@ -100,6 +100,8 @@ if [[ $# -eq 0 ]]; then
     echo "  cleanup --dry-run  - Preview cleanup without changes"
     echo "  build       - Build onefile executable with PyInstaller"
     echo "  build portable - Build portable onedir executable with _internal folder"
+    echo "  set-version <version> - Set version in VERSION file, create Git tag, and push"
+    echo "                          Example: ./run.sh set-version v1.2.0-rc6"
     echo ""
     echo "Or run any Python command directly:"
     echo "  $0 python script.py"
@@ -400,6 +402,64 @@ case "$1" in
             echo "=========================================="
             exit 1
         fi
+        ;;
+    "set-version")
+        if [[ -z "$2" ]]; then
+            print_error "Version argument required"
+            echo "Usage: $0 set-version <version>"
+            echo "Example: $0 set-version v1.2.0-rc6"
+            exit 1
+        fi
+
+        VERSION="$2"
+        echo "=========================================="
+        print_info "Setting version: $VERSION"
+        echo "=========================================="
+        echo ""
+
+        # Write version to VERSION file
+        echo "$VERSION" > "$SCRIPT_DIR/VERSION"
+        print_success "[1/4] Updated VERSION file"
+
+        # Check if we're in a git repository
+        if ! git rev-parse --git-dir &> /dev/null; then
+            print_error "Not a git repository"
+            exit 1
+        fi
+
+        # Stage VERSION file
+        git add "$SCRIPT_DIR/VERSION"
+        print_success "[2/4] Staged VERSION file"
+
+        # Create or overwrite tag (force)
+        git tag -f "$VERSION" -m "Release $VERSION"
+        if [[ $? -ne 0 ]]; then
+            print_error "Failed to create git tag"
+            exit 1
+        fi
+        print_success "[3/4] Created git tag: $VERSION"
+
+        # Push tag (force to overwrite if exists)
+        print_info "Pushing tag to remote..."
+        git push origin "$VERSION" --force
+        if [[ $? -ne 0 ]]; then
+            print_error "Failed to push tag"
+            echo "You may need to push manually: git push origin $VERSION --force"
+            exit 1
+        fi
+        print_success "[4/4] Pushed tag to remote"
+
+        echo ""
+        echo "=========================================="
+        print_success "Version $VERSION set successfully!"
+        echo "=========================================="
+        echo ""
+        echo "Next steps:"
+        echo "1. Commit other changes: git commit -m \"...\""
+        echo "2. Push commits: git push"
+        echo ""
+        echo "The tag has been created and pushed."
+        echo "GitHub Actions will automatically build release artifacts."
         ;;
     *)
         print_info "Executing: $*"

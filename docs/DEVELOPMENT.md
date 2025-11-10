@@ -304,6 +304,33 @@ Before committing, ensure:
 
 ## Additional Commands
 
+### Version Management
+
+Set version in VERSION file, create Git tag, and push to trigger release builds:
+
+```bash
+# Windows
+run.bat set-version v1.2.0-rc6
+
+# Linux/macOS
+./run.sh set-version v1.2.0-rc6
+```
+
+**What it does:**
+1. Updates the `VERSION` file with the new version
+2. Stages the `VERSION` file in git
+3. Creates (or overwrites) a git tag with the version
+4. Pushes the tag to remote (force push to allow overwriting)
+
+**Note:** This command only handles the VERSION file and tag. You still need to:
+- Commit other changes: `git commit -m "..."`
+- Push commits: `git push`
+
+**Release workflow:**
+- Tags matching `v*.*.*` (e.g., `v1.2.0`) trigger full releases
+- Tags with `-(rc|beta|alpha)` (e.g., `v1.2.0-rc6`) are marked as pre-releases
+- GitHub Actions automatically builds executables for Windows, Linux, and macOS
+
 ### Clean Build Artifacts
 
 ```bash

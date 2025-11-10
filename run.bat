@@ -86,6 +86,8 @@ if "%1"=="" (
     echo   cleanup --dry-run  - Preview cleanup without changes
     echo   build       - Build Windows onefile executable with PyInstaller
     echo   build portable - Build portable onedir executable with _internal folder
+    echo   set-version ^<version^> - Set version in VERSION file, create Git tag, and push
+    echo                           Example: run.bat set-version v1.2.0-rc6
     echo.
     echo Or run any Python command directly:
     echo   %0 python script.py
@@ -382,6 +384,67 @@ if /i "%1"=="build" (
         echo ==========================================
         exit /b 1
     )
+    goto :end
+)
+
+if /i "%1"=="set-version" (
+    if "%2"=="" (
+        echo ERROR: Version argument required
+        echo Usage: run.bat set-version ^<version^>
+        echo Example: run.bat set-version v1.2.0-rc6
+        exit /b 1
+    )
+
+    set VERSION=%2
+    echo ==========================================
+    echo Setting version: !VERSION!
+    echo ==========================================
+    echo.
+
+    :: Write version to VERSION file
+    echo !VERSION!> "%SCRIPT_DIR%VERSION"
+    echo [1/4] Updated VERSION file
+
+    :: Check if we're in a git repository
+    git rev-parse --git-dir >nul 2>nul
+    if !errorlevel! neq 0 (
+        echo ERROR: Not a git repository
+        exit /b 1
+    )
+
+    :: Stage VERSION file
+    git add "%SCRIPT_DIR%VERSION"
+    echo [2/4] Staged VERSION file
+
+    :: Create or overwrite tag (force)
+    git tag -f !VERSION! -m "Release !VERSION!"
+    if !errorlevel! neq 0 (
+        echo ERROR: Failed to create git tag
+        exit /b 1
+    )
+    echo [3/4] Created git tag: !VERSION!
+
+    :: Push tag (force to overwrite if exists)
+    echo Pushing tag to remote...
+    git push origin !VERSION! --force
+    if !errorlevel! neq 0 (
+        echo ERROR: Failed to push tag
+        echo You may need to push manually: git push origin !VERSION! --force
+        exit /b 1
+    )
+    echo [4/4] Pushed tag to remote
+
+    echo.
+    echo ==========================================
+    echo Version !VERSION! set successfully!
+    echo ==========================================
+    echo.
+    echo Next steps:
+    echo 1. Commit other changes: git commit -m "..."
+    echo 2. Push commits: git push
+    echo.
+    echo The tag has been created and pushed.
+    echo GitHub Actions will automatically build release artifacts.
     goto :end
 )
 
