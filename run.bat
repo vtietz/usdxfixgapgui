@@ -403,7 +403,7 @@ if /i "%1"=="set-version" (
 
     :: Write version to VERSION file
     echo !VERSION!> "%SCRIPT_DIR%VERSION"
-    echo [1/4] Updated VERSION file
+    echo [1/5] Updated VERSION file
 
     :: Check if we're in a git repository
     git rev-parse --git-dir >nul 2>nul
@@ -412,9 +412,26 @@ if /i "%1"=="set-version" (
         exit /b 1
     )
 
-    :: Stage VERSION file
+    :: Stage and commit VERSION file
     git add "%SCRIPT_DIR%VERSION"
-    echo [2/4] Staged VERSION file
+    echo [2/5] Staged VERSION file
+
+    git commit -m "Chore: Set version to !VERSION!"
+    if !errorlevel! neq 0 (
+        echo ERROR: Failed to commit VERSION file
+        echo Note: File may already be committed with this version
+        exit /b 1
+    )
+    echo [3/5] Committed VERSION file
+
+    :: Push commit before creating tag
+    echo Pushing commit to remote...
+    git push
+    if !errorlevel! neq 0 (
+        echo ERROR: Failed to push commit
+        exit /b 1
+    )
+    echo [4/5] Pushed commit to remote
 
     :: Create or overwrite tag (force)
     git tag -f !VERSION! -m "Release !VERSION!"
@@ -422,7 +439,7 @@ if /i "%1"=="set-version" (
         echo ERROR: Failed to create git tag
         exit /b 1
     )
-    echo [3/4] Created git tag: !VERSION!
+    echo [5/5] Created git tag: !VERSION!
 
     :: Push tag (force to overwrite if exists)
     echo Pushing tag to remote...
@@ -432,18 +449,14 @@ if /i "%1"=="set-version" (
         echo You may need to push manually: git push origin !VERSION! --force
         exit /b 1
     )
-    echo [4/4] Pushed tag to remote
+    echo [6/6] Pushed tag to remote
 
     echo.
     echo ==========================================
     echo Version !VERSION! set successfully!
     echo ==========================================
     echo.
-    echo Next steps:
-    echo 1. Commit other changes: git commit -m "..."
-    echo 2. Push commits: git push
-    echo.
-    echo The tag has been created and pushed.
+    echo The VERSION file has been committed and the tag has been created and pushed.
     echo GitHub Actions will automatically build release artifacts.
     goto :end
 )

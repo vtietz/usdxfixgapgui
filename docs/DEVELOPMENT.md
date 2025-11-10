@@ -319,12 +319,14 @@ run.bat set-version v1.2.0-rc6
 **What it does:**
 1. Updates the `VERSION` file with the new version
 2. Stages the `VERSION` file in git
-3. Creates (or overwrites) a git tag with the version
-4. Pushes the tag to remote (force push to allow overwriting)
+3. Commits the `VERSION` file with message: `Chore: Set version to <version>`
+4. Pushes the commit to remote
+5. Creates (or overwrites) a git tag with the version
+6. Pushes the tag to remote (force push to allow overwriting)
 
-**Note:** This command only handles the VERSION file and tag. You still need to:
-- Commit other changes: `git commit -m "..."`
-- Push commits: `git push`
+**Important:** The VERSION file is committed and pushed **before** creating the tag, ensuring the tag points to a commit with the correct version number.
+
+**Note:** This command handles everything automatically. You don't need to commit or push anything manually.
 
 **Release workflow:**
 - Tags matching `v*.*.*` (e.g., `v1.2.0`) trigger full releases
