@@ -390,10 +390,11 @@ class MediaPlayerComponent(QWidget):
                 if os.path.exists(paths["vocals_waveform_file"]):
                     self.waveform_widget.load_waveform(paths["vocals_waveform_file"])
 
-                    # Track B: Set waveform duration for gap markers from the actual vocals file
+                    # Track B: Set waveform duration for gap markers from the ORIGINAL audio file
+                    # Gap markers are relative to full song duration, not vocals preview duration
                     from utils.audio import get_audio_duration
 
-                    duration_f = get_audio_duration(paths["vocals_file"])
+                    duration_f = get_audio_duration(paths["audio_file"])
                     if duration_f is not None:
                         self.waveform_widget.duration_ms = int(duration_f)
                         self.waveform_widget.overlay.update()  # Trigger marker redraw
