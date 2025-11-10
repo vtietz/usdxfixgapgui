@@ -46,8 +46,45 @@ a = Analysis(
         # Include assets directory for GUI icons
         ('src/assets', 'assets'),
     ],
-    hiddenimports=[],
-    hookspath=[],
+    hiddenimports=[
+        # PySide6 modules
+        'PySide6.QtCore',
+        'PySide6.QtGui',
+        'PySide6.QtWidgets',
+        'PySide6.QtMultimedia',
+        'PySide6.QtMultimediaWidgets',
+
+        # Audio processing
+        'soundfile',
+        'sounddevice',
+        'librosa',
+        'audioread',
+
+        # PyTorch & Demucs
+        'torch',
+        'torchaudio',
+        'demucs',
+        'demucs.pretrained',
+        'demucs.remote',
+        'julius',
+        'einops',
+
+        # Other dependencies
+        'numpy',
+        'scipy',
+        'chardet',
+
+        # Image processing (for waveforms)
+        'PIL',
+        'PIL.Image',
+        'PIL.ImageDraw',
+        'PIL.ImageFont',
+
+        # Worker threads
+        'concurrent.futures',
+        'queue',
+    ],
+    hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[str(scripts_dir / 'hook-rthook-gpu-pack.py')],
     excludes=[],
