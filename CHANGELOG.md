@@ -12,64 +12,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0-rc6] - 2025-11-10
 
 ### Fixed
-- **MDX Gap Detection Accuracy**: Fixed critical issue where expected gap region wasn't analyzed
-  - Replaced absolute-time gating with distance-from-expected band gating in scanner
-  - Previously: chunks after 20s were skipped regardless of expected gap position
-  - Now: search band centers around `expected_gap_ms ± search_limit_ms`
-  - Resolves false detections from early backing vocals (e.g., ABBA "Gimme! Gimme! Gimme!")
-  - Added comprehensive logging for distance-gated search band traceability
-- **UI Responsiveness**: Media player now unloads before gap detection to prevent freezes
-  - Emits `media_unload_requested` signal before queuing detection workers
-  - Automatically unloads when selected song status transitions to PROCESSING
-  - Eliminates Windows file lock conflicts during audio analysis
+- Fix: MDX gap detection now analyzes expected gap region (distance-based band gating replaces absolute-time gating)
+- Fix: UI freezes during gap detection (media player unloads before queuing workers)
+- Fix: Media player auto-unloads when song status transitions to PROCESSING
 
 ### Added
-- **Test Coverage**: New tier-2 test validates distance gating (test_15)
-  - Scenario: Expected gap at 37.8s with early backing vocal at 25s
-  - Verifies correct region processing and accurate detection
-  - All 617 tests passing including tier-2 focused search validation
+- New: Test coverage for distance gating with visualization (test_15, all 617 tests passing)
+- New: Comprehensive logging for distance-gated search band traceability
 
 ---
 
 ## [1.2.0-rc5] - 2025-11-09
 
 ### Added
-- **Resizable UI Panels**: Two dynamic splitters for complete layout control
-  - Main splitter divides song list from bottom panel (waveform + task/log)
-  - Second splitter divides waveform from task/log panel
-  - Both positions saved to `config.ini` and restored on restart
-  - Task queue viewer and log viewer now equal height by default
-- **Flexible Waveform Height**: Removed fixed 150px height constraint
-  - Minimum height: 100px
-  - Expands vertically with splitter adjustment
-  - Maintains aspect ratio and scaling
-- **Smart Startup Dialog**: Auto-checks "Don't show again" checkbox in appropriate scenarios
-  - Auto-checked for GPU mode (system fully configured)
-  - Auto-checked for CPU-only mode (no GPU hardware available)
-  - Remains unchecked when GPU exists but Pack not installed (offers download)
-- **Version Display**: RC appendix now shown in startup dialog title (e.g., "v1.2.0-rc5")
+- New: Resizable UI panels with two dynamic splitters (song list / waveform+task/log)
+- New: Flexible waveform height (100px minimum, expands with splitter)
+- New: Smart startup dialog auto-checks "Don't show again" (GPU mode or CPU-only)
+- New: Version display in startup dialog title (e.g., "v1.2.0-rc5")
 
 ### Changed
-- **Config Schema**: Added `main_splitter_pos` and `second_splitter_pos` to Window section
-- **Log Viewer Height**: Removed 150px maximum height to allow flexible expansion
+- Chore: Config schema added `main_splitter_pos` and `second_splitter_pos` to Window section
+- Chore: Log viewer height removed 150px maximum for flexible expansion
 
 ### Fixed
-- **UI Layout**: Improved space distribution between panels for better workflow
+- Fix: UI layout space distribution improved between panels
 
 ---
 
 ## [1.2.0-rc4] - 2025-11-08
 
 ### Added
-- **Wizard-Based Startup Splash**: Modern multi-page startup experience with smart navigation
-  - **Health Check Page**: Auto-detects PyTorch, CUDA, FFmpeg availability with visual feedback
-  - **GPU Pack Offer Page**: Smart GPU Pack installation prompt (auto-skips if CUDA detected)
-  - **Download Progress Page**: Real-time GPU Pack download with progress tracking
-  - **Smart Page Flow**: Auto-skips pages based on system state and user preferences
-  - **Test Detection**: Splash automatically skips UI when running unit tests
-  - **Close & Exit Button**: Always-visible button to immediately exit during startup
-  - **Config Persistence**: "Don't show again" preferences saved to config
-  - **Pure Palette Styling**: Uses app's global Fusion dark theme for perfect consistency
+- New: Wizard-based startup splash with multi-page experience
+- New: Health check page auto-detects PyTorch, CUDA, FFmpeg with visual feedback
+- New: GPU Pack offer page with smart installation prompt (auto-skips if CUDA detected)
+- New: Download progress page with real-time tracking
+- New: Smart page flow auto-skips pages based on system state
+- New: Test detection automatically skips UI when running unit tests
+- New: Close & Exit button always visible during startup
+- New: Config persistence for "Don't show again" preferences
+- New: Pure Palette styling uses app's global Fusion dark theme
 
 ### Removed
 - **DefaultOutputPath Configuration**: Removed unused 'DefaultOutputPath' configuration option and automatic 'output' directory creation

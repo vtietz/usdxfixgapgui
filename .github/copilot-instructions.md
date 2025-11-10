@@ -1,7 +1,60 @@
 # GitHub Copilot Instructions — USDXFixGap
 
 **Project:** Python/PySide6 GUI for UltraStar song gap detection (Demucs + ffmpeg).
-**Current Version:** v2.0.0 (in development)
+*## 9) Task Report (add to PR)
+
+* **Summary:** 1–2 lines of what/why.
+* **Changed files:** list exact paths.
+* **Deleted files:** list exact paths.
+  *(Optional)* Created / Moved (`old → new`).
+* **Tests & results:** updated/added and pass status.
+* **Docs:** which pages updated (integrated, not appended dumps).
+
+---
+
+## 10) CHANGELOG & Release Notes Format
+
+**Always use one-liner format with category prefix:**
+
+**Categories:**
+- `New:` - New features, capabilities, or additions
+- `Fix:` - Bug fixes, error corrections
+- `Chore:` - Maintenance, refactoring, dependencies, tooling
+- `Change:` - Modifications to existing behavior
+
+**Format Rules:**
+- One line per change, 120 chars max
+- Start with category prefix
+- Be specific but concise
+- Use active voice, present tense
+- Include key details in parentheses if needed
+
+**Examples:**
+```markdown
+### Added
+- New: Resizable UI panels with drag splitters (song list, waveform, task/log views)
+- New: Smart startup dialog auto-checks "Don't show again" when system configured
+
+### Fixed
+- Fix: MDX gap detection for late expected gaps (distance-based band gating)
+- Fix: UI freezes during gap detection (media player unloads before processing)
+
+### Changed
+- Chore: Config schema added `main_splitter_pos` to Window section
+- Chore: Fixed 56 type errors for better IDE support
+```
+
+**Apply to:**
+- `CHANGELOG.md` - All RC and release entries
+- `docs/releases/vX.Y.Z.md` - Release notes
+
+---
+
+## 11) Final Steps
+
+1. `run.bat test` must pass.
+2. Propose a **one-line, imperative** commit message, e.g.
+   *"Fix MDX gap detection for late expected gaps and prevent UI freezes"*.:** v2.0.0 (in development)
 
 ⚠️ **DO NOT bump version numbers** - Maintainer controls versioning manually.
 
