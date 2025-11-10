@@ -337,7 +337,7 @@ def write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified):
             else:
                 f.write(f"FAILED|{pack_dir}")
 
-    except Exception as e:
+    except Exception:
         # Don't break startup on diagnostic failure
         pass
 

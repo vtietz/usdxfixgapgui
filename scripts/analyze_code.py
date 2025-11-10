@@ -83,12 +83,21 @@ def run_command(cmd: List[str], description: str) -> Tuple[int, str]:
     Returns:
         Tuple of (exit_code, output)
     """
-    print(f"\n{' = '*80}")
+    print(f"\n{' = ' * 80}")
     print(f"{SYMBOL_SEARCH} {description}")
-    print(f"{' = '*80}")
+    print(f"{' = ' * 80}")
 
     try:
-        result = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True, check=False)
+        # Force UTF-8 decoding to avoid Windows cp1252 decode errors when tools output Unicode
+        result = subprocess.run(
+            cmd,
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
 
         output = result.stdout + result.stderr
         print(output)
@@ -241,12 +250,13 @@ def analyze_formatting(files: Optional[List[str]] = None) -> tuple:
         print("   Install with: pip install black")
         return 0, ""
 
+    # Use quiet mode and avoid --diff to keep output compact and avoid non-ASCII diffs on Windows
     cmd = [
         sys.executable,
         "-m",
         "black",
         "--check",
-        "--diff",
+        "-q",
     ]
 
     if files:
@@ -314,9 +324,9 @@ def analyze_file_length(files: Optional[List[str]] = None) -> tuple:
     Returns:
         Tuple of (exit_code, output_text)
     """
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")  # divider
     print(f"{SYMBOL_SEARCH} File Length Analysis")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")  # divider
 
     # Collect all Python files to analyze
     files_to_check = []
@@ -411,9 +421,9 @@ def analyze_links() -> int:
     Returns:
         0 if all links valid, 1 otherwise
     """
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"{SYMBOL_SEARCH} Markdown Link Validation")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
     # Import and run link checker
     check_links_script = PROJECT_ROOT / "scripts" / "check_links.py"
@@ -526,11 +536,11 @@ def print_file_summary(complexity_output: str = "", style_output: str = "", leng
     file_totals.sort(key=lambda x: x[4], reverse=True)
 
     # Print top offenders
-    print(f"\n{' = '*80}")
+    print(f"\n{' = ' * 80}")
     print("📋 TOP FILES BY ISSUE COUNT")
-    print(f"{' = '*80}")
+    print(f"{' = ' * 80}")
     print(f"{'File':<55} {'Complex':>7} {'Style':>7} {'Length':>7} {'Total':>7}")
-    print(f"{'-'*55} {'-'*7} {'-'*7} {'-'*7} {'-'*7}")
+    print(f"{'-' * 55} {'-' * 7} {'-' * 7} {'-' * 7} {'-' * 7}")
 
     # Show top 20 files
     for filepath, complexity, style, length, total in file_totals[:20]:
@@ -556,9 +566,9 @@ def print_summary(results: dict, complexity_output: str = "", style_output: str 
     if complexity_output or style_output or length_output:
         print_file_summary(complexity_output, style_output, length_output)
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"{SYMBOL_REPORT} ANALYSIS SUMMARY")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
     total_issues = 0
     for check, exit_code in results.items():
@@ -567,7 +577,7 @@ def print_summary(results: dict, complexity_output: str = "", style_output: str 
         if exit_code != 0:
             total_issues += 1
 
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
     if total_issues == 0:
         print(f"{SYMBOL_SUCCESS} All checks passed!")

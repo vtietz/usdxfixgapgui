@@ -136,7 +136,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
         config.save()
 
         if window.isMaximized():
-            logger.debug(f"Window state saved: maximized")
+            logger.debug("Window state saved: maximized")
         else:
             logger.debug(
                 f"Window geometry saved: {config.window_width}x{config.window_height} at ({config.window_x}, {config.window_y})"
@@ -277,7 +277,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
 
         qt_version = getattr(PySide6, "__version__", "unknown")
         logger.debug(f"Runtime PySide6 version: {qt_version}")
-    except:
+    except Exception:
         logger.debug("Runtime PySide6 version: unknown")
     logger.debug(f"Python Executable: {sys.executable}")
     logger.debug(f"PYTHONPATH: {sys.path}")

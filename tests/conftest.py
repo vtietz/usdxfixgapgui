@@ -16,11 +16,11 @@ TESTS_DIR = os.path.join(PROJECT_ROOT, "tests")
 if TESTS_DIR not in sys.path:
     sys.path.append(TESTS_DIR)
 
-from model.song import Song
-from model.gap_info import GapInfo
-from test_utils.note_factory import create_basic_notes
-from test_utils import separation_stub
-from utils.providers.mdx.config import MdxConfig
+from model.song import Song  # noqa: E402
+from model.gap_info import GapInfo  # noqa: E402
+from test_utils.note_factory import create_basic_notes  # noqa: E402
+from test_utils import separation_stub  # noqa: E402
+from utils.providers.mdx.config import MdxConfig  # noqa: E402
 
 
 # ============================================================================
@@ -82,8 +82,8 @@ def validate_detected_gap(detected_ms: Optional[float], test_name: str = "unknow
     # Sanity check: Gap shouldn't be absurdly large (> 10 minutes)
     MAX_REASONABLE_GAP_MS = 600000  # 10 minutes
     assert detected_ms <= MAX_REASONABLE_GAP_MS, (
-        f"[{test_name}] Gap seems unreasonably large: {detected_ms:.0f}ms ({detected_ms/1000:.1f}s). "
-        f"Expected < {MAX_REASONABLE_GAP_MS/1000:.0f}s. This might indicate a bug."
+        f"[{test_name}] Gap seems unreasonably large: {detected_ms:.0f}ms ({detected_ms / 1000:.1f}s). "
+        f"Expected < {MAX_REASONABLE_GAP_MS / 1000:.0f}s. This might indicate a bug."
     )
 
 

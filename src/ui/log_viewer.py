@@ -124,8 +124,8 @@ class LogViewerWidget(QWidget):
                     self._refresh_display()
 
         except Exception as e:
-            # Silently ignore errors (file might be locked, etc.)
-            pass
+            # Silently ignore errors (file might be locked, etc.) but keep a debug breadcrumb
+            logger.debug(f"Log viewer read error: {e}")
 
     def _refresh_display(self):
         """Refresh the text display with current log lines."""

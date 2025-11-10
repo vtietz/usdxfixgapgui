@@ -272,6 +272,9 @@ def print_validation_report(errors: List[Dict[str, Any]]):
         print("\nSee docs/mdx-detection-tuning.md for parameter guidance")
         print("=" * 70 + "\n")
     except Exception as e:
-        # Fallback: if printing fails, write to stderr
+        # Fallback: if printing fails, write to stderr and log debug details
         import sys
-        sys.stderr.write(f"Configuration validation completed with {len(errors)} issue(s). Check log file for details.\n")
+        logger.debug(f"Failed to render validation report: {e}")
+        sys.stderr.write(
+            f"Configuration validation completed with {len(errors)} issue(s). Check log file for details.\n"
+        )

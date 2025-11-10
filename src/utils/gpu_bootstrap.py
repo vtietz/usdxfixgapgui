@@ -14,7 +14,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Module-level list to track DLL directories added for diagnostics
+# Module-level list to track DLL directories added for diagnostics (kept for backward compatibility)
+# If unused in some flows, we avoid referencing it unnecessarily.
 ADDED_DLL_DIRS: List[str] = []
 
 
@@ -192,8 +193,9 @@ def select_best_existing_pack(candidates: List[Dict[str, Any]], config_flavor: O
             try:
                 parts = [int(p) for p in ver.split(".")]
                 return tuple(parts)
-            except:
-                pass
+            except Exception:
+                # Non-integer version segments (e.g. rc tags) fall back to lowest priority
+                return (0, 0, 0)
         return (0, 0, 0)
 
     candidates.sort(key=version_key, reverse=True)
@@ -619,7 +621,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
     Returns:
         True if GPU is enabled and validated, False otherwise
     """
-    global ADDED_DLL_DIRS
+    # NOTE: ADDED_DLL_DIRS is read-only here; no need for a global declaration.
 
     try:
         # Auto-recover GPU Pack config if pack exists on disk but config is empty
@@ -770,7 +772,7 @@ def bootstrap_and_maybe_enable_gpu(config) -> bool:
             config.gpu_last_health = "failed"
             config.gpu_last_error = error_msg
             config.save_config()
-        except:
+        except Exception:
             pass
         return False
 

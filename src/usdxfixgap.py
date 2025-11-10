@@ -78,13 +78,13 @@ def show_error_dialog(title, message, details=None):
         msg_box.exec()
     except Exception:
         # If GUI fails, print to stderr (visible if run from console)
-        print(f"\n{'='*60}", file=sys.stderr)
+        print(f"\n{'=' * 60}", file=sys.stderr)
         print(f"CRITICAL ERROR: {title}", file=sys.stderr)
-        print(f"{'='*60}", file=sys.stderr)
+        print(f"{'=' * 60}", file=sys.stderr)
         print(message, file=sys.stderr)
         if details:
             print(f"\nDetails:\n{details}", file=sys.stderr)
-        print(f"{'='*60}\n", file=sys.stderr)
+        print(f"{'=' * 60}\n", file=sys.stderr)
 
 
 def parse_arguments():
@@ -169,7 +169,7 @@ def health_check():
         except Exception:
             pass
 
-        print(f"✓ Executable runs successfully")
+        print("✓ Executable runs successfully")
         print(f"✓ Version: {version}")
 
         print("=" * 50)
@@ -179,7 +179,9 @@ def health_check():
     except Exception as e:
         print("=" * 50)
         print(f"\n❌ Health check FAILED: {e}")
-        sys.exit(1)
+    sys.exit(1)
+
+
 def main():
     """Main entry point for USDXFixGap application"""
     log_file_path = None
@@ -346,6 +348,6 @@ def main():
 
         sys.exit(1)
 
-
+ 
 if __name__ == "__main__":
     main()

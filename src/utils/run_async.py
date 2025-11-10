@@ -20,7 +20,7 @@ class AsyncioThread(QThread):
 _loop = None
 _thread = None
 _semaphore = None
-_started = False
+_started = False  # Internal flag; not referenced elsewhere, keep for readability
 
 
 def _ensure_started():
@@ -48,10 +48,9 @@ def run_async(coro, callback=None):
     _ensure_started()  # Lazy start
 
     async def task_wrapper():
-        async with _semaphore:
+        async with _semaphore:  # type: ignore[arg-type]
             return await coro  # Execute the coroutine within the semaphore context
 
-    # Schedule the wrapped task and attach callback if provided
     future = asyncio.run_coroutine_threadsafe(task_wrapper(), _loop)
     if callback:
         future.add_done_callback(lambda f: callback(f.result()))
@@ -61,9 +60,8 @@ def run_sync(coro):
     """Run coroutine synchronously and return result."""
     _ensure_started()  # Lazy start
 
-    # Since run_sync is designed to block, ensure the semaphore is used here as well
     async def sync_wrapper():
-        async with _semaphore:
+        async with _semaphore:  # type: ignore[arg-type]
             return await coro
 
     future = asyncio.run_coroutine_threadsafe(sync_wrapper(), _loop)
@@ -72,8 +70,7 @@ def run_sync(coro):
 
 def shutdown_asyncio():
     """Properly shutdown the asyncio event loop and thread (idempotent)."""
-    global _loop, _thread, _started
-
+    global _started
     if not _started:
         logger.debug("Asyncio runtime not started, skipping shutdown")
         return

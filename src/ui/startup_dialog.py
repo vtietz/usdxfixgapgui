@@ -30,7 +30,7 @@ from PySide6.QtGui import QFont
 
 from common.constants import APP_NAME
 from services.system_capabilities import SystemCapabilities, check_system_capabilities
-from utils import gpu_bootstrap, gpu_downloader
+from utils import gpu_bootstrap
 from utils.download_cleanup import cleanup_download_files
 from ui.workers.gpu_download_worker import GpuDownloadWorker
 from ui.handlers.gpu_download_handler import on_download_clicked
@@ -272,7 +272,7 @@ class StartupDialog(QDialog):
                         self.log("⚡ GPU Pack Detected (Not Activated)")
                         self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
                         self.log(f"  • GPU Pack found at: {existing_pack}")
-                        self.log(f"  • Current mode: CPU")
+                        self.log("  • Current mode: CPU")
                         self.log("")
                         self.log("A GPU Pack is already installed but not activated.")
                         self.log("")
@@ -299,7 +299,7 @@ class StartupDialog(QDialog):
                         # No GPU Pack - offer to download
                         self.log("⚡ GPU Pack Available for Download")
                         self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
-                        self.log(f"  • Current mode: CPU (GPU Pack not installed)")
+                        self.log("  • Current mode: CPU (GPU Pack not installed)")
                         self.log("")
                         self.log("Benefits of GPU Pack:")
                         self.log("  • 5-10x faster gap detection")
@@ -403,21 +403,21 @@ class StartupDialog(QDialog):
         if self.capabilities.ffmpeg_version:
             self.log(f"  • FFmpeg: {self.capabilities.ffmpeg_version}")
         if self.capabilities.has_ffprobe:
-            self.log(f"  • FFprobe: Available")
+            self.log("  • FFprobe: Available")
 
         # Check Python libraries
         try:
             import librosa
 
             self.log(f"  • librosa: {librosa.__version__}")
-        except:
+        except Exception:
             pass
 
         try:
             import soundfile
 
             self.log(f"  • soundfile: {soundfile.__version__}")
-        except:
+        except Exception:
             pass
 
         self.log("")

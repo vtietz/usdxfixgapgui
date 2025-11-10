@@ -7,7 +7,7 @@ Orchestrates GPU Pack activation, system PyTorch detection, and validation.
 import sys
 import logging
 from pathlib import Path
-from typing import Tuple, List
+from typing import List
 
 from .orchestrator import enable_runtime
 from .system_pytorch_detector import detect_system_pytorch_cuda
@@ -74,11 +74,15 @@ def _add_pack_and_swap_torch_if_needed(pack_dir: Path) -> None:
                 logger.debug("torch already imported from GPU Pack path; no action needed")
             else:
                 logger.info(
-                    "torch pre-imported from non-GPU location; skipping destructive swap to avoid native registration conflicts; CPU fallback may occur"
+                    "torch pre-imported from non-GPU location; "
+                    "skipping destructive swap to avoid native registration conflicts; "
+                    "CPU fallback may occur"
                 )
         # If torch not yet imported, normal import later will pick GPU Pack.
     except Exception as swap_err:
-        logger.debug(f"GPU Pack path addition encountered error (continuing with CPU fallback if needed): {swap_err}")
+        logger.debug(
+            f"GPU Pack path addition encountered error (continuing with CPU fallback if needed): {swap_err}"
+        )
 
 
 def _try_system_pytorch_if_enabled(config, gpu_opt_in) -> bool:
@@ -190,7 +194,7 @@ def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
     return success
 
 
-## moved to validation.py
+# moved to validation.py
 
 
 def _to_gpu_status_from_context(source: str, pack_dir: Path | None, error: str | None = None) -> GPUStatus:
@@ -225,8 +229,6 @@ def bootstrap_gpu(config) -> GPUStatus:
 
     Preserves existing behavior: GPU if available; CPU fallback if not.
     """
-    global ADDED_DLL_DIRS
-
     try:
         # Auto-recover GPU Pack config if pack exists on disk but config is empty
         auto_recover_gpu_pack_config(config)
@@ -251,7 +253,9 @@ def bootstrap_gpu(config) -> GPUStatus:
             pack_dir = Path(pack_path)
             if pack_dir.exists():
                 logger.debug(
-                    f"GPU Pack found at {pack_dir} - adding to sys.path BEFORE any torch imports (if not yet imported)"
+                    "GPU Pack found at %s - adding to sys.path BEFORE any torch imports "
+                    "(if not yet imported)",
+                    pack_dir,
                 )
                 _add_pack_and_swap_torch_if_needed(pack_dir)
             else:

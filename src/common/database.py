@@ -72,7 +72,7 @@ def init_database():
     if current_version is not None and current_version < CACHE_VERSION:
         # Explicit version mismatch - needs migration
         logger.warning(f"Cache version mismatch detected (current: {current_version}, required: {CACHE_VERSION}).")
-        logger.warning(f"A complete re-scan of all songs is required due to application upgrade.")
+        logger.warning("A complete re-scan of all songs is required due to application upgrade.")
         logger.info("Clearing outdated cache...")
         cursor.execute("DELETE FROM song_cache")
         cursor.execute(
@@ -89,10 +89,10 @@ def init_database():
         if cache_entry_count > 0:
             # Legacy database with cache entries - needs migration
             logger.warning(f"Legacy cache detected (no version metadata, {cache_entry_count} entries).")
-            logger.warning(f"A complete re-scan of all songs is required due to application upgrade.")
+            logger.warning("A complete re-scan of all songs is required due to application upgrade.")
             logger.info("Clearing legacy cache...")
             cursor.execute("DELETE FROM song_cache")
-            logger.info(f"Legacy cache cleared")
+            logger.info("Legacy cache cleared")
             _cache_was_cleared = True
         else:
             # Fresh database - just set version, no need to clear
@@ -231,11 +231,13 @@ def clear_cache(key=None):
 
 
 @overload
-def get_all_cache_entries(deserialize: Literal[False] = False) -> list[tuple[str, bytes]]: ...
+def get_all_cache_entries(deserialize: Literal[False] = False) -> list[tuple[str, bytes]]:
+    ...
 
 
 @overload
-def get_all_cache_entries(deserialize: Literal[True]) -> dict[str, Any]: ...
+def get_all_cache_entries(deserialize: Literal[True]) -> dict[str, Any]:
+    ...
 
 
 def get_all_cache_entries(deserialize=False):

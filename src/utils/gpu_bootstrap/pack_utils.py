@@ -150,8 +150,9 @@ def select_best_existing_pack(candidates: List[Dict[str, Any]], config_flavor: O
             try:
                 parts = [int(p) for p in ver.split(".")]
                 return tuple(parts)
-            except:
-                pass
+            except Exception:
+                # Ignore non-numeric version parts; treat as lowest priority
+                return (0, 0, 0)
         return (0, 0, 0)
 
     candidates.sort(key=version_key, reverse=True)
