@@ -100,7 +100,8 @@ class LoadUsdxFilesWorker(IWorker):
         # Throttling: only emit progress every N files or every X seconds
         file_count = 0
         last_progress_time = time.time()
-        PROGRESS_FILE_INTERVAL = 50  # Emit every 50 files
+        # Use batch_size for progress interval to align with UI batching
+        PROGRESS_FILE_INTERVAL = self.batch_size  # Emit progress aligned with batch size
         PROGRESS_TIME_INTERVAL = 0.3  # Or every 300ms
 
         for root, dirs, files in os.walk(self.directory):
