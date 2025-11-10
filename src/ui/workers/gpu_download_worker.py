@@ -85,6 +85,13 @@ class GpuDownloadWorker(QThread):
             with zipfile.ZipFile(self.dest_zip, "r") as zip_ref:
                 zip_ref.extractall(self.pack_dir)
 
+            # Clean up the .zip file after successful extraction
+            try:
+                self.dest_zip.unlink()
+                logger.info(f"Deleted GPU Pack .zip file after extraction: {self.dest_zip}")
+            except Exception as e:
+                logger.warning(f"Could not delete .zip file (non-critical): {e}")
+
             logger.info("GPU Pack installed successfully")
             self.finished.emit(True, "GPU Pack installed successfully!")
 
