@@ -109,13 +109,17 @@ class WaveformWidget(QLabel):
             painter.end()
 
     def update_position(self, position, duration):
+        """Update playhead position without affecting gap marker duration.
+        
+        Args:
+            position: Current playback position in milliseconds
+            duration: Current media duration in milliseconds (for playhead normalization only)
+        """
         if duration > 0:
             self.currentPosition = position / duration
-            self.duration_ms = duration  # Track B: Store duration for gap markers
             self.overlay.update()  # Trigger a repaint
         else:
             self.currentPosition = 0
-            self.duration_ms = 0
 
     def set_gap_markers(self, original_gap_ms=None, detected_gap_ms=None):
         """
