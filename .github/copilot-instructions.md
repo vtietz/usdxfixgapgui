@@ -203,23 +203,21 @@ Change: Media player now auto-unloads when detection starts
 
 ---
 
-## 12) Final Steps
+## 12) Pre-Commit Checklist
 
-1. `run.bat test` must pass.
-2. Propose commit message using format from section 11.
+**MANDATORY before every commit:**
 
-```
+1. **Run tests:** `.\run.bat test` (Windows) or `./run.sh test` (Linux/macOS)
+   - **ALL tests must pass** - no exceptions
+   - If tests fail, **FIX THEM FIRST** before committing
+   - Update tests if behavior intentionally changed
+2. **Propose commit message** using format from section 11
+3. Only then proceed with `git add` and `git commit`
 
----
+**If you commit with failing tests, IMMEDIATELY:**
+- Fix the failing tests
+- Commit the fix with: `Fix: Update tests to match <changed behavior>`
 
-## 12) Final Steps
-
-1. `run.bat test` must pass.
-2. Propose commit message using format from section 11.:** v2.0.0 (in development)
-
-⚠️ **DO NOT bump version numbers** - Maintainer controls versioning manually.
-
-**Read First:** `docs/architecture.md` (includes signal patterns), `docs/coding-standards.md`.
 
 ---
 

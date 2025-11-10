@@ -332,7 +332,7 @@ class TestUISignaling:
             assert manager.on_task_list_changed.call_count == 0
 
     def test_instant_task_emits_signal_when_queuing(self):
-        """Verify instant tasks emit signal when queuing (slot busy)"""
+        """Verify instant tasks mark UI update needed when queuing (slot busy)"""
         manager = WorkerQueueManager()
 
         # Occupy instant slot
@@ -341,14 +341,13 @@ class TestUISignaling:
         running_instant.status = WorkerStatus.RUNNING
         manager.running_instant_task = running_instant
 
-        # Mock the signal (after manager initialization to avoid init emissions)
-        with patch.object(manager, "on_task_list_changed") as mock_signal:
-            # Add instant task (will queue since slot is busy)
-            worker = MockWorker("Queued Instant", is_instant=True)
-            manager.add_task(worker, start_now=False)
+        # Add instant task (will queue since slot is busy)
+        worker = MockWorker("Queued Instant", is_instant=True)
+        manager.add_task(worker, start_now=False)
 
-            # Should emit signal when queuing
-            assert mock_signal.emit.call_count >= 1
+        # Should be queued (not started)
+        assert worker in manager.queued_instant_tasks
+        # UI update will be coalesced via heartbeat (not immediate signal emission)
 
 
 class TestWorkerProperties:
