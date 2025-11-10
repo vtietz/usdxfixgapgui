@@ -239,6 +239,13 @@ class MediaPlayerComponent(QWidget):
         self.update_ui()
         self.update_player_files()
 
+        # Track B: Set waveform duration immediately for correct gap marker positioning
+        # Use song metadata to avoid waiting for waveform files to load
+        if song.duration_ms and song.duration_ms > 0:
+            self.waveform_widget.duration_ms = song.duration_ms
+        elif song.gap_info and song.gap_info.duration and song.gap_info.duration > 0:
+            self.waveform_widget.duration_ms = song.gap_info.duration
+
         # Track B: Update gap markers from GapState
         if hasattr(self._data, "gap_state") and self._data.gap_state:
             self.waveform_widget.set_gap_markers(
