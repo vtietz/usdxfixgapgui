@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0-rc6] - 2025-11-10
+
+### Fixed
+- **MDX Gap Detection Accuracy**: Fixed critical issue where expected gap region wasn't analyzed
+  - Replaced absolute-time gating with distance-from-expected band gating in scanner
+  - Previously: chunks after 20s were skipped regardless of expected gap position
+  - Now: search band centers around `expected_gap_ms ± search_limit_ms`
+  - Resolves false detections from early backing vocals (e.g., ABBA "Gimme! Gimme! Gimme!")
+  - Added comprehensive logging for distance-gated search band traceability
+- **UI Responsiveness**: Media player now unloads before gap detection to prevent freezes
+  - Emits `media_unload_requested` signal before queuing detection workers
+  - Automatically unloads when selected song status transitions to PROCESSING
+  - Eliminates Windows file lock conflicts during audio analysis
+
+### Added
+- **Test Coverage**: New tier-2 test validates distance gating (test_15)
+  - Scenario: Expected gap at 37.8s with early backing vocal at 25s
+  - Verifies correct region processing and accurate detection
+  - All 617 tests passing including tier-2 focused search validation
+
+---
+
 ## [1.2.0-rc5] - 2025-11-09
 
 ### Added

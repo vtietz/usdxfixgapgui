@@ -32,10 +32,10 @@ def artifact_dir(tmp_path):
     """
     Artifact directory for preview images.
 
-    If GAP_TIER2_WRITE_DOCS=1, writes to docs/gap-tests/tier2/
+    If GAP_WRITE_DOCS=1, writes to docs/gap-tests/tier2/
     Otherwise uses tmp_path for CI cleanliness.
     """
-    if os.environ.get("GAP_TIER2_WRITE_DOCS") == "1":
+    if os.environ.get("GAP_WRITE_DOCS") == "1":
         docs_path = Path(__file__).parent.parent.parent / "docs" / "gap-tests" / "tier2"
         docs_path.mkdir(parents=True, exist_ok=True)
         return docs_path
@@ -56,8 +56,8 @@ def write_tier2_preview_if_enabled(
     scenario_name: str,
     artifact_dir: Path,
 ):
-    """Write tier-2 visualization if GAP_TIER2_WRITE_DOCS is enabled."""
-    if os.environ.get("GAP_TIER2_WRITE_DOCS") == "1":
+    """Write tier-2 visualization if GAP_WRITE_DOCS is enabled."""
+    if os.environ.get("GAP_WRITE_DOCS") == "1":
         from test_utils import visualize
         import torchaudio
 
@@ -387,3 +387,83 @@ def test_14_gradual_fade_in_at_expected_gap_with_early_noise(
     print(f"Gradual fade-in onset: {vocal_onset_ms}ms")
     print(f"Detected: {detected:.0f}ms (error: {error_ms:.0f}ms)")
     print(f"Distance from noise: {early_noise_distance:.0f}ms")
+
+
+def test_15_expected_region_is_processed_with_distance_gating(
+    tmp_path, artifact_dir, patch_separator, mdx_config_tight, model_placeholder
+):
+    """
+    Scenario 15: Distance gating ensures expected region is analyzed.
+
+    This validates the critical fix for tracks like ABBA "Gimme! Gimme! Gimme!"
+    where the expected gap is far from the start (e.g., 37.8s).
+
+    Before fix:
+    - Absolute-time gating: "if chunk.start_ms >= 20s: skip"
+    - Only analyzed 0-20s, missed the actual gap at 37.8s
+    - Detected early backing vocals at ~22-25s instead
+
+    After fix (distance-based gating):
+    - Analyzes band around expected: [expected - limit, expected + limit]
+    - First iteration with 20s limit processes [17.8s - 57.8s] band
+    - Correctly finds the true vocal onset near expected gap
+    """
+    early_backing_vocal_ms = 25000.0  # Early artifact/backing vocal
+    true_vocal_onset_ms = 37800.0     # Actual main vocal start (near expected)
+    expected_gap_ms = 38000.0          # Metadata hint
+
+    audio_result = build_stereo_test(
+        output_path=tmp_path / "test_distance_gating.wav",
+        duration_ms=60000,
+        vocal_events=[
+            # Early backing vocal or artifact
+            VocalEvent(onset_ms=early_backing_vocal_ms, duration_ms=2000, fade_in_ms=100, amp=0.4),
+            # Main vocals starting near expected gap
+            VocalEvent(onset_ms=true_vocal_onset_ms, duration_ms=15000, fade_in_ms=200, amp=0.7),
+        ],
+        instrument_bed=InstrumentBed(noise_floor_db=-50.0),
+    )
+
+    detected = scan_for_onset(
+        audio_file=audio_result.path,
+        expected_gap_ms=expected_gap_ms,
+        model=model_placeholder,
+        device="cpu",
+        config=mdx_config_tight,
+        vocals_cache=VocalsCache(),
+        total_duration_ms=audio_result.duration_ms,
+    )
+
+    # Write visualization
+    write_tier2_preview_if_enabled(
+        audio_result.path,
+        true_vocal_onset_ms,
+        detected,
+        early_backing_vocal_ms,
+        expected_gap_ms,
+        "15-expected-band-distance-gating",
+        artifact_dir,
+    )
+
+    assert detected is not None, "Should detect vocal onset near expected gap"
+
+    # Should detect near expected, not early backing vocal
+    error_from_true = abs(detected - true_vocal_onset_ms)
+    distance_from_early = abs(detected - early_backing_vocal_ms)
+
+    assert error_from_true <= 500, (
+        f"Should detect true onset at {true_vocal_onset_ms}ms, "
+        f"got {detected:.0f}ms (error: {error_from_true:.0f}ms)"
+    )
+
+    assert distance_from_early >= 8000, (
+        f"Should NOT detect early backing vocal at {early_backing_vocal_ms}ms, "
+        f"but detected {detected:.0f}ms (distance: {distance_from_early:.0f}ms)"
+    )
+
+    print(f"\n[Distance Gating - Expected Region Processed]")
+    print(f"Early backing vocal: {early_backing_vocal_ms}ms (IGNORED ✓)")
+    print(f"True vocal onset: {true_vocal_onset_ms}ms (near expected)")
+    print(f"Expected gap: {expected_gap_ms}ms")
+    print(f"Detected: {detected:.0f}ms (error: {error_from_true:.0f}ms)")
+    print(f"Distance from early artifact: {distance_from_early:.0f}ms")

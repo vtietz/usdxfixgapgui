@@ -1,6 +1,6 @@
 # Gap Detection Tests
 
-**Status**: ✅ 37 tests passing
+**Status**: ✅ 617 tests passing (38 gap-specific scenarios)
 **Coverage**: Energy detection, scanner orchestration, gap-focused search, pipeline integration
 **Test Files**: `tests/gap_scenarios/test_tier*.py`
 
@@ -97,10 +97,10 @@ hysteresis_ms = 300
 
 ---
 
-### Level 2: Scanner Orchestration (18 tests)
+### Level 2: Scanner Orchestration (19 tests)
 **Target**: [`scan_for_onset()`](../../src/utils/providers/mdx/scanner/pipeline.py)
 **Scope**: Integration with chunk iterator, expansion strategy, stubbed separation
-**Execution**: ~3.5 seconds
+**Execution**: ~3.7 seconds
 
 #### Test Infrastructure
 
@@ -141,17 +141,20 @@ hysteresis_ms = 300
 | 12 | Early-stop optimization | Stops when within tolerance |
 | 13 | Resample to 44100 | Timing accuracy preserved |
 
-**Gap-Focused Search** (`test_tier2_gap_focused_search.py` - 4 tests):
+**Gap-Focused Search** (`test_tier2_gap_focused_search.py` - 5 tests):
 
-These tests validate the v2.4 fix for false positive detection. Previously, the scanner started from t=0, causing detection of early noise/artifacts. The fix centers the search window around `expected_gap_ms`:
+These tests validate the v2.4+ gap-focused search strategy that prevents false positive detections. The scanner centers the search window around `expected_gap_ms` and uses distance-based gating to ensure the expected region is analyzed:
 
 ```python
-# v2.4: Always center window around expected gap
-start_ms = max(0.0, expected_gap_ms - radius_ms)
-# First window: [expected_gap - 7.5s, expected_gap + 7.5s]
+# Distance-based gating (v2.4+)
+band_start = max(0.0, expected_gap_ms - search_limit_ms)
+band_end = min(total_duration_ms, expected_gap_ms + search_limit_ms)
+# First iteration: [expected_gap ± 20s] band
 ```
 
-This allows aggressive thresholds (5.0/0.015/150/400) to catch gradual fade-ins without triggering on early noise.
+This strategy solves two critical issues:
+1. **False positives from early artifacts**: Early backing vocals/noise outside the band are ignored
+2. **Expected region not analyzed**: Previously, absolute-time gating (`if chunk.start_ms >= 20s: skip`) prevented analysis of late gaps (e.g., 37.8s)
 
 | # | Scenario | Early Noise | Vocals | Expected | Validates | Image |
 |---|----------|-------------|--------|----------|-----------|-------|
@@ -159,6 +162,13 @@ This allows aggressive thresholds (5.0/0.015/150/400) to catch gradual fade-ins 
 | 12 | Multiple false positives (1500, 3500, 5000ms) | Yes | 12000ms | 12000ms | Robust filtering | ![](tier2/12-multiple-false-positives-detect-correct-gap.png) |
 | 13 | Early vocals with late expected | No | 1000ms | 10000ms | Expansion fallback | ![](tier2/13-early-vocals-outside-initial-window.png) |
 | 14 | Gradual fade-in + early noise | 3000ms | 15000ms | 15000ms | Combined challenges | ![](tier2/14-gradual-fade-in-with-early-noise.png) |
+| 15 | Late expected gap (37.8s) + early backing | 25000ms | 37800ms | 38000ms | Distance gating processes expected region | ![](tier2/15-expected-band-distance-gating.png) |
+
+**Test 15 Details** (Critical Fix Validation):
+- **Problem**: ABBA "Gimme! Gimme! Gimme!" has expected gap at 37.84s, but old absolute-time gating only analyzed 0-20s
+- **Result**: Detected early backing vocal at ~25s instead of true onset at ~37.8s
+- **Solution**: Distance-based band gating ensures [17.8s - 57.8s] band is processed in first iteration
+- **Validates**: Expected region is analyzed, early artifacts correctly ignored
 
 **Key Validations**:
 - ✅ **Gap-focused search** - Centers window around expected_gap_ms (v2.4)
@@ -237,12 +247,13 @@ docs/gap-tests/
 │   ├── 06-instrument-spike.png
 │   ├── 07-too-short-energy.png
 │   └── 09-sensitivity-*.png (4 variants)
-├── tier2/           # Scanner orchestration (5 images) - v2.4+
+├── tier2/           # Scanner orchestration (6 images) - v2.4+
 │   ├── 11-ignore-early-noise-detect-expected-gap.png
 │   ├── 11-zero-gap-with-late-vocals.png
 │   ├── 12-multiple-false-positives-detect-correct-gap.png
 │   ├── 13-early-vocals-outside-initial-window.png
-│   └── 14-gradual-fade-in-with-early-noise.png
+│   ├── 14-gradual-fade-in-with-early-noise.png
+│   └── 15-expected-band-distance-gating.png
 └── tier3/           # Pipeline overview plots (2 images)
     ├── 01-exact-match.png
     └── 02-no-silence-periods.png
