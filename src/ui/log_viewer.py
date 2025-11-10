@@ -49,7 +49,7 @@ class LogViewerWidget(QWidget):
         layout.setSpacing(2)
 
         # Header label
-        header = QLabel("Application Logs")
+        header = QLabel("Logs")
         header_font = QFont()
         header_font.setBold(True)
         header.setFont(header_font)

@@ -164,12 +164,6 @@ This strategy solves two critical issues:
 | 14 | Gradual fade-in + early noise | 3000ms | 15000ms | 15000ms | Combined challenges | ![](tier2/14-gradual-fade-in-with-early-noise.png) |
 | 15 | Late expected gap (37.8s) + early backing | 25000ms | 37800ms | 38000ms | Distance gating processes expected region | ![](tier2/15-expected-band-distance-gating.png) |
 
-**Test 15 Details** (Critical Fix Validation):
-- **Problem**: ABBA "Gimme! Gimme! Gimme!" has expected gap at 37.84s, but old absolute-time gating only analyzed 0-20s
-- **Result**: Detected early backing vocal at ~25s instead of true onset at ~37.8s
-- **Solution**: Distance-based band gating ensures [17.8s - 57.8s] band is processed in first iteration
-- **Validates**: Expected region is analyzed, early artifacts correctly ignored
-
 **Key Validations**:
 - ✅ **Gap-focused search** - Centers window around expected_gap_ms (v2.4)
 - ✅ **False positive rejection** - Ignores noise outside search window
