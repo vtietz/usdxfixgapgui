@@ -293,6 +293,7 @@ class MediaPlayerComponent(QWidget):
         if hasattr(self._data, "gap_state") and self._data.gap_state:
             # Update GapState with latest gap_info data
             if updated_song.gap_info:
+                # Use detected_gap (beat-corrected integer) for waveform display, not detected_gap_ms (raw float)
                 self._data.gap_state.detected_gap_ms = updated_song.gap_info.detected_gap
                 self._data.gap_state.saved_gap_ms = updated_song.gap_info.original_gap
 
