@@ -69,7 +69,7 @@ class LoadUsdxFilesWorker(IWorker):
 
     async def load_from_cache(self):
         """Load all songs from the cache database first."""
-        self.description = f"Loading songs from cache."
+        self.description = "Loading songs from cache."
         logger.info("Loading songs from cache")
 
         deserialized_songs = get_all_cache_entries(deserialize=True)

@@ -425,7 +425,8 @@ class TestStaticMethods:
 
         # Should show dialog despite skip setting because of error
         with patch.object(StartupDialog, "exec", return_value=QDialog.DialogCode.Accepted) as mock_exec:
-            result = StartupDialog.show_startup(parent=None, config=mock_config)
+            # Call without capturing return value (unused)
+            StartupDialog.show_startup(parent=None, config=mock_config)
 
         # Dialog should have been shown (exec was called)
         mock_exec.assert_called_once()
@@ -435,7 +436,10 @@ class TestStaticMethods:
     def test_show_startup_shows_when_gpu_pack_exists_but_not_enabled(
         self, mock_check, mock_detect, qtbot, mock_config, healthy_capabilities
     ):
-        """show_startup() should show dialog when GPU Pack exists but isn't enabled, even if splash_dont_show_health=True."""
+        """
+        show_startup() should show dialog when GPU Pack exists but isn't enabled,
+        even if splash_dont_show_health=True.
+        """
         from pathlib import Path
 
         # System is healthy
@@ -461,7 +465,8 @@ class TestStaticMethods:
 
         # Should show dialog
         with patch.object(StartupDialog, "exec", return_value=QDialog.DialogCode.Accepted) as mock_exec:
-            result = StartupDialog.show_startup(parent=None, config=mock_config)
+            # Call without capturing return value (unused)
+            StartupDialog.show_startup(parent=None, config=mock_config)
 
         # Dialog should have been shown (exec was called)
         mock_exec.assert_called_once()

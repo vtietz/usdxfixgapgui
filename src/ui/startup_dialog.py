@@ -96,6 +96,7 @@ class StartupDialog(QDialog):
 
     def _read_version(self) -> str:
         from utils.files import resource_path
+
         version_paths = [
             resource_path("VERSION"),
             os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "VERSION"),
@@ -195,7 +196,9 @@ class StartupDialog(QDialog):
         self.flavor_combo.addItem("CUDA 12.1 (Recommended)", "cu121")
         self.flavor_combo.addItem("CUDA 12.4 (Alternative)", "cu124")
         self.flavor_combo.setToolTip(
-            "Select CUDA version:\n" "• CUDA 12.1 - Most compatible (driver ≥531)\n" "• CUDA 12.4 - Newer, may work better for some systems (driver ≥550)"
+            "Select CUDA version:\n"
+            "• CUDA 12.1 - Most compatible (driver ≥531)\n"
+            "• CUDA 12.4 - Newer, may work better for some systems (driver ≥550)"
         )
         self.flavor_combo.setVisible(False)
         self.flavor_combo.setMinimumWidth(180)

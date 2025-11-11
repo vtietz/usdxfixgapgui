@@ -132,7 +132,7 @@ def _build_waveform_json_ffmpeg(
     from utils.cancellable_process import run_cancellable_process
     import tempfile
 
-    logger.debug(f"Using ffmpeg fallback for waveform JSON generation")
+    logger.debug("Using ffmpeg fallback for waveform JSON generation")
 
     # Convert to raw PCM samples
     temp_dir = os.path.dirname(audio_file)

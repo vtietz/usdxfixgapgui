@@ -163,6 +163,7 @@ class WorkerQueueManager(QObject):
         Returns:
             True if a matching task is queued or running
         """
+
         def _matches(worker) -> bool:
             if worker.__class__.__name__ != worker_class_name:
                 return False

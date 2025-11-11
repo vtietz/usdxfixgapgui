@@ -254,19 +254,19 @@ def print_validation_report(errors: List[Dict[str, Any]]):
             print(f"\nX ERRORS ({len(errors_by_severity['error'])}):")
             for error in errors_by_severity["error"]:
                 # Use safe printing to handle unicode characters
-                safe_error = error.encode('ascii', 'replace').decode('ascii')
+                safe_error = error.encode("ascii", "replace").decode("ascii")
                 print(f"  - [ERROR] {safe_error}")
 
         if errors_by_severity["warning"]:
             print(f"\n! WARNINGS ({len(errors_by_severity['warning'])}):")
             for warning in errors_by_severity["warning"]:
-                safe_warning = warning.encode('ascii', 'replace').decode('ascii')
+                safe_warning = warning.encode("ascii", "replace").decode("ascii")
                 print(f"  - [WARNING] {safe_warning}")
 
         if errors_by_severity["info"]:
             print(f"\ni INFO ({len(errors_by_severity['info'])}):")
             for info in errors_by_severity["info"]:
-                safe_info = info.encode('ascii', 'replace').decode('ascii')
+                safe_info = info.encode("ascii", "replace").decode("ascii")
                 print(f"  - [INFO] {safe_info}")
 
         print("\nSee docs/mdx-detection-tuning.md for parameter guidance")
@@ -274,6 +274,7 @@ def print_validation_report(errors: List[Dict[str, Any]]):
     except Exception as e:
         # Fallback: if printing fails, write to stderr and log debug details
         import sys
+
         logger.debug(f"Failed to render validation report: {e}")
         sys.stderr.write(
             f"Configuration validation completed with {len(errors)} issue(s). Check log file for details.\n"

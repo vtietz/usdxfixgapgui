@@ -1,13 +1,9 @@
-"""
-Tier-2 scanner tests: gap-focused search validation.
+"""Tier-2 scanner tests: gap-focused search validation.
 
-Tests that validate the gap-focused search strategy correctly prioritizes
-detection near expected_gap_ms and ignores false positives far from it.
-
-Key improvement in v2.4: Search window is centered around expected_gap_ms
-instead of starting from t=0, eliminating false positive detections from
-early noise/artifacts.
+Manipulates sys.path for local imports (test-only) -> allow E402.
 """
+
+# flake8: noqa: E402
 
 import os
 import sys
@@ -15,11 +11,13 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+SRC_ROOT = Path(__file__).parent.parent.parent / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed
-from utils.providers.mdx.scanner.pipeline import scan_for_onset
-from utils.providers.mdx.vocals_cache import VocalsCache
+from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed  # noqa: E402
+from utils.providers.mdx.scanner.pipeline import scan_for_onset  # noqa: E402
+from utils.providers.mdx.vocals_cache import VocalsCache  # noqa: E402
 
 
 # ============================================================================
@@ -170,7 +168,7 @@ def test_11_ignore_early_noise_detect_expected_gap(
         f"(distance={early_noise_distance:.0f}ms). Gap-focused search should ignore early noise!"
     )
 
-    print(f"\n[Gap-Focused Search Test]")
+    print("\n[Gap-Focused Search Test]")
     print(f"Early noise at: {early_noise_ms}ms (IGNORED ✓)")
     print(f"Expected gap: {expected_gap_ms}ms")
     print(f"Detected gap: {detected:.0f}ms")
@@ -310,7 +308,7 @@ def test_13_early_vocals_outside_initial_window_requires_expansion(
         error_ms <= 500
     ), f"Detection error {error_ms:.0f}ms (detected={detected:.0f}ms, truth={vocal_onset_ms:.0f}ms)"
 
-    print(f"\n[Early Vocals + Expansion Test]")
+    print("\n[Early Vocals + Expansion Test]")
     print(f"Vocals at: {vocal_onset_ms}ms (very early)")
     print(f"Expected gap: {expected_gap_ms}ms (metadata hint)")
     print(f"Detected: {detected:.0f}ms via expansion (error: {error_ms:.0f}ms)")
@@ -382,7 +380,7 @@ def test_14_gradual_fade_in_at_expected_gap_with_early_noise(
     # Must ignore early noise
     assert early_noise_distance > 8000, f"Detected {detected:.0f}ms too close to early noise at {early_noise_ms:.0f}ms"
 
-    print(f"\n[Gradual Fade-In + Gap-Focused Test]")
+    print("\n[Gradual Fade-In + Gap-Focused Test]")
     print(f"Early noise: {early_noise_ms}ms (IGNORED ✓)")
     print(f"Gradual fade-in onset: {vocal_onset_ms}ms")
     print(f"Detected: {detected:.0f}ms (error: {error_ms:.0f}ms)")
@@ -409,8 +407,8 @@ def test_15_expected_region_is_processed_with_distance_gating(
     - Correctly finds the true vocal onset near expected gap
     """
     early_backing_vocal_ms = 25000.0  # Early artifact/backing vocal
-    true_vocal_onset_ms = 37800.0     # Actual main vocal start (near expected)
-    expected_gap_ms = 38000.0          # Metadata hint
+    true_vocal_onset_ms = 37800.0  # Actual main vocal start (near expected)
+    expected_gap_ms = 38000.0  # Metadata hint
 
     audio_result = build_stereo_test(
         output_path=tmp_path / "test_distance_gating.wav",
@@ -461,7 +459,7 @@ def test_15_expected_region_is_processed_with_distance_gating(
         f"but detected {detected:.0f}ms (distance: {distance_from_early:.0f}ms)"
     )
 
-    print(f"\n[Distance Gating - Expected Region Processed]")
+    print("\n[Distance Gating - Expected Region Processed]")
     print(f"Early backing vocal: {early_backing_vocal_ms}ms (IGNORED ✓)")
     print(f"True vocal onset: {true_vocal_onset_ms}ms (near expected)")
     print(f"Expected gap: {expected_gap_ms}ms")

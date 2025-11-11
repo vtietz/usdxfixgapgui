@@ -59,7 +59,7 @@ class TestGetNotesOverlap:
         with (
             patch("actions.gap_actions.usdx.get_notes_overlap", return_value=456) as mock_overlap,
             patch("actions.gap_actions.run_async") as mock_run_async,
-            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock) as mock_save,
+            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock),
         ):
 
             # Use centralized async executor fixture

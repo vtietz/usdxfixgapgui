@@ -1,9 +1,9 @@
-"""
-Tier-1 onset detection tests: pure energy-based detection on synthetic vocal stems.
+"""Tier-1 onset detection tests: energy-based onset detection (synthetic).
 
-Tests the core onset detection logic without file I/O, Demucs, or scanner dependencies.
-Tests detect_onset_in_vocal_chunk() directly with synthetic waveforms.
+Manipulates sys.path for test isolation (not production code) -> allow E402.
 """
+
+# flake8: noqa: E402  (tests intentionally adjust sys.path before project imports)
 
 import os
 import sys
@@ -12,12 +12,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+# Add src to path early for local (editable) imports when running tests from repo root
+SRC_ROOT = Path(__file__).parent.parent.parent / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from utils.providers.mdx.config import MdxConfig
-from utils.providers.mdx.detection import detect_onset_in_vocal_chunk
-from test_utils import synth, visualize
+from utils.providers.mdx.config import MdxConfig  # noqa: E402
+from utils.providers.mdx.detection import detect_onset_in_vocal_chunk  # noqa: E402
+from test_utils import synth, visualize  # noqa: E402
 
 
 # ============================================================================
@@ -70,11 +72,11 @@ def write_preview_if_enabled(
     if os.environ.get("GAP_WRITE_DOCS") == "1":
         out_path = artifact_dir / f"{scenario_name}.png"
         error_str = f"Δ{detected_ms - truth_ms:+.1f}ms" if detected_ms else "NONE"
-        title = (
-            f"{scenario_name.replace('-', ' ').title()} | Truth={truth_ms:.0f}ms, Detected={detected_ms:.0f}ms ({error_str})"
-            if detected_ms
-            else f"{scenario_name.replace('-', ' ').title()} | Truth={truth_ms:.0f}ms, NOT DETECTED"
-        )
+        base_name = scenario_name.replace("-", " ").title()
+        if detected_ms is not None:
+            title = f"{base_name} | Truth={truth_ms:.0f}ms, Detected={detected_ms:.0f}ms " f"({error_str})"
+        else:
+            title = f"{base_name} | Truth={truth_ms:.0f}ms, NOT DETECTED"
         visualize.save_waveform_preview(wave, sr, title, truth_ms, detected_ms, str(out_path), rms_overlay=True)
 
 

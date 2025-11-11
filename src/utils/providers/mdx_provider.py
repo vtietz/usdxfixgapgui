@@ -86,10 +86,10 @@ class MdxProvider(IDetectionProvider):
             f"MDX provider initialized: chunk={self.mdx_config.chunk_duration_ms}ms, "
             f"SNR_threshold={self.mdx_config.onset_snr_threshold}, "
             f"abs_threshold={self.mdx_config.onset_abs_threshold}, "
-            f"initial_radius=±{self.mdx_config.initial_radius_ms/1000:.1f}s, "
+            f"initial_radius=±{self.mdx_config.initial_radius_ms / 1000:.1f}s, "
             f"max_expansions={self.mdx_config.max_expansions}, "
             f"device={self._device}, "
-            f"fp16={self.mdx_config.use_fp16 and self._device=='cuda'}"
+            f"fp16={self.mdx_config.use_fp16 and self._device == 'cuda'}"
         )
 
     def _get_demucs_model(self):

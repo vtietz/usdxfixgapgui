@@ -1,5 +1,5 @@
-"""
-Standalone artifact generator for Tier-1 onset detection tests.
+# flake8: noqa: E402
+"""Standalone artifact generator for Tier-1 onset detection tests.
 
 Runs the same synth + detect_onset_in_vocal_chunk pipeline for all scenarios,
 saves images under docs/gap-tests/tier1/, and prints a report.
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
-# Add src and tests to path
+# Add src and tests to path (tooling convenience)
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tests"))
@@ -34,11 +34,15 @@ def run_scenario(name: str, wave: np.ndarray, sr: int, truth_ms: float, config: 
 
     # Generate title
     error_str = f"Δ{detected - truth_ms:+.1f}ms" if detected else "NONE"
-    title = (
-        f"{name.replace('-', ' ').title()} | "
-        f"Truth={truth_ms:.0f}ms, Detected={detected:.0f if detected else 'NOT'}ms "
-        f"({error_str})"
-    )
+    # Build title in smaller segments to keep line length <=120
+    detected_str = f"{detected:.0f}" if detected else "NOT"
+    title_parts = [
+        name.replace("-", " ").title(),
+        f"Truth={truth_ms:.0f}ms",
+        f"Detected={detected_str}ms",
+        f"({error_str})",
+    ]
+    title = " | ".join([title_parts[0]]) + " | " + ", ".join(title_parts[1:3]) + f" {title_parts[3]}"
 
     # Save preview
     out_path = ARTIFACT_DIR / f"{name}.png"
@@ -48,7 +52,10 @@ def run_scenario(name: str, wave: np.ndarray, sr: int, truth_ms: float, config: 
     status = "✓" if detected else "✗"
     error = f"{detected - truth_ms:+6.1f}ms" if detected else "    NONE"
     print(
-        f"  [{status}] {name:30s}  Truth={truth_ms:6.1f}ms  Detected={str(detected) + 'ms' if detected else 'NONE':10s}  Error={error}"
+        (
+            f"  [{status}] {name:30s}  Truth={truth_ms:6.1f}ms  "
+            f"Detected={(str(detected) + 'ms') if detected else 'NONE':10s}  Error={error}"
+        )
     )
 
     return detected

@@ -21,6 +21,7 @@ def validate_cuda_torch(expected_cuda: str = "12") -> Tuple[bool, str]:
     """Validate torch.cuda availability and version."""
     try:
         import torch
+
         if not torch.cuda.is_available():
             return False, "torch.cuda.is_available() returned False"
         cuda_version = torch.version.cuda
@@ -42,6 +43,7 @@ def validate_torch_cpu() -> Tuple[bool, str]:
     """Validate torch CPU-only mode."""
     try:
         import torch
+
         # CPU smoke test
         test_tensor = torch.zeros(10, 10)
         if test_tensor.sum().item() != 0.0:
@@ -54,10 +56,12 @@ def validate_torch_cpu() -> Tuple[bool, str]:
 def _check_vcruntime() -> None:
     """Check for VC++ runtime DLLs on Windows."""
     import sys
+
     if sys.platform != "win32":
         return
     try:
         import ctypes
+
         required_dlls = ["vcruntime140_1.dll", "msvcp140.dll"]
         missing_dlls = []
         for dll_name in required_dlls:

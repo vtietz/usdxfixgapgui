@@ -5,6 +5,8 @@ Regression tests for the Disney's Duck Tales bug where gap=0
 resulted in returning 0ms instead of the actual onset at 2600ms.
 """
 
+# flake8: noqa: E402
+
 import sys
 from pathlib import Path
 

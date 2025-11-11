@@ -276,7 +276,7 @@ class TestIterativeExpansion:
 
             mock_load.return_value = (torch.randn(2, int(12 * 44100)), 44100)
 
-            onset_ms = scan_for_onset(
+            _ = scan_for_onset(
                 audio_file="/test/song.mp3",
                 expected_gap_ms=5000.0,
                 model=mock_model,

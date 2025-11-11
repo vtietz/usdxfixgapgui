@@ -8,6 +8,7 @@ including helpful guidance for enabling GPU acceleration.
 import sys
 import os
 from utils.gpu_utils import is_gpu_pack_installed, get_gpu_pack_info
+from utils.gpu_bootstrap import capability_probe, detect_system_pytorch_cuda, auto_recover_gpu_pack_config
 
 
 def log_gpu_status(config, gpu_enabled, show_gui_dialog=True):
@@ -21,8 +22,6 @@ def log_gpu_status(config, gpu_enabled, show_gui_dialog=True):
         gpu_enabled: Boolean indicating if GPU bootstrap succeeded
         show_gui_dialog: Whether to show GUI dialog for GPU Pack installation prompt
     """
-    from utils import gpu_bootstrap
-
     print("=" * 70)
     print("GPU ACCELERATION STATUS")
     print("=" * 70)
@@ -40,7 +39,7 @@ def log_gpu_status(config, gpu_enabled, show_gui_dialog=True):
             print("  Check hook_diagnostics.log for details")
 
     # Probe for NVIDIA GPU
-    cap = gpu_bootstrap.capability_probe()
+    cap = capability_probe()
 
     if cap["has_nvidia"]:
         _log_nvidia_gpu_detected(cap, config, gpu_enabled, show_gui_dialog)
@@ -100,9 +99,7 @@ def _log_nvidia_gpu_detected(cap, config, gpu_enabled, show_gui_dialog):
             _log_gpu_pack_installed(config, gpu_enabled)
         else:
             # No GPU Pack - check if system CUDA is available before showing warning
-            from utils import gpu_bootstrap
-
-            system_pytorch = gpu_bootstrap.detect_system_pytorch_cuda()
+            system_pytorch = detect_system_pytorch_cuda()
             if system_pytorch:
                 # System CUDA is available - GPU is actually working!
                 _log_system_cuda_detected()
@@ -282,7 +279,7 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
         Dialog instance if shown, None otherwise (caller should keep reference)
     """
     import logging
-    from utils import gpu_bootstrap, gpu_pack_cleaner
+    from utils import gpu_pack_cleaner
     from ui.gpu_download_dialog import GpuPackDownloadDialog
     from pathlib import Path
 
@@ -303,14 +300,14 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
         logger.debug(f"GPU Pack cleanup check failed (non-critical): {e}")
 
     # Auto-recover GPU Pack config if pack exists on disk but config is empty
-    gpu_bootstrap.auto_recover_gpu_pack_config(config)
+    auto_recover_gpu_pack_config(config)
 
     # Check if system PyTorch with CUDA is available
     prefer_system = getattr(config, "prefer_system_pytorch", True)
     logger.info(f"GPU Pack dialog check starting (prefer_system_pytorch={prefer_system}, gpu_enabled={gpu_enabled})")
 
     if prefer_system:
-        system_pytorch = gpu_bootstrap.detect_system_pytorch_cuda()
+        system_pytorch = detect_system_pytorch_cuda()
         if system_pytorch:
             logger.info(
                 f"System PyTorch {system_pytorch['torch_version']} with CUDA "
@@ -326,7 +323,7 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
         return None
 
     # Only show if NVIDIA GPU detected but GPU not working
-    cap = gpu_bootstrap.capability_probe()
+    cap = capability_probe()
     logger.info(f"GPU dialog check: has_nvidia={cap['has_nvidia']}, gpu_enabled={gpu_enabled}")
 
     if cap["has_nvidia"] and not gpu_enabled:

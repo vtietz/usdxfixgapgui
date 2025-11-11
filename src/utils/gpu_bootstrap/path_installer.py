@@ -45,7 +45,7 @@ class PathInstaller:
         # Clearing sys.modules after the fact causes DLL conflicts and hangs.
         is_frozen = hasattr(sys, "_MEIPASS")
         if is_frozen:
-            logger.debug(f"PyInstaller frozen mode: sys.path will be managed by runtime hook")
+            logger.debug("PyInstaller frozen mode: sys.path will be managed by runtime hook")
 
         # Add sys.path entries
         for entry in config.sys_path_entries:

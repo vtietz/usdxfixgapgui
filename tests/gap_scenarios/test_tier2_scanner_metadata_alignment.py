@@ -1,20 +1,22 @@
-"""
-Tier-2 scanner tests: metadata alignment scenarios.
+"""Tier-2 scanner tests: metadata alignment scenarios.
 
-Tests scan_for_onset() with real audio chunk I/O and stubbed separation.
-Validates that scanner correctly finds onsets at various distances from expected gap.
+Allows sys.path manipulation for repository-local imports in tests.
 """
+
+# flake8: noqa: E402
 
 import sys
 from pathlib import Path
 
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+SRC_ROOT = Path(__file__).parent.parent.parent / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed
-from utils.providers.mdx.scanner.pipeline import scan_for_onset
-from utils.providers.mdx.vocals_cache import VocalsCache
+from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed  # noqa: E402
+from utils.providers.mdx.scanner.pipeline import scan_for_onset  # noqa: E402
+from utils.providers.mdx.vocals_cache import VocalsCache  # noqa: E402
 
 
 # ============================================================================

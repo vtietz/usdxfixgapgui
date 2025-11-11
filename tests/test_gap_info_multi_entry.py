@@ -5,6 +5,8 @@ Tests backward compatibility with legacy single-entry format and
 new multi-entry format for folders with multiple .txt files.
 """
 
+# flake8: noqa: E402
+
 import sys
 import json
 import asyncio
@@ -12,8 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from model.gap_info import GapInfo, GapInfoStatus
-from services.gap_info_service import GapInfoService
+from model.gap_info import GapInfo, GapInfoStatus  # noqa: E402
+from services.gap_info_service import GapInfoService  # noqa: E402
 
 
 class TestGapInfoMultiEntry:

@@ -66,7 +66,7 @@ def test_reload_song_light_uses_txt_file_not_path(song_actions, fake_run_async):
         assert call_args[0] == test_song.txt_file, f"Expected txt_file '{test_song.txt_file}', got '{call_args[0]}'"
 
         # It should NOT be the directory path
-        assert call_args[0] != test_song.path, f"Service should receive txt_file, not path (directory)"
+    assert call_args[0] != test_song.path, "Service should receive txt_file, not path (directory)"
 
 
 def test_reload_song_light_does_not_change_status(song_actions, mock_app_data, fake_run_async):

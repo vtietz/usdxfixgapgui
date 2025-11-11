@@ -66,7 +66,7 @@ class GapInfoService:
             else:
                 # Legacy single-entry format
                 entry_data = data
-                logger.debug(f"Loaded legacy single-entry format")
+                logger.debug("Loaded legacy single-entry format")
 
             # Populate gap_info from entry_data
             if entry_data:

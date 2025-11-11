@@ -318,7 +318,7 @@ class SongActions(BaseActions):
                 target_song.gap_info = source_song.gap_info
             except AttributeError:
                 # If gap_info is a property with no setter, try to update its contents
-                logger.warning(f"Could not set gap_info directly, attempting to update contents")
+                logger.warning("Could not set gap_info directly, attempting to update contents")
                 if hasattr(target_song, "gap_info") and target_song.gap_info is not None:
                     # Copy attributes from source gap_info to target gap_info
                     for gap_attr in dir(source_song.gap_info):

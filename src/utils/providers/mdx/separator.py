@@ -75,7 +75,7 @@ def separate_vocals_chunk(
         # Extract vocals using VOCALS_INDEX (htdemucs: drums=0, bass=1, other=2, vocals=3)
         vocals = sources[0, VOCALS_INDEX].cpu().numpy()
 
-        logger.info(f"Separation complete in {elapsed:.1f}s ({duration_s/elapsed:.1f}x realtime)")
+        logger.info(f"Separation complete in {elapsed:.1f}s ({duration_s / elapsed:.1f}x realtime)")
         flush_logs()
 
     return vocals

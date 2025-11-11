@@ -23,6 +23,7 @@ ADDED_DLL_DIRS: List[str] = []
 
 # ---- Small helpers to keep control-flow flat and readable ----
 
+
 def _is_gpu_disabled(config) -> bool:
     """Return True if user explicitly disabled GPU in config."""
     return getattr(config, "gpu_opt_in", None) is False
@@ -69,6 +70,7 @@ def _add_pack_and_swap_torch_if_needed(pack_dir: Path) -> None:
         enable_gpu_runtime(pack_dir, None)
 
         import sys as _sys
+
         if "torch" in _sys.modules:
             if _torch_from_dir("torch", pack_dir):
                 logger.debug("torch already imported from GPU Pack path; no action needed")
@@ -80,9 +82,7 @@ def _add_pack_and_swap_torch_if_needed(pack_dir: Path) -> None:
                 )
         # If torch not yet imported, normal import later will pick GPU Pack.
     except Exception as swap_err:
-        logger.debug(
-            f"GPU Pack path addition encountered error (continuing with CPU fallback if needed): {swap_err}"
-        )
+        logger.debug(f"GPU Pack path addition encountered error (continuing with CPU fallback if needed): {swap_err}")
 
 
 def _try_system_pytorch_if_enabled(config, gpu_opt_in) -> bool:
@@ -153,6 +153,7 @@ def _validate_pack_and_update_config(config, pack_dir: Path, gpu_flavor: str, ex
     torch_cuda_version = "unknown"
     try:
         import torch
+
         torch_source = getattr(torch, "__file__", "unknown")
         torch_cuda_version = getattr(torch.version, "cuda", "None")
     except Exception as import_err:
@@ -253,8 +254,7 @@ def bootstrap_gpu(config) -> GPUStatus:
             pack_dir = Path(pack_path)
             if pack_dir.exists():
                 logger.debug(
-                    "GPU Pack found at %s - adding to sys.path BEFORE any torch imports "
-                    "(if not yet imported)",
+                    "GPU Pack found at %s - adding to sys.path BEFORE any torch imports " "(if not yet imported)",
                     pack_dir,
                 )
                 _add_pack_and_swap_torch_if_needed(pack_dir)

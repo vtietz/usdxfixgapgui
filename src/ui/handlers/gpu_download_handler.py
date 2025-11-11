@@ -30,7 +30,8 @@ from PySide6.QtCore import QTimer
 
 from ui.workers.gpu_download_worker import GpuDownloadWorker
 from utils.download_cleanup import cleanup_download_files, cleanup_download_files_safe
-from utils import gpu_bootstrap, gpu_manifest
+from utils.gpu_bootstrap import capability_probe
+from utils import gpu_manifest
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ def on_download_clicked(dialog):
                 app_version = f.read().strip()
 
         manifests = gpu_manifest.load_local_manifest(app_version)
-        cap = gpu_bootstrap.capability_probe()
+        cap = capability_probe()
 
         # Get selected flavor from combo box
         selected_flavor = dialog.flavor_combo.currentData() if dialog.flavor_combo.isVisible() else None
@@ -126,7 +127,7 @@ def on_download_clicked(dialog):
         logger.info(f"GPU Pack download destination: {pack_dir}")
         logger.info(f"Download ZIP location: {dest_zip}")
         dialog.log(f"Download destination: {pack_dir}")
-        dialog.log(f"Starting fresh download (resume disabled for reliability)")
+        dialog.log("Starting fresh download (resume disabled for reliability)")
 
         # Save selected flavor to config for future use
         if selected_flavor and dialog.config:
@@ -227,7 +228,7 @@ def on_download_finished(dialog, success: bool, message: str):
         current_flavor = dialog.config.gpu_flavor if dialog.config and hasattr(dialog.config, "gpu_flavor") else "cu121"
 
         # Check driver version from capability probe
-        cap = gpu_bootstrap.capability_probe()
+        cap = capability_probe()
         driver_version = cap.get("driver_version") if cap else None
 
         can_switch_flavor = (

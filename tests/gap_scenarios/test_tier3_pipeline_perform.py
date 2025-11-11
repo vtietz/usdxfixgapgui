@@ -1,19 +1,21 @@
-"""
-Tier-3 pipeline integration tests.
+"""Tier-3 pipeline integration tests.
 
-Tests end-to-end orchestration of perform() with stubbed provider.
-Validates file I/O, provider integration, and metadata propagation.
+Allows sys.path manipulation for repository-local imports (ignore E402).
 """
+
+# flake8: noqa: E402
 
 import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+SRC_ROOT = Path(__file__).parent.parent.parent / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from utils.gap_detection.pipeline import perform
-from test_utils.visualize import save_pipeline_overview
+from utils.gap_detection.pipeline import perform  # noqa: E402
+from test_utils.visualize import save_pipeline_overview  # noqa: E402
 
 
 # ============================================================================

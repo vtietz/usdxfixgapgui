@@ -20,7 +20,7 @@ def separate_audio(audio_file, duration, output_path, overvrite=False, check_can
     logger.debug(f"Extracting vocals and instrumentals from {audio_file} to {output_path}...")
 
     if os.path.exists(vocals_filepath) and os.path.exists(accompaniment_filepath) and not overvrite:
-        logger.debug(f"Vocals and instrumentals already extracted. Skipping.")
+        logger.debug("Vocals and instrumentals already extracted. Skipping.")
         return vocals_filepath, accompaniment_filepath
 
     if not os.path.exists(os.path.dirname(output_path)):

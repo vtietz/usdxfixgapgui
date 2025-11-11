@@ -162,11 +162,11 @@ class SongListWidget(QWidget):
         if not self._selected_songs:
             return
         # Compare by identity or stable key (txt_file) to detect if affected
-        sel_txts = {s.txt_file for s in self._selected_songs if getattr(s, 'txt_file', None)}
-        if (song in self._selected_songs) or (getattr(song, 'txt_file', None) in sel_txts):
+        sel_txts = {s.txt_file for s in self._selected_songs if getattr(s, "txt_file", None)}
+        if (song in self._selected_songs) or (getattr(song, "txt_file", None) in sel_txts):
             # If status transitioned to PROCESSING for any selected song, request media unload
             try:
-                if hasattr(song, 'status') and song.status == SongStatus.PROCESSING:
+                if hasattr(song, "status") and song.status == SongStatus.PROCESSING:
                     # Emit unload signal once (idempotent for multiple songs)
                     self._data.media_unload_requested.emit()
             except Exception:
@@ -216,9 +216,7 @@ class SongListWidget(QWidget):
         # Enable buttons if at least one song is selected
         has_selection = num_selected > 0
         # Disable actions if any selected song is queued or processing
-        is_busy_selection = has_selection and any(
-            s.status in (SongStatus.QUEUED, SongStatus.PROCESSING) for s in songs
-        )
+        is_busy_selection = has_selection and any(s.status in (SongStatus.QUEUED, SongStatus.PROCESSING) for s in songs)
 
         self.openFolderButton.setEnabled(has_selection and not is_busy_selection)
         self.reload_button.setEnabled(has_selection and not is_busy_selection)

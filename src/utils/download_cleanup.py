@@ -89,7 +89,7 @@ def cleanup_download_files(dest_zip: Path, log_cb: Optional[Callable[[str], None
                         logger.error(f"Failed to delete {file_path} after 3 attempts: {e}")
                         if log_cb:
                             log_cb(f"⚠️ Could not clean up {file_path.name} (file in use)")
-                            log_cb(f"   Please close any programs using this file and try again")
+                            log_cb("   Please close any programs using this file and try again")
                 except Exception as e:
                     logger.warning(f"Failed to delete {file_path}: {e}")
                     break  # Don't retry for other exceptions

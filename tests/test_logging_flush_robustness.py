@@ -6,7 +6,6 @@ Regression test for bug where flush_logs() would crash with:
 """
 
 import logging
-import pytest
 from unittest.mock import Mock, MagicMock
 from utils.logging_utils import flush_logs
 

@@ -80,9 +80,9 @@ class GPUStatus:
     can make decisions without parsing multiple structures.
     """
 
-    enabled: bool                # True if GPU (CUDA torch) validated
-    source: str                  # 'pack' | 'system' | 'cpu'
-    cuda_available: bool         # torch.cuda.is_available() outcome when torch imported
+    enabled: bool  # True if GPU (CUDA torch) validated
+    source: str  # 'pack' | 'system' | 'cpu'
+    cuda_available: bool  # torch.cuda.is_available() outcome when torch imported
     torch_version: Optional[str] = None
     cuda_version: Optional[str] = None
     error: Optional[str] = None

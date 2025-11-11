@@ -239,10 +239,10 @@ def _setup_logging_early(config: Any) -> Tuple[str, logging.Logger]:
 
 def _bootstrap_gpu_and_models(config: Any, logger: logging.Logger) -> bool:
     """Bootstrap GPU pack, then configure model paths. Returns whether GPU is enabled."""
-    from utils import gpu_bootstrap
+    from utils.gpu_bootstrap import bootstrap_and_maybe_enable_gpu
     from utils.model_paths import setup_model_paths
 
-    gpu_enabled = gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
+    gpu_enabled = bootstrap_and_maybe_enable_gpu(config)
     logger.info(f"GPU bootstrap completed: enabled={gpu_enabled}")
     # Note: setup_model_paths may import torch — perform after GPU bootstrap
     setup_model_paths(config)

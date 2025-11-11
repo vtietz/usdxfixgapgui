@@ -11,7 +11,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict
 
-from utils import gpu_bootstrap, gpu_manifest, gpu_downloader
+from utils.gpu_bootstrap import capability_probe, resolve_pack_dir, ADDED_DLL_DIRS
+from utils import gpu_manifest, gpu_downloader
 from utils.gpu_utils import is_gpu_pack_installed, get_gpu_pack_info
 from utils.files import get_app_dir
 
@@ -64,11 +65,11 @@ def _print_gpu_pack_info(config):
                 with open(install_json, "r") as f:
                     info = json.load(f)
                 # Only print values that exist
-                if info.get('install_timestamp'):
+                if info.get("install_timestamp"):
                     print(f"Installed on: {info['install_timestamp']}")
-                if info.get('cuda_version'):
+                if info.get("cuda_version"):
                     print(f"CUDA version: {info['cuda_version']}")
-                if info.get('torch_version'):
+                if info.get("torch_version"):
                     print(f"PyTorch version: {info['torch_version']}")
     else:
         print("GPU Pack: Not installed")
@@ -88,8 +89,6 @@ def _print_config_status(config):
 def _print_dll_diagnostics():
     """Print DLL path diagnostics."""
     print("\n=== DLL Path Diagnostics ===")
-    from utils.gpu_bootstrap import ADDED_DLL_DIRS
-
     if ADDED_DLL_DIRS:
         print(f"DLL directories added to search path: {len(ADDED_DLL_DIRS)}")
         for dll_dir in ADDED_DLL_DIRS:
@@ -138,8 +137,6 @@ def _print_environment_variables():
 
 def _write_diagnostics_file(config, cap, torch_paths):
     """Write diagnostics information to file."""
-    from utils.gpu_bootstrap import ADDED_DLL_DIRS
-
     diag_file = Path(get_app_dir()) / "gpu_diagnostics.txt"
     with open(diag_file, "w") as f:
         f.write("=== GPU Diagnostics ===\n")
@@ -179,6 +176,7 @@ def handle_gpu_diagnostics(config):
 
     # Use SystemCapabilities as single source of truth
     from services.system_capabilities import check_system_capabilities
+
     capabilities = check_system_capabilities()
 
     # Print system capabilities summary
@@ -209,7 +207,7 @@ def handle_gpu_diagnostics(config):
     _print_environment_variables()
 
     # Write detailed diagnostics to file
-    cap = gpu_bootstrap.capability_probe()
+    cap = capability_probe()
     _write_diagnostics_file(config, cap, torch_paths)
 
 
@@ -218,7 +216,7 @@ def handle_setup_gpu(config):
     print("Setting up GPU Pack...")
 
     app_version = get_app_version()
-    cap = gpu_bootstrap.capability_probe()
+    cap = capability_probe()
 
     if not cap["has_nvidia"]:
         print("ERROR: No NVIDIA GPU detected. GPU Pack requires NVIDIA GPU with compatible driver.")
@@ -253,7 +251,7 @@ def handle_setup_gpu(config):
     print(f"PyTorch version: {chosen.torch_version}")
 
     # Download
-    pack_dir = gpu_bootstrap.resolve_pack_dir(app_version, chosen.flavor)
+    pack_dir = resolve_pack_dir(app_version, chosen.flavor)
     dest_zip = pack_dir.parent / f"{pack_dir.name}.zip"
 
     try:
@@ -325,7 +323,7 @@ def handle_setup_gpu_zip(config, zip_path_str):
 
     print(f"Detected flavor: {flavor}")
 
-    pack_dir = gpu_bootstrap.resolve_pack_dir(app_version, flavor)
+    pack_dir = resolve_pack_dir(app_version, flavor)
 
     try:
         print(f"Extracting to: {pack_dir}")
@@ -348,7 +346,7 @@ def handle_setup_gpu_zip(config, zip_path_str):
         config.gpu_opt_in = True
         config.save_config()
 
-        print(f"\nGPU Pack installed successfully from ZIP")
+        print("\nGPU Pack installed successfully from ZIP")
         print("GPU acceleration enabled (gpu_opt_in=true)")
 
     except Exception as e:

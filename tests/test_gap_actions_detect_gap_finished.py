@@ -83,7 +83,7 @@ class TestDetectGapFinished:
 
         with (
             patch("actions.gap_actions.run_async") as mock_run_async,
-            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock) as mock_save,
+            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock),
             patch("actions.gap_actions.AudioActions"),
         ):
 
@@ -138,7 +138,7 @@ class TestDetectGapFinished:
 
         with (
             patch("actions.gap_actions.run_async") as mock_run_async,
-            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock) as mock_save,
+            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock),
             patch("actions.gap_actions.AudioActions") as mock_audio_class,
         ):
 
@@ -228,7 +228,7 @@ class TestDetectGapFinished:
             patch("actions.gap_actions.run_async") as mock_run_async,
             patch("services.usdx_file_service.USDXFileService.load", new_callable=AsyncMock),
             patch("services.usdx_file_service.USDXFileService.write_gap_tag", new_callable=AsyncMock),
-            patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock) as mock_gap_save,
+            patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock),
             patch("services.song_service.SongService") as mock_song_service_class,
             patch("actions.gap_actions.AudioActions"),
         ):

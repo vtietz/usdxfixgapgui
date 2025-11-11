@@ -277,7 +277,6 @@ class GPUPackImportFinder:
 
     def invalidate_caches(self):
         """Invalidate import caches (required by import protocol)."""
-        pass
 
 
 def write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified):
@@ -317,16 +316,22 @@ def write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified):
             # Platform-specific ABI checks
             py_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
             f.write(f"Platform: {sys.platform}\n")
-            f.write(f"Python version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} ({py_version})\n")
+            f.write(
+                f"Python version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} ({py_version})\n"
+            )
 
             if sys.platform == "win32":
                 torch_c = pack_dir / "torch" / f"_C.{py_version}-win_amd64.pyd"
                 f.write(f"torch/_C.{py_version}-win_amd64.pyd exists: {torch_c.exists()}\n")
             elif sys.platform.startswith("linux"):
-                f.write(f"torch/lib/libtorch_cpu.so exists: {(pack_dir / 'torch' / 'lib' / 'libtorch_cpu.so').exists()}\n")
+                f.write(
+                    f"torch/lib/libtorch_cpu.so exists: {(pack_dir / 'torch' / 'lib' / 'libtorch_cpu.so').exists()}\n"
+                )
                 f.write(f"torch/lib/libc10.so exists: {(pack_dir / 'torch' / 'lib' / 'libc10.so').exists()}\n")
             elif sys.platform == "darwin":
-                f.write(f"torch/lib/libtorch_cpu.dylib exists: {(pack_dir / 'torch' / 'lib' / 'libtorch_cpu.dylib').exists()}\n")
+                f.write(
+                    f"torch/lib/libtorch_cpu.dylib exists: {(pack_dir / 'torch' / 'lib' / 'libtorch_cpu.dylib').exists()}\n"
+                )
                 f.write(f"torch/lib/libc10.dylib exists: {(pack_dir / 'torch' / 'lib' / 'libc10.dylib').exists()}\n")
 
         # Write simple status file for GUI startup logger
@@ -396,7 +401,9 @@ def setup_gpu_pack():
             torch_lib / "libc10.so",
         ]
         # Python extension pattern: _C.cpython-312-x86_64-linux-gnu.so
-        torch_extensions = list((pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so"))
+        torch_extensions = list(
+            (pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so")
+        )
         abi_compatible = all(lib.exists() for lib in required_libs) and len(torch_extensions) > 0
 
     elif sys.platform == "darwin":
@@ -407,7 +414,9 @@ def setup_gpu_pack():
             torch_lib / "libc10.dylib",
         ]
         # Python extension pattern: _C.cpython-312-darwin.so
-        torch_extensions = list((pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so"))
+        torch_extensions = list(
+            (pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so")
+        )
         abi_compatible = all(lib.exists() for lib in required_libs) and len(torch_extensions) > 0
 
     if not abi_compatible:
@@ -425,10 +434,11 @@ def setup_gpu_pack():
     # einops (used by Demucs) imports torch._dynamo.allow_in_graph, causing circular import.
     # Solution: Create stub module in sys.modules BEFORE any imports happen.
     import types
-    fake_dynamo = types.ModuleType('torch._dynamo')
+
+    fake_dynamo = types.ModuleType("torch._dynamo")
     fake_dynamo.allow_in_graph = lambda *args, **kwargs: lambda fn: fn  # No-op decorator
     fake_dynamo.disable = lambda *args, **kwargs: lambda fn: fn  # No-op decorator
-    sys.modules['torch._dynamo'] = fake_dynamo
+    sys.modules["torch._dynamo"] = fake_dynamo
 
     # Insert MetaPathFinder at index 0 to beat FrozenImporter
     finder = GPUPackImportFinder(pack_dir, redirected_modules)

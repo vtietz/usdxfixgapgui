@@ -83,7 +83,7 @@ def verify_file_checksum(file_path: Path, expected_sha256: str, expected_size: i
     try:
         # Skip verification if SHA256 not defined yet
         if expected_sha256 == "TBD":
-            logger.info(f"Skipping checksum verification (not defined for this wheel yet)")
+            logger.info("Skipping checksum verification (not defined for this wheel yet)")
             actual_size = file_path.stat().st_size
             logger.info(f"Downloaded file size: {actual_size} bytes ({actual_size / 1024 / 1024:.1f} MB)")
             return True

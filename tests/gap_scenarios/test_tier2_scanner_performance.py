@@ -1,19 +1,22 @@
-"""
-Tier-2 scanner tests: performance and optimization.
+"""Tier-2 scanner tests: performance and optimization.
 
-Tests chunk deduplication and early-stop behavior.
+Allows sys.path manipulation for repo-local imports in tests (ignore E402).
 """
+
+# flake8: noqa: E402
 
 import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+SRC_ROOT = Path(__file__).parent.parent.parent / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed
-from utils.providers.mdx.scanner.pipeline import scan_for_onset
-from utils.providers.mdx.vocals_cache import VocalsCache
+from test_utils.audio_factory import build_stereo_test, VocalEvent, InstrumentBed  # noqa: E402
+from utils.providers.mdx.scanner.pipeline import scan_for_onset  # noqa: E402
+from utils.providers.mdx.vocals_cache import VocalsCache  # noqa: E402
 
 
 # ============================================================================

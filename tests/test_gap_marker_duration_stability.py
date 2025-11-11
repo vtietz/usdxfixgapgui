@@ -153,7 +153,7 @@ class TestGapMarkerPositioning:
 
         # NOT at 3.8/30 = ~12.7% (if it used vocals duration by mistake)
         wrong_x = int((gap_ms / 30000) * overlay_width)
-        assert wrong_x == 126, f"Wrong calculation check failed"
+        assert wrong_x == 126, "Wrong calculation check failed"
 
         # Verify we're using the correct calculation
         assert expected_x != wrong_x, "Test setup error: positions should be different"
@@ -168,7 +168,7 @@ class TestGapMarkerPositioning:
         overlay_width = 1000
         if waveform_widget.duration_ms > 0:
             # Would calculate normally
-            x = int((3800 / waveform_widget.duration_ms) * overlay_width)
+            int((3800 / waveform_widget.duration_ms) * overlay_width)
         else:
             # Should skip gap marker drawing
             pass

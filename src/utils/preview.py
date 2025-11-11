@@ -103,7 +103,7 @@ def apply_vad_gate(
         logger.warning("librosa not available, skipping VAD gating")
         return audio_file
 
-    logger.debug(f"Applying VAD gate with {len(vad_segments)} speech segments")
+        logger.debug("Applying VAD gate with {} speech segments".format(len(vad_segments)))
 
     # Load audio (type-narrow for static checker)
     assert LIBROSA_AVAILABLE and librosa is not None and np is not None and sf is not None
@@ -257,7 +257,7 @@ def build_vocals_preview(
         # Determine final output file
         if output_file is None:
             temp_dir = os.path.dirname(audio_file)
-            output_file = os.path.join(temp_dir, f"vocals_preview.wav")
+            output_file = os.path.join(temp_dir, "vocals_preview.wav")
 
         # Move to final location
         if window_file != output_file:

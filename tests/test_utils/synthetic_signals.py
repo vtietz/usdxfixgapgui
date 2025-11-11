@@ -70,11 +70,9 @@ def generate_chirp(
         >>> # Frequency increases linearly over 2 seconds
     """
     n_samples = int(duration_sec * sample_rate)
-    t = np.linspace(0, duration_sec, n_samples, dtype=np.float32)
 
     # Linear frequency sweep
     freq = np.linspace(start_freq, end_freq, n_samples)
-
     # Integrate frequency to get phase
     phase = 2 * np.pi * np.cumsum(freq) / sample_rate
 
