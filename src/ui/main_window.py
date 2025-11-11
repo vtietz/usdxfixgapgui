@@ -47,40 +47,14 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
         Exit code for the application
     """
 
-    # Initialize database before creating AppData
-    db_path, cache_was_cleared = initialize_song_cache()
-    logger.info(f"Song cache database initialized at: {db_path}")
-
-    # If cache was cleared due to version upgrade, show confirmation dialog
-    if cache_was_cleared:
-        logger.info("Displaying re-scan confirmation dialog to user")
-        # Create minimal QApplication for the dialog
-        temp_app = QApplication.instance()
-        if temp_app is None:
-            temp_app = QApplication(sys.argv)
-
-        msgBox = QMessageBox()
-        msgBox.setIcon(QMessageBox.Icon.Information)
-        msgBox.setWindowTitle("Re-scan Required")
-        msgBox.setText("Due to application upgrade, a complete re-scan of all songs is required.")
-        msgBox.setInformativeText("This will happen automatically on startup. Do you want to start now?")
-        msgBox.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
-        msgBox.button(QMessageBox.StandardButton.Ok).setText("Start Re-scan")
-        msgBox.button(QMessageBox.StandardButton.Cancel).setText("Quit Application")
-        msgBox.setDefaultButton(QMessageBox.StandardButton.Ok)
-
-        result = msgBox.exec()
-
-        if result == QMessageBox.StandardButton.Cancel:
-            logger.info("User cancelled re-scan. Exiting application.")
-            return 0  # Clean exit
-
-        logger.info("User confirmed re-scan. Proceeding with application startup.")
+    # Initialize database and confirm cache reset if needed
+    if not _initialize_cache_and_confirm_rescan():
+        return 0  # User cancelled
 
     # Create app data and actions
     data = AppData()
     data.config = config
-    data.capabilities = capabilities  # Store system capabilities from startup checks
+    data.capabilities = capabilities
     actions = Actions(data)
 
     # QApplication already created in main() for splash screen
@@ -94,94 +68,201 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
     gpu_dialog = None  # show_gpu_pack_dialog_if_needed(config, gpu_enabled)
 
     # Set application icon
-    icon_path = resource_path("assets/usdxfixgap-icon.ico")
-    import os
-
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QIcon(icon_path))
-        logger.info(f"Loaded icon from: {icon_path}")
-    else:
-        logger.error(f"Icon file not found at expected path: {icon_path}")
+    _set_application_icon(app)
 
     # Create main window
+    window = _create_main_window(app, config, gpu_dialog)
+
+    # Connect to aboutToQuit to save geometry before closing
+    app.aboutToQuit.connect(lambda: _save_window_geometry(window, config))
+
+    # Create UI components
+    menuBar, songStatus, songListView, mediaPlayerComponent, taskQueueViewer, logViewer = _create_ui_components(
+        data, actions, log_file_path
+    )
+
+    # Connect signals
+    _connect_ui_signals(data, menuBar, songStatus, app, mediaPlayerComponent)
+
+    # Setup layout
+    _setup_window_layout(
+        window,
+        config,
+        menuBar,
+        songStatus,
+        songListView,
+        mediaPlayerComponent,
+        taskQueueViewer,
+        logViewer,
+        capabilities,
+    )
+
+    # Log runtime information and check dependencies
+    _log_runtime_info_and_check_dependencies()
+
+    # Show window
+    window.show()
+
+    # Auto-load last directory
+    actions.auto_load_last_directory()
+
+    # Enable dark mode
+    enable_dark_mode(app)
+
+    # Setup proper shutdown sequence
+    _setup_shutdown_sequence(app, data, logViewer)
+
+    # Log completion and delayed start message
+    logger.info("GUI Initialized Successfully")
+    QTimer.singleShot(200, lambda: _log_delayed_start_info(data))
+
+    # Start event loop
+    return app.exec()
+
+
+# ==========================
+# Helper functions
+# ==========================
+
+
+def _initialize_cache_and_confirm_rescan() -> bool:
+    """Initialize song cache and confirm rescan if needed. Returns False if user cancels."""
+    db_path, cache_was_cleared = initialize_song_cache()
+    logger.info("Song cache database initialized at: %s", db_path)
+
+    if not cache_was_cleared:
+        return True
+
+    logger.info("Displaying re-scan confirmation dialog to user")
+    temp_app = QApplication.instance()
+    if temp_app is None:
+        temp_app = QApplication(sys.argv)
+
+    msgBox = QMessageBox()
+    msgBox.setIcon(QMessageBox.Icon.Information)
+    msgBox.setWindowTitle("Re-scan Required")
+    msgBox.setText("Due to application upgrade, a complete re-scan of all songs is required.")
+    msgBox.setInformativeText("This will happen automatically on startup. Do you want to start now?")
+    msgBox.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+    msgBox.button(QMessageBox.StandardButton.Ok).setText("Start Re-scan")
+    msgBox.button(QMessageBox.StandardButton.Cancel).setText("Quit Application")
+    msgBox.setDefaultButton(QMessageBox.StandardButton.Ok)
+
+    result = msgBox.exec()
+
+    if result == QMessageBox.StandardButton.Cancel:
+        logger.info("User cancelled re-scan. Exiting application.")
+        return False
+
+    logger.info("User confirmed re-scan. Proceeding with application startup.")
+    return True
+
+
+def _set_application_icon(app):
+    """Set application icon from assets."""
+    import os
+
+    icon_path = resource_path("assets/usdxfixgap-icon.ico")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+        logger.info("Loaded icon from: %s", icon_path)
+    else:
+        logger.error("Icon file not found at expected path: %s", icon_path)
+
+
+def _create_main_window(app, config, gpu_dialog):
+    """Create and configure main window with geometry restoration."""
     window = QWidget()
     window.setWindowTitle("USDX FixGap")
-    # Store dialog reference to prevent garbage collection
     if gpu_dialog:
         app.setProperty("_gpu_dialog_ref", gpu_dialog)
 
-    # Restore window geometry from config
+    # Restore window geometry
     if config.window_x >= 0 and config.window_y >= 0:
         window.move(config.window_x, config.window_y)
     window.resize(config.window_width, config.window_height)
     window.setMinimumSize(600, 600)
 
-    # Restore maximized state
     if config.window_maximized:
         window.showMaximized()
 
-    # Save window geometry and state on close
-    def save_window_geometry():
-        # Only save normal geometry if not maximized
-        # (Qt provides incorrect geometry when maximized)
-        if not window.isMaximized():
-            geometry = window.geometry()
-            config.window_width = geometry.width()
-            config.window_height = geometry.height()
-            config.window_x = geometry.x()
-            config.window_y = geometry.y()
+    return window
 
-        # Always save maximized state
-        config.window_maximized = window.isMaximized()
-        config.save()
 
-        if window.isMaximized():
-            logger.debug("Window state saved: maximized")
-        else:
-            logger.debug(
-                "Window geometry saved: %sx%s at (%s, %s)",
-                config.window_width, config.window_height,
-                config.window_x, config.window_y
-            )
+def _save_window_geometry(window, config):
+    """Save window geometry and maximized state."""
+    if not window.isMaximized():
+        geometry = window.geometry()
+        config.window_width = geometry.width()
+        config.window_height = geometry.height()
+        config.window_x = geometry.x()
+        config.window_y = geometry.y()
 
-    # Connect to aboutToQuit to save geometry before closing
-    app.aboutToQuit.connect(save_window_geometry)
+    config.window_maximized = window.isMaximized()
+    config.save()
 
-    # Create UI components
+    if window.isMaximized():
+        logger.debug("Window state saved: maximized")
+    else:
+        logger.debug(
+            "Window geometry saved: %sx%s at (%s, %s)",
+            config.window_width,
+            config.window_height,
+            config.window_x,
+            config.window_y,
+        )
+
+
+def _create_ui_components(data, actions, log_file_path):
+    """Create all UI components."""
     menuBar = MenuBar(actions, data)
     songStatus = SongsStatusVisualizer(data.songs, data)
     songListView = SongListWidget(data.songs, actions, data)
     mediaPlayerComponent = MediaPlayerComponent(data, actions)
     taskQueueViewer = TaskQueueViewer(actions.worker_queue)
     logViewer = LogViewerWidget(log_file_path, max_lines=1000)
+    return menuBar, songStatus, songListView, mediaPlayerComponent, taskQueueViewer, logViewer
 
-    # Connect loading state changes to status visualizer
+
+def _connect_ui_signals(data, menuBar, songStatus, app, mediaPlayerComponent):
+    """Connect signals between UI components."""
+
     def on_loading_state_changed():
         songStatus.update_visualization()
 
-    # Monitor is_loading_songs changes (will be set in CoreActions)
-    # We'll update every time songs are added during loading
     data.songs.listChanged.connect(on_loading_state_changed)
-
-    # Connect loading state to menu bar to enable/disable buttons during scan
     data.is_loading_songs_changed.connect(menuBar.updateLoadButtonState)
 
-    # Install event filter
     if mediaPlayerComponent.globalEventFilter is not None:
         app.installEventFilter(mediaPlayerComponent.globalEventFilter)
 
-    # Setup layout
+
+def _setup_window_layout(
+    window, config, menuBar, songStatus, songListView, mediaPlayerComponent, taskQueueViewer, logViewer, capabilities
+):
+    """Setup main window layout with splitters and status indicators."""
     layout = QVBoxLayout()
     layout.setContentsMargins(5, 5, 5, 5)
     layout.setSpacing(2)
     layout.addWidget(menuBar)
 
-    # Status row: song status + detection mode indicator
+    # Status row
+    status_row = _create_status_row(songStatus, capabilities)
+    layout.addLayout(status_row)
+
+    # Main splitter with nested second splitter
+    main_splitter = _create_main_splitter(config, songListView, mediaPlayerComponent, taskQueueViewer, logViewer)
+    layout.addWidget(main_splitter)
+
+    window.setLayout(layout)
+
+
+def _create_status_row(songStatus, capabilities):
+    """Create status row with song status and detection mode indicator."""
     status_row = QHBoxLayout()
     status_row.setSpacing(5)
-    status_row.addWidget(songStatus, 1)  # Song status takes most space
+    status_row.addWidget(songStatus, 1)
 
-    # Detection mode indicator
     detection_label = QLabel()
     detection_label.setFixedHeight(20)
     detection_label.setStyleSheet(
@@ -207,130 +288,102 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
             detection_label.setToolTip("Gap detection disabled: System requirements not met")
 
     status_row.addWidget(detection_label)
+    return status_row
 
-    layout.addLayout(status_row)
 
-    # Create main splitter to divide song list from bottom panel
+def _create_main_splitter(config, songListView, mediaPlayerComponent, taskQueueViewer, logViewer):
+    """Create main splitter with nested second splitter."""
     main_splitter = QSplitter(Qt.Orientation.Vertical)
-    main_splitter.setChildrenCollapsible(False)  # Prevent panels from collapsing
-
-    # Top section: song list
+    main_splitter.setChildrenCollapsible(False)
     main_splitter.addWidget(songListView)
 
-    # Bottom section: nested splitter for media player vs task/log panel
+    # Second splitter for media player vs task/log
     second_splitter = QSplitter(Qt.Orientation.Vertical)
     second_splitter.setChildrenCollapsible(False)
-
-    # Media player (waveform is now flexible)
     second_splitter.addWidget(mediaPlayerComponent)
 
-    # Task/Log panel (equal height)
+    # Task/Log panel
     task_log_panel = QWidget()
     task_log_layout = QVBoxLayout(task_log_panel)
     task_log_layout.setContentsMargins(0, 0, 0, 0)
     task_log_layout.setSpacing(2)
-    task_log_layout.addWidget(taskQueueViewer, 1)  # Equal stretch
-    task_log_layout.addWidget(logViewer, 1)  # Equal stretch
+    task_log_layout.addWidget(taskQueueViewer, 1)
+    task_log_layout.addWidget(logViewer, 1)
     task_log_panel.setLayout(task_log_layout)
 
     second_splitter.addWidget(task_log_panel)
 
-    # Restore second splitter position from config (default 1:1 ratio for media vs task/log)
+    # Restore second splitter position
     if config.second_splitter_pos:
         second_splitter.setSizes(config.second_splitter_pos)
     else:
-        # Fallback default: 1:1 ratio
         second_splitter.setSizes([200, 200])
 
-    # Save second splitter position on move
-    def save_second_splitter_position():
-        config.second_splitter_pos = second_splitter.sizes()
-        config.save()
-        logger.debug(f"Second splitter position saved: {config.second_splitter_pos}")
+    second_splitter.splitterMoved.connect(lambda: _save_splitter_position(config, second_splitter, "second"))
 
-    second_splitter.splitterMoved.connect(save_second_splitter_position)
-
-    # Add second splitter to main splitter
     main_splitter.addWidget(second_splitter)
 
-    # Restore main splitter position from config (default 2:1 ratio)
+    # Restore main splitter position
     if config.main_splitter_pos:
         main_splitter.setSizes(config.main_splitter_pos)
     else:
-        # Fallback default: 2:1 ratio
-        total_height = 900  # Approximate default window height
+        total_height = 900
         main_splitter.setSizes([int(total_height * 0.66), int(total_height * 0.34)])
 
-    # Save main splitter position on move
-    def save_splitter_position():
-        config.main_splitter_pos = main_splitter.sizes()
-        config.save()
-        logger.debug(f"Main splitter position saved: {config.main_splitter_pos}")
+    main_splitter.splitterMoved.connect(lambda: _save_splitter_position(config, main_splitter, "main"))
 
-    main_splitter.splitterMoved.connect(save_splitter_position)
+    return main_splitter
 
-    layout.addWidget(main_splitter)
 
-    window.setLayout(layout)
+def _save_splitter_position(config, splitter, name):
+    """Save splitter position to config."""
+    pos = splitter.sizes()
+    if name == "main":
+        config.main_splitter_pos = pos
+    elif name == "second":
+        config.second_splitter_pos = pos
+    config.save()
+    logger.debug("%s splitter position saved: %s", name.capitalize(), pos)
 
-    # Log runtime information
+
+def _log_runtime_info_and_check_dependencies():
+    """Log runtime information and check dependencies."""
     try:
         import PySide6
 
         qt_version = getattr(PySide6, "__version__", "unknown")
-        logger.debug(f"Runtime PySide6 version: {qt_version}")
+        logger.debug("Runtime PySide6 version: %s", qt_version)
     except Exception:
         logger.debug("Runtime PySide6 version: unknown")
-    logger.debug(f"Python Executable: {sys.executable}")
-    logger.debug(f"PYTHONPATH: {sys.path}")
+    logger.debug("Python Executable: %s", sys.executable)
+    logger.debug("PYTHONPATH: %s", sys.path)
 
-    # Check dependencies
-    dependencies = [
-        ("ffmpeg", "-version"),
-    ]
+    dependencies = [("ffmpeg", "-version")]
     if not check_dependencies(dependencies):
         logger.error("Some dependencies are not installed.")
 
-    # Check audio devices
     available_audio_outputs = QMediaDevices.audioOutputs()
     if not available_audio_outputs:
         logger.error("No audio output devices available.")
     else:
-        logger.debug(f"Available audio outputs: {available_audio_outputs}")
+        logger.debug("Available audio outputs: %s", available_audio_outputs)
 
-    # Check multimedia backends
     try:
         supported_mime_types = getattr(QMediaDevices, "supportedMimeTypes", lambda: [])()
-        logger.debug(f"Available multimedia backends: {supported_mime_types}")
+        logger.debug("Available multimedia backends: %s", supported_mime_types)
     except AttributeError:
         logger.debug("Multimedia backend query not available (not critical - app uses its own audio processing)")
 
-    # Show window
-    window.show()
 
-    # Auto-load last directory
-    actions.auto_load_last_directory()
+def _setup_shutdown_sequence(app, data, logViewer):
+    """Setup proper shutdown sequence for cleanup."""
+    app.aboutToQuit.connect(lambda: data.worker_queue.shutdown())
+    app.aboutToQuit.connect(shutdown_asyncio)
+    app.aboutToQuit.connect(logViewer.cleanup)
+    app.aboutToQuit.connect(shutdown_async_logging)
 
-    # Enable dark mode
-    enable_dark_mode(app)
 
-    # Setup proper shutdown sequence
-    # Order matters: stop taking new work, wait for workers, stop async loop, cleanup UI
-    app.aboutToQuit.connect(lambda: data.worker_queue.shutdown())  # Cancel tasks and wait
-    app.aboutToQuit.connect(shutdown_asyncio)  # Stop asyncio event loop and thread
-    app.aboutToQuit.connect(logViewer.cleanup)  # Cleanup UI components
-    app.aboutToQuit.connect(shutdown_async_logging)  # Final logging shutdown
-
-    # Log completion and give async logger a moment to flush
-    # This ensures initial logs appear in the log viewer
-    logger.info("GUI Initialized Successfully")
-
-    # Use QTimer to allow event loop to process initial logs
-    def delayed_start():
-        logger.info(f"Configuration file: {data.config.config_path}")
-        logger.info("Application ready for user interaction")
-
-    QTimer.singleShot(200, delayed_start)  # 200ms delay
-
-    # Start event loop
-    return app.exec()
+def _log_delayed_start_info(data):
+    """Log delayed start information."""
+    logger.info("Configuration file: %s", data.config.config_path)
+    logger.info("Application ready for user interaction")

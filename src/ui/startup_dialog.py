@@ -342,31 +342,27 @@ class StartupDialog(QDialog):
 
     def _log_system_details(self):
         """Log comprehensive system information (for About dialog and detailed startup info)."""
-        from utils.files import resource_path
-        import os
+        self._log_app_version()
+        self._log_system_components()
+        self._log_audio_processing()
+        self._log_python_libraries()
+        self._log_configuration_paths()
 
-        # Get version from VERSION file
-        app_version = "unknown"
-        try:
-            version_file = resource_path("VERSION")
-            if os.path.exists(version_file):
-                with open(version_file, "r") as f:
-                    app_version = f.read().strip()
-        except Exception:
-            pass
-
+    def _log_app_version(self):
+        """Log application version."""
+        app_version = self._read_version()
         # Get Qt version
         try:
             from PySide6 import __version__ as pyside_version
         except Exception:
             pyside_version = "unknown"
 
-        # System Components
         self.log("System Components:")
         self.log(f"  • Application: {app_version}")
         self.log(f"  • Qt Framework: {pyside_version}")
 
-        # PyTorch & GPU
+    def _log_system_components(self):
+        """Log PyTorch and GPU information."""
         if self.capabilities.torch_version:
             self.log(f"  • PyTorch: {self.capabilities.torch_version}")
         if self.capabilities.has_cuda and self.capabilities.cuda_version:
@@ -374,13 +370,15 @@ class StartupDialog(QDialog):
         if self.capabilities.gpu_name:
             self.log(f"  • GPU: {self.capabilities.gpu_name}")
 
-        # Audio Processing
+    def _log_audio_processing(self):
+        """Log audio processing tools (FFmpeg, FFprobe)."""
         if self.capabilities.ffmpeg_version:
             self.log(f"  • FFmpeg: {self.capabilities.ffmpeg_version}")
         if self.capabilities.has_ffprobe:
             self.log("  • FFprobe: Available")
 
-        # Check Python libraries
+    def _log_python_libraries(self):
+        """Log optional Python library versions."""
         try:
             import librosa
 
@@ -397,22 +395,25 @@ class StartupDialog(QDialog):
 
         self.log("")
 
-        # Configuration Paths
-        if self.config:
-            try:
-                from utils.files import get_localappdata_dir, get_demucs_models_dir
+    def _log_configuration_paths(self):
+        """Log application configuration paths."""
+        if not self.config:
+            return
 
-                data_dir = get_localappdata_dir()
-                models_dir = get_demucs_models_dir(self.config)
+        try:
+            from utils.files import get_localappdata_dir, get_demucs_models_dir
 
-                self.log("Configuration:")
-                self.log(f"  • Data directory: {data_dir}")
-                self.log(f"  • Models directory: {models_dir}")
-                if hasattr(self.config, "gpu_pack_path") and self.config.gpu_pack_path:
-                    self.log(f"  • GPU Pack: {self.config.gpu_pack_path}")
-            except Exception:
-                # Skip path display if config is mocked or paths unavailable
-                pass
+            data_dir = get_localappdata_dir()
+            models_dir = get_demucs_models_dir(self.config)
+
+            self.log("Configuration:")
+            self.log(f"  • Data directory: {data_dir}")
+            self.log(f"  • Models directory: {models_dir}")
+            if hasattr(self.config, "gpu_pack_path") and self.config.gpu_pack_path:
+                self.log(f"  • GPU Pack: {self.config.gpu_pack_path}")
+        except Exception:
+            # Skip path display if config is mocked or paths unavailable
+            pass
 
         self.log("")
 

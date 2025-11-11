@@ -278,6 +278,103 @@ def format_with_black(files: List[Path], dry_run: bool = False) -> int:
         return 0
 
 
+def _collect_files(args) -> List[Path]:
+    """Determine which files to clean based on mode argument."""
+    if args.mode == "changed":
+        files = get_changed_files()
+        if not files:
+            print("✅ No changed Python files found")
+        else:
+            print(f"📝 Cleaning {len(files)} changed file(s)")
+        return files
+    elif args.mode == "files":
+        if not args.files:
+            print("❌ Error: 'files' mode requires file arguments")
+            return []
+        files = [Path(f) for f in args.files]
+        print(f"📝 Cleaning {len(files)} specified file(s)")
+        return files
+    else:  # all
+        files = get_all_python_files()
+        print(f"📝 Cleaning entire project: {len(files)} file(s)")
+        return files
+
+
+def _perform_whitespace_cleanup(files: List[Path], dry_run: bool):
+    """Clean whitespace issues in files and report statistics."""
+    print(f"\n{'=' * 80}")
+    print("🧹 Cleaning Whitespace")
+    print(f"{'=' * 80}")
+
+    total_trailing = 0
+    total_blank = 0
+    total_eof = 0
+    files_modified = 0
+
+    for file_path in files:
+        stats = clean_whitespace(file_path, dry_run=dry_run)
+        if stats["trailing"] > 0 or stats["blank"] > 0 or stats["eof"] > 0:
+            files_modified += 1
+            total_trailing += stats["trailing"]
+            total_blank += stats["blank"]
+            total_eof += stats["eof"]
+
+            rel_path = file_path.relative_to(PROJECT_ROOT)
+            fixes = []
+            if stats["trailing"] > 0:
+                fixes.append(f"{stats['trailing']} trailing")
+            if stats["blank"] > 0:
+                fixes.append(f"{stats['blank']} blank")
+            if stats["eof"] > 0:
+                fixes.append("EOF newline")
+            print(f"  {rel_path}: {', '.join(fixes)}")
+
+    if files_modified > 0:
+        action = "Would clean" if dry_run else "Cleaned"
+        print(f"\n{action}:")
+        print(f"  - {total_trailing} lines with trailing whitespace")
+        print(f"  - {total_blank} blank lines with whitespace")
+        print(f"  - {total_eof} files missing EOF newline")
+        print(f"  - Total: {files_modified} file(s) modified")
+    else:
+        print("✅ No whitespace issues found!")
+
+
+def _perform_import_cleanup(files: List[Path], dry_run: bool):
+    """Remove unused imports using autoflake."""
+    print(f"\n{'=' * 80}")
+    print("🗑️  Removing Unused Imports")
+    print(f"{'=' * 80}")
+
+    removed_count = remove_unused_imports(files, dry_run=dry_run)
+
+    if removed_count == 0:
+        print("✅ No unused imports found!")
+
+
+def _perform_formatting(files: List[Path], dry_run: bool):
+    """Format code with Black."""
+    print(f"\n{'=' * 80}")
+    print("🎨 Formatting with Black")
+    print(f"{'=' * 80}")
+
+    format_with_black(files, dry_run=dry_run)
+
+
+def _print_summary(dry_run: bool):
+    """Print final summary message."""
+    print(f"\n{'=' * 80}")
+    print("📊 CLEANUP SUMMARY")
+    print(f"{'=' * 80}")
+
+    if dry_run:
+        print("ℹ️  DRY RUN - No files were modified")
+        print("   Run without --dry-run to apply changes")
+    else:
+        print("✅ Cleanup complete!")
+        print("   Run code analysis to verify: run.bat analyze changed")
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -302,97 +399,26 @@ Examples:
 
     args = parser.parse_args()
 
-    # Determine which files to clean
-    files_to_clean = []
-
-    if args.mode == "changed":
-        files_to_clean = get_changed_files()
-        if not files_to_clean:
-            print("✅ No changed Python files found")
-            return 0
-        print(f"📝 Cleaning {len(files_to_clean)} changed file(s)")
-    elif args.mode == "files":
-        if not args.files:
-            print("❌ Error: 'files' mode requires file arguments")
-            return 1
-        files_to_clean = [Path(f) for f in args.files]
-        print(f"📝 Cleaning {len(files_to_clean)} specified file(s)")
-    else:  # all
-        files_to_clean = get_all_python_files()
-        print(f"📝 Cleaning entire project: {len(files_to_clean)} file(s)")
+    # Collect files to clean based on mode
+    files_to_clean = _collect_files(args)
+    if not files_to_clean:
+        return 1 if args.mode == "files" and not args.files else 0
 
     if args.dry_run:
         print("🔍 DRY RUN MODE - No files will be modified\n")
 
-    # Clean whitespace
+    # Perform requested cleanup operations
     if not args.skip_whitespace:
-        print(f"\n{'=' * 80}")
-        print("🧹 Cleaning Whitespace")
-        print(f"{'=' * 80}")
+        _perform_whitespace_cleanup(files_to_clean, args.dry_run)
 
-        total_trailing = 0
-        total_blank = 0
-        total_eof = 0
-        files_modified = 0
-
-        for file_path in files_to_clean:
-            stats = clean_whitespace(file_path, dry_run=args.dry_run)
-            if stats["trailing"] > 0 or stats["blank"] > 0 or stats["eof"] > 0:
-                files_modified += 1
-                total_trailing += stats["trailing"]
-                total_blank += stats["blank"]
-                total_eof += stats["eof"]
-
-                rel_path = file_path.relative_to(PROJECT_ROOT)
-                fixes = []
-                if stats["trailing"] > 0:
-                    fixes.append(f"{stats['trailing']} trailing")
-                if stats["blank"] > 0:
-                    fixes.append(f"{stats['blank']} blank")
-                if stats["eof"] > 0:
-                    fixes.append("EOF newline")
-                print(f"  {rel_path}: {', '.join(fixes)}")
-
-        if files_modified > 0:
-            action = "Would clean" if args.dry_run else "Cleaned"
-            print(f"\n{action}:")
-            print(f"  - {total_trailing} lines with trailing whitespace")
-            print(f"  - {total_blank} blank lines with whitespace")
-            print(f"  - {total_eof} files missing EOF newline")
-            print(f"  - Total: {files_modified} file(s) modified")
-        else:
-            print("✅ No whitespace issues found!")
-
-    # Remove unused imports
     if not args.skip_imports:
-        print(f"\n{'=' * 80}")
-        print("🗑️  Removing Unused Imports")
-        print(f"{'=' * 80}")
+        _perform_import_cleanup(files_to_clean, args.dry_run)
 
-        removed_count = remove_unused_imports(files_to_clean, dry_run=args.dry_run)
-
-        if removed_count == 0:
-            print("✅ No unused imports found!")
-
-    # Format with Black
     if not args.skip_format:
-        print(f"\n{'=' * 80}")
-        print("🎨 Formatting with Black")
-        print(f"{'=' * 80}")
+        _perform_formatting(files_to_clean, args.dry_run)
 
-        format_with_black(files_to_clean, dry_run=args.dry_run)
-
-    # Summary
-    print(f"\n{'=' * 80}")
-    print("📊 CLEANUP SUMMARY")
-    print(f"{'=' * 80}")
-
-    if args.dry_run:
-        print("ℹ️  DRY RUN - No files were modified")
-        print("   Run without --dry-run to apply changes")
-    else:
-        print("✅ Cleanup complete!")
-        print("   Run code analysis to verify: run.bat analyze changed")
+    # Print summary
+    _print_summary(args.dry_run)
 
     return 0
 

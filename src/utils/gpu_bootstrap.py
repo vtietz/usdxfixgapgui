@@ -6,6 +6,4 @@ Import from the package directory instead:
 This stub remains only to prevent accidental use.
 """
 
-raise ImportError(
-    "Legacy module 'utils.gpu_bootstrap.py' removed. Use package 'utils.gpu_bootstrap'."
-)
+raise ImportError("Legacy module 'utils.gpu_bootstrap.py' removed. Use package 'utils.gpu_bootstrap'.")

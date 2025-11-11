@@ -219,7 +219,21 @@ class Config(QObject):
         """Initialize class properties from config values with fallbacks."""
         defaults = self._get_defaults()
 
-        # Paths (resolve relative paths in portable mode)
+        self._init_paths(defaults)
+        self._init_detection(defaults)
+        self._init_colors(defaults)
+        self._init_player(defaults)
+        self._init_processing(defaults)
+        self._init_mdx(defaults)
+        self._init_general(defaults)
+        self._init_audio(defaults)
+        self._init_window(defaults)
+        self._init_watch_mode(defaults)
+
+        logger.debug("Configuration loaded: %s", self.config_path)
+
+    def _init_paths(self, defaults: dict):
+        """Initialize Paths section properties."""
         self.tmp_root = self._resolve_path_from_config(
             self._config.get("Paths", "tmp_root", fallback=defaults["Paths"]["tmp_root"])
         )
@@ -233,184 +247,161 @@ class Config(QObject):
             self._config.get("Paths", "models_directory", fallback=defaults["Paths"]["models_directory"])
         )
 
-        # Detection
+    def _init_detection(self, defaults: dict):
+        """Initialize Detection section properties."""
+        d = defaults["Detection"]
         self.default_detection_time = self._config.getint(
-            "Detection", "default_detection_time", fallback=defaults["Detection"]["default_detection_time"]
+            "Detection", "default_detection_time", fallback=d["default_detection_time"]
         )
-        self.gap_tolerance = self._config.getint(
-            "Detection", "gap_tolerance", fallback=defaults["Detection"]["gap_tolerance"]
-        )
+        self.gap_tolerance = self._config.getint("Detection", "gap_tolerance", fallback=d["gap_tolerance"])
         self.vocal_start_window_sec = self._config.getint(
-            "Detection", "vocal_start_window_sec", fallback=defaults["Detection"]["vocal_start_window_sec"]
+            "Detection", "vocal_start_window_sec", fallback=d["vocal_start_window_sec"]
         )
         self.vocal_window_increment_sec = self._config.getint(
-            "Detection", "vocal_window_increment_sec", fallback=defaults["Detection"]["vocal_window_increment_sec"]
+            "Detection", "vocal_window_increment_sec", fallback=d["vocal_window_increment_sec"]
         )
         self.vocal_window_max_sec = self._config.getint(
-            "Detection", "vocal_window_max_sec", fallback=defaults["Detection"]["vocal_window_max_sec"]
+            "Detection", "vocal_window_max_sec", fallback=d["vocal_window_max_sec"]
         )
 
-        # Colors
-        self.detected_gap_color = self._config.get(
-            "Colors", "detected_gap_color", fallback=defaults["Colors"]["detected_gap_color"]
-        )
+    def _init_colors(self, defaults: dict):
+        """Initialize Colors section properties."""
+        c = defaults["Colors"]
+        self.detected_gap_color = self._config.get("Colors", "detected_gap_color", fallback=c["detected_gap_color"])
         self.playback_position_color = self._config.get(
-            "Colors", "playback_position_color", fallback=defaults["Colors"]["playback_position_color"]
+            "Colors", "playback_position_color", fallback=c["playback_position_color"]
         )
-        self.waveform_color = self._config.get(
-            "Colors", "waveform_color", fallback=defaults["Colors"]["waveform_color"]
-        )
+        self.waveform_color = self._config.get("Colors", "waveform_color", fallback=c["waveform_color"])
 
         # Parse the RGBA tuple
-        rgba_str = self._config.get(
-            "Colors", "silence_periods_color", fallback=defaults["Colors"]["silence_periods_color"]
-        )
+        rgba_str = self._config.get("Colors", "silence_periods_color", fallback=c["silence_periods_color"])
         rgba_values = [int(x.strip()) for x in rgba_str.split(",")]
         self.silence_periods_color = tuple(rgba_values)
 
-        # Player
+    def _init_player(self, defaults: dict):
+        """Initialize Player section properties."""
+        p = defaults["Player"]
         self.adjust_player_position_step_audio = self._config.getint(
-            "Player",
-            "adjust_player_position_step_audio",
-            fallback=defaults["Player"]["adjust_player_position_step_audio"],
+            "Player", "adjust_player_position_step_audio", fallback=p["adjust_player_position_step_audio"]
         )
         self.adjust_player_position_step_vocals = self._config.getint(
-            "Player",
-            "adjust_player_position_step_vocals",
-            fallback=defaults["Player"]["adjust_player_position_step_vocals"],
+            "Player", "adjust_player_position_step_vocals", fallback=p["adjust_player_position_step_vocals"]
         )
 
-        # Processing
-        self.method = self._config.get("Processing", "method", fallback=defaults["Processing"]["method"])
+    def _init_processing(self, defaults: dict):
+        """Initialize Processing section properties."""
+        p = defaults["Processing"]
+        self.method = self._config.get("Processing", "method", fallback=p["method"])
         self.normalization_level = self._config.getint(
-            "Processing", "normalization_level", fallback=defaults["Processing"]["normalization_level"]
+            "Processing", "normalization_level", fallback=p["normalization_level"]
         )
-        self.auto_normalize = self._config.getboolean(
-            "Processing", "auto_normalize", fallback=defaults["Processing"]["auto_normalize"]
-        )
+        self.auto_normalize = self._config.getboolean("Processing", "auto_normalize", fallback=p["auto_normalize"])
 
-        # MDX settings (all with fallbacks)
-        mdx_defaults = defaults["mdx"]
-        self.mdx_chunk_duration_ms = self._config.getint(
-            "mdx", "chunk_duration_ms", fallback=mdx_defaults["chunk_duration_ms"]
-        )
-        self.mdx_chunk_overlap_ms = self._config.getint(
-            "mdx", "chunk_overlap_ms", fallback=mdx_defaults["chunk_overlap_ms"]
-        )
-        self.mdx_frame_duration_ms = self._config.getint(
-            "mdx", "frame_duration_ms", fallback=mdx_defaults["frame_duration_ms"]
-        )
-        self.mdx_hop_duration_ms = self._config.getint(
-            "mdx", "hop_duration_ms", fallback=mdx_defaults["hop_duration_ms"]
-        )
+    def _init_mdx(self, defaults: dict):
+        """Initialize MDX section properties."""
+        m = defaults["mdx"]
+        # Chunking parameters
+        self.mdx_chunk_duration_ms = self._config.getint("mdx", "chunk_duration_ms", fallback=m["chunk_duration_ms"])
+        self.mdx_chunk_overlap_ms = self._config.getint("mdx", "chunk_overlap_ms", fallback=m["chunk_overlap_ms"])
+        self.mdx_frame_duration_ms = self._config.getint("mdx", "frame_duration_ms", fallback=m["frame_duration_ms"])
+        self.mdx_hop_duration_ms = self._config.getint("mdx", "hop_duration_ms", fallback=m["hop_duration_ms"])
         self.mdx_noise_floor_duration_ms = self._config.getint(
-            "mdx", "noise_floor_duration_ms", fallback=mdx_defaults["noise_floor_duration_ms"]
+            "mdx", "noise_floor_duration_ms", fallback=m["noise_floor_duration_ms"]
         )
+        # Onset detection thresholds
         self.mdx_onset_snr_threshold = self._config.getfloat(
-            "mdx", "onset_snr_threshold", fallback=mdx_defaults["onset_snr_threshold"]
+            "mdx", "onset_snr_threshold", fallback=m["onset_snr_threshold"]
         )
         self.mdx_onset_abs_threshold = self._config.getfloat(
-            "mdx", "onset_abs_threshold", fallback=mdx_defaults["onset_abs_threshold"]
+            "mdx", "onset_abs_threshold", fallback=m["onset_abs_threshold"]
         )
         self.mdx_min_voiced_duration_ms = self._config.getint(
-            "mdx", "min_voiced_duration_ms", fallback=mdx_defaults["min_voiced_duration_ms"]
+            "mdx", "min_voiced_duration_ms", fallback=m["min_voiced_duration_ms"]
         )
-        self.mdx_hysteresis_ms = self._config.getint("mdx", "hysteresis_ms", fallback=mdx_defaults["hysteresis_ms"])
+        self.mdx_hysteresis_ms = self._config.getint("mdx", "hysteresis_ms", fallback=m["hysteresis_ms"])
         # Expanding search parameters
-        self.mdx_initial_radius_ms = self._config.getint(
-            "mdx", "initial_radius_ms", fallback=mdx_defaults["initial_radius_ms"]
-        )
+        self.mdx_initial_radius_ms = self._config.getint("mdx", "initial_radius_ms", fallback=m["initial_radius_ms"])
         self.mdx_radius_increment_ms = self._config.getint(
-            "mdx", "radius_increment_ms", fallback=mdx_defaults["radius_increment_ms"]
+            "mdx", "radius_increment_ms", fallback=m["radius_increment_ms"]
         )
-        self.mdx_max_expansions = self._config.getint("mdx", "max_expansions", fallback=mdx_defaults["max_expansions"])
+        self.mdx_max_expansions = self._config.getint("mdx", "max_expansions", fallback=m["max_expansions"])
         # Performance optimizations
-        self.mdx_use_fp16 = self._config.getboolean("mdx", "use_fp16", fallback=mdx_defaults["use_fp16"])
-        self.mdx_resample_hz = self._config.getint("mdx", "resample_hz", fallback=mdx_defaults["resample_hz"])
+        self.mdx_use_fp16 = self._config.getboolean("mdx", "use_fp16", fallback=m["use_fp16"])
+        self.mdx_resample_hz = self._config.getint("mdx", "resample_hz", fallback=m["resample_hz"])
         self.mdx_early_stop_tolerance_ms = self._config.getint(
-            "mdx", "early_stop_tolerance_ms", fallback=mdx_defaults["early_stop_tolerance_ms"]
+            "mdx", "early_stop_tolerance_ms", fallback=m["early_stop_tolerance_ms"]
         )
-        self.mdx_tf32 = self._config.getboolean("mdx", "tf32", fallback=mdx_defaults["tf32"])
+        self.mdx_tf32 = self._config.getboolean("mdx", "tf32", fallback=m["tf32"])
         # Confidence and preview
         self.mdx_confidence_threshold = self._config.getfloat(
-            "mdx", "confidence_threshold", fallback=mdx_defaults["confidence_threshold"]
+            "mdx", "confidence_threshold", fallback=m["confidence_threshold"]
         )
-        self.mdx_preview_pre_ms = self._config.getint("mdx", "preview_pre_ms", fallback=mdx_defaults["preview_pre_ms"])
-        self.mdx_preview_post_ms = self._config.getint(
-            "mdx", "preview_post_ms", fallback=mdx_defaults["preview_post_ms"]
-        )
+        self.mdx_preview_pre_ms = self._config.getint("mdx", "preview_pre_ms", fallback=m["preview_pre_ms"])
+        self.mdx_preview_post_ms = self._config.getint("mdx", "preview_post_ms", fallback=m["preview_post_ms"])
 
-        # General
-        general_defaults = defaults["General"]
-        self.log_level_str = self._config.get("General", "log_level", fallback=general_defaults["log_level"])
+    def _init_general(self, defaults: dict):
+        """Initialize General section properties."""
+        g = defaults["General"]
+        # Logging
+        self.log_level_str = self._config.get("General", "log_level", fallback=g["log_level"])
         self.log_level = self._get_log_level(self.log_level_str)
-
         # GPU Pack settings
-        self.gpu_opt_in = self._config.getboolean("General", "gpu_opt_in", fallback=general_defaults["gpu_opt_in"])
-        self.gpu_flavor = self._config.get("General", "gpu_flavor", fallback=general_defaults["gpu_flavor"])
+        self.gpu_opt_in = self._config.getboolean("General", "gpu_opt_in", fallback=g["gpu_opt_in"])
+        self.gpu_flavor = self._config.get("General", "gpu_flavor", fallback=g["gpu_flavor"])
         self.gpu_pack_installed_version = self._config.get(
-            "General", "gpu_pack_installed_version", fallback=general_defaults["gpu_pack_installed_version"]
+            "General", "gpu_pack_installed_version", fallback=g["gpu_pack_installed_version"]
         )
         self.gpu_pack_path = self._resolve_path_from_config(
-            self._config.get("General", "gpu_pack_path", fallback=general_defaults["gpu_pack_path"])
+            self._config.get("General", "gpu_pack_path", fallback=g["gpu_pack_path"])
         )
-        self.gpu_last_health = self._config.get(
-            "General", "gpu_last_health", fallback=general_defaults["gpu_last_health"]
-        )
-        self.gpu_last_error = self._config.get("General", "gpu_last_error", fallback=general_defaults["gpu_last_error"])
+        self.gpu_last_health = self._config.get("General", "gpu_last_health", fallback=g["gpu_last_health"])
+        self.gpu_last_error = self._config.get("General", "gpu_last_error", fallback=g["gpu_last_error"])
         self.gpu_pack_dialog_dont_show = self._config.getboolean(
-            "General", "gpu_pack_dialog_dont_show", fallback=general_defaults["gpu_pack_dialog_dont_show"]
+            "General", "gpu_pack_dialog_dont_show", fallback=g["gpu_pack_dialog_dont_show"]
         )
         self.gpu_pack_dont_ask = self._config.getboolean(
-            "General", "gpu_pack_dont_ask", fallback=general_defaults["gpu_pack_dont_ask"]
+            "General", "gpu_pack_dont_ask", fallback=g["gpu_pack_dont_ask"]
         )
         self.splash_dont_show_health = self._config.getboolean(
-            "General", "splash_dont_show_health", fallback=general_defaults["splash_dont_show_health"]
+            "General", "splash_dont_show_health", fallback=g["splash_dont_show_health"]
         )
         self.prefer_system_pytorch = self._config.getboolean(
-            "General", "prefer_system_pytorch", fallback=general_defaults["prefer_system_pytorch"]
+            "General", "prefer_system_pytorch", fallback=g["prefer_system_pytorch"]
         )
         self.song_list_batch_size = self._config.getint(
-            "General", "song_list_batch_size", fallback=general_defaults["song_list_batch_size"]
+            "General", "song_list_batch_size", fallback=g["song_list_batch_size"]
         )
 
-        # Audio
-        audio_defaults = defaults["Audio"]
-        self.default_volume = self._config.getfloat(
-            "Audio", "default_volume", fallback=audio_defaults["default_volume"]
-        )
-        self.auto_play = self._config.getboolean("Audio", "auto_play", fallback=audio_defaults["auto_play"])
+    def _init_audio(self, defaults: dict):
+        """Initialize Audio section properties."""
+        a = defaults["Audio"]
+        self.default_volume = self._config.getfloat("Audio", "default_volume", fallback=a["default_volume"])
+        self.auto_play = self._config.getboolean("Audio", "auto_play", fallback=a["auto_play"])
 
-        # Window geometry
-        window_defaults = defaults["Window"]
-        self.window_width = self._config.getint("Window", "width", fallback=window_defaults["width"])
-        self.window_height = self._config.getint("Window", "height", fallback=window_defaults["height"])
-        self.window_x = self._config.getint("Window", "x", fallback=window_defaults["x"])
-        self.window_y = self._config.getint("Window", "y", fallback=window_defaults["y"])
-        self.window_maximized = self._config.getboolean("Window", "maximized", fallback=window_defaults["maximized"])
-        # Splitter position (stored as comma-separated list)
-        splitter_pos_str = self._config.get(
-            "Window", "main_splitter_pos", fallback=window_defaults["main_splitter_pos"]
-        )
+    def _init_window(self, defaults: dict):
+        """Initialize Window section properties."""
+        w = defaults["Window"]
+        self.window_width = self._config.getint("Window", "width", fallback=w["width"])
+        self.window_height = self._config.getint("Window", "height", fallback=w["height"])
+        self.window_x = self._config.getint("Window", "x", fallback=w["x"])
+        self.window_y = self._config.getint("Window", "y", fallback=w["y"])
+        self.window_maximized = self._config.getboolean("Window", "maximized", fallback=w["maximized"])
+        # Splitter positions (stored as comma-separated lists)
+        splitter_pos_str = self._config.get("Window", "main_splitter_pos", fallback=w["main_splitter_pos"])
         self.main_splitter_pos = [int(x.strip()) for x in splitter_pos_str.split(",")]
-        second_splitter_pos_str = self._config.get(
-            "Window", "second_splitter_pos", fallback=window_defaults["second_splitter_pos"]
-        )
+        second_splitter_pos_str = self._config.get("Window", "second_splitter_pos", fallback=w["second_splitter_pos"])
         self.second_splitter_pos = [int(x.strip()) for x in second_splitter_pos_str.split(",")]
 
-        # WatchMode
-        watch_mode_defaults = defaults["WatchMode"]
+    def _init_watch_mode(self, defaults: dict):
+        """Initialize WatchMode section properties."""
+        wm = defaults["WatchMode"]
         self.watch_mode_default = self._config.getboolean(
-            "WatchMode", "watch_mode_default", fallback=watch_mode_defaults["watch_mode_default"]
+            "WatchMode", "watch_mode_default", fallback=wm["watch_mode_default"]
         )
-        self.watch_debounce_ms = self._config.getint(
-            "WatchMode", "watch_debounce_ms", fallback=watch_mode_defaults["watch_debounce_ms"]
-        )
+        self.watch_debounce_ms = self._config.getint("WatchMode", "watch_debounce_ms", fallback=wm["watch_debounce_ms"])
         self.watch_ignore_patterns = self._config.get(
-            "WatchMode", "watch_ignore_patterns", fallback=watch_mode_defaults["watch_ignore_patterns"]
+            "WatchMode", "watch_ignore_patterns", fallback=wm["watch_ignore_patterns"]
         )
-
-        logger.debug(f"Configuration loaded: {self.config_path}")
 
     # Path Helper Properties
     # These provide centralized, consistent path resolution with proper fallbacks

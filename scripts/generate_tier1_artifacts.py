@@ -61,16 +61,8 @@ def run_scenario(name: str, wave: np.ndarray, sr: int, truth_ms: float, config: 
     return detected
 
 
-def main():
-    """Generate all Tier-1 artifacts."""
-    print("=" * 80)
-    print("Generating Tier-1 Onset Detection Artifacts")
-    print("=" * 80)
-    print()
-
-    cfg_default = MdxConfig()
-
-    # Scenario 1: Abrupt onset
+def _scenario_abrupt_onset(cfg: MdxConfig):
+    """Scenario 1: Abrupt onset."""
     print("Scenario 1: Abrupt Onset")
     wave, meta = synth.build_vocal_onset(
         duration_ms=6000,
@@ -82,9 +74,11 @@ def main():
         harmonics=4,
         sr=44100,
     )
-    run_scenario("01-abrupt-onset", wave, meta["sr"], 1500, cfg_default)
+    run_scenario("01-abrupt-onset", wave, meta["sr"], 1500, cfg)
 
-    # Scenario 2: Gradual fade-in
+
+def _scenario_gradual_fade(cfg: MdxConfig):
+    """Scenario 2: Gradual fade-in."""
     print("Scenario 2: Gradual Fade-In")
     wave, meta = synth.build_vocal_onset(
         duration_ms=8000,
@@ -96,9 +90,11 @@ def main():
         harmonics=4,
         sr=44100,
     )
-    run_scenario("02-gradual-fade-in", wave, meta["sr"], 1500, cfg_default)
+    run_scenario("02-gradual-fade-in", wave, meta["sr"], 1500, cfg)
 
-    # Scenario 3: Breathy start
+
+def _scenario_breathy_start(cfg: MdxConfig):
+    """Scenario 3: Breathy start."""
     print("Scenario 3: Breathy Start")
     wave, meta = synth.build_vocal_onset(
         duration_ms=8000,
@@ -111,9 +107,11 @@ def main():
         harmonics=4,
         sr=44100,
     )
-    run_scenario("03-breathy-start", wave, meta["sr"], 1500, cfg_default)
+    run_scenario("03-breathy-start", wave, meta["sr"], 1500, cfg)
 
-    # Scenario 4: Quiet vocals
+
+def _scenario_quiet_vocals(cfg: MdxConfig):
+    """Scenario 4: Quiet vocals near threshold."""
     print("Scenario 4: Quiet Vocals Near Threshold")
     wave, meta = synth.build_vocal_onset(
         duration_ms=6000,
@@ -126,9 +124,11 @@ def main():
         sr=44100,
     )
     wave = wave * 0.15  # Reduce amplitude
-    run_scenario("04-quiet-vocals", wave, meta["sr"], 1500, cfg_default)
+    run_scenario("04-quiet-vocals", wave, meta["sr"], 1500, cfg)
 
-    # Scenario 5: High noise floor
+
+def _scenario_high_noise(cfg: MdxConfig):
+    """Scenario 5: High noise floor."""
     print("Scenario 5: High Noise Floor")
     wave, meta = synth.build_vocal_onset(
         duration_ms=6000,
@@ -140,9 +140,11 @@ def main():
         harmonics=4,
         sr=44100,
     )
-    run_scenario("05-high-noise-floor", wave, meta["sr"], 1500, cfg_default)
+    run_scenario("05-high-noise-floor", wave, meta["sr"], 1500, cfg)
 
-    # Scenario 6: Instrument spike
+
+def _scenario_instrument_spike(cfg: MdxConfig):
+    """Scenario 6: Instrument spike before onset."""
     print("Scenario 6: Instrument Spike Before Onset")
     wave, meta = synth.build_vocal_onset(
         duration_ms=6000,
@@ -162,9 +164,11 @@ def main():
         wave[spike_start_sample:spike_end_sample] += 0.4 * np.sin(
             2 * np.pi * 440.0 * np.arange(spike_duration_samples) / meta["sr"]
         )
-    run_scenario("06-instrument-spike", wave, meta["sr"], 1500, cfg_default)
+    run_scenario("06-instrument-spike", wave, meta["sr"], 1500, cfg)
 
-    # Scenario 7: Too short energy
+
+def _scenario_too_short(cfg: MdxConfig):
+    """Scenario 7: Too short energy burst."""
     print("Scenario 7: Too Short Energy")
     silence_before = synth.pad_silence(1500, sr=44100)
     burst = synth.harmonic_tone(f0_hz=220.0, duration_ms=100, sr=44100, harmonics=4, amp=0.8)
@@ -172,26 +176,20 @@ def main():
     wave = synth.mix_signals([silence_before, burst, silence_after])
     wave = synth.add_noise_floor(wave, level_db=-60.0, sr=44100)
     wave = synth.normalize_peak(wave, peak=0.9)
-    run_scenario("07-too-short-energy", wave, 44100, 1500, cfg_default)
+    run_scenario("07-too-short-energy", wave, 44100, 1500, cfg)
 
-    # Scenario 8: Extremely short audio
+
+def _scenario_extremely_short(cfg: MdxConfig):
+    """Scenario 8: Extremely short audio edge case."""
     print("Scenario 8: Extremely Short Audio")
     wave = np.zeros(500)
-    detect_onset_in_vocal_chunk(wave, 44100, 0.0, cfg_default)
+    detect_onset_in_vocal_chunk(wave, 44100, 0.0, cfg)
     print(f"  [✓] {'08-extremely-short-audio':30s}  (Edge case: {len(wave)} samples, no detection expected)")
 
-    # Scenario 9: Sensitivity sweeps
+
+def _scenario_sensitivity_sweeps(wave_base: np.ndarray, sr: int):
+    """Scenario 9: Sensitivity parameter sweeps."""
     print("Scenario 9: Sensitivity Sweeps")
-    wave_base, meta = synth.build_vocal_onset(
-        duration_ms=6000,
-        onset_ms=1500,
-        fade_in_ms=0,
-        breath_ms=0,
-        noise_floor_db=-60.0,
-        f0_hz=220.0,
-        harmonics=4,
-        sr=44100,
-    )
 
     variants = [
         (4.0, 0.01, "09-sensitivity-snr4.0-abs0.010"),
@@ -202,7 +200,40 @@ def main():
 
     for snr, abs_thresh, name in variants:
         cfg = MdxConfig(onset_snr_threshold=snr, onset_abs_threshold=abs_thresh)
-        run_scenario(name, wave_base, meta["sr"], 1500, cfg)
+        run_scenario(name, wave_base, sr, 1500, cfg)
+
+
+def main():
+    """Generate all Tier-1 artifacts."""
+    print("=" * 80)
+    print("Generating Tier-1 Onset Detection Artifacts")
+    print("=" * 80)
+    print()
+
+    cfg_default = MdxConfig()
+
+    # Run standard scenarios
+    _scenario_abrupt_onset(cfg_default)
+    _scenario_gradual_fade(cfg_default)
+    _scenario_breathy_start(cfg_default)
+    _scenario_quiet_vocals(cfg_default)
+    _scenario_high_noise(cfg_default)
+    _scenario_instrument_spike(cfg_default)
+    _scenario_too_short(cfg_default)
+    _scenario_extremely_short(cfg_default)
+
+    # Sensitivity sweeps use baseline waveform
+    wave_base, meta = synth.build_vocal_onset(
+        duration_ms=6000,
+        onset_ms=1500,
+        fade_in_ms=0,
+        breath_ms=0,
+        noise_floor_db=-60.0,
+        f0_hz=220.0,
+        harmonics=4,
+        sr=44100,
+    )
+    _scenario_sensitivity_sweeps(wave_base, meta["sr"])
 
     print()
     print("=" * 80)

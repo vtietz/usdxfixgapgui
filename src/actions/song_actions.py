@@ -38,9 +38,7 @@ class SongActions(BaseActions):
             if self.data.gap_state:  # Add type guard
                 current_gap_ms = self.data.gap_state.current_gap_ms
                 detected_gap_ms = self.data.gap_state.detected_gap_ms
-                logger.debug(
-                    f"Created GapState for {song.title}: current={current_gap_ms}, detected={detected_gap_ms}"
-                )
+                logger.debug(f"Created GapState for {song.title}: current={current_gap_ms}, detected={detected_gap_ms}")
         else:
             # Multi-selection or no selection
             self.data.gap_state = None
@@ -240,7 +238,10 @@ class SongActions(BaseActions):
                         note.duration_ms = note.end_ms - note.start_ms
                     logger.debug(
                         "Computed note timings for %s using bpm=%s, gap=%s, relative=%s",
-                        song.title, song.bpm, song.gap, song.is_relative
+                        song.title,
+                        song.bpm,
+                        song.gap,
+                        song.is_relative,
                     )
                 except Exception as timing_err:
                     logger.warning(f"Failed computing note timings for {song.title}: {timing_err}")
@@ -284,7 +285,13 @@ class SongActions(BaseActions):
 
     def _update_song_attributes(self, target_song: Song, source_song: Song):
         """Transfer all relevant attributes from source_song to target_song"""
-        # Copy all attributes from source to target song object
+        self._copy_basic_attributes(target_song, source_song)
+        self._copy_status_attributes(target_song, source_song)
+        self._copy_gap_info(target_song, source_song)
+        self._ensure_duration(target_song)
+
+    def _copy_basic_attributes(self, target_song: Song, source_song: Song):
+        """Copy basic song attributes from source to target."""
         attributes_to_copy = [
             "title",
             "artist",
@@ -303,47 +310,58 @@ class SongActions(BaseActions):
         for attr in attributes_to_copy:
             if hasattr(source_song, attr):
                 try:
-                    # First check if the attribute is accessible via setattr
                     setattr(target_song, attr, getattr(source_song, attr))
                 except AttributeError:
-                    # If we can't set it directly, log this issue
-                    logger.warning(f"Could not set attribute {attr} on song {target_song.title}")
+                    logger.warning("Could not set attribute %s on song %s", attr, target_song.title)
 
-        # Copy status and error_message after other attributes to ensure they're properly set
+    def _copy_status_attributes(self, target_song: Song, source_song: Song):
+        """Copy status and error_message attributes."""
         if hasattr(source_song, "status"):
             target_song.status = source_song.status
         if hasattr(source_song, "error_message"):
             target_song.error_message = source_song.error_message
 
-        # Handle special objects like gap_info
-        if hasattr(source_song, "gap_info") and source_song.gap_info:
+    def _copy_gap_info(self, target_song: Song, source_song: Song):
+        """Copy gap_info from source to target, handling immutable properties."""
+        if not (hasattr(source_song, "gap_info") and source_song.gap_info):
+            return
+
+        try:
+            target_song.gap_info = source_song.gap_info
+        except AttributeError:
+            # If gap_info is a property with no setter, update its contents
+            logger.warning("Could not set gap_info directly, attempting to update contents")
+            if hasattr(target_song, "gap_info") and target_song.gap_info is not None:
+                self._update_gap_info_contents(target_song.gap_info, source_song.gap_info)
+
+                # Explicitly update duration from gap_info if available
+                if source_song.gap_info.duration:
+                    target_song.duration_ms = int(source_song.gap_info.duration)
+
+    def _update_gap_info_contents(self, target_gap_info, source_gap_info):
+        """Copy attributes from source gap_info to target gap_info."""
+        for gap_attr in dir(source_gap_info):
+            if gap_attr.startswith("_") or gap_attr == "owner":
+                continue
             try:
-                target_song.gap_info = source_song.gap_info
+                setattr(target_gap_info, gap_attr, getattr(source_gap_info, gap_attr))
             except AttributeError:
-                # If gap_info is a property with no setter, try to update its contents
-                logger.warning("Could not set gap_info directly, attempting to update contents")
-                if hasattr(target_song, "gap_info") and target_song.gap_info is not None:
-                    # Copy attributes from source gap_info to target gap_info
-                    for gap_attr in dir(source_song.gap_info):
-                        if not gap_attr.startswith("_") and gap_attr != "owner":  # Skip private attributes and owner
-                            try:
-                                setattr(target_song.gap_info, gap_attr, getattr(source_song.gap_info, gap_attr))
-                            except AttributeError:
-                                pass
+                pass
 
-                    # Explicitly update duration from gap_info if available
-                    if source_song.gap_info.duration:
-                        target_song.duration_ms = int(source_song.gap_info.duration)  # Convert to int
+    def _ensure_duration(self, target_song: Song):
+        """Ensure duration_ms is set, fallback to audio file if needed."""
+        if target_song.duration_ms != 0:
+            return
+        if not (target_song.audio_file and os.path.exists(target_song.audio_file)):
+            return
 
-        # Double-check duration after all other operations
-        if target_song.duration_ms == 0 and target_song.audio_file and os.path.exists(target_song.audio_file):
-            try:
-                duration = get_audio_duration(target_song.audio_file)
-                if duration is not None:
-                    target_song.duration_ms = int(duration)  # Convert float to int
-                    logger.info(f"Fallback method: set duration to {target_song.duration_ms}ms from audio file")
-            except Exception as e:
-                logger.warning(f"Could not load duration from audio file: {e}")
+        try:
+            duration = get_audio_duration(target_song.audio_file)
+            if duration is not None:
+                target_song.duration_ms = int(duration)
+                logger.info("Fallback method: set duration to %sms from audio file", target_song.duration_ms)
+        except Exception as e:
+            logger.warning("Could not load duration from audio file: %s", e)
 
     def delete_selected_song(self):
         """

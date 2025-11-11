@@ -70,108 +70,121 @@ class TaskQueueViewer(QWidget):
         return ordered
 
     def apply_diff_update(self):
-        # Save current scroll position
-        vscroll = self.tableWidget.verticalScrollBar() if self.tableWidget.verticalScrollBar() else None
-        vpos = vscroll.value() if vscroll else 0
-
+        vscroll, vpos = self._get_scroll_state()
         self.tableWidget.setUpdatesEnabled(False)
 
         desired = self.compute_ordered_tasks()
         desired_ids = [tid for (tid, _, _, _) in desired]
 
-        # Rebuild current row map from the table
-        current_ids = []
+        # Current table snapshot
+        self._rebuild_row_map()
+
+        # 1) Add any missing rows
+        self._add_missing_rows(desired)
+        self._rebuild_row_map()
+
+        # 2) Update text/button state for existing rows
+        self._update_existing_rows(desired)
+
+        # 3) Remove rows not in desired
+        self._remove_missing_rows(desired_ids)
+        self._rebuild_row_map()
+
+        # 4) Reorder to match desired_ids
+        self._reorder_rows(desired_ids)
+
+        # Restore scroll and re-enable updates
+        self._restore_scroll(vscroll, vpos)
+        self.tableWidget.setUpdatesEnabled(True)
+
+    # -------------------------
+    # Internal helpers (UI ops)
+    # -------------------------
+    def _get_scroll_state(self):
+        vscroll = self.tableWidget.verticalScrollBar() if self.tableWidget.verticalScrollBar() else None
+        vpos = vscroll.value() if vscroll else 0
+        return vscroll, vpos
+
+    def _restore_scroll(self, vscroll, vpos):
+        if vscroll:
+            vscroll.setValue(vpos)
+
+    def _rebuild_row_map(self):
         self._row_for_task_id.clear()
         for row in range(self.tableWidget.rowCount()):
             item = self.tableWidget.item(row, 0)
             tid = item.data(Qt.ItemDataRole.UserRole) if item else None
             if tid is not None:
-                current_ids.append(tid)
                 self._row_for_task_id[tid] = row
 
-        # Add missing rows
-        for index, (task_id, description, status, lane) in enumerate(desired):
-            if task_id not in self._row_for_task_id:
-                self.tableWidget.insertRow(index)
-                # Description item
-                desc_item = QTableWidgetItem(description)
-                desc_item.setData(Qt.ItemDataRole.UserRole, task_id)
-                self.tableWidget.setItem(index, 0, desc_item)
-                # Status item
-                status_item = QTableWidgetItem(status)
-                self.tableWidget.setItem(index, 1, status_item)
-                # Cancel button (create once)
-                btn = self._button_for_task_id.get(task_id)
-                if btn is None:
-                    btn = QPushButton("Cancel")
-                    btn.clicked.connect(lambda checked=False, tid=task_id: self.cancel_task(tid))
-                    self._button_for_task_id[task_id] = btn
-                # Set initial button state
-                if status == WorkerStatus.CANCELLING.name or task_id in self.cancelling_tasks:
-                    btn.setText("Cancelling...")
-                    btn.setEnabled(False)
-                else:
-                    btn.setText("Cancel")
-                    btn.setEnabled(True)
-                self.tableWidget.setCellWidget(index, 2, btn)
-                # Update mapping
-                # Shift existing rows mapping for rows >= index
-                for tid, row_idx in list(self._row_for_task_id.items()):
-                    if row_idx >= index:
-                        self._row_for_task_id[tid] = row_idx + 1
-                self._row_for_task_id[task_id] = index
+    def _ensure_button(self, task_id):
+        btn = self._button_for_task_id.get(task_id)
+        if btn is None:
+            btn = QPushButton("Cancel")
+            btn.clicked.connect(lambda checked=False, tid=task_id: self.cancel_task(tid))
+            self._button_for_task_id[task_id] = btn
+        return btn
 
-        # Update existing cells
-        for index, (task_id, description, status, lane) in enumerate(desired):
+    def _set_button_state(self, btn: QPushButton, task_id, status: str):
+        cancelling = status == WorkerStatus.CANCELLING.name or task_id in self.cancelling_tasks
+        if cancelling:
+            if btn.text() != "Cancelling...":
+                btn.setText("Cancelling...")
+            if btn.isEnabled():
+                btn.setEnabled(False)
+        else:
+            if btn.text() != "Cancel":
+                btn.setText("Cancel")
+            if not btn.isEnabled():
+                btn.setEnabled(True)
+
+    def _add_missing_rows(self, desired):
+        for index, (task_id, description, status, _lane) in enumerate(desired):
+            if task_id in self._row_for_task_id:
+                continue
+            self.tableWidget.insertRow(index)
+            # Description
+            desc_item = QTableWidgetItem(description)
+            desc_item.setData(Qt.ItemDataRole.UserRole, task_id)
+            self.tableWidget.setItem(index, 0, desc_item)
+            # Status
+            status_item = QTableWidgetItem(status)
+            self.tableWidget.setItem(index, 1, status_item)
+            # Button
+            btn = self._ensure_button(task_id)
+            self._set_button_state(btn, task_id, status)
+            self.tableWidget.setCellWidget(index, 2, btn)
+
+    def _update_existing_rows(self, desired):
+        for _index, (task_id, description, status, _lane) in enumerate(desired):
             row = self._row_for_task_id.get(task_id)
             if row is None:
                 continue
             # Description text
             desc_item = self.tableWidget.item(row, 0)
-            if desc_item and desc_item.text() != description:
+            if desc_item is not None and desc_item.text() != description:
                 desc_item.setText(description)
             # Status text
             status_item = self.tableWidget.item(row, 1)
-            if status_item and status_item.text() != status:
+            if status_item is not None and status_item.text() != status:
                 status_item.setText(status)
             # Button state
             btn = self._button_for_task_id.get(task_id)
-            if btn:
-                if status == WorkerStatus.CANCELLING.name or task_id in self.cancelling_tasks:
-                    if btn.text() != "Cancelling...":
-                        btn.setText("Cancelling...")
-                    if btn.isEnabled():
-                        btn.setEnabled(False)
-                else:
-                    if btn.text() != "Cancel":
-                        btn.setText("Cancel")
-                    if not btn.isEnabled():
-                        btn.setEnabled(True)
+            if btn is not None:
+                self._set_button_state(btn, task_id, status)
 
-        # Remove rows that are no longer desired
+    def _remove_missing_rows(self, desired_ids):
         for tid in list(self._row_for_task_id.keys()):
-            if tid not in desired_ids:
-                row = self._row_for_task_id[tid]
-                # Remove button mapping
-                self._button_for_task_id.pop(tid, None)
-                self.tableWidget.removeRow(row)
-                # Update mapping: decrement rows above removed
-                for other_tid, other_row in list(self._row_for_task_id.items()):
-                    if other_row > row:
-                        self._row_for_task_id[other_tid] = other_row - 1
-                self._row_for_task_id.pop(tid, None)
+            if tid in desired_ids:
+                continue
+            row = self._row_for_task_id.get(tid)
+            if row is None:
+                continue
+            self._button_for_task_id.pop(tid, None)
+            self.tableWidget.removeRow(row)
+            self._row_for_task_id.pop(tid, None)
 
-        # Reorder rows in place to match desired order
-        # Refresh mapping before moves
-        self._row_for_task_id.clear()
-        current_order = []
-        for row in range(self.tableWidget.rowCount()):
-            item = self.tableWidget.item(row, 0)
-            tid = item.data(Qt.ItemDataRole.UserRole) if item else None
-            if tid is not None:
-                current_order.append(tid)
-                self._row_for_task_id[tid] = row
-
+    def _reorder_rows(self, desired_ids):
         def move_row(src, dst):
             if src == dst:
                 return
@@ -185,15 +198,10 @@ class TaskQueueViewer(QWidget):
                 self.tableWidget.setItem(dst, c, it)
             if btn:
                 self.tableWidget.setCellWidget(dst, 2, btn)
-            # Update mapping after move
-            # Recompute mapping for simplicity
-            self._row_for_task_id.clear()
-            for r in range(self.tableWidget.rowCount()):
-                it0 = self.tableWidget.item(r, 0)
-                t = it0.data(Qt.ItemDataRole.UserRole) if it0 else None
-                if t is not None:
-                    self._row_for_task_id[t] = r
+            # Mapping changes; rebuild to keep logic simple and robust
+            self._rebuild_row_map()
 
+        self._rebuild_row_map()
         for target_index, tid in enumerate(desired_ids):
             cur_row = self._row_for_task_id.get(tid)
             if cur_row is None:
@@ -201,14 +209,8 @@ class TaskQueueViewer(QWidget):
             if cur_row != target_index:
                 move_row(cur_row, target_index)
 
-        # Restore scroll position
-        if vscroll:
-            vscroll.setValue(vpos)
-
-        self.tableWidget.setUpdatesEnabled(True)
-
     def cancel_task(self, task_id):
-        logger.debug(f"Cancelling task {task_id}")
+        logger.debug("Cancelling task %s", task_id)
         # Mark this task as being cancelled
         self.cancelling_tasks.add(task_id)
         # Update the UI immediately for better feedback
