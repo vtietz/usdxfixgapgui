@@ -324,85 +324,57 @@ class TestOrchestratorIntegration:
         assert len(added_dirs) == 0
 
 
-class TestFeatureFlagIntegration:
-    """Test feature flag routing in original function."""
+class TestLegacyWrapperIntegration:
+    """Test legacy wrapper functions delegate to modular implementation."""
 
-    @patch("utils.gpu_bootstrap.enable_runtime")
-    def test_feature_flag_enabled(self, mock_refactored, tmp_path):
-        """Test routing to refactored implementation when flag enabled."""
-        # Import the actual .py file, not the module directory
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("gpu_bootstrap_file", "src/utils/gpu_bootstrap.py")
-        gpu_bootstrap_file = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(gpu_bootstrap_file)
-        enable_gpu_runtime = gpu_bootstrap_file.enable_gpu_runtime
-
-        pack_dir = tmp_path / "pack"
-        pack_dir.mkdir()
-        (pack_dir / "torch").mkdir()
-
-        # Mock config with feature flag enabled
-        mock_config = Mock()
-        mock_config.experimental = Mock()
-        mock_config.experimental.staged_gpu_bootstrap = True
-
-        # Mock successful refactored call
-        mock_refactored.return_value = (True, ["/dll/dir"])
-
-        result = enable_gpu_runtime(pack_dir, mock_config)
-
-        assert result is True
-        mock_refactored.assert_called_once_with(pack_dir)
-
-    def test_feature_flag_disabled(self, tmp_path):
-        """Test fallback to legacy implementation when flag disabled."""
-        # Import the actual .py file, not the module directory
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("gpu_bootstrap_file", "src/utils/gpu_bootstrap.py")
-        gpu_bootstrap_file = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(gpu_bootstrap_file)
-        enable_gpu_runtime = gpu_bootstrap_file.enable_gpu_runtime
+    def test_enable_gpu_runtime_delegates_to_facade(self, tmp_path):
+        """Test enable_gpu_runtime delegates to facade.enable and works with valid pack."""
+        from utils.gpu_bootstrap import enable_gpu_runtime
 
         pack_dir = tmp_path / "pack"
         pack_dir.mkdir()
         (pack_dir / "torch").mkdir()
         (pack_dir / "torch" / "lib").mkdir()
 
-        # Mock config with feature flag disabled
-        mock_config = Mock()
-        mock_config.experimental = Mock()
-        mock_config.experimental.staged_gpu_bootstrap = False
-
         original_path = sys.path.copy()
         try:
-            # Should use legacy implementation
             with patch("os.add_dll_directory"):
-                result = enable_gpu_runtime(pack_dir, mock_config)
+                result = enable_gpu_runtime(pack_dir)
+                # Should succeed with valid layout
                 assert result is True
+                # sys.path should be modified
+                assert str(pack_dir) in sys.path
         finally:
             sys.path = original_path
 
-    def test_no_config_uses_legacy(self, tmp_path):
-        """Test legacy implementation when config not provided."""
-        # Import the actual .py file, not the module directory
-        import importlib.util
+    def test_enable_gpu_runtime_returns_false_on_invalid_layout(self, tmp_path):
+        """Test enable_gpu_runtime returns False when layout is invalid."""
+        from utils.gpu_bootstrap import enable_gpu_runtime
 
-        spec = importlib.util.spec_from_file_location("gpu_bootstrap_file", "src/utils/gpu_bootstrap.py")
-        gpu_bootstrap_file = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(gpu_bootstrap_file)
-        enable_gpu_runtime = gpu_bootstrap_file.enable_gpu_runtime
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()  # Empty dir with no torch/ or site-packages/
+
+        result = enable_gpu_runtime(pack_dir)
+
+        # Should fail with unknown layout
+        assert result is False
+
+    def test_enable_gpu_runtime_with_config_param(self, tmp_path):
+        """Test enable_gpu_runtime accepts optional config parameter for backward compatibility."""
+        from utils.gpu_bootstrap import enable_gpu_runtime
 
         pack_dir = tmp_path / "pack"
         pack_dir.mkdir()
         (pack_dir / "torch").mkdir()
         (pack_dir / "torch" / "lib").mkdir()
 
+        mock_config = Mock()
+
         original_path = sys.path.copy()
         try:
             with patch("os.add_dll_directory"):
-                result = enable_gpu_runtime(pack_dir)  # No config
+                # Should succeed (config param is accepted but not used by new implementation)
+                result = enable_gpu_runtime(pack_dir, config=mock_config)
                 assert result is True
         finally:
             sys.path = original_path

@@ -119,7 +119,7 @@ class TestGPUDownloadButton:
         # Download button should be hidden (no GPU)
         assert not dialog.download_btn.isVisible()
 
-    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    @patch("ui.startup_dialog.detect_existing_gpu_pack")
     @patch("ui.startup_dialog.check_system_capabilities")
     def test_download_button_shown_when_gpu_available(
         self, mock_check, mock_detect, qtbot, mock_config, gpu_available_capabilities
@@ -232,7 +232,7 @@ class TestDownloadWorker:
         assert worker.dest_zip == dest_zip
         assert worker.cancel_token is not None
 
-    @patch("ui.startup_dialog.gpu_downloader.download_with_resume")
+    @patch("utils.gpu_downloader.download_with_resume")
     def test_worker_download_success(self, mock_download, qtbot):
         """Test successful download flow."""
         from pathlib import Path
@@ -276,7 +276,7 @@ class TestDownloadWorker:
             assert success is True
             assert "successfully" in message.lower()
 
-    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    @patch("ui.startup_dialog.detect_existing_gpu_pack")
     @patch("ui.startup_dialog.check_system_capabilities")
     @patch("PySide6.QtWidgets.QMessageBox.question")
     def test_download_retry_on_failure(
@@ -306,7 +306,7 @@ class TestDownloadWorker:
         assert "retry" in call_args[0][2].lower()  # Message text contains "retry"
         assert "Bad magic number" in call_args[0][2]  # Error message included
 
-    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    @patch("ui.startup_dialog.detect_existing_gpu_pack")
     @patch("ui.startup_dialog.check_system_capabilities")
     @patch("PySide6.QtWidgets.QMessageBox.question")
     def test_download_no_retry_on_user_decline(
@@ -381,7 +381,7 @@ class TestStaticMethods:
 
         # Just verify it doesn't crash - about mode doesn't return anything
 
-    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    @patch("ui.startup_dialog.detect_existing_gpu_pack")
     @patch("services.system_capabilities.check_system_capabilities")
     def test_show_startup_skips_when_config_enabled_and_healthy(
         self, mock_check, mock_detect, mock_config, healthy_capabilities
@@ -430,7 +430,7 @@ class TestStaticMethods:
         # Dialog should have been shown (exec was called)
         mock_exec.assert_called_once()
 
-    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    @patch("ui.startup_dialog.detect_existing_gpu_pack")
     @patch("services.system_capabilities.check_system_capabilities")
     def test_show_startup_shows_when_gpu_pack_exists_but_not_enabled(
         self, mock_check, mock_detect, qtbot, mock_config, healthy_capabilities
@@ -470,8 +470,8 @@ class TestStaticMethods:
 class TestGPUPackActivation:
     """Test GPU Pack activation flow when pack exists but is not enabled."""
 
-    @patch("ui.startup_dialog.gpu_bootstrap.capability_probe")
-    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    @patch("ui.startup_dialog.capability_probe")
+    @patch("ui.startup_dialog.detect_existing_gpu_pack")
     @patch("ui.startup_dialog.check_system_capabilities")
     def test_detect_existing_gpu_pack_called_when_gpu_available(
         self, mock_check, mock_detect, mock_probe, qtbot, mock_config, gpu_available_capabilities
@@ -497,8 +497,8 @@ class TestGPUPackActivation:
         # Verify detect_existing_gpu_pack was called (proves activation logic is reached)
         assert mock_detect.called
 
-    @patch("ui.startup_dialog.gpu_bootstrap.activate_existing_gpu_pack")
-    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    @patch("ui.startup_dialog.activate_existing_gpu_pack")
+    @patch("ui.startup_dialog.detect_existing_gpu_pack")
     def test_activate_existing_gpu_pack_function_exists(self, mock_detect, mock_activate):
         """Verify activate_existing_gpu_pack function is accessible."""
         from pathlib import Path
@@ -514,7 +514,7 @@ class TestGPUPackActivation:
         assert mock_activate.called
         mock_activate.assert_called_once_with(mock_config, pack_path)
 
-    @patch("ui.startup_dialog.gpu_bootstrap.detect_existing_gpu_pack")
+    @patch("ui.startup_dialog.detect_existing_gpu_pack")
     def test_detect_returns_none_when_no_pack(self, mock_detect):
         """Verify detect_existing_gpu_pack returns None when no pack exists."""
         from unittest.mock import Mock

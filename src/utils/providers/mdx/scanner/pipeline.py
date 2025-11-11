@@ -146,7 +146,7 @@ def scan_for_onset(
             search_iteration += 1
             logger.info(
                 f"Search iteration #{search_iteration}: "
-                f"limit={search_limit_ms/1000:.1f}s (max={config.start_window_max_ms/1000:.1f}s)"
+                f"limit={search_limit_ms / 1000:.1f}s (max={config.start_window_max_ms / 1000:.1f}s)"
             )
             _flush_logs()
 
@@ -157,8 +157,8 @@ def scan_for_onset(
             for window in windows:
                 logger.info(
                     f"Expansion #{window.expansion_num}: "
-                    f"radius=±{window.radius_ms/1000:.1f}s, "
-                    f"window {window.start_ms/1000:.1f}s - {window.end_ms/1000:.1f}s"
+                    f"radius=±{window.radius_ms / 1000:.1f}s, "
+                    f"window {window.start_ms / 1000:.1f}s - {window.end_ms / 1000:.1f}s"
                 )
                 _flush_logs()
 
@@ -167,8 +167,8 @@ def scan_for_onset(
                 band_start = max(0.0, expected_gap_ms - search_limit_ms)
                 band_end = min(total_duration_ms, expected_gap_ms + search_limit_ms)
                 logger.info(
-                    f"Distance-gated search band=[{band_start/1000:.1f}s, {band_end/1000:.1f}s] "
-                    f"for limit={search_limit_ms/1000:.1f}s around expected={expected_gap_ms/1000:.1f}s"
+                    f"Distance-gated search band=[{band_start / 1000:.1f}s, {band_end / 1000:.1f}s] "
+                    f"for limit={search_limit_ms / 1000:.1f}s around expected={expected_gap_ms / 1000:.1f}s"
                 )
                 _flush_logs()
 
@@ -178,8 +178,8 @@ def scan_for_onset(
                     # Skip chunks outside the distance band
                     if chunk.end_ms < band_start or chunk.start_ms > band_end:
                         logger.debug(
-                            f"Distance gating: chunk [{chunk.start_ms/1000:.1f}s-{chunk.end_ms/1000:.1f}s] "
-                            f"outside band [{band_start/1000:.1f}s-{band_end/1000:.1f}s] → skipped"
+                            f"Distance gating: chunk [{chunk.start_ms / 1000:.1f}s-{chunk.end_ms / 1000:.1f}s] "
+                            f"outside band [{band_start / 1000:.1f}s-{band_end / 1000:.1f}s] → skipped"
                         )
                         continue
 
@@ -244,7 +244,7 @@ def scan_for_onset(
                 break
 
             search_limit_ms = min(search_limit_ms + config.start_window_increment_ms, config.start_window_max_ms)
-            logger.info(f"No onset in current window, expanding to {search_limit_ms/1000:.1f}s")
+            logger.info(f"No onset in current window, expanding to {search_limit_ms / 1000:.1f}s")
             _flush_logs()
 
         # No onset found after all expansions

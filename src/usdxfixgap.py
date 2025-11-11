@@ -3,6 +3,7 @@ import os
 import logging
 import argparse
 import traceback
+from typing import Optional, Tuple, Any
 
 # Import only the minimal constants needed for early execution
 from common.constants import APP_NAME, APP_DESCRIPTION, APP_LOG_FILENAME
@@ -182,146 +183,158 @@ def health_check():
     sys.exit(1)
 
 
+def _has_cli_flags(args: argparse.Namespace) -> bool:
+    """Return True if any CLI-only flags are active."""
+    return any(
+        [
+            args.version,
+            args.health_check,
+            args.setup_gpu,
+            args.setup_gpu_zip is not None,
+            args.gpu_enable,
+            args.gpu_disable,
+            args.gpu_diagnostics,
+        ]
+    )
+
+
+def _create_and_validate_config() -> Any:
+    """Create Config and validate it, showing a dialog and exiting on critical errors."""
+    from app.app_data import Config
+    from utils.config_validator import validate_config, print_validation_report
+
+    config = Config()
+    is_valid, validation_errors = validate_config(config, auto_fix=True)
+    if validation_errors:
+        print_validation_report(validation_errors)
+        if not is_valid:
+            error_msg = (
+                "Critical configuration errors detected!\n\n"
+                "Please review and fix config.ini, then restart the application."
+            )
+            error_details = "\n".join([f"- {err}" for err in validation_errors])
+            show_error_dialog("Configuration Error", error_msg, error_details)
+            sys.exit(1)
+    return config
+
+
+def _setup_logging_early(config: Any) -> Tuple[str, logging.Logger]:
+    """Setup async logging and return (log_file_path, logger)."""
+    from common.utils.async_logging import setup_async_logging
+    from utils.files import get_localappdata_dir
+
+    log_file_path = os.path.join(get_localappdata_dir(), APP_LOG_FILENAME)
+    setup_async_logging(
+        log_level=config.log_level,
+        log_file_path=log_file_path,
+        max_bytes=10 * 1024 * 1024,
+        backup_count=3,
+    )
+    logger = logging.getLogger(__name__)
+    logger.info(f"Application started with log level: {config.log_level_str}")
+    # Log configuration file location now that logging is ready
+    config.log_config_location()
+    return log_file_path, logger
+
+
+def _bootstrap_gpu_and_models(config: Any, logger: logging.Logger) -> bool:
+    """Bootstrap GPU pack, then configure model paths. Returns whether GPU is enabled."""
+    from utils import gpu_bootstrap
+    from utils.model_paths import setup_model_paths
+
+    gpu_enabled = gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
+    logger.info(f"GPU bootstrap completed: enabled={gpu_enabled}")
+    # Note: setup_model_paths may import torch — perform after GPU bootstrap
+    setup_model_paths(config)
+    return gpu_enabled
+
+
+def _maybe_handle_gpu_cli(args: argparse.Namespace, config: Any) -> Optional[int]:
+    """Handle GPU CLI flags; return exit code if we should exit, else None."""
+    if not any([args.setup_gpu, args.setup_gpu_zip, args.gpu_enable, args.gpu_disable, args.gpu_diagnostics]):
+        return None
+    from cli.gpu_cli_handler import handle_gpu_cli_flags
+    from utils.run_async import shutdown_asyncio
+
+    should_exit = handle_gpu_cli_flags(args, config)
+    if should_exit:
+        shutdown_asyncio()
+        return 0
+    return None
+
+
+def _init_qt_and_capabilities(config: Any, logger: logging.Logger) -> Any:
+    """Initialize Qt app, enable dark mode, and return system capabilities from startup dialog or fallback."""
+    from PySide6.QtWidgets import QApplication
+    from utils.enable_darkmode import enable_dark_mode
+    from ui.startup_dialog import StartupDialog
+    from services.system_capabilities import check_system_capabilities
+
+    app = QApplication.instance() or QApplication(sys.argv)
+    enable_dark_mode(app)
+
+    capabilities = StartupDialog.show_startup(parent=None, config=config)
+    if capabilities is None:
+        logger.warning("Startup dialog returned no capabilities; proceeding with auto-detected capabilities")
+        capabilities = check_system_capabilities()
+
+    logger.info(
+        f"System capabilities: torch={capabilities.has_torch}, "
+        f"cuda={capabilities.has_cuda}, ffmpeg={capabilities.has_ffmpeg}, "
+        f"can_detect={capabilities.can_detect}"
+    )
+    return capabilities
+
+
+def _run_gui(config: Any, gpu_enabled: bool, log_file_path: str, capabilities: Any) -> int:
+    """Start the main window and return the GUI exit code."""
+    from ui.main_window import create_and_run_gui
+
+    return create_and_run_gui(config, gpu_enabled, log_file_path, capabilities)
+
+
 def main():
     """Main entry point for USDXFixGap application"""
-    log_file_path = None
+    log_file_path: Optional[str] = None
 
     try:
-        # Parse CLI arguments
         args = parse_arguments()
 
-        # Determine if any CLI flags are active
-        cli_flags_active = any(
-            [
-                args.version,
-                args.health_check,
-                args.setup_gpu,
-                args.setup_gpu_zip is not None,
-                args.gpu_enable,
-                args.gpu_disable,
-                args.gpu_diagnostics,
-            ]
-        )
-
-        # If this is GUI mode (no CLI flags), hide the console window
-        if not cli_flags_active:
+        # Hide console window for pure GUI usage
+        if not _has_cli_flags(args):
             hide_console_window_on_gui_mode()
 
-        # Handle --version flag (exit early)
+        # Early exits
         if args.version:
             print_version_info()
             sys.exit(0)
-
-        # Handle --health-check flag (exit early, before any heavy imports)
         if args.health_check:
-            exit_code = health_check()
-            sys.exit(exit_code)
+            sys.exit(health_check())
 
-        # Now import the rest of the modules (after early exit flags are handled)
-        from app.app_data import Config
-        from cli.gpu_cli_handler import handle_gpu_cli_flags
-        from utils import gpu_bootstrap
-        from common.utils.async_logging import setup_async_logging
-        from utils.files import get_localappdata_dir
+        # Config + logging
+        config = _create_and_validate_config()
+        log_file_path, logger = _setup_logging_early(config)
+
+        # GPU + models
+        gpu_enabled = _bootstrap_gpu_and_models(config, logger)
+
+        # Optional GPU CLI flow (may exit)
+        maybe_exit = _maybe_handle_gpu_cli(args, config)
+        if maybe_exit is not None:
+            sys.exit(maybe_exit)
+
+        # Capabilities and GUI
         from utils.gpu_startup_logger import log_gpu_status
-        from utils.model_paths import setup_model_paths
 
-        # Create config
-        config = Config()
-
-        # Validate config and auto-fix critical errors
-        from utils.config_validator import validate_config, print_validation_report
-
-        is_valid, validation_errors = validate_config(config, auto_fix=True)
-        if validation_errors:
-            print_validation_report(validation_errors)
-            if not is_valid:
-                error_msg = (
-                    "Critical configuration errors detected!\n\n"
-                    "Please review and fix config.ini, then restart the application."
-                )
-                error_details = "\n".join([f"- {err}" for err in validation_errors])
-                show_error_dialog("Configuration Error", error_msg, error_details)
-                sys.exit(1)
-
-        # Setup async logging EARLY (before GPU bootstrap so we can log it)
-        log_file_path = os.path.join(get_localappdata_dir(), APP_LOG_FILENAME)
-        setup_async_logging(
-            log_level=config.log_level, log_file_path=log_file_path, max_bytes=10 * 1024 * 1024, backup_count=3  # 10MB
-        )
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"Application started with log level: {config.log_level_str}")
-
-        # Log configuration file location now that logging is ready
-        config.log_config_location()
-
-        # Bootstrap GPU Pack BEFORE setup_model_paths (which imports torch!)
-        # This ensures torch imports from GPU Pack instead of venv
-        gpu_enabled = gpu_bootstrap.bootstrap_and_maybe_enable_gpu(config)
-        logger.info(f"GPU bootstrap completed: enabled={gpu_enabled}")
-
-        # Setup model paths AFTER GPU bootstrap but BEFORE other imports
-        # This ensures Demucs and Spleeter download models to our centralized location
-        # Note: setup_model_paths imports torch, so GPU bootstrap must happen first!
-        setup_model_paths(config)
-
-        # Handle GPU CLI flags (may exit early)
-        if any([args.setup_gpu, args.setup_gpu_zip, args.gpu_enable, args.gpu_disable, args.gpu_diagnostics]):
-            should_exit = handle_gpu_cli_flags(args, config)
-            if should_exit:
-                # Cleanup asyncio if it was started
-                from utils.run_async import shutdown_asyncio
-
-                shutdown_asyncio()
-                sys.exit(0)
-
-        # Create QApplication BEFORE splash (needed for Qt dialogs)
-        from PySide6.QtWidgets import QApplication
-
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-
-        # Enable dark mode BEFORE showing splash
-        from utils.enable_darkmode import enable_dark_mode
-
-        enable_dark_mode(app)
-
-        # Show startup dialog and run system capability checks
-        from ui.startup_dialog import StartupDialog
-
-        capabilities = StartupDialog.show_startup(parent=None, config=config)
-
-        # If dialog returned no capabilities, fall back to auto-detection
-        if capabilities is None:
-            logger.warning("Startup dialog returned no capabilities; proceeding with auto-detected capabilities")
-            from services.system_capabilities import check_system_capabilities
-
-            capabilities = check_system_capabilities()
-
-        logger.info(
-            f"System capabilities: torch={capabilities.has_torch}, "
-            f"cuda={capabilities.has_cuda}, ffmpeg={capabilities.has_ffmpeg}, "
-            f"can_detect={capabilities.can_detect}"
-        )
-
-        # GPU Status Logging (Console Only)
+        capabilities = _init_qt_and_capabilities(config, logger)
         log_gpu_status(config, gpu_enabled, show_gui_dialog=False)
-
-        # Import and start GUI (pass capabilities)
-        from ui.main_window import create_and_run_gui
-
-        exit_code = create_and_run_gui(config, gpu_enabled, log_file_path, capabilities)
-
-        sys.exit(exit_code)
+        sys.exit(_run_gui(config, gpu_enabled, log_file_path, capabilities))
 
     except Exception as e:
         # Critical startup failure - show error dialog and log
         error_msg = f"A critical error occurred during application startup:\n\n{str(e)}"
         error_details = traceback.format_exc()
 
-        # Try to log to file if path is available
         if log_file_path:
             try:
                 with open(log_file_path, "a", encoding="utf-8") as f:
@@ -348,6 +361,6 @@ def main():
 
         sys.exit(1)
 
- 
+
 if __name__ == "__main__":
     main()

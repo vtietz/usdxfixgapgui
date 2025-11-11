@@ -214,6 +214,12 @@ Read first: `docs/architecture.md`, `docs/coding-standards.md`.
 - Log typed exceptions; no bare `except:`.
 - 120 col limit, grouped imports, remove unused.
 
+## Logging Rules
+- **Parameterized format:** Use `logger.debug("msg %s", var)` NOT `logger.debug(f"msg {var}")`.
+- **Why:** Deferred formatting (performance when log level disabled), avoids F541 lint, structured logging support, consistency.
+- **Refactor on sight:** Convert f-string loggers to parameterized style when editing nearby code.
+- **Plain strings OK:** If no variables, use plain string `logger.info("Starting process")` (no f-prefix needed).
+
 ## Testing
 - Use wrappers: `run.bat test` / `run.sh test` (never direct `pytest`).
 - Extend existing tests; add only when missing coverage.

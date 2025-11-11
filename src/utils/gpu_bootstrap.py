@@ -1,8 +1,16 @@
-"""
-GPU Bootstrap Module for USDXFixGap
+"""Legacy GPU bootstrap compatibility layer.
 
-Handles GPU Pack runtime activation, CUDA validation, and environment setup.
-Ensures PyTorch with CUDA is loaded correctly before any provider imports.
+This file previously contained an 800+ line monolith implementing GPU Pack
+activation, system CUDA probing, validation (torch / torchaudio), and various
+path/dll management flows. The logic has been refactored into smaller
+modules under ``utils.gpu_bootstrap`` (e.g. ``facade.py`` for staged enable,
+``runtime_validator.py`` for VC++ checks, ``system_pytorch_detector.py`` for
+system torch discovery, and ``validation.py`` for granular validators).
+
+To preserve backward compatibility with existing imports (tests or legacy
+code using symbols from ``utils.gpu_bootstrap``) we retain selected public
+APIs and re-export / delegate to the new modular implementation. New code
+should target the submodules directly.
 """
 
 import os
@@ -12,6 +20,16 @@ import logging
 from typing import Dict, Optional, Tuple, List, Any
 from pathlib import Path
 
+# Re-export / delegate to modular implementation
+from .facade import enable as enable_runtime  # type: ignore
+from .system_pytorch_detector import detect_system_pytorch_cuda as _new_detect_system_pytorch_cuda  # type: ignore
+from .runtime_validator import RuntimeValidator  # type: ignore
+from .validation import (
+    validate_cuda_torch as _new_validate_cuda_torch,
+    validate_torchaudio as _new_validate_torchaudio,
+    validate_torch_cpu as _new_validate_torch_cpu,
+)  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 # Module-level list to track DLL directories added for diagnostics (kept for backward compatibility)
@@ -20,34 +38,8 @@ ADDED_DLL_DIRS: List[str] = []
 
 
 def _check_vcruntime() -> None:
-    """
-    Check for Microsoft Visual C++ Redistributable DLLs on Windows.
-    Logs a warning with download URL if they're missing.
-    """
-    if sys.platform != "win32":
-        return
-
-    try:
-        import ctypes
-
-        # Try to load critical VC++ runtime DLLs
-        required_dlls = ["vcruntime140_1.dll", "msvcp140.dll"]
-        missing_dlls = []
-
-        for dll_name in required_dlls:
-            try:
-                ctypes.WinDLL(dll_name)
-            except (OSError, FileNotFoundError):
-                missing_dlls.append(dll_name)
-
-        if missing_dlls:
-            logger.warning(
-                f"Microsoft Visual C++ Redistributable DLLs missing: {', '.join(missing_dlls)}. "
-                "Install Visual Studio 2015-2022 (x64) runtime from: "
-                "https://aka.ms/vs/17/release/vc_redist.x64.exe"
-            )
-    except Exception as e:
-        logger.debug(f"Could not check VC++ runtime: {e}")
+    """Backward compatible wrapper for VC++ runtime validation."""
+    RuntimeValidator.check_vcruntime()
 
 
 def resolve_pack_dir(torch_version: str, flavor: str = "cu121", config=None) -> Path:
@@ -412,197 +404,32 @@ def capability_probe() -> Dict[str, Any]:
 
 
 def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
-    """
-    Enable GPU Pack runtime by modifying sys.path and DLL search paths.
+    """Legacy wrapper delegating to ``facade.enable``.
 
-    Args:
-        pack_dir: Path to GPU Pack installation
-        config: Optional config object (unused, kept for compatibility)
-
-    Returns:
-        True if successful, False otherwise
+    Returns True if GPU Pack activation succeeded.
     """
     global ADDED_DLL_DIRS
-
-    # Use GPU bootstrap orchestrator
-    from utils.gpu_bootstrap import enable_runtime
-
-    logger.debug("Using GPU bootstrap")
-    success, added_dirs = enable_runtime(pack_dir)
-    if success:
-        ADDED_DLL_DIRS = added_dirs
-    return success
+    logger.debug("Delegating enable_gpu_runtime -> facade.enable")
+    result = enable_runtime(pack_dir)
+    if result.success and result.installation:
+        ADDED_DLL_DIRS = result.installation.added_dll_dirs
+    return bool(result.success)
 
 
-def detect_system_pytorch_cuda() -> Optional[Dict[str, str]]:
-    """
-    Detect if system has usable PyTorch with CUDA support.
-
-    Checks if PyTorch is already available in the system/environment
-    (not from GPU Pack) and has CUDA support enabled.
-
-    Returns:
-        Dict with torch_version, cuda_version, device_name if usable
-        None if PyTorch not available or CUDA not supported
-    """
-    try:
-        import torch
-
-        # Check if CUDA is available
-        if not torch.cuda.is_available():
-            logger.debug("System PyTorch found but CUDA not available")
-            return None
-
-        # Check minimum PyTorch version (2.0+)
-        version = torch.__version__
-        try:
-            major = int(version.split(".")[0].replace("+", ""))  # Handle version like "2.7.1+cpu"
-            if major < 2:
-                logger.debug(f"System PyTorch version too old: {version} (need 2.0+)")
-                return None
-        except (ValueError, IndexError):
-            logger.debug(f"Could not parse PyTorch version: {version}")
-            return None
-
-        # Get CUDA version
-        cuda_version = torch.version.cuda
-        if cuda_version is None:
-            logger.debug("System PyTorch has no CUDA version")
-            return None
-
-        # Get device name
-        try:
-            device_name = torch.cuda.get_device_name(0)
-        except Exception as e:
-            logger.debug(f"Could not get CUDA device name: {e}")
-            device_name = "Unknown GPU"
-
-        return {"torch_version": version, "cuda_version": cuda_version, "device_name": device_name}
-
-    except ImportError:
-        logger.debug("System PyTorch not available (ImportError)")
-        return None
-    except Exception as e:
-        logger.debug(f"Error detecting system PyTorch: {e}")
-        return None
+def detect_system_pytorch_cuda() -> Optional[Dict[str, str]]:  # Shim
+    return _new_detect_system_pytorch_cuda()
 
 
-def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:
-    """
-    Validate that PyTorch with CUDA is properly loaded and functional.
-
-    Args:
-        expected_cuda: Expected CUDA version (e.g., "12.1" for exact match, "12" for any 12.x)
-
-    Returns:
-        Tuple of (success, error_message)
-    """
-    try:
-        import torch
-
-        # Check if CUDA is available
-        if not torch.cuda.is_available():
-            return (False, "torch.cuda.is_available() returned False")
-
-        # Check CUDA version match
-        torch_cuda_version = torch.version.cuda
-        if torch_cuda_version is None:
-            return (False, "torch.version.cuda is None")
-
-        # Compare versions
-        expected_parts = expected_cuda.split(".")
-        actual_parts = torch_cuda_version.split(".")
-
-        # If only major version specified (e.g., "12"), accept any minor version
-        compare_parts = len(expected_parts)
-        if expected_parts[:compare_parts] != actual_parts[:compare_parts]:
-            return (False, f"CUDA version mismatch: expected {expected_cuda}.x, got {torch_cuda_version}")
-
-        # Smoke test: create tensor on GPU and perform operation
-        try:
-            device = torch.device("cuda:0")
-            x = torch.randn(100, 100, device=device)
-            y = torch.randn(100, 100, device=device)
-            z = torch.matmul(x, y)
-
-            # Ensure computation completed
-            torch.cuda.synchronize()
-
-            if z.device.type != "cuda":
-                return (False, "Smoke test failed: result not on GPU")
-
-        except Exception as e:
-            return (False, f"Smoke test failed: {str(e)}")
-
-        logger.info(f"CUDA validation successful: PyTorch {torch.__version__}, CUDA {torch_cuda_version}")
-        return (True, "")
-
-    except ImportError as e:
-        return (False, f"Failed to import torch: {str(e)}")
-    except Exception as e:
-        return (False, f"Unexpected error during validation: {str(e)}")
+def validate_cuda_torch(expected_cuda: str = "12.1") -> Tuple[bool, str]:  # Shim
+    return _new_validate_cuda_torch(expected_cuda)
 
 
-def validate_torch_cpu() -> Tuple[bool, str]:
-    """
-    Validate that PyTorch is available for CPU-only operation.
-    Does not check CUDA availability - only verifies torch can be imported.
-
-    Returns:
-        Tuple of (success, error_message)
-    """
-    try:
-        import torch
-
-        # Basic smoke test on CPU
-        try:
-            x = torch.randn(10, 10)
-            y = torch.randn(10, 10)
-            z = torch.matmul(x, y)
-
-            if z.shape != (10, 10):
-                return (False, "CPU smoke test failed: unexpected result shape")
-        except Exception as e:
-            return (False, f"CPU smoke test failed: {str(e)}")
-
-        logger.info(f"CPU-only torch validation successful: PyTorch {torch.__version__}")
-        return (True, "")
-
-    except ImportError as e:
-        return (False, f"Failed to import torch: {str(e)}")
-    except Exception as e:
-        return (False, f"Unexpected error during CPU validation: {str(e)}")
+def validate_torch_cpu() -> Tuple[bool, str]:  # Shim
+    return _new_validate_torch_cpu()
 
 
-def validate_torchaudio() -> Tuple[bool, str]:
-    """
-    Validate that torchaudio can be imported and is functional.
-    This is critical for gap detection with MDX provider.
-
-    Returns:
-        Tuple of (success, error_message)
-    """
-    try:
-        import torchaudio
-
-        # Try to access a simple torchaudio function
-        try:
-            # Just accessing torchaudio functionality is enough
-            # The import itself often fails if DLLs are broken
-            _ = torchaudio.info
-            logger.info(f"torchaudio validation successful: {torchaudio.__version__}")
-            return (True, "")
-        except Exception as e:
-            return (False, f"torchaudio import succeeded but functionality broken: {str(e)}")
-
-    except (ImportError, OSError) as e:
-        # OSError happens when DLLs are missing or broken (WinError 127)
-        error_msg = str(e)
-        if "WinError 127" in error_msg or "DLL" in error_msg:
-            return (False, f"torchaudio DLL error (broken GPU Pack): {error_msg}")
-        return (False, f"Failed to import torchaudio: {error_msg}")
-    except Exception as e:
-        return (False, f"Unexpected error during torchaudio validation: {str(e)}")
+def validate_torchaudio() -> Tuple[bool, str]:  # Shim
+    return _new_validate_torchaudio()
 
 
 def bootstrap_and_maybe_enable_gpu(config) -> bool:
