@@ -338,12 +338,16 @@ class TestLegacyWrapperIntegration:
 
         original_path = sys.path.copy()
         try:
-            with patch("os.add_dll_directory"):
+            # os.add_dll_directory only exists on Windows
+            if hasattr(os, "add_dll_directory"):
+                with patch("os.add_dll_directory"):
+                    result = enable_gpu_runtime(pack_dir)
+            else:
                 result = enable_gpu_runtime(pack_dir)
-                # Should succeed with valid layout
-                assert result is True
-                # sys.path should be modified
-                assert str(pack_dir) in sys.path
+            # Should succeed with valid layout
+            assert result is True
+            # sys.path should be modified
+            assert str(pack_dir) in sys.path
         finally:
             sys.path = original_path
 
@@ -372,10 +376,14 @@ class TestLegacyWrapperIntegration:
 
         original_path = sys.path.copy()
         try:
-            with patch("os.add_dll_directory"):
-                # Should succeed (config param is accepted but not used by new implementation)
+            # os.add_dll_directory only exists on Windows
+            if hasattr(os, "add_dll_directory"):
+                with patch("os.add_dll_directory"):
+                    # Should succeed (config param is accepted but not used by new implementation)
+                    result = enable_gpu_runtime(pack_dir, config=mock_config)
+            else:
                 result = enable_gpu_runtime(pack_dir, config=mock_config)
-                assert result is True
+            assert result is True
         finally:
             sys.path = original_path
 
