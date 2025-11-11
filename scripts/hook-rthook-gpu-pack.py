@@ -323,9 +323,7 @@ def write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified):
 
             if sys.platform == "win32":
                 torch_c = pack_dir / "torch" / f"_C.{py_version}-win_amd64.pyd"
-                f.write(
-                    f"torch/_C.{py_version}-win_amd64.pyd exists: {torch_c.exists()}\n"
-                )
+                f.write(f"torch/_C.{py_version}-win_amd64.pyd exists: {torch_c.exists()}\n")
             elif sys.platform.startswith("linux"):
                 f.write(
                     f"torch/lib/libtorch_cpu.so exists: {(pack_dir / 'torch' / 'lib' / 'libtorch_cpu.so').exists()}\n"
@@ -357,85 +355,94 @@ def setup_gpu_pack():
     - CPU torch/torchaudio bundled in EXE (default)
     - GPU Pack: when present, intercepts imports via MetaPathFinder
     """
-    # Early exit: not frozen
+    # Early exit: not frozen or force CPU mode
     if not hasattr(sys, "_MEIPASS"):
         return
 
-    # Early exit: force CPU mode (ignore GPU Pack even if present)
     if os.environ.get("USDXFIXGAP_FORCE_CPU", "").lower() in ("1", "true", "yes"):
         return
 
-    # Get config directory
+    # Get config directory and pack path
     config_dir = get_config_dir()
     config_file = config_dir / "config.ini"
 
-    # Read GPU Pack path from config/env/default location
-    # (returns None if GPU is disabled or pack not found)
     pack_dir = read_gpu_pack_path(config_file)
     if not pack_dir:
         return
 
-    # Early exit: pack directory or torch subdirectory missing
-    if not pack_dir.exists():
-        return
-    if not (pack_dir / "torch").exists():
+    # Validate pack directory structure
+    if not _pack_dir_valid(pack_dir):
         return
 
-    # Validate torchaudio presence to avoid ABI mismatch
-    # (If torchaudio missing, it falls back to bundled CPU version → crash)
     has_torchaudio = (pack_dir / "torchaudio").exists()
 
-    # Validate ABI compatibility (platform-specific checks)
-    abi_compatible = False
-
-    # Detect Python version from bundled interpreter
-    py_version = f"cp{sys.version_info.major}{sys.version_info.minor}"  # e.g., cp312
-
-    if sys.platform == "win32":
-        # Windows: Check for Python version-specific extension
-        torch_c = pack_dir / "torch" / f"_C.{py_version}-win_amd64.pyd"
-        abi_compatible = torch_c.exists()
-
-    elif sys.platform.startswith("linux"):
-        # Linux: Check for core shared libraries and Python extension
-        torch_lib = pack_dir / "torch" / "lib"
-        required_libs = [
-            torch_lib / "libtorch_cpu.so",
-            torch_lib / "libc10.so",
-        ]
-        # Python extension pattern: _C.cpython-312-x86_64-linux-gnu.so
-        torch_extensions = list(
-            (pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so")
-        )
-        abi_compatible = all(lib.exists() for lib in required_libs) and len(torch_extensions) > 0
-
-    elif sys.platform == "darwin":
-        # macOS: Check for dylibs and Python extension
-        torch_lib = pack_dir / "torch" / "lib"
-        required_libs = [
-            torch_lib / "libtorch_cpu.dylib",
-            torch_lib / "libc10.dylib",
-        ]
-        # Python extension pattern: _C.cpython-312-darwin.so
-        torch_extensions = list(
-            (pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so")
-        )
-        abi_compatible = all(lib.exists() for lib in required_libs) and len(torch_extensions) > 0
-
-    if not abi_compatible:
-        # ABI mismatch - skip GPU Pack and use bundled CPU torch
+    # Validate ABI compatibility
+    if not _validate_abi_compatibility(pack_dir):
         write_hook_diagnostics(pack_dir, False, False, False)
         return
 
-    # Conditionally redirect torchaudio based on presence
-    # (torch is always redirected; torchaudio only if present in pack)
+    # Setup GPU Pack import redirection
     redirected_modules = {"torch"}
     if has_torchaudio:
         redirected_modules.add("torchaudio")
 
-    # Prevent torch._dynamo circular import in frozen apps with external GPU pack
-    # einops (used by Demucs) imports torch._dynamo.allow_in_graph, causing circular import.
-    # Solution: Create stub module in sys.modules BEFORE any imports happen.
+    _setup_torch_dynamo_stub()
+
+    # Insert MetaPathFinder and reorder sys.path
+    finder = GPUPackImportFinder(pack_dir, redirected_modules)
+    sys.meta_path.insert(0, finder)
+    reorder_syspath_for_gpu_pack(pack_dir)
+
+    # Add library directory for DLLs
+    dll_added, path_modified = _add_gpu_pack_lib_dir(pack_dir)
+
+    # Write diagnostics
+    write_hook_diagnostics(pack_dir, True, dll_added, path_modified)
+
+
+# Execute setup
+setup_gpu_pack()
+
+
+# ==========================
+# Helper functions for setup_gpu_pack
+# ==========================
+
+
+def _pack_dir_valid(pack_dir) -> bool:
+    """Check if pack directory structure is valid."""
+    return pack_dir.exists() and (pack_dir / "torch").exists()
+
+
+def _validate_abi_compatibility(pack_dir) -> bool:
+    """Validate ABI compatibility for current platform."""
+    py_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
+
+    if sys.platform == "win32":
+        torch_c = pack_dir / "torch" / f"_C.{py_version}-win_amd64.pyd"
+        return torch_c.exists()
+
+    if sys.platform.startswith("linux"):
+        torch_lib = pack_dir / "torch" / "lib"
+        required_libs = [torch_lib / "libtorch_cpu.so", torch_lib / "libc10.so"]
+        torch_extensions = list(
+            (pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so")
+        )
+        return all(lib.exists() for lib in required_libs) and len(torch_extensions) > 0
+
+    if sys.platform == "darwin":
+        torch_lib = pack_dir / "torch" / "lib"
+        required_libs = [torch_lib / "libtorch_cpu.dylib", torch_lib / "libc10.dylib"]
+        torch_extensions = list(
+            (pack_dir / "torch").glob(f"_C.cpython-{sys.version_info.major}{sys.version_info.minor}*.so")
+        )
+        return all(lib.exists() for lib in required_libs) and len(torch_extensions) > 0
+
+    return False
+
+
+def _setup_torch_dynamo_stub():
+    """Prevent torch._dynamo circular import by creating stub module."""
     import types
 
     fake_dynamo = types.ModuleType("torch._dynamo")
@@ -443,26 +450,11 @@ def setup_gpu_pack():
     fake_dynamo.disable = lambda *args, **kwargs: lambda fn: fn  # No-op decorator
     sys.modules["torch._dynamo"] = fake_dynamo
 
-    # Insert MetaPathFinder at index 0 to beat FrozenImporter
-    finder = GPUPackImportFinder(pack_dir, redirected_modules)
-    sys.meta_path.insert(0, finder)
-    finder_inserted = True
 
-    # Setup sys.path to prioritize GPU Pack (belt-and-suspenders with MetaPathFinder)
-    reorder_syspath_for_gpu_pack(pack_dir)
-
-    # Add library directory for DLLs
-    dll_added = False
-    path_modified = False
+def _add_gpu_pack_lib_dir(pack_dir):
+    """Add GPU Pack library directory for DLLs. Returns (dll_added, path_modified)."""
     lib_dir = pack_dir / "torch" / "lib"
     if lib_dir.exists():
         add_dll_directory(lib_dir)
-        dll_added = True
-        path_modified = True
-
-    # Write diagnostics
-    write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified)
-
-
-# Execute setup
-setup_gpu_pack()
+        return True, True
+    return False, False
