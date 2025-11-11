@@ -193,45 +193,42 @@ def print_complexity_hotspots(complexity_metrics: List[tuple]) -> None:
     print(f"{SYMBOL_INFO} Refactor hotspots from top to bottom for maximum impact")
 
 
-def print_file_level_summary(complexity_issues: dict, style_issues: dict, length_issues: dict) -> None:
-    """Print file-level issue summary table.
+def print_file_level_summary(file_priority_scores: list) -> None:
+    """Print file-level issue summary table sorted by priority.
 
     Args:
-        complexity_issues: Dict mapping filepath to complexity issue count
-        style_issues: Dict mapping filepath to style issue count
-        length_issues: Dict mapping filepath to length issue count
+        file_priority_scores: List of (filepath, priority_score, details_dict) from _calculate_file_priority_scores
     """
-    # Combine all files for overall summary
-    all_files = set(complexity_issues.keys()) | set(style_issues.keys()) | set(length_issues.keys())
-
-    if not all_files:
+    if not file_priority_scores:
         return
 
-    # Calculate totals per file
+    # Build display list: (filepath, priority_score, complexity_count, style_count, has_length, total_count)
     file_totals = []
-    for filepath in all_files:
-        complexity = complexity_issues.get(filepath, 0)
-        style = style_issues.get(filepath, 0)
-        length = length_issues.get(filepath, 0)
+    for filepath, priority_score, details in file_priority_scores:
+        complexity = details["complexity_count"]
+        style = details["style_count"]
+        length = 1 if details["has_length_issue"] else 0
         total = complexity + style + length
-        file_totals.append((filepath, complexity, style, length, total))
+        file_totals.append((filepath, priority_score, complexity, style, length, total))
 
-    # Sort by total issues (descending)
-    file_totals.sort(key=lambda x: x[4], reverse=True)
+    # Already sorted by priority (file_priority_scores is pre-sorted)
 
     # Print file-level summary
     print(f"\n{'=' * 80}")
     print("📋 FILE-LEVEL ISSUE SUMMARY")
     print(f"{'=' * 80}")
-    print(f"{'File':<55} {'Complex':>7} {'Style':>7} {'Length':>7} {'Total':>7}")
-    print(f"{'-' * 55} {'-' * 7} {'-' * 7} {'-' * 7} {'-' * 7}")
+    print(f"{'File':<47} Priority {'Complex':>7} {'Style':>7} {'Length':>7} {'Total':>7}")
+    print(f"{'-' * 47} {'-' * 8} {'-' * 7} {'-' * 7} {'-' * 7} {'-' * 7}")
 
     # Show top 20 files
-    for filepath, complexity, style, length, total in file_totals[:20]:
+    for filepath, priority, complexity, style, length, total in file_totals[:20]:
         # Shorten path for display
-        display_path = filepath if len(filepath) <= 55 else "..." + filepath[-52:]
-        print(f"{display_path:<55} {complexity:>7} {style:>7} {length:>7} {total:>7}")
+        display_path = filepath if len(filepath) <= 47 else "..." + filepath[-44:]
+        print(f"{display_path:<47} {priority:>8.1f} {complexity:>7} {style:>7} {length:>7} {total:>7}")
 
     total_files = len(file_totals)
     if total_files > 20:
         print(f"\n... and {total_files - 20} more file(s) with issues")
+
+    print(f"\n{SYMBOL_INFO} Priority = 10×complexity + 1×style + 5×length (higher CCN increases weight)")
+    print(f"{SYMBOL_INFO} Files sorted by priority (highest impact first)")

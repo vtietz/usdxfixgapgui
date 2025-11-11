@@ -147,8 +147,8 @@ def print_file_summary(complexity_output: str = "", style_output: str = "", leng
     if complexity_metrics:
         print_complexity_hotspots(complexity_metrics)
 
-    # Print file-level summary
-    print_file_level_summary(complexity_issues, style_issues, length_issues)
+    # Print file-level summary (sorted by priority)
+    print_file_level_summary(file_priority_scores)
 
 
 def print_summary(results: dict, complexity_output: str = "", style_output: str = "", length_output: str = ""):
