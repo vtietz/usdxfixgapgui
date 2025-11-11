@@ -20,7 +20,10 @@ class Tags:
         self.START: Optional[float] = None
 
     def __str__(self):
-        return f"Tags(TITLE={self.TITLE}, ARTIST={self.ARTIST}, GAP={self.GAP}, AUDIO={self.AUDIO}, BPM={self.BPM}, RELATIVE={self.RELATIVE}, START={self.START})"
+        return (
+            f"Tags(TITLE={self.TITLE}, ARTIST={self.ARTIST}, GAP={self.GAP}, "
+            f"AUDIO={self.AUDIO}, BPM={self.BPM}, RELATIVE={self.RELATIVE}, START={self.START})"
+        )
 
 
 class Note:
@@ -37,7 +40,10 @@ class Note:
         self.end_ms: Optional[float] = None
 
     def __str__(self):
-        return f"Notes(NoteType={self.NoteType}, StartBeat={self.StartBeat}, Length={self.Length}, Pitch={self.Pitch}, Text={self.Text})"
+        return (
+            f"Notes(NoteType={self.NoteType}, StartBeat={self.StartBeat}, Length={self.Length}, "
+            f"Pitch={self.Pitch}, Text={self.Text})"
+        )
 
 
 class USDXFile:

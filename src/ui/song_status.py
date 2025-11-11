@@ -60,8 +60,10 @@ class SongsStatusVisualizer(QWidget):
 
             if status not in self.status_labels:
                 label = QLabel(self)
+                bg_color = self.get_color_for_status(status).name()
                 label.setStyleSheet(
-                    f"background-color: {self.get_color_for_status(status).name()}; color: rgba(255, 255, 255, 0.5); font-size: 8px;"
+                    f"background-color: {bg_color}; "
+                    f"color: rgba(255, 255, 255, 0.5); font-size: 8px;"
                 )
                 self.status_labels[status] = label
                 self._layout.addWidget(label)

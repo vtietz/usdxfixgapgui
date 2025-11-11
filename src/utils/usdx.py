@@ -44,7 +44,8 @@ def get_syllaby_at_position(notes: List[Note], position: int):
 
 def get_syllable(notes: List[Note], position_ms: int, bpm: float, gap: int, is_relative=False):
     """
-    Finds the current syllable being sung at a given position in the song, considering Ultrastar's quarter note interpretation.
+    Finds the current syllable being sung at a given position in the song,
+    considering Ultrastar's quarter note interpretation.
 
     :param notes: The list of notes parsed from the file.
     :param position_ms: Current position in ms.

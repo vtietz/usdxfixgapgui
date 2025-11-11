@@ -37,8 +37,10 @@ class IWorker(QObject):
     This class is designed to be subclassed with specific implementations of the asynchronous run method.
 
     Workers can be classified as:
-    - Standard (is_instant=False): Long-running tasks that run sequentially (gap detection, normalization, scan all)
-    - Instant (is_instant=True): User-triggered tasks that can run immediately in parallel with standard tasks (waveform, light reload)
+    - Standard (is_instant=False): Long-running tasks that run sequentially
+      (gap detection, normalization, scan all)
+    - Instant (is_instant=True): User-triggered tasks that can run immediately
+      in parallel with standard tasks (waveform, light reload)
     """
 
     def __init__(self, is_instant: bool = False):

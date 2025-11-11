@@ -139,7 +139,9 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
             logger.debug("Window state saved: maximized")
         else:
             logger.debug(
-                f"Window geometry saved: {config.window_width}x{config.window_height} at ({config.window_x}, {config.window_y})"
+                "Window geometry saved: %sx%s at (%s, %s)",
+                config.window_width, config.window_height,
+                config.window_x, config.window_y
             )
 
     # Connect to aboutToQuit to save geometry before closing

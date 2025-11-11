@@ -36,8 +36,10 @@ class SongActions(BaseActions):
                 detected_gap=song.gap_info.detected_gap if song.gap_info else None,
             )
             if self.data.gap_state:  # Add type guard
+                current_gap_ms = self.data.gap_state.current_gap_ms
+                detected_gap_ms = self.data.gap_state.detected_gap_ms
                 logger.debug(
-                    f"Created GapState for {song.title}: current={self.data.gap_state.current_gap_ms}, detected={self.data.gap_state.detected_gap_ms}"
+                    f"Created GapState for {song.title}: current={current_gap_ms}, detected={detected_gap_ms}"
                 )
         else:
             # Multi-selection or no selection
@@ -237,7 +239,8 @@ class SongActions(BaseActions):
                             note.end_ms = song.gap + ((note.StartBeat + note.Length) / beats_per_ms)
                         note.duration_ms = note.end_ms - note.start_ms
                     logger.debug(
-                        f"Computed note timings for {song.title} using bpm={song.bpm}, gap={song.gap}, relative={song.is_relative}"
+                        "Computed note timings for %s using bpm=%s, gap=%s, relative=%s",
+                        song.title, song.bpm, song.gap, song.is_relative
                     )
                 except Exception as timing_err:
                     logger.warning(f"Failed computing note timings for {song.title}: {timing_err}")

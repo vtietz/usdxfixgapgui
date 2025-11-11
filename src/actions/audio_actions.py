@@ -69,7 +69,7 @@ class AudioActions(BaseActions):
 
         worker.signals.finished.connect(_reload_if_success)
 
-        # Lock audio file to prevent UI from reloading it or instant waveform tasks from accessing it during normalization
+        # Lock audio file to prevent UI from reloading it or instant tasks from accessing it during normalization
         try:
             if hasattr(song, "audio_file") and song.audio_file:
                 self.data.lock_file(song.audio_file)
@@ -127,8 +127,9 @@ class AudioActions(BaseActions):
 
         # Check if audio file exists
         if not hasattr(song, "audio_file") or not song.audio_file:
+            title = song.title if hasattr(song, "title") else "Unknown"
             logger.warning(
-                f"Cannot create waveforms for song '{song.title if hasattr(song, 'title') else 'Unknown'}': Missing audio file"
+                f"Cannot create waveforms for '{title}': Missing audio file"
             )
             # Don't trigger reload - missing audio file is a data issue, not a loading issue
             return
@@ -205,12 +206,6 @@ class AudioActions(BaseActions):
                             draw_silence_periods(
                                 waveform_file, song.gap_info.silence_periods, song.duration_ms, silence_color
                             )
-
-                        # Gap markers are now drawn dynamically by the overlay system - no need to bake into PNG
-                        # # Draw detected gap
-                        # if hasattr(song.gap_info, 'detected_gap') and song.gap_info.detected_gap is not None:
-                        #     gap_color = self.config.detected_gap_color if hasattr(self.config, 'detected_gap_color') else "blue"
-                        #     draw_gap(waveform_file, song.gap_info.detected_gap, song.duration_ms, gap_color)
 
                     # Draw notes overlay
                     if hasattr(song, "notes") and song.notes:

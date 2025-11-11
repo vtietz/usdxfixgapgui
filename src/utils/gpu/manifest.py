@@ -98,7 +98,10 @@ DEFAULT_MANIFESTS = {
         "app_version": "1.0.0",  # Metadata only
         "torch_version": "2.4.1+cu121",
         "cuda_version": "12.1",
-        "url": f"https://download.pytorch.org/whl/cu121/torch-2.4.1%2Bcu121-{_PYTHON_VERSION}-{_PYTHON_VERSION}-{_PLATFORM_SUFFIX}.whl",
+        "url": (
+            f"https://download.pytorch.org/whl/cu121/"
+            f"torch-2.4.1%2Bcu121-{_PYTHON_VERSION}-{_PYTHON_VERSION}-{_PLATFORM_SUFFIX}.whl"
+        ),
         **_get_wheel_metadata("cu121"),
         "min_driver": "531.00",
         "flavor": "cu121",
@@ -107,7 +110,10 @@ DEFAULT_MANIFESTS = {
         "app_version": "1.0.0",  # Metadata only
         "torch_version": "2.4.1+cu124",
         "cuda_version": "12.4",
-        "url": f"https://download.pytorch.org/whl/cu124/torch-2.4.1%2Bcu124-{_PYTHON_VERSION}-{_PYTHON_VERSION}-{_PLATFORM_SUFFIX}.whl",
+        "url": (
+            f"https://download.pytorch.org/whl/cu124/"
+            f"torch-2.4.1%2Bcu124-{_PYTHON_VERSION}-{_PYTHON_VERSION}-{_PLATFORM_SUFFIX}.whl"
+        ),
         **_get_wheel_metadata("cu124"),
         "min_driver": "550.00",
         "flavor": "cu124",

@@ -317,22 +317,25 @@ def write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified):
             py_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
             f.write(f"Platform: {sys.platform}\n")
             f.write(
-                f"Python version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} ({py_version})\n"
+                f"Python version: {sys.version_info.major}.{sys.version_info.minor}."
+                f"{sys.version_info.micro} ({py_version})\n"
             )
 
             if sys.platform == "win32":
                 torch_c = pack_dir / "torch" / f"_C.{py_version}-win_amd64.pyd"
-                f.write(f"torch/_C.{py_version}-win_amd64.pyd exists: {torch_c.exists()}\n")
+                f.write(
+                    f"torch/_C.{py_version}-win_amd64.pyd exists: {torch_c.exists()}\n"
+                )
             elif sys.platform.startswith("linux"):
                 f.write(
                     f"torch/lib/libtorch_cpu.so exists: {(pack_dir / 'torch' / 'lib' / 'libtorch_cpu.so').exists()}\n"
                 )
                 f.write(f"torch/lib/libc10.so exists: {(pack_dir / 'torch' / 'lib' / 'libc10.so').exists()}\n")
             elif sys.platform == "darwin":
-                f.write(
-                    f"torch/lib/libtorch_cpu.dylib exists: {(pack_dir / 'torch' / 'lib' / 'libtorch_cpu.dylib').exists()}\n"
-                )
-                f.write(f"torch/lib/libc10.dylib exists: {(pack_dir / 'torch' / 'lib' / 'libc10.dylib').exists()}\n")
+                dylib_path = pack_dir / "torch" / "lib" / "libtorch_cpu.dylib"
+                f.write(f"torch/lib/libtorch_cpu.dylib exists: {dylib_path.exists()}\n")
+                c10_path = pack_dir / "torch" / "lib" / "libc10.dylib"
+                f.write(f"torch/lib/libc10.dylib exists: {c10_path.exists()}\n")
 
         # Write simple status file for GUI startup logger
         status_file = config_dir / "gpu_pack_hook_status.txt"
