@@ -150,8 +150,8 @@ def _verify_complete_file(file_path: Path, expected_sha256: str, expected_size: 
         True if valid, False otherwise
     """
     try:
-        # Import here to avoid circular dependency with gpu_downloader
-        from utils.gpu_downloader import verify_file_checksum
+        # Import here to avoid circular dependency with gpu.downloader
+        from utils.gpu.downloader import verify_file_checksum
 
         return verify_file_checksum(file_path, expected_sha256, expected_size)
     except Exception as e:

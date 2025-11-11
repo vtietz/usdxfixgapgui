@@ -232,7 +232,7 @@ class TestDownloadWorker:
         assert worker.dest_zip == dest_zip
         assert worker.cancel_token is not None
 
-    @patch("utils.gpu_downloader.download_with_resume")
+    @patch("utils.gpu.downloader.download_with_resume")
     def test_worker_download_success(self, mock_download, qtbot):
         """Test successful download flow."""
         from pathlib import Path

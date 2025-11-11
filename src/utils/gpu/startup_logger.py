@@ -7,7 +7,7 @@ including helpful guidance for enabling GPU acceleration.
 
 import sys
 import os
-from utils.gpu_utils import is_gpu_pack_installed, get_gpu_pack_info
+from utils.gpu.utils import is_gpu_pack_installed, get_gpu_pack_info
 from utils.gpu_bootstrap import capability_probe, detect_system_pytorch_cuda, auto_recover_gpu_pack_config
 
 
@@ -279,7 +279,7 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
         Dialog instance if shown, None otherwise (caller should keep reference)
     """
     import logging
-    from utils import gpu_pack_cleaner
+    from utils.gpu import pack_cleaner
     from ui.gpu_download_dialog import GpuPackDownloadDialog
     from pathlib import Path
 
@@ -291,9 +291,9 @@ def show_gpu_pack_dialog_if_needed(config, gpu_enabled):
         if hasattr(config, "data_dir"):
             runtime_root = Path(config.data_dir) / "gpu_runtime"
 
-        if gpu_pack_cleaner.should_clean_on_startup(runtime_root):
+        if pack_cleaner.should_clean_on_startup(runtime_root):
             logger.info("Detected GPU Pack with wrong Python version - cleaning up")
-            cleaned_count = gpu_pack_cleaner.clean_mismatched_packs(runtime_root, dry_run=False)
+            cleaned_count = pack_cleaner.clean_mismatched_packs(runtime_root, dry_run=False)
             if cleaned_count > 0:
                 logger.info(f"Removed {cleaned_count} mismatched GPU Pack(s)")
     except Exception as e:

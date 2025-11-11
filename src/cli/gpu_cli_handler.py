@@ -12,8 +12,8 @@ from datetime import datetime
 from typing import Dict
 
 from utils.gpu_bootstrap import capability_probe, resolve_pack_dir, ADDED_DLL_DIRS
-from utils import gpu_manifest, gpu_downloader
-from utils.gpu_utils import is_gpu_pack_installed, get_gpu_pack_info
+from utils.gpu import manifest as gpu_manifest, downloader as gpu_downloader
+from utils.gpu.utils import is_gpu_pack_installed, get_gpu_pack_info
 from utils.files import get_app_dir
 
 

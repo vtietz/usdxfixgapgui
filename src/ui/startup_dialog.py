@@ -31,7 +31,7 @@ from PySide6.QtGui import QFont
 from common.constants import APP_NAME
 from services.system_capabilities import SystemCapabilities, check_system_capabilities
 from utils.gpu_bootstrap import capability_probe, detect_existing_gpu_pack, activate_existing_gpu_pack
-from utils.download_cleanup import cleanup_download_files
+from utils.gpu.download_cleanup import cleanup_download_files
 from ui.workers.gpu_download_worker import GpuDownloadWorker
 from ui.handlers.gpu_download_handler import on_download_clicked
 

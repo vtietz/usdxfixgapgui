@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from PySide6.QtCore import QThread, Signal
 
-from utils import gpu_downloader
+from utils.gpu import downloader as gpu_downloader
 
 logger = logging.getLogger(__name__)
 

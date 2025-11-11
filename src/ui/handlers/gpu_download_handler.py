@@ -29,9 +29,9 @@ from PySide6.QtWidgets import QMessageBox
 from PySide6.QtCore import QTimer
 
 from ui.workers.gpu_download_worker import GpuDownloadWorker
-from utils.download_cleanup import cleanup_download_files, cleanup_download_files_safe
+from utils.gpu.download_cleanup import cleanup_download_files, cleanup_download_files_safe
 from utils.gpu_bootstrap import capability_probe
-from utils import gpu_manifest
+from utils.gpu import manifest as gpu_manifest
 
 logger = logging.getLogger(__name__)
 

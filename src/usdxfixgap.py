@@ -324,7 +324,7 @@ def main():
             sys.exit(maybe_exit)
 
         # Capabilities and GUI
-        from utils.gpu_startup_logger import log_gpu_status
+        from utils.gpu.startup_logger import log_gpu_status
 
         capabilities = _init_qt_and_capabilities(config, logger)
         log_gpu_status(config, gpu_enabled, show_gui_dialog=False)

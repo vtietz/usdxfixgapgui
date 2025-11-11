@@ -6,7 +6,7 @@ Verifies that the manifest correctly generates URLs and metadata for different P
 
 import sys
 from unittest.mock import patch
-from utils.gpu_manifest import load_local_manifest
+from utils.gpu.manifest import load_local_manifest
 
 
 class TestPythonVersionDetection:
@@ -24,14 +24,14 @@ class TestPythonVersionDetection:
 
     def test_url_format_for_python_312(self):
         """Test URL format for Python 3.12."""
-        with patch("utils.gpu_manifest.sys.version_info", major=3, minor=12):
+        with patch("utils.gpu.manifest.sys.version_info", major=3, minor=12):
             # Re-import to pick up patched version
             import importlib
-            import utils.gpu_manifest
+            from utils.gpu import manifest
 
-            importlib.reload(utils.gpu_manifest)
+            importlib.reload(manifest)
 
-            manifests = utils.gpu_manifest.load_local_manifest("1.0.0")
+            manifests = manifest.load_local_manifest("1.0.0")
             cu121 = manifests["cu121"]
 
             assert "cp312-cp312" in cu121.url
@@ -39,13 +39,13 @@ class TestPythonVersionDetection:
 
     def test_url_format_for_python_38(self):
         """Test URL format for Python 3.8."""
-        with patch("utils.gpu_manifest.sys.version_info", major=3, minor=8):
+        with patch("utils.gpu.manifest.sys.version_info", major=3, minor=8):
             import importlib
-            import utils.gpu_manifest
+            from utils.gpu import manifest
 
-            importlib.reload(utils.gpu_manifest)
+            importlib.reload(manifest)
 
-            manifests = utils.gpu_manifest.load_local_manifest("1.0.0")
+            manifests = manifest.load_local_manifest("1.0.0")
             cu121 = manifests["cu121"]
 
             assert "cp38-cp38" in cu121.url
@@ -53,14 +53,14 @@ class TestPythonVersionDetection:
 
     def test_wheel_metadata_fallback_to_cp38(self):
         """Test that unknown Python versions fallback to cp38 metadata."""
-        with patch("utils.gpu_manifest.sys.version_info", major=3, minor=99):
+        with patch("utils.gpu.manifest.sys.version_info", major=3, minor=99):
             import importlib
-            import utils.gpu_manifest
+            from utils.gpu import manifest
 
-            importlib.reload(utils.gpu_manifest)
+            importlib.reload(manifest)
 
             # Should not raise error, should use cp38 metadata
-            manifests = utils.gpu_manifest.load_local_manifest("1.0.0")
+            manifests = manifest.load_local_manifest("1.0.0")
             cu121 = manifests["cu121"]
 
             # URL should still use cp399 (current version)
