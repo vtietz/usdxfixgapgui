@@ -257,17 +257,19 @@ class MediaPlayerComponent(QWidget):
             # Song needs metadata reload - use light reload to avoid status changes
             # Defer by 0ms to let UI render first
             QTimer.singleShot(0, lambda: self._actions.reload_song_light(song))
+            # Note: Waveform will be created after notes load via on_song_updated signal
+        else:
+            # Notes already loaded - safe to create waveforms immediately
+            # Create waveforms for selected song if missing (instant task, runs immediately in parallel)
+            if not WaveformPathService.waveforms_exists(song, self._data.tmp_path):
+                # Set placeholder immediately to show user feedback
+                self.waveform_widget.set_placeholder("Loading waveform…")
 
-        # Create waveforms for selected song if missing (instant task, runs immediately in parallel)
-        if not WaveformPathService.waveforms_exists(song, self._data.tmp_path):
-            # Set placeholder immediately to show user feedback
-            self.waveform_widget.set_placeholder("Loading waveform…")
+                from actions.audio_actions import AudioActions
 
-            from actions.audio_actions import AudioActions
-
-            audio_actions = AudioActions(self._data)
-            # Defer slightly to let UI render first, then start instant task
-            QTimer.singleShot(0, lambda: audio_actions._create_waveforms(song, overwrite=False, use_queue=True))
+                audio_actions = AudioActions(self._data)
+                # Defer slightly to let UI render first, then start instant task
+                QTimer.singleShot(0, lambda: audio_actions._create_waveforms(song, overwrite=False, use_queue=True))
 
     def on_song_updated(self, updated_song: Song):
         """Handle when the current song data is updated
@@ -297,6 +299,13 @@ class MediaPlayerComponent(QWidget):
             )
         else:
             self.waveform_widget.set_gap_markers(None, None)
+
+        # If notes just finished loading and waveforms don't exist, create them now
+        if updated_song.notes and not WaveformPathService.waveforms_exists(updated_song, self._data.tmp_path):
+            logger.debug(f"Notes loaded for {updated_song.title}, creating waveforms with notes")
+            from actions.audio_actions import AudioActions
+            audio_actions = AudioActions(self._data)
+            audio_actions._create_waveforms(updated_song, overwrite=False, use_queue=True)
 
     def update_player_files(self):
         """Load the appropriate media files based on current state"""
