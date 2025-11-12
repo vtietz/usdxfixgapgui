@@ -296,6 +296,7 @@ def _run_gui(config: Any, gpu_enabled: bool, log_file_path: str, capabilities: A
 def main():
     """Main entry point for USDXFixGap application"""
     log_file_path: Optional[str] = None
+    exception_handler = None
 
     try:
         args = parse_arguments()
@@ -315,11 +316,22 @@ def main():
         config = _create_and_validate_config()
         log_file_path, logger = _setup_logging_early(config)
 
+        # Install global exception handler AFTER logging is configured
+        from utils.exception_handler import install_global_exception_handler
+
+        exception_handler = install_global_exception_handler(log_file_path)
+        logger.info("Global exception handler installed")
+
         # GPU + models
         gpu_enabled, gpu_status = _bootstrap_gpu_and_models(config, logger)
 
         # Check if GPU Pack was expected but failed validation
-        if not gpu_enabled and gpu_status.error and hasattr(config, 'gpu_last_health') and config.gpu_last_health == 'failed':
+        if (
+            not gpu_enabled
+            and gpu_status.error
+            and hasattr(config, "gpu_last_health")
+            and config.gpu_last_health == "failed"
+        ):
             # GPU Pack was activated but validation failed - show error to user
             from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -381,6 +393,8 @@ def main():
             from utils.run_async import shutdown_asyncio
             from common.utils.async_logging import shutdown_async_logging
 
+            if exception_handler:
+                exception_handler.uninstall()
             shutdown_asyncio()
             shutdown_async_logging()
         except Exception:

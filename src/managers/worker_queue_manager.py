@@ -374,11 +374,80 @@ class WorkerQueueManager(QObject):
         self._mark_ui_update_needed()
 
     def on_task_error(self, task_id, e):
-        logger.error(f"Error executing task {task_id}: {e}")
+        import traceback
+
         worker = self.get_worker(task_id)
+
+        # Log error with full details
+        logger.error("=" * 60)
+        logger.error(f"TASK ERROR - ID: {task_id}")
+        if worker:
+            logger.error(f"Task Description: {worker.description}")
+        logger.error(f"Error: {str(e)}")
+
+        # Log full stack trace if available
+        if hasattr(e, "__traceback__") and e.__traceback__:
+            logger.error("Stack trace:")
+            for line in traceback.format_exception(type(e), e, e.__traceback__):
+                logger.error(line.rstrip())
+        logger.error("=" * 60)
+
         if worker:
             worker.status = WorkerStatus.ERROR
+            # Show user-friendly error dialog
+            self._show_task_error_dialog(worker, e)
         self.on_task_finished(task_id)
+
+    def _show_task_error_dialog(self, worker: IWorker, exception: Exception):
+        """
+        Show error dialog to user when a worker task fails.
+
+        Args:
+            worker: The failed worker
+            exception: The exception that caused the failure
+        """
+        import os
+        import traceback
+        from PySide6.QtWidgets import QMessageBox
+        from PySide6.QtCore import QTimer
+
+        # Don't show dialogs in test/CI environment
+        if os.environ.get("USDX_SUPPRESS_ERROR_DIALOGS") == "1":
+            logger.debug("Error dialog suppressed (USDX_SUPPRESS_ERROR_DIALOGS=1)")
+            return
+
+        logger.info(f"Showing error dialog to user for task: {worker.description}")
+
+        def show_dialog():
+            """Show dialog on main GUI thread."""
+            try:
+                msg_box = QMessageBox()
+                msg_box.setIcon(QMessageBox.Icon.Critical)
+                msg_box.setWindowTitle("Task Failed")
+
+                # User-friendly message
+                msg_box.setText(
+                    f"Task failed: {worker.description}\n\n"
+                    f"Error: {str(exception)}\n\n"
+                    "The application will continue running, but this task could not be completed."
+                )
+
+                # Detailed technical info
+                if hasattr(exception, "__traceback__") and exception.__traceback__:
+                    details = "".join(traceback.format_exception(type(exception), exception, exception.__traceback__))
+                    msg_box.setDetailedText(details)
+
+                msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+                msg_box.exec()
+
+                logger.info("Error dialog closed by user")
+
+            except Exception as dialog_error:
+                # If dialog fails, at least log it
+                logger.error(f"Failed to show error dialog: {dialog_error}")
+
+        # Queue dialog on main GUI thread to avoid threading issues
+        QTimer.singleShot(0, show_dialog)
 
     def on_task_canceled(self, task_id):
         logger.info(f"Task {task_id} canceled")

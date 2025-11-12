@@ -12,14 +12,32 @@ logger = logging.getLogger(__name__)
 
 
 def create_waveform_image(audio_file, image_path, color, width=1920, height=1080):
-    """Create a waveform image for the given audio file."""
+    """
+    Create a waveform image for the given audio file.
 
+    Args:
+        audio_file: Path to audio file
+        image_path: Path where waveform image will be saved
+        color: Color for waveform visualization
+        width: Image width in pixels
+        height: Image height in pixels
+
+    Returns:
+        str: Path to created image
+
+    Raises:
+        FileNotFoundError: If audio file doesn't exist
+        Exception: If ffmpeg fails or image creation fails
+    """
     logger.debug(f"Creating waveform '{image_path}'...")
 
     if not os.path.exists(audio_file):
         raise FileNotFoundError(f"Audio file not found: {audio_file}")
 
-    os.makedirs(os.path.dirname(image_path), exist_ok=True)
+    try:
+        os.makedirs(os.path.dirname(image_path), exist_ok=True)
+    except OSError as e:
+        raise Exception(f"Failed to create output directory for waveform: {e}") from e
 
     # Create waveform image preserving original amplitude
     # scale=sqrt provides better visibility while maintaining relative loudness differences
@@ -28,7 +46,7 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
         "ffmpeg",
         "-y",
         "-loglevel",
-        "quiet",
+        "error",  # Show errors but not info
         "-i",
         audio_file,
         "-filter_complex",
@@ -38,15 +56,37 @@ def create_waveform_image(audio_file, image_path, color, width=1920, height=1080
         image_path,
     ]
 
-    # Hide command window on Windows
-    if platform.system() == "Windows":
-        result = subprocess.run(command, creationflags=subprocess.CREATE_NO_WINDOW)
-    else:
-        result = subprocess.run(command)
+    try:
+        # Hide command window on Windows
+        if platform.system() == "Windows":
+            result = subprocess.run(
+                command,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                capture_output=True,
+                text=True,
+                timeout=30,  # 30 second timeout for safety
+            )
+        else:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=30)
 
+        # Check if ffmpeg succeeded
+        if result.returncode != 0:
+            error_msg = result.stderr if result.stderr else "Unknown error"
+            raise Exception(f"ffmpeg failed with exit code {result.returncode}: {error_msg}")
+
+    except subprocess.TimeoutExpired as e:
+        raise Exception(f"Waveform generation timed out after 30 seconds for: {audio_file}") from e
+    except OSError as e:
+        raise Exception(f"Failed to execute ffmpeg (is it installed?): {e}") from e
+    except Exception as e:
+        # Re-raise with context
+        raise Exception(f"Unexpected error during waveform generation: {e}") from e
+
+    # Verify image was created
     if not os.path.exists(image_path):
-        raise Exception(f"Failed to create waveform image '{image_path}'. Error: {result.stderr}")
+        raise Exception(f"ffmpeg completed but waveform image was not created at: {image_path}")
 
+    logger.debug(f"Waveform created successfully: {image_path}")
     return image_path
 
 
