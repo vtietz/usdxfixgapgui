@@ -14,6 +14,7 @@ Typed facade:
 
 # Main API from bootstrap module
 from .bootstrap import (
+    bootstrap_gpu,
     bootstrap_and_maybe_enable_gpu,
     enable_gpu_runtime,
     ADDED_DLL_DIRS,
@@ -53,6 +54,7 @@ from .pack_utils import (
 
 __all__ = [
     # Main API
+    "bootstrap_gpu",
     "bootstrap_and_maybe_enable_gpu",
     "enable_gpu_runtime",
     "validate_cuda_torch",

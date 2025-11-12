@@ -348,62 +348,6 @@ def write_hook_diagnostics(pack_dir, finder_inserted, dll_added, path_modified):
         pass
 
 
-def setup_gpu_pack():
-    """Main setup function - called only in frozen mode.
-
-    Sets up hybrid CPU/GPU runtime:
-    - CPU torch/torchaudio bundled in EXE (default)
-    - GPU Pack: when present, intercepts imports via MetaPathFinder
-    """
-    # Early exit: not frozen or force CPU mode
-    if not hasattr(sys, "_MEIPASS"):
-        return
-
-    if os.environ.get("USDXFIXGAP_FORCE_CPU", "").lower() in ("1", "true", "yes"):
-        return
-
-    # Get config directory and pack path
-    config_dir = get_config_dir()
-    config_file = config_dir / "config.ini"
-
-    pack_dir = read_gpu_pack_path(config_file)
-    if not pack_dir:
-        return
-
-    # Validate pack directory structure
-    if not _pack_dir_valid(pack_dir):
-        return
-
-    has_torchaudio = (pack_dir / "torchaudio").exists()
-
-    # Validate ABI compatibility
-    if not _validate_abi_compatibility(pack_dir):
-        write_hook_diagnostics(pack_dir, False, False, False)
-        return
-
-    # Setup GPU Pack import redirection
-    redirected_modules = {"torch"}
-    if has_torchaudio:
-        redirected_modules.add("torchaudio")
-
-    _setup_torch_dynamo_stub()
-
-    # Insert MetaPathFinder and reorder sys.path
-    finder = GPUPackImportFinder(pack_dir, redirected_modules)
-    sys.meta_path.insert(0, finder)
-    reorder_syspath_for_gpu_pack(pack_dir)
-
-    # Add library directory for DLLs
-    dll_added, path_modified = _add_gpu_pack_lib_dir(pack_dir)
-
-    # Write diagnostics
-    write_hook_diagnostics(pack_dir, True, dll_added, path_modified)
-
-
-# Execute setup
-setup_gpu_pack()
-
-
 # ==========================
 # Helper functions for setup_gpu_pack
 # ==========================
@@ -458,3 +402,59 @@ def _add_gpu_pack_lib_dir(pack_dir):
         add_dll_directory(lib_dir)
         return True, True
     return False, False
+
+
+def setup_gpu_pack():
+    """Main setup function - called only in frozen mode.
+
+    Sets up hybrid CPU/GPU runtime:
+    - CPU torch/torchaudio bundled in EXE (default)
+    - GPU Pack: when present, intercepts imports via MetaPathFinder
+    """
+    # Early exit: not frozen or force CPU mode
+    if not hasattr(sys, "_MEIPASS"):
+        return
+
+    if os.environ.get("USDXFIXGAP_FORCE_CPU", "").lower() in ("1", "true", "yes"):
+        return
+
+    # Get config directory and pack path
+    config_dir = get_config_dir()
+    config_file = config_dir / "config.ini"
+
+    pack_dir = read_gpu_pack_path(config_file)
+    if not pack_dir:
+        return
+
+    # Validate pack directory structure
+    if not _pack_dir_valid(pack_dir):
+        return
+
+    has_torchaudio = (pack_dir / "torchaudio").exists()
+
+    # Validate ABI compatibility
+    if not _validate_abi_compatibility(pack_dir):
+        write_hook_diagnostics(pack_dir, False, False, False)
+        return
+
+    # Setup GPU Pack import redirection
+    redirected_modules = {"torch"}
+    if has_torchaudio:
+        redirected_modules.add("torchaudio")
+
+    _setup_torch_dynamo_stub()
+
+    # Insert MetaPathFinder and reorder sys.path
+    finder = GPUPackImportFinder(pack_dir, redirected_modules)
+    sys.meta_path.insert(0, finder)
+    reorder_syspath_for_gpu_pack(pack_dir)
+
+    # Add library directory for DLLs
+    dll_added, path_modified = _add_gpu_pack_lib_dir(pack_dir)
+
+    # Write diagnostics
+    write_hook_diagnostics(pack_dir, True, dll_added, path_modified)
+
+
+# Execute setup
+setup_gpu_pack()

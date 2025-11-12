@@ -144,7 +144,9 @@ def _validate_pack_and_update_config(config, pack_dir: Path, gpu_flavor: str, ex
         )
         config.gpu_last_error = diagnostic_info
         config.gpu_last_health = "failed"
+        config.gpu_opt_in = False  # Disable to prevent boot loop
         config.save_config()
+        logger.warning("GPU Pack disabled due to validation failure - user can re-activate from startup dialog")
         return False
 
     # CUDA validation failed - add torch import source diagnostics
@@ -171,7 +173,9 @@ def _validate_pack_and_update_config(config, pack_dir: Path, gpu_flavor: str, ex
     )
     config.gpu_last_error = diagnostic_info
     config.gpu_last_health = "failed"
+    config.gpu_opt_in = False  # Disable to prevent boot loop
     config.save_config()
+    logger.warning("GPU Pack disabled due to validation failure - user can re-activate from startup dialog")
     return False
 
 

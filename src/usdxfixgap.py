@@ -237,16 +237,16 @@ def _setup_logging_early(config: Any) -> Tuple[str, logging.Logger]:
     return log_file_path, logger
 
 
-def _bootstrap_gpu_and_models(config: Any, logger: logging.Logger) -> bool:
-    """Bootstrap GPU pack, then configure model paths. Returns whether GPU is enabled."""
-    from utils.gpu_bootstrap import bootstrap_and_maybe_enable_gpu
+def _bootstrap_gpu_and_models(config: Any, logger: logging.Logger) -> Tuple[bool, Any]:
+    """Bootstrap GPU pack, then configure model paths. Returns (gpu_enabled, gpu_status)."""
+    from utils.gpu_bootstrap import bootstrap_gpu
     from utils.model_paths import setup_model_paths
 
-    gpu_enabled = bootstrap_and_maybe_enable_gpu(config)
-    logger.info(f"GPU bootstrap completed: enabled={gpu_enabled}")
+    gpu_status = bootstrap_gpu(config)
+    logger.info(f"GPU bootstrap completed: enabled={gpu_status.enabled}")
     # Note: setup_model_paths may import torch — perform after GPU bootstrap
     setup_model_paths(config)
-    return gpu_enabled
+    return gpu_status.enabled, gpu_status
 
 
 def _maybe_handle_gpu_cli(args: argparse.Namespace, config: Any) -> Optional[int]:
@@ -316,7 +316,34 @@ def main():
         log_file_path, logger = _setup_logging_early(config)
 
         # GPU + models
-        gpu_enabled = _bootstrap_gpu_and_models(config, logger)
+        gpu_enabled, gpu_status = _bootstrap_gpu_and_models(config, logger)
+
+        # Check if GPU Pack was expected but failed validation
+        if not gpu_enabled and gpu_status.error and hasattr(config, 'gpu_last_health') and config.gpu_last_health == 'failed':
+            # GPU Pack was activated but validation failed - show error to user
+            from PySide6.QtWidgets import QApplication, QMessageBox
+
+            app = QApplication.instance() or QApplication(sys.argv)
+
+            error_msg = (
+                "GPU Pack Validation Failed\n\n"
+                "The GPU Pack was activated but failed to load properly. "
+                "The application will run in CPU mode.\n\n"
+                f"Error: {gpu_status.error}\n\n"
+                "Solutions:\n"
+                "• Check that your NVIDIA drivers are up to date (version 531+ for CUDA 12.1)\n"
+                "• Try deleting the GPU Pack folder and downloading it again\n"
+                "• Use the About dialog (Help menu) to manage GPU Pack settings"
+            )
+
+            msg_box = QMessageBox()
+            msg_box.setIcon(QMessageBox.Icon.Warning)
+            msg_box.setWindowTitle("GPU Pack Validation Failed")
+            msg_box.setText(error_msg)
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg_box.exec()
+
+            logger.warning("Showed GPU Pack validation failure dialog to user")
 
         # Optional GPU CLI flow (may exit)
         maybe_exit = _maybe_handle_gpu_cli(args, config)

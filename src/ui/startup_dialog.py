@@ -443,8 +443,8 @@ class StartupDialog(QDialog):
             self.status_label.setText("✅ GPU Pack Activated (Restart Required)")
             self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
 
-            # Change button to close/restart prompt
-            self.download_btn.setText("Restart App")
+            # Change button to close app
+            self.download_btn.setText("Close App")
             self.download_btn.setEnabled(True)
             self.download_btn.clicked.disconnect()
             self.download_btn.clicked.connect(self._on_restart_for_gpu)
@@ -459,28 +459,25 @@ class StartupDialog(QDialog):
             self.download_btn.setEnabled(True)
 
     def _on_restart_for_gpu(self):
-        """Handle restart request after GPU Pack activation."""
+        """Handle close request after GPU Pack activation."""
         from PySide6.QtWidgets import QMessageBox
 
-        reply = QMessageBox.question(
+        QMessageBox.information(
             self,
             "Restart Required",
-            "GPU Pack has been activated. The application needs to restart to use GPU acceleration.\n\n" "Restart now?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes,
+            "GPU Pack has been activated successfully!\n\n"
+            "Please close and restart the application to use GPU acceleration.",
+            QMessageBox.StandardButton.Ok,
         )
 
-        if reply == QMessageBox.StandardButton.Yes:
-            logger.info("User confirmed restart after GPU Pack activation")
-            import sys
-            import os
+        logger.info("GPU Pack activated - closing application for restart")
 
-            # Use sys.executable to restart Python interpreter with same script
-            os.execl(sys.executable, sys.executable, *sys.argv)
+        # Close the dialog and exit application
+        if self.startup_mode:
+            self.reject()
+            import sys
+            sys.exit(0)
         else:
-            # User chose not to restart - close dialog
-            if self.startup_mode:
-                self.completed.emit(self.capabilities)
             self.accept()
 
     def _on_start_clicked(self):
