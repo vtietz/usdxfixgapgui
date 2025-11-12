@@ -446,6 +446,22 @@ class Config(QObject):
             normalized = f"torch-{normalized}"
         return os.path.join(self.gpu_runtime_root, normalized)
 
+    def get(self, section: str, key: str, fallback: str | None = None) -> str:
+        """Get a string value from the config."""
+        return self._config.get(section, key, fallback=fallback)
+
+    def get_int(self, section: str, key: str, fallback: int | None = None) -> int:
+        """Get an integer value from the config."""
+        return self._config.getint(section, key, fallback=fallback)
+
+    def get_float(self, section: str, key: str, fallback: float | None = None) -> float:
+        """Get a float value from the config."""
+        return self._config.getfloat(section, key, fallback=fallback)
+
+    def get_bool(self, section: str, key: str, fallback: bool | None = None) -> bool:
+        """Get a boolean value from the config."""
+        return self._config.getboolean(section, key, fallback=fallback)
+
     @property
     def effective_models_directory(self) -> str:
         """

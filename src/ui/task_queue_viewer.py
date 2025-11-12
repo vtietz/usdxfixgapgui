@@ -1,226 +1,175 @@
+"""
+Task Queue Viewer - Simple, Robust Implementation
+
+Architecture:
+- Full rebuild on signal (no differential patching)
+- No widget caching (Qt handles lifecycle via parenting)
+- Single source of truth: WorkerQueueManager state
+- Manager already debounces via heartbeat, so we rebuild directly
+"""
+
 import logging
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton
-from PySide6.QtCore import Qt, QTimer
-from managers.worker_queue_manager import WorkerQueueManager, WorkerStatus
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView
+from PySide6.QtCore import Qt
+from managers.worker_queue_manager import WorkerQueueManager
 
 logger = logging.getLogger(__name__)
 
 
 class TaskQueueViewer(QWidget):
+    """
+    Displays the task queue in a simple table.
+
+    Design Philosophy:
+    - Rebuild everything on manager signal (simple, no edge cases)
+    - No widget caching (avoid lifecycle issues)
+    - Let Qt manage widget memory (proper parenting)
+    - Manager already debounces updates via heartbeat
+    """
 
     def __init__(self, workerQueueManager: WorkerQueueManager, parent=None):
         super().__init__(parent)
         self.workerQueueManager = workerQueueManager
-        self._update_timer = QTimer(self)
-        self._update_timer.setSingleShot(True)
-        self._update_timer.setInterval(200)  # ms; coalesce frequent updates
-        self._update_timer.timeout.connect(self.apply_diff_update)
-        self.cancelling_tasks = set()
-        self._row_for_task_id = {}
-        self._button_for_task_id = {}
+
+        # UI setup
         self.initUI()
-        # Initial population
-        self.apply_diff_update()
-        # Debounced updates from manager
-        self.workerQueueManager.on_task_list_changed.connect(self.schedule_update)
+
+        # Connect to worker queue signal (manager already debounces)
+        self.workerQueueManager.on_task_list_changed.connect(self._rebuild_table)
+
+        # Initial build
+        self._rebuild_table()
 
     def initUI(self):
+        """Create the table widget with proper configuration."""
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        self.tableWidget = QTableWidget()
-        self.tableWidget.setColumnCount(3)
-        self.tableWidget.setHorizontalHeaderLabels(["Task", "Status", ""])
-        self.tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.tableWidget.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
-        self.layout.addWidget(self.tableWidget)
 
-        # Adjust the initial width of the first and third columns, and let the second column take the remaining space
+        self.tableWidget = QTableWidget(0, 3)
+        self.tableWidget.setHorizontalHeaderLabels(["Task", "Status", ""])
+        self.tableWidget.horizontalHeader().setStretchLastSection(False)
         self.tableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.tableWidget.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-        self.tableWidget.setColumnWidth(1, 100)  # Set width of "Status" column
+        self.tableWidget.setColumnWidth(1, 100)  # Fixed width for Status column
+        self.tableWidget.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        self.tableWidget.setColumnWidth(2, 80)  # Fixed width for button column
+        self.tableWidget.verticalHeader().setVisible(False)
+        self.tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.tableWidget.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
+        self.tableWidget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 
-    def schedule_update(self):
-        # Restart the timer to coalesce multiple rapid emits
-        if self._update_timer.isActive():
-            self._update_timer.stop()
-        self._update_timer.start()
+        self.layout.addWidget(self.tableWidget)
 
-    def compute_ordered_tasks(self):
+    def _gather_tasks(self):
         """
-        Return ordered list of (task_id, description, status, lane)
-        1) Running fast lane (instant)
-        2) Running standard
-        3) Queued fast (oldest first)
-        4) Queued standard (oldest first)
+        Gather ordered list of tasks from worker queue manager.
+
+        Order:
+        1. Running instant task (if present)
+        2. Running standard tasks
+        3. Queued instant tasks
+        4. Queued standard tasks
+
+        Returns:
+            List of tuples: (task_id, description, status_string, can_cancel)
         """
-        ordered = []
-        # Running instant task
+        tasks = []
+
+        # 1. Running instant task
         if self.workerQueueManager.running_instant_task:
-            w = self.workerQueueManager.running_instant_task
-            ordered.append((w.id, w.description, w.status.name, "instant"))
-        # Running standard tasks
-        for task_id, w in self.workerQueueManager.running_tasks.items():
-            ordered.append((task_id, w.description, w.status.name, "standard"))
-        # Queued instant tasks
-        for w in self.workerQueueManager.queued_instant_tasks:
-            ordered.append((w.id, w.description, w.status.name, "instant"))
-        # Queued standard tasks
-        for w in self.workerQueueManager.queued_tasks:
-            ordered.append((w.id, w.description, w.status.name, "standard"))
-        return ordered
+            worker = self.workerQueueManager.running_instant_task
+            description = getattr(worker, 'description', worker.__class__.__name__)
+            status_name = getattr(worker.status, 'name', str(worker.status)) if hasattr(worker, 'status') else 'RUNNING'
+            can_cancel = status_name not in ('CANCELLING', 'FINISHED', 'ERROR')
+            tasks.append((worker.id, description, status_name, can_cancel))
 
-    def apply_diff_update(self):
-        vscroll, vpos = self._get_scroll_state()
-        self.tableWidget.setUpdatesEnabled(False)
+        # 2. Running standard tasks
+        for worker_id, worker in self.workerQueueManager.running_tasks.items():
+            description = getattr(worker, 'description', worker.__class__.__name__)
+            status_name = getattr(worker.status, 'name', str(worker.status)) if hasattr(worker, 'status') else 'RUNNING'
+            can_cancel = status_name not in ('CANCELLING', 'FINISHED', 'ERROR')
+            tasks.append((worker_id, description, status_name, can_cancel))
 
-        desired = self.compute_ordered_tasks()
-        desired_ids = [tid for (tid, _, _, _) in desired]
+        # 3. Queued instant tasks
+        for worker in self.workerQueueManager.queued_instant_tasks:
+            description = getattr(worker, 'description', worker.__class__.__name__)
+            status_name = 'QUEUED'
+            can_cancel = True
+            tasks.append((worker.id, description, status_name, can_cancel))
 
-        # Current table snapshot
-        self._rebuild_row_map()
+        # 4. Queued standard tasks
+        for worker in self.workerQueueManager.queued_tasks:
+            description = getattr(worker, 'description', worker.__class__.__name__)
+            status_name = 'QUEUED'
+            can_cancel = True
+            tasks.append((worker.id, description, status_name, can_cancel))
 
-        # 1) Add any missing rows
-        self._add_missing_rows(desired)
-        self._rebuild_row_map()
+        return tasks
 
-        # 2) Update text/button state for existing rows
-        self._update_existing_rows(desired)
+    def _rebuild_table(self):
+        """
+        Rebuild the entire table from the worker queue state.
 
-        # 3) Remove rows not in desired
-        self._remove_missing_rows(desired_ids)
-        self._rebuild_row_map()
+        This is the ONLY method that modifies the table.
+        Simple, predictable, no edge cases.
+        """
+        try:
+            # Save scroll position
+            vscroll = self.tableWidget.verticalScrollBar()
+            scroll_pos = vscroll.value() if vscroll else 0
 
-        # 4) Reorder to match desired_ids
-        self._reorder_rows(desired_ids)
+            # Disable updates for smoother rebuild
+            self.tableWidget.setUpdatesEnabled(False)
 
-        # Restore scroll and re-enable updates
-        self._restore_scroll(vscroll, vpos)
-        self.tableWidget.setUpdatesEnabled(True)
+            # Clear all rows (Qt automatically destroys child widgets)
+            self.tableWidget.setRowCount(0)
 
-    # -------------------------
-    # Internal helpers (UI ops)
-    # -------------------------
-    def _get_scroll_state(self):
-        vscroll = self.tableWidget.verticalScrollBar() if self.tableWidget.verticalScrollBar() else None
-        vpos = vscroll.value() if vscroll else 0
-        return vscroll, vpos
+            # Gather current tasks
+            tasks = self._gather_tasks()
 
-    def _restore_scroll(self, vscroll, vpos):
-        if vscroll:
-            vscroll.setValue(vpos)
+            # Rebuild rows
+            for row_idx, (task_id, description, status_string, can_cancel) in enumerate(tasks):
+                self.tableWidget.insertRow(row_idx)
 
-    def _rebuild_row_map(self):
-        self._row_for_task_id.clear()
-        for row in range(self.tableWidget.rowCount()):
-            item = self.tableWidget.item(row, 0)
-            tid = item.data(Qt.ItemDataRole.UserRole) if item else None
-            if tid is not None:
-                self._row_for_task_id[tid] = row
+                # Column 0: Description
+                desc_item = QTableWidgetItem(description)
+                desc_item.setData(Qt.ItemDataRole.UserRole, task_id)
+                desc_item.setFlags(desc_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.tableWidget.setItem(row_idx, 0, desc_item)
 
-    def _ensure_button(self, task_id):
-        btn = self._button_for_task_id.get(task_id)
-        if btn is None:
-            btn = QPushButton("Cancel")
-            btn.clicked.connect(lambda checked=False, tid=task_id: self.cancel_task(tid))
-            self._button_for_task_id[task_id] = btn
-        return btn
+                # Column 1: Status
+                status_item = QTableWidgetItem(status_string)
+                status_item.setFlags(status_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.tableWidget.setItem(row_idx, 1, status_item)
 
-    def _set_button_state(self, btn: QPushButton, task_id, status: str):
-        cancelling = status == WorkerStatus.CANCELLING.name or task_id in self.cancelling_tasks
-        if cancelling:
-            if btn.text() != "Cancelling...":
-                btn.setText("Cancelling...")
-            if btn.isEnabled():
-                btn.setEnabled(False)
-        else:
-            if btn.text() != "Cancel":
-                btn.setText("Cancel")
-            if not btn.isEnabled():
-                btn.setEnabled(True)
+                # Column 2: Cancel button
+                btn = QPushButton("Cancel")
+                btn.setProperty("task_id", task_id)
+                btn.setEnabled(can_cancel)
+                if not can_cancel:
+                    btn.setText("Cancelling..." if status_string == 'CANCELLING' else "Done")
+                # Connect clicked signal
+                btn.clicked.connect(lambda checked=False, tid=task_id: self._on_cancel_clicked(tid))
+                # Parent to table (Qt will auto-cleanup on row removal)
+                self.tableWidget.setCellWidget(row_idx, 2, btn)
 
-    def _add_missing_rows(self, desired):
-        for index, (task_id, description, status, _lane) in enumerate(desired):
-            if task_id in self._row_for_task_id:
-                continue
-            self.tableWidget.insertRow(index)
-            # Description
-            desc_item = QTableWidgetItem(description)
-            desc_item.setData(Qt.ItemDataRole.UserRole, task_id)
-            self.tableWidget.setItem(index, 0, desc_item)
-            # Status
-            status_item = QTableWidgetItem(status)
-            self.tableWidget.setItem(index, 1, status_item)
-            # Button
-            btn = self._ensure_button(task_id)
-            self._set_button_state(btn, task_id, status)
-            self.tableWidget.setCellWidget(index, 2, btn)
+            # Restore scroll position
+            if vscroll:
+                vscroll.setValue(scroll_pos)
 
-    def _update_existing_rows(self, desired):
-        for _index, (task_id, description, status, _lane) in enumerate(desired):
-            row = self._row_for_task_id.get(task_id)
-            if row is None:
-                continue
-            # Description text
-            desc_item = self.tableWidget.item(row, 0)
-            if desc_item is not None and desc_item.text() != description:
-                desc_item.setText(description)
-            # Status text
-            status_item = self.tableWidget.item(row, 1)
-            if status_item is not None and status_item.text() != status:
-                status_item.setText(status)
-            # Button state
-            btn = self._button_for_task_id.get(task_id)
-            if btn is not None:
-                self._set_button_state(btn, task_id, status)
+            # Re-enable updates
+            self.tableWidget.setUpdatesEnabled(True)
 
-    def _remove_missing_rows(self, desired_ids):
-        for tid in list(self._row_for_task_id.keys()):
-            if tid in desired_ids:
-                continue
-            row = self._row_for_task_id.get(tid)
-            if row is None:
-                continue
-            self._button_for_task_id.pop(tid, None)
-            self.tableWidget.removeRow(row)
-            self._row_for_task_id.pop(tid, None)
+        except Exception as e:
+            logger.exception("Error rebuilding task queue table: %s", e)
+            # Ensure updates are re-enabled even on error
+            self.tableWidget.setUpdatesEnabled(True)
 
-    def _reorder_rows(self, desired_ids):
-        def move_row(src, dst):
-            if src == dst:
-                return
-            items = [self.tableWidget.takeItem(src, c) for c in range(2)]
-            btn = self.tableWidget.cellWidget(src, 2)
-            if btn:
-                self.tableWidget.removeCellWidget(src, 2)
-            self.tableWidget.removeRow(src)
-            self.tableWidget.insertRow(dst)
-            for c, it in enumerate(items):
-                self.tableWidget.setItem(dst, c, it)
-            if btn:
-                self.tableWidget.setCellWidget(dst, 2, btn)
-            # Mapping changes; rebuild to keep logic simple and robust
-            self._rebuild_row_map()
-
-        self._rebuild_row_map()
-        for target_index, tid in enumerate(desired_ids):
-            cur_row = self._row_for_task_id.get(tid)
-            if cur_row is None:
-                continue
-            if cur_row != target_index:
-                move_row(cur_row, target_index)
-
-    def cancel_task(self, task_id):
-        logger.debug("Cancelling task %s", task_id)
-        # Mark this task as being cancelled
-        self.cancelling_tasks.add(task_id)
-        # Update the UI immediately for better feedback
-        for row in range(self.tableWidget.rowCount()):
-            desc_item = self.tableWidget.item(row, 0)
-            if desc_item and desc_item.data(Qt.ItemDataRole.UserRole) == task_id:
-                button = self.tableWidget.cellWidget(row, 2)
-                if button:
-                    button.setText("Cancelling...")
-                    button.setEnabled(False)
-                break
-        # Actually cancel the task
-        self.workerQueueManager.cancel_task(task_id)
+    def _on_cancel_clicked(self, task_id):
+        """Handle cancel button click."""
+        try:
+            logger.info("User cancelling task: %s", task_id)
+            self.workerQueueManager.cancel_task(task_id)
+            # Table will rebuild on next manager signal
+        except Exception as e:
+            logger.exception("Error cancelling task %s: %s", task_id, e)
