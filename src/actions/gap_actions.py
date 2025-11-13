@@ -132,9 +132,13 @@ class GapActions(BaseActions):
 
         # Queue auto-normalization as separate worker task (non-blocking)
         if self.config.auto_normalize and song.audio_file:
-            logger.info(f"Queueing auto-normalization for {song} after gap detection")
-            # Use start_now=False to let queue manager schedule it after current tasks
-            audio_actions._normalize_song(song, start_now=False)
+            # Check if already normalized to avoid unnecessary re-processing
+            if song.gap_info and song.gap_info.is_normalized:
+                logger.debug(f"Skipping auto-normalization for {song} - already normalized on {song.gap_info.normalized_date}")
+            else:
+                logger.info(f"Queueing auto-normalization for {song} after gap detection")
+                # Use start_now=False to let queue manager schedule it after current tasks
+                audio_actions._normalize_song(song, start_now=False)
 
         # Notify that the song has been updated
         self.data.songs.updated.emit(song)
