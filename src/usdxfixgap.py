@@ -230,6 +230,10 @@ def _setup_logging_early(config: Any) -> Tuple[str, logging.Logger]:
         max_bytes=10 * 1024 * 1024,
         backup_count=3,
     )
+
+    # Suppress noisy third-party library loggers
+    logging.getLogger("torio._extension.utils").setLevel(logging.WARNING)  # Suppress FFmpeg probe attempts
+
     logger = logging.getLogger(__name__)
     logger.info(f"Application started with log level: {config.log_level_str}")
     # Log configuration file location now that logging is ready

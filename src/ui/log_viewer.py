@@ -185,12 +185,12 @@ class LogViewerWidget(QWidget):
         cursor = self.text_edit.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         self.text_edit.setTextCursor(cursor)
-        
+
         # Explicitly set vertical scrollbar to maximum
         # This ensures we scroll even if cursor move didn't trigger it
         v_scrollbar = self.text_edit.verticalScrollBar()
         v_scrollbar.setValue(v_scrollbar.maximum())
-        
+
         # Ensure the cursor is visible (alternative scroll method)
         self.text_edit.ensureCursorVisible()
 

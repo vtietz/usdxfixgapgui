@@ -210,7 +210,10 @@ class GapActions(BaseActions):
 
         audio_actions = AudioActions(self.data)
         audio_actions._create_waveforms(song_to_process, True)
-        self.data.songs.updated.emit(song_to_process)
+
+        # Defer signal emission to prevent cascade
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
 
     def revert_gap_value(self, song: Optional[Song]):
         song_to_process = self._resolve_song(song)
@@ -251,13 +254,25 @@ class GapActions(BaseActions):
 
         audio_actions = AudioActions(self.data)
         audio_actions._create_waveforms(song_to_process, True)
-        self.data.songs.updated.emit(song_to_process)
+
+        # Defer signal emission to prevent cascade
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
 
     def keep_gap_value(self, song: Optional[Song]):
+        import time
+        import threading
+        from PySide6.QtCore import QTimer
+
+        start_time = time.perf_counter()
+        logger.debug(f"[Thread: {threading.current_thread().name}] keep_gap_value started")
+
         song_to_process = self._resolve_song(song)
         if not song_to_process:
             logger.error("No song selected for keeping gap value.")
             return
+
+        logger.info(f"Keeping gap value for {song_to_process.artist} - {song_to_process.title}")
 
         # Mark as solved - status mapping happens via owner hook
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
@@ -276,7 +291,18 @@ class GapActions(BaseActions):
             logger.debug(f"Updated song cache after keeping gap for {song_to_process.txt_file}")
 
         run_async(save_gap_and_cache())
-        self.data.songs.updated.emit(song_to_process)
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        logger.debug(f"keep_gap_value completed in {duration_ms:.1f}ms, deferring signal emission")
+
+        # Defer signal emission to prevent cascade during event processing
+        # This allows the current event handler to complete before triggering updates
+        def emit_deferred():
+            logger.debug("Emitting deferred songs.updated signal")
+            self.data.songs.updated.emit(song_to_process)
+
+        QTimer.singleShot(50, emit_deferred)  # 50ms delay to let UI settle
+        logger.debug("keep_gap_value completed, signal emission deferred")
 
     def _recalculate_note_times(self, song: Song):
         """Recalculate note times based on current gap, bpm, and is_relative settings"""

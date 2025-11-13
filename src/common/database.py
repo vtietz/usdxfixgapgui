@@ -178,7 +178,12 @@ def set_cache_entry(key, obj):
         key (str): The cache key (filepath)
         obj (object): The object to cache
     """
+    import time
+    import threading
+    start_time = time.perf_counter()
+
     try:
+        logger.debug(f"[Thread: {threading.current_thread().name}] set_cache_entry started for {key}")
         conn = get_connection()
         cursor = conn.cursor()
 
@@ -197,10 +202,14 @@ def set_cache_entry(key, obj):
         conn.commit()
         conn.close()
 
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        if duration_ms > 100:
+            logger.warning(f"SLOW cache operation: {duration_ms:.1f}ms for {key}")
+
         if exists:
-            logger.debug(f"Cache updated: {key}")
+            logger.debug(f"Cache updated: {key} ({duration_ms:.1f}ms)")
         else:
-            logger.debug(f"New cache entry created: {key}")
+            logger.debug(f"New cache entry created: {key} ({duration_ms:.1f}ms)")
     except Exception as e:
         logger.error(f"Failed to cache data for key {key}: {e}")
 

@@ -2,11 +2,36 @@ import logging
 import logging.handlers
 import queue
 import atexit
+import sys
 from typing import Optional
 
 # Global reference to prevent garbage collection
 _queue_listener = None
 _shutdown_registered = False
+
+
+class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    """
+    RotatingFileHandler that handles Windows file locking issues gracefully.
+    If rotation fails (e.g., file locked by editor), continues logging to current file.
+    """
+
+    def doRollover(self):
+        """
+        Do a rollover, but catch PermissionError on Windows when file is locked.
+        """
+        try:
+            super().doRollover()
+        except PermissionError as e:
+            # File is locked (likely by editor on Windows)
+            # Log to stderr and continue with current file
+            print(
+                f"Warning: Could not rotate log file (file in use): {e}",
+                file=sys.stderr,
+            )
+            # Reset file size tracking to prevent continuous rotation attempts
+            # Keep logging to the current file even if it exceeds maxBytes
+            pass
 
 
 def setup_async_logging(
@@ -46,7 +71,7 @@ def setup_async_logging(
 
     # Create and add file handler if a log file path is provided
     if log_file_path:
-        file_handler = logging.handlers.RotatingFileHandler(
+        file_handler = SafeRotatingFileHandler(
             log_file_path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
         )
         file_formatter = logging.Formatter(

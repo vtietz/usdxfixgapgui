@@ -135,6 +135,9 @@ class SongListView(QTableView):
 
     def _process_selection(self):
         """Actually process the selection after debounce period"""
+        import time
+        start_time = time.perf_counter()
+
         selected_songs = []
         # Resolve source model robustly
         proxy_model = self.model()
@@ -155,11 +158,15 @@ class SongListView(QTableView):
             else:
                 logger.warning(f"Invalid source index obtained: {source_index.row()}")
 
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        if duration_ms > 50:
+            logger.warning(f"SLOW selection processing: {duration_ms:.1f}ms for {len(selected_songs)} songs")
+
         if selected_songs:
             first_song = selected_songs[0]
-            logger.debug(f"Selected {len(selected_songs)} songs. First: {first_song.title} by {first_song.artist}")
+            logger.debug(f"Song selected: {first_song.title} by {first_song.artist} ({len(selected_songs)} total)")
         else:
-            logger.debug("Selection cleared.")
+            logger.debug("Selection cleared")
 
         # Emit the list of selected songs
         self.selected_songs_changed.emit(selected_songs)

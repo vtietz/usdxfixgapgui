@@ -167,9 +167,9 @@ class MediaPlayerComponent(QWidget):
 
     def setup_event_connections(self):
         # Button events
-        self.play_btn.clicked.connect(lambda: self.player.play())
-        self.audio_btn.clicked.connect(lambda: self.player.audio_mode())
-        self.vocals_btn.clicked.connect(lambda: self.player.vocals_mode())
+        self.play_btn.clicked.connect(self.player.play)
+        self.audio_btn.clicked.connect(self.player.audio_mode)
+        self.vocals_btn.clicked.connect(self.player.vocals_mode)
 
         # Action button events
         self.save_current_play_position_btn.clicked.connect(self.on_save_current_play_position_clicked)
@@ -200,7 +200,9 @@ class MediaPlayerComponent(QWidget):
 
     def on_audio_file_status_changed(self):
         """Handle change between audio/vocals mode"""
-        self.player.stop()
+        logger.debug("Audio file status changed - switching between dual players")
+        # With dual players, we just need to stop the inactive one and update UI
+        # No need for hard reset - each mode has its own independent player
         self.update_player_files()
         self.update_ui()
 
@@ -310,6 +312,9 @@ class MediaPlayerComponent(QWidget):
 
     def update_player_files(self):
         """Load the appropriate media files based on current state"""
+        import time
+        start_time = time.perf_counter()
+
         song = self._song
         if not song:
             self._clear_player_ui()
@@ -327,6 +332,12 @@ class MediaPlayerComponent(QWidget):
             self._load_audio_mode(song, paths)
         else:
             self._load_vocals_mode(paths)
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        if duration_ms > 100:
+            logger.warning(f"SLOW update_player_files: {duration_ms:.1f}ms")
+        else:
+            logger.debug(f"update_player_files completed in {duration_ms:.1f}ms")
 
     def _clear_player_ui(self):
         """Clear all player UI elements"""
@@ -371,12 +382,21 @@ class MediaPlayerComponent(QWidget):
 
     def _load_audio_waveform(self, paths: dict):
         """Load audio waveform and set duration"""
+        import time
         from utils.audio import get_audio_duration
+
+        start_time = time.perf_counter()
 
         self.waveform_widget.load_waveform(paths["audio_waveform_file"])
         duration_f = get_audio_duration(paths["audio_file"])
         if duration_f is not None:
             self.waveform_widget.duration_ms = int(duration_f)
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        if duration_ms > 100:
+            logger.warning(f"SLOW _load_audio_waveform: {duration_ms:.1f}ms (likely ffprobe blocking)")
+        else:
+            logger.debug(f"_load_audio_waveform completed in {duration_ms:.1f}ms")
 
     def _show_waveform_placeholder(self, song: Song):
         """Show appropriate placeholder message"""
