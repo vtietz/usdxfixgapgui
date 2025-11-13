@@ -294,8 +294,9 @@ class MediaPlayerComponent(QWidget):
 
         # Update gap markers from updated song's gap_info
         if updated_song.gap_info:
+            # Show current gap from file (not original_gap) so marker updates when user saves
             self.waveform_widget.set_gap_markers(
-                original_gap_ms=updated_song.gap_info.original_gap, detected_gap_ms=updated_song.gap_info.detected_gap
+                original_gap_ms=updated_song.gap, detected_gap_ms=updated_song.gap_info.detected_gap
             )
         else:
             self.waveform_widget.set_gap_markers(None, None)

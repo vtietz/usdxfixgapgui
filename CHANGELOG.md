@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.2.0] - 2025-11-13
+
 ### Fixed
 - Fix: Task queue viewer crashes when canceling tasks (complete rewrite with simple rebuild pattern)
 - Fix: Waveform missing notes overlay on song selection (async race condition resolved)
 
-### Removed
+### Changed
 - Chore: Removed orphaned Debug config section after cleanup
 
 ---
