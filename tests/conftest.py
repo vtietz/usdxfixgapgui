@@ -125,6 +125,7 @@ def app_data(tmp_path):
     data.songs = Mock()
     data.songs.updated = Mock()
     data.songs.updated.emit = Mock()
+    data.songs.filter = None  # No filter active by default (supports 'in' operator)
 
     # Worker queue mock
     data.worker_queue = Mock()

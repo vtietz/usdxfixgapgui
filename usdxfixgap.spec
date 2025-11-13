@@ -45,6 +45,8 @@ a = Analysis(
         ('VERSION', '.'),
         # Include assets directory for GUI icons
         ('src/assets', 'assets'),
+        # Include VLC runtime for audio backend (if present)
+        ('vlc_runtime', 'vlc_runtime'),
     ],
     hiddenimports=[
         # PySide6 modules
@@ -53,6 +55,9 @@ a = Analysis(
         'PySide6.QtWidgets',
         'PySide6.QtMultimedia',
         'PySide6.QtMultimediaWidgets',
+
+        # VLC backend (optional but recommended)
+        'vlc',
 
         # Audio processing
         'soundfile',

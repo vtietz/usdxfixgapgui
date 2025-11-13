@@ -628,15 +628,16 @@ class StartupDialog(QDialog):
             capabilities = check_system_capabilities()
 
             # Check if there's an existing GPU Pack that needs activation
-            # (this takes precedence over health check - user should be prompted)
+            # Respect user's "don't show again" choice - if they checked it, don't prompt
             if capabilities and capabilities.can_detect:
                 existing_pack = detect_existing_gpu_pack(config)
                 if existing_pack:
                     logger.info(
                         f"GPU Pack detected at {existing_pack} but not enabled - "
-                        "showing startup dialog to prompt activation"
+                        "skipping prompt because splash_dont_show_health=True"
                     )
-                    # Fall through to show dialog
+                    # Respect user's choice - they already checked "don't show again"
+                    return capabilities
                 else:
                     logger.info("Health check passed - skipping startup dialog (splash_dont_show_health=True)")
                     return capabilities

@@ -34,6 +34,8 @@ class MediaPlayerComponent(QWidget):
 
         # Initialize state variables
         self._song = None
+        self._suspend_loads = False  # Guard window to avoid reload during status/filter transitions
+        self._mode_switch_timer = None  # Debounce timer for mode switch reload
 
         # Initialize controllers
         self.player = PlayerController(self._config)
@@ -51,10 +53,9 @@ class MediaPlayerComponent(QWidget):
         )
 
         # Connect signals from player to local handlers
-        self.player.position_changed.connect(self.position_changed)
+        self.player.position_changed.connect(self.update_position)
         self.player.is_playing_changed.connect(self.is_playing_changed)
         self.player.audio_file_status_changed.connect(self.audio_file_status_changed)
-        self.player.media_player.positionChanged.connect(self.update_position)
         self.player.media_status_changed.connect(self.update_ui)
         self.player.vocals_validation_failed.connect(self.on_vocals_validation_failed)
 
@@ -70,6 +71,12 @@ class MediaPlayerComponent(QWidget):
         # New: allow actions to request unloading media to prevent Windows file locks during normalization
         if hasattr(self._data, "media_unload_requested"):
             self._data.media_unload_requested.connect(lambda: self.player.unload_all_media())
+        # Optional: suspend media loads during status/filter transitions (if provided by AppData)
+        if hasattr(self._data, "media_suspend_requested"):
+            try:
+                self._data.media_suspend_requested.connect(self.on_media_suspend_requested)
+            except Exception:
+                pass
 
     def initUI(self):
         # Create control buttons
@@ -200,9 +207,21 @@ class MediaPlayerComponent(QWidget):
 
     def on_audio_file_status_changed(self):
         """Handle change between audio/vocals mode"""
-        logger.debug("Audio file status changed - switching between dual players")
-        # With dual players, we just need to stop the inactive one and update UI
-        # No need for hard reset - each mode has its own independent player
+        logger.debug("Audio file status changed - switching between dual players (debounced)")
+        # Debounce reload to coalesce rapid toggles and avoid WMF races
+        from PySide6.QtCore import QTimer
+        if self._mode_switch_timer is None:
+            self._mode_switch_timer = QTimer(self)
+            self._mode_switch_timer.setSingleShot(True)
+            self._mode_switch_timer.timeout.connect(self._on_mode_switch_timeout)
+        if self._mode_switch_timer.isActive():
+            self._mode_switch_timer.stop()
+        self._mode_switch_timer.start(180)
+        # Update UI immediately for button state
+        self.update_ui()
+
+    def _on_mode_switch_timeout(self):
+        """Apply mode switch reload after debounce window."""
         self.update_player_files()
         self.update_ui()
 
@@ -217,6 +236,27 @@ class MediaPlayerComponent(QWidget):
 
         # Update UI state
         self.update_ui()
+
+    def on_media_suspend_requested(self, *args):
+        """Suspend media loads for a short window to avoid unload→reload races during status/filter updates."""
+        try:
+            ms = int(args[0]) if args else 250
+        except Exception:
+            ms = 250
+        self._suspend_media_loads(ms)
+
+    def _suspend_media_loads(self, ms: int = 250):
+        """Enable a temporary guard that skips update_player_files during sensitive UI transitions."""
+        if self._suspend_loads:
+            # Already suspended; extend by restarting the timer
+            pass
+        self._suspend_loads = True
+        from PySide6.QtCore import QTimer
+        def _clear():
+            self._suspend_loads = False
+            logger.debug("Media load suspension window ended")
+        logger.debug(f"Suspending media loads for {ms}ms")
+        QTimer.singleShot(ms, _clear)
 
     def on_song_changed(self, song: Song):
         """Handle when a different song is selected"""
@@ -289,10 +329,23 @@ class MediaPlayerComponent(QWidget):
 
         logger.debug(f"Current song updated: {updated_song.title}")
         # Ensure we reference the latest Song instance so status checks (e.g., QUEUED) are accurate.
-        # Without this, update_player_files may use a stale self._song and re-load media, causing file locks.
         self._song = updated_song
         self.update_ui()
-        self.update_player_files()
+
+        # Check if waveform was just created (file now exists but placeholder is showing)
+        # This fixes the "Loading waveform..." placeholder persistence issue
+        if self.waveform_widget.placeholder_visible:
+            waveforms_exist = WaveformPathService.waveforms_exists(updated_song, self._data.tmp_path)
+            if waveforms_exist:
+                logger.info(f"Waveform created for {updated_song.title} - reloading display")
+                self.update_player_files()
+                return  # Early return - update_player_files already called
+
+        # Only reload media if status is QUEUED/PROCESSING (handled by _should_skip_loading)
+        # For status changes like SOLVED/UPDATED, media files haven't changed, so skip reload
+        if updated_song.status in (SongStatus.QUEUED, SongStatus.PROCESSING):
+            logger.debug(f"Status changed to {updated_song.status.name}, reloading player files")
+            self.update_player_files()
 
         # Update gap markers from updated song's gap_info
         if updated_song.gap_info:
@@ -314,6 +367,20 @@ class MediaPlayerComponent(QWidget):
         """Load the appropriate media files based on current state"""
         import time
         start_time = time.perf_counter()
+
+        # Guard: skip loads during suspension window (status/filter transitions in progress)
+        if getattr(self, "_suspend_loads", False):
+            logger.debug("update_player_files skipped (media loads suspended)")
+            return
+
+        # Guard: skip loading if current song is no longer selected (likely filtered out)
+        try:
+            selected = getattr(self._data, "selected_songs", [])
+        except Exception:
+            selected = []
+        if selected and self._song is not None and self._song not in selected:
+            logger.debug("update_player_files skipped (song no longer selected/visible)")
+            return
 
         song = self._song
         if not song:
@@ -391,6 +458,8 @@ class MediaPlayerComponent(QWidget):
         duration_f = get_audio_duration(paths["audio_file"])
         if duration_f is not None:
             self.waveform_widget.duration_ms = int(duration_f)
+            # Trigger initial position update so waveform displays with duration
+            self.waveform_widget.update_position(0, int(duration_f))
 
         duration_ms = (time.perf_counter() - start_time) * 1000
         if duration_ms > 100:
@@ -439,6 +508,8 @@ class MediaPlayerComponent(QWidget):
         vocals_duration_f = get_audio_duration(paths["vocals_file"])
         if vocals_duration_f is not None:
             self.waveform_widget.duration_ms = int(vocals_duration_f)
+            # Trigger initial position update so waveform displays with duration
+            self.waveform_widget.update_position(0, int(vocals_duration_f))
 
     def on_selected_songs_changed(self, songs: list):
         """Disable player when multiple songs are selected"""

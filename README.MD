@@ -117,6 +117,8 @@ watch_debounce_ms = 500            # Wait time after changes before processing
    - **Linux**: `sudo apt install ffmpeg` or `sudo pacman -S ffmpeg`
    - **macOS**: `brew install ffmpeg`
 
+   > **Note**: VLC runtime is automatically included in Windows builds for better audio stability
+
 3. **Run the application**:
    - Windows: Extract and run `usdxfixgap.exe`
    - Linux: Make executable (`chmod +x`) and run the AppImage
@@ -189,6 +191,7 @@ git clone https://github.com/vtietz/usdxfixgapgui.git
 cd usdxfixgapgui
 .\run.bat install     # Windows
 ./run.sh install      # Linux/macOS
+.\run.bat setup-vlc   # Windows only: setup VLC for development (optional, recommended)
 .\run.bat test        # Run tests
 .\run.bat start       # Start development
 ```

@@ -69,7 +69,7 @@ if [[ ! -f "$VENV_PYTHON" ]]; then
     fi
 
     print_info "Installing requirements..."
-    "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt"
+    "$VENV_PIP" install -r "$SCRIPT_DIR/requirements/requirements.txt"
     if [[ $? -ne 0 ]]; then
         print_error "Failed to install requirements"
         exit 1
@@ -157,7 +157,7 @@ case "$1" in
 
         if [[ "$INSTALL_MODE" == "cpu" ]]; then
             print_warning "Manual Override: Installing CPU-only version as requested"
-            "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+            "$VENV_PIP" install -r "$SCRIPT_DIR/requirements/requirements.txt" --upgrade
             echo ""
             print_success "Installation complete!"
             exit 0
@@ -172,7 +172,7 @@ case "$1" in
             else
                 print_info "CPU Mode: No NVIDIA GPU detected - installing CPU-only PyTorch"
                 print_info "Tip: If you have an NVIDIA GPU, use './run.sh install --gpu' to force GPU installation"
-                "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+                "$VENV_PIP" install -r "$SCRIPT_DIR/requirements/requirements.txt" --upgrade
                 echo ""
                 print_success "Installation complete!"
                 exit 0
@@ -183,7 +183,7 @@ case "$1" in
         print_info "This will enable GPU acceleration for faster processing"
 
         # Install base requirements first (without PyTorch)
-        "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+        "$VENV_PIP" install -r "$SCRIPT_DIR/requirements/requirements.txt" --upgrade
 
         # Uninstall any existing PyTorch (CPU or CUDA)
         echo ""
@@ -238,7 +238,7 @@ case "$1" in
         ;;
     "install-dev")
         print_info "Installing development dependencies..."
-        "$VENV_PIP" install -r "$SCRIPT_DIR/requirements-dev.txt" --upgrade
+        "$VENV_PIP" install -r "$SCRIPT_DIR/requirements/requirements-dev.txt" --upgrade
         echo ""
         print_success "Development dependencies installed!"
         echo "You can now use:"
@@ -314,8 +314,8 @@ case "$1" in
         if [[ -f "$SCRIPT_DIR/$REQUIREMENTS_FILE" ]]; then
             print_info "Using platform-specific requirements: $REQUIREMENTS_FILE"
         else
-            print_warning "Platform-specific requirements not found, using requirements-build.txt"
-            REQUIREMENTS_FILE="requirements-build.txt"
+            print_warning "Platform-specific requirements not found, using requirements/requirements-build.txt"
+            REQUIREMENTS_FILE="requirements/requirements-build.txt"
         fi
 
         # Check if PyInstaller is installed

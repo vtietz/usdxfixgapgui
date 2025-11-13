@@ -47,6 +47,8 @@ class AppData(QObject):
     media_files_refreshed = Signal()
     # New: request UI to unload any loaded media (prevents Windows file locks during normalization)
     media_unload_requested = Signal()
+    # New: request temporary suspension of media loads (ms duration) to avoid unload→reload races
+    media_suspend_requested = Signal(int)
 
     _directory: str | None = None  # Will be set in __init__ after config is loaded
     _tmp_path: str | None = None  # Will be set in __init__ after config is loaded

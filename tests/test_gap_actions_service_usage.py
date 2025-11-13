@@ -20,6 +20,7 @@ def mock_app_data():
     data.songs = Mock()
     data.songs.updated = Mock()
     data.songs.updated.emit = Mock()
+    data.songs.filter = None  # No filter active by default (supports 'in' operator)
     data.first_selected_song = None
     data.config = Mock()
     data.config.auto_normalize = False

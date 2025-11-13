@@ -21,26 +21,15 @@ class CustomSortFilterProxyModel(QSortFilterProxyModel):
         super().__init__(*args, **kwargs)
         self.selectedStatuses = []
         self.textFilter = ""
-        self.directoryFilter = ""  # Add directory filter
 
     def filterAcceptsRow(self, source_row, source_parent):
         # Fast-path: skip filtering if no filters are active
-        if not self.selectedStatuses and not self.textFilter and not self.directoryFilter:
+        if not self.selectedStatuses and not self.textFilter:
             return True
 
         # Access the source model's data for the given row
         source_model = cast(SongTableModel, self.sourceModel())
         song: Song = source_model.songs[source_row]
-
-        # Directory filter - only show songs from current directory
-        if self.directoryFilter:
-            # Normalize paths for comparison (handle different separators)
-            import os
-            song_dir = os.path.normpath(song.path).lower()
-            filter_dir = os.path.normpath(self.directoryFilter).lower()
-            # Check if song is in the current directory tree
-            if not song_dir.startswith(filter_dir):
-                return False
 
         # Implement filtering logic
         statusMatch = song.status.name in self.selectedStatuses if self.selectedStatuses else True
@@ -327,8 +316,6 @@ class SongListWidget(QWidget):
         """Update filter with deferred invalidation to prevent UI freeze."""
         self.proxyModel.selectedStatuses = self.songs_model.filter
         self.proxyModel.textFilter = self.songs_model.filter_text.lower()
-        # Apply directory filter if a directory is set
-        self.proxyModel.directoryFilter = self._data.directory if hasattr(self._data, 'directory') else ""
 
         # Defer filter invalidation to next event loop iteration
         # This prevents blocking the UI thread during filter evaluation

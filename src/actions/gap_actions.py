@@ -76,6 +76,37 @@ class GapActions(BaseActions):
                 return None
         return cast(Optional[Song], candidate)
 
+    def _clear_selection_if_filtered(self, song: Song, new_status_name: str):
+        """Clear selection if song will be filtered out after status change.
+
+        This prevents UI freeze when a song disappears from the filtered list
+        while still selected.
+
+        Args:
+            song: The song whose status is changing
+            new_status_name: Name of the new status (e.g., 'SOLVED', 'UPDATED')
+        """
+        current_filter = self.data.songs.filter
+        logger.debug(f"_clear_selection_if_filtered: song={song.title}, new_status={new_status_name}, current_filter={current_filter}")
+
+        if not current_filter:
+            # No filter active - song won't be hidden
+            logger.debug("No filter active - selection kept")
+            return
+
+        # Check if the new status is in the filter (visible)
+        if new_status_name in current_filter:
+            # Song will remain visible - safe to keep selected
+            logger.debug(f"Status {new_status_name} is in filter {current_filter} - selection kept")
+            return
+
+        # Song will be filtered out - clear selection to prevent freeze
+        if song in self.data.selected_songs:
+            logger.info(f"CLEARING SELECTION: song will be filtered out (new status {new_status_name} not in filter {current_filter})")
+            self.data.selected_songs = []
+        else:
+            logger.debug(f"Song not in selected_songs - no need to clear")
+
     def _detect_gap_if_valid(self, song, is_first):
         if song.audio_file:
             # Only start immediately if this is the first item AND no task is currently running.
@@ -110,6 +141,10 @@ class GapActions(BaseActions):
         song.gap_info.waveform_json_path = result.waveform_json_path
         song.gap_info.detected_gap_ms = result.detected_gap_ms
         song.gap_info.tolerance_band_ms = self.config.gap_tolerance
+
+        # Clear selection before status change if song will be filtered out
+        if result.status:
+            self._clear_selection_if_filtered(song, result.status.name)
 
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
         song.gap_info.status = result.status or song.gap_info.status
@@ -177,11 +212,23 @@ class GapActions(BaseActions):
 
         logger.info(f"Updating gap value for '{song_to_process.txt_file}' to {gap}")
 
+        # Suspend media loads briefly to avoid unload→reload races during status/filter transitions
+        if hasattr(self.data, "media_suspend_requested"):
+            self.data.media_suspend_requested.emit(250)
+        # Unload media player before status change to prevent freeze (especially in vocals mode)
+        if hasattr(self.data, "media_unload_requested"):
+            logger.debug("Unloading media player before status change")
+            self.data.media_unload_requested.emit()
+
         # Update gap value and gap_info - status mapping happens via owner hook
         song_to_process.gap = gap
         if not song_to_process.gap_info:
             song_to_process.gap_info = GapInfoServiceRef.create_for_song_path(song_to_process.path)
         song_to_process.gap_info.updated_gap = gap
+
+        # Clear selection before status change if song will be filtered out
+        self._clear_selection_if_filtered(song_to_process, 'UPDATED')
+
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
         song_to_process.gap_info.status = GapInfoStatus.UPDATED
 
@@ -213,6 +260,9 @@ class GapActions(BaseActions):
 
         # Defer signal emission to prevent cascade
         from PySide6.QtCore import QTimer
+        # Extend the suspension window slightly to cover the deferred emission
+        if hasattr(self.data, "media_suspend_requested"):
+            self.data.media_suspend_requested.emit(250)
         QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
 
     def revert_gap_value(self, song: Optional[Song]):
@@ -257,6 +307,9 @@ class GapActions(BaseActions):
 
         # Defer signal emission to prevent cascade
         from PySide6.QtCore import QTimer
+        # Extend the suspension window slightly to cover the deferred emission
+        if hasattr(self.data, "media_suspend_requested"):
+            self.data.media_suspend_requested.emit(250)
         QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
 
     def keep_gap_value(self, song: Optional[Song]):
@@ -274,10 +327,22 @@ class GapActions(BaseActions):
 
         logger.info(f"Keeping gap value for {song_to_process.artist} - {song_to_process.title}")
 
+        # Suspend media loads briefly to avoid unload→reload races during status/filter transitions
+        if hasattr(self.data, "media_suspend_requested"):
+            self.data.media_suspend_requested.emit(250)
+        # Unload media player before status change to prevent freeze (especially in vocals mode)
+        if hasattr(self.data, "media_unload_requested"):
+            logger.debug("Unloading media player before status change")
+            self.data.media_unload_requested.emit()
+
         # Mark as solved - status mapping happens via owner hook
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
         if not song_to_process.gap_info:
             song_to_process.gap_info = GapInfoServiceRef.create_for_song_path(song_to_process.path)
+
+        # Clear selection BEFORE status change if song will be filtered out (prevents UI freeze)
+        self._clear_selection_if_filtered(song_to_process, 'SOLVED')
+
         song_to_process.gap_info.status = GapInfoStatus.SOLVED
 
         # Save gap info and update cache
@@ -301,6 +366,9 @@ class GapActions(BaseActions):
             logger.debug("Emitting deferred songs.updated signal")
             self.data.songs.updated.emit(song_to_process)
 
+        # Extend the suspension window slightly to cover the deferred emission
+        if hasattr(self.data, "media_suspend_requested"):
+            self.data.media_suspend_requested.emit(250)
         QTimer.singleShot(50, emit_deferred)  # 50ms delay to let UI settle
         logger.debug("keep_gap_value completed, signal emission deferred")
 

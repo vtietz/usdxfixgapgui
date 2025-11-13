@@ -9,7 +9,7 @@ data/
 config.ini
 gpu_pack/
 gpu_runtime/
-
+vlc_runtime/
 # Build artifacts
 dist/
 build/

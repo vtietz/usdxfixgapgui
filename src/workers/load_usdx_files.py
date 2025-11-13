@@ -75,6 +75,10 @@ class LoadUsdxFilesWorker(IWorker):
         deserialized_songs = get_all_cache_entries(deserialize=True)
         logger.info(f"Found {len(deserialized_songs)} cached songs")
 
+        # Normalize the directory path for comparison
+        directory_normalized = os.path.normpath(self.directory).lower()
+        skipped = 0
+
         for file_path, song in deserialized_songs.items():
             if self.is_cancelled():
                 self._flush_batch()  # Flush any remaining songs
@@ -84,10 +88,19 @@ class LoadUsdxFilesWorker(IWorker):
             if not hasattr(song, "path") or not os.path.exists(file_path):
                 continue
 
+            # Only load songs that belong to the current directory
+            song_dir = os.path.normpath(song.path).lower()
+            if not song_dir.startswith(directory_normalized):
+                skipped += 1
+                continue
+
             # Add to batch instead of emitting individually
             self._add_to_batch(song)
             self.loaded_paths.add(file_path)
             self.signals.progress.emit()
+
+        if skipped > 0:
+            logger.info(f"Skipped {skipped} cached songs outside current directory")
 
         # Flush any remaining songs in batch
         self._flush_batch()
