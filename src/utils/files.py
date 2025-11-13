@@ -14,7 +14,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_relative_path(root, path):
-    return os.path.relpath(path, root)
+    """
+    Get relative path from root to path.
+    If on different drives (Windows), returns absolute path instead.
+    """
+    try:
+        return os.path.relpath(path, root)
+    except ValueError:
+        # Different drives on Windows - return absolute path
+        return path
 
 
 def find_txt_file(path):
