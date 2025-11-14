@@ -343,6 +343,7 @@ class StartupDialog(QDialog):
     def _log_system_details(self):
         """Log comprehensive system information (for About dialog and detailed startup info)."""
         self._log_app_version()
+        self._log_media_backend()
         self._log_system_components()
         self._log_audio_processing()
         self._log_python_libraries()
@@ -360,6 +361,29 @@ class StartupDialog(QDialog):
         self.log("System Components:")
         self.log(f"  • Application: {app_version}")
         self.log(f"  • Qt Framework: {pyside_version}")
+    
+    def _log_media_backend(self):
+        """Log media backend information with helpful notes."""
+        try:
+            from services.media.backend_factory import get_backend_info, _is_vlc_available
+            import sys
+            
+            info = get_backend_info()
+            vlc_available = _is_vlc_available()
+            
+            if sys.platform == "win32":
+                if vlc_available:
+                    self.log("  • Media Backend: VLC (recommended)")
+                else:
+                    self.log("  • Media Backend: Qt/WMF (may cause UI freezes)")
+                    self.log("    💡 Install VLC for better playback: videolan.org/vlc")
+            elif sys.platform == "darwin":
+                self.log("  • Media Backend: Qt/AVFoundation (native)")
+            else:
+                self.log(f"  • Media Backend: {info['recommended']}")
+        except Exception as e:
+            logger.debug(f"Could not determine media backend: {e}")
+            pass
 
     def _log_system_components(self):
         """Log PyTorch and GPU information."""

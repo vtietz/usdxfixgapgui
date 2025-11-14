@@ -24,8 +24,10 @@ This installs:
   - autoflake (unused import removal)
   - black (code formatting)
 
-**VLC Runtime** (Windows development):
-- **Bundled builds**: VLC included automatically via PyInstaller
+**VLC Runtime** (Windows development only):
+- **Development**: `run.bat setup-vlc` downloads VLC portable (~100MB to `vlc_runtime/`)
+- **Production**: System VLC detected automatically (not bundled)
+- **Linux/macOS**: Use system VLC or Qt backends
 - **Development**: Run `run.bat setup-vlc` to download VLC portable (~100MB)
 - **Optional but recommended**: Provides better audio backend stability
 - **Fallback**: App uses Qt/WMF backend if VLC unavailable (may freeze on gap buttons)

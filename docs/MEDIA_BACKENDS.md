@@ -158,7 +158,7 @@ class MediaStatus(Enum):
     INVALID = "invalid"
 ```
 
-## VLC Runtime Management
+## VLC Detection
 
 ### Development Setup
 
@@ -176,13 +176,14 @@ class MediaStatus(Enum):
 ### Production Builds
 
 **Windows**:
-- VLC runtime bundled automatically via PyInstaller
-- Includes: `libvlc.dll`, `libvlccore.dll`, plugins folder
-- `vlc_runtime/` directory packaged with executable
+- Detects system-installed VLC automatically (python-vlc)
+- No bundling (keeps executable ~80MB)
+- Shows helpful dialog with download link if VLC missing
+- Fallback to Qt/WMF if unavailable
 
 **macOS/Linux**:
-- Qt backend sufficient (no VLC bundling needed)
-- VLC can be bundled if required (add to spec file)
+- Qt backend sufficient (no VLC detection needed)
+- Users can optionally install VLC system-wide
 
 ### Backend Detection Logic
 
