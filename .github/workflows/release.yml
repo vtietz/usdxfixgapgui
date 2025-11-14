@@ -28,13 +28,6 @@ jobs:
           pip install --index-url https://download.pytorch.org/whl/cpu torch==2.4.1+cpu torchaudio==2.4.1+cpu
           pip install -r requirements/requirements-build.txt
 
-      - name: Setup VLC Runtime
-        run: |
-          python scripts/setup_vlc_runtime.py
-          if ($LASTEXITCODE -ne 0) {
-            echo "[!] VLC setup failed, continuing without VLC runtime"
-          }
-
       - name: Build Windows Onedir (Fast CI Validation)
         run: python -m PyInstaller --clean --noconfirm usdxfixgap-onedir.spec
 

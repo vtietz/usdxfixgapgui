@@ -17,37 +17,26 @@ logger = logging.getLogger(__name__)
 
 def _setup_local_vlc_runtime():
     """
-    Setup local VLC runtime if available (dev/bundled mode).
+    Setup local VLC runtime if available (development mode only).
 
     Searches for vlc_runtime/ directory and adds DLL path on Windows.
-    Sets VLC_PLUGIN_PATH and PYTHON_VLC_LIB_PATH environment variables.
+    This is only used in development - production builds rely on system VLC.
 
     Returns:
         True if local VLC runtime was set up, False otherwise
     """
-    # Find project root (different for frozen/dev mode)
+    # Skip in frozen/production mode - use system VLC
     if getattr(sys, 'frozen', False):
-        # Running as compiled executable (PyInstaller)
-        # In onefile: sys._MEIPASS is temp extraction dir
-        # In onedir: look relative to executable
-        if hasattr(sys, '_MEIPASS'):
-            # Onefile build - check temp extraction dir
-            project_root = Path(sys._MEIPASS)
-            logger.debug(f"Frozen onefile mode, using _MEIPASS: {project_root}")
-        else:
-            # Onedir build - check next to executable
-            project_root = Path(sys.executable).parent
-            logger.debug(f"Frozen onedir mode, using executable parent: {project_root}")
-    else:
-        # Running as script - 4 levels up from this file
-        project_root = Path(__file__).parent.parent.parent.parent
-        logger.debug(f"Development mode, using __file__ parent: {project_root}")
+        logger.debug("Frozen mode: skipping local VLC runtime, using system VLC")
+        return False
     
+    # Development mode - check for local vlc_runtime
+    project_root = Path(__file__).parent.parent.parent.parent
     vlc_runtime_dir = project_root / "vlc_runtime"
-    logger.debug(f"Looking for VLC runtime at: {vlc_runtime_dir}")
+    logger.debug(f"Looking for development VLC runtime at: {vlc_runtime_dir}")
 
     if not vlc_runtime_dir.exists():
-        logger.debug("VLC runtime directory not found")
+        logger.debug("Development VLC runtime directory not found")
         return False
 
     # Find VLC installation (e.g., vlc-3.0.21)
@@ -103,29 +92,34 @@ def _is_vlc_available() -> bool:
 
 
 def _warn_wmf_fallback() -> None:
-    """Log warning about WMF fallback (no dialog for bundled apps)."""
+    """Show helpful message about VLC installation."""
     logger.warning("=" * 60)
     logger.warning("Using Windows Media Foundation (WMF) backend")
     logger.warning("WMF may cause UI freezes during playback")
-    logger.warning("VLC runtime not detected - check installation")
+    logger.warning("VLC not detected - install for better experience")
     logger.warning("=" * 60)
     
-    # Only show dialog in development mode (not frozen)
-    if not getattr(sys, 'frozen', False):
-        from PySide6.QtWidgets import QMessageBox
+    # Show user-friendly dialog with installation instructions
+    from PySide6.QtWidgets import QMessageBox
+    from PySide6.QtCore import Qt
 
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Icon.Warning)
-        msg.setWindowTitle("Media Backend Warning")
-        msg.setText(
-            "Using Windows Media Foundation (WMF) backend.\n\n"
-            "WMF may cause UI freezes during playback. "
-            "For best results, install VLC:\n\n"
-            "pip install python-vlc\n\n"
-            "and restart the application."
-        )
-        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-        msg.exec()
+    msg = QMessageBox()
+    msg.setIcon(QMessageBox.Icon.Information)
+    msg.setWindowTitle("Media Playback Backend")
+    msg.setText(
+        "<b>Using Windows Media Foundation (WMF) backend</b><br><br>"
+        "WMF works but may cause UI freezes during playback.<br><br>"
+        "For the best experience, install VLC Media Player:"
+    )
+    msg.setInformativeText(
+        "1. Download VLC from: <a href='https://www.videolan.org/vlc/'>videolan.org/vlc</a><br>"
+        "2. Install VLC (any version)<br>"
+        "3. Restart this application<br><br>"
+        "VLC will be detected automatically - no configuration needed!"
+    )
+    msg.setTextFormat(Qt.TextFormat.RichText)
+    msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+    msg.exec()
 
 
 def create_backend(warn_on_wmf_fallback: bool = True) -> MediaBackend:

@@ -57,11 +57,6 @@ datas = [
     ('src/assets', 'assets'),  # Include assets directory
 ]
 
-# Include VLC runtime only on Windows (if present)
-import os
-if sys.platform == 'win32' and os.path.exists('vlc_runtime'):
-    datas.append(('vlc_runtime', 'vlc_runtime'))
-
 # Binaries to exclude (reduce size)
 # Exclude CUDA libraries (users can download GPU Pack separately)
 # Must cover all platforms: .dll (Windows), .so* (Linux), .dylib (macOS)
