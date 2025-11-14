@@ -22,6 +22,7 @@
 block_cipher = None
 
 import os
+import sys
 from pathlib import Path
 
 # Project paths
@@ -35,19 +36,24 @@ ICON_PATH = 'src/assets/icon.ico'
 if not os.path.exists(ICON_PATH):
     ICON_PATH = None
 
+# Platform-specific data files
+datas = [
+    # Include VERSION file for --version command
+    ('VERSION', '.'),
+    # Include assets directory for GUI icons
+    ('src/assets', 'assets'),
+]
+
+# Include VLC runtime only on Windows (if present)
+if sys.platform == 'win32' and os.path.exists('vlc_runtime'):
+    datas.append(('vlc_runtime', 'vlc_runtime'))
+
 # Analysis
 a = Analysis(
     [MAIN_SCRIPT],
     pathex=['.'],
     binaries=[],
-    datas=[
-        # Include VERSION file for --version command
-        ('VERSION', '.'),
-        # Include assets directory for GUI icons
-        ('src/assets', 'assets'),
-        # Include VLC runtime for audio backend (if present)
-        ('vlc_runtime', 'vlc_runtime'),
-    ],
+    datas=datas,
     hiddenimports=[
         # PySide6 modules
         'PySide6.QtCore',
