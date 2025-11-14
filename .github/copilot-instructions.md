@@ -279,6 +279,12 @@ Change: Auto-unload media player before MDX run
 3. If tests fail, fix + retest before commit.
 4. If tests updated due to intentional behavior change, mention it.
 
+## Task Completion Report
+After completing any task, provide a one-line commit message using the format:
+`<Category>: <Imperative description>` (≤72 chars, no period)
+
+Example: `Fix: Preserve USDB ID when reloading songs from disk`
+
 ## GPU & Performance (Summary)
 - CPU torch bundled; GPU Pack optional (demucs speedup 5–10x).
 - Bootstrap loads GPU Pack early; falls back cleanly to CPU if validation fails.

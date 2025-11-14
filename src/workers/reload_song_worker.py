@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 from PySide6.QtCore import Signal
 from model.song import Song
 from services import song_service
@@ -24,11 +25,34 @@ class ReloadSongWorker(IWorker):
         self.description = f"Loading song {os.path.basename(song_path)}"
         self.song_service = song_service.SongService()
 
+    def _get_usdb_id_for_directory(self, directory: str) -> int | None:
+        """Scan directory for .usdb file and extract song_id."""
+        try:
+            for file in os.listdir(directory):
+                if file.endswith(".usdb"):
+                    usdb_file_path = os.path.join(directory, file)
+                    try:
+                        with open(usdb_file_path, "r", encoding="utf-8") as f:
+                            usdb_data = json.load(f)
+                            if "song_id" in usdb_data:
+                                logger.debug(f"Found USDB ID {usdb_data['song_id']} for {directory}")
+                                return usdb_data["song_id"]
+                    except Exception as e:
+                        logger.warning(f"Failed to parse .usdb file {usdb_file_path}: {e}")
+                    break  # Only process one .usdb file per directory
+        except Exception as e:
+            logger.warning(f"Failed to scan directory {directory} for .usdb files: {e}")
+        return None
+
     async def load(self) -> Song:
         """Load a song from file, forcing reload."""
         try:
             txt_file = files.find_txt_file(self.song_path)
             song = await self.song_service.load_song(txt_file, True, self.is_cancelled)
+            
+            # Apply USDB ID from .usdb file if present
+            song.usdb_id = self._get_usdb_id_for_directory(song.path)
+            
             return song
 
         except RuntimeError as e:

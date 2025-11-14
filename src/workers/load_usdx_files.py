@@ -94,6 +94,9 @@ class LoadUsdxFilesWorker(IWorker):
                 skipped += 1
                 continue
 
+            # Apply USDB ID mapping to cached songs
+            song.usdb_id = self.path_usdb_id_map.get(song.path, None)
+
             # Add to batch instead of emitting individually
             self._add_to_batch(song)
             self.loaded_paths.add(file_path)
@@ -182,7 +185,7 @@ class LoadUsdxFilesWorker(IWorker):
         # Flush any remaining songs in batch
         self._flush_batch()
 
-        # Log USDB IDs found
+        # Log USDB IDs found during scan
         if self.path_usdb_id_map:
             logger.info(f"Found {len(self.path_usdb_id_map)} USDB metadata files")
 
@@ -212,11 +215,13 @@ class LoadUsdxFilesWorker(IWorker):
 
         # Regular operation - loading all songs
         # IMPORTANT ORDER:
-        # 1. Load cache for fast UI population
-        # 2. Scan directory for new/changed files AND build USDB ID mapping
+        # 1. Load cache FIRST for fast UI population (USDB IDs applied during scan)
+        # 2. Scan for USDB metadata files in parallel
+        # 3. Scan directory for new/changed files
+        # NOTE: USDB metadata scan happens during directory scan to avoid double os.walk()
         await self.load_from_cache()
 
-        # Scan directory for new/changed songs and USDB metadata
+        # Scan directory for new/changed songs (USDB metadata collected inline)
         await self.scan_directory()
 
         # Finally clean up stale cache entries
