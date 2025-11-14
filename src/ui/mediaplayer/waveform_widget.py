@@ -24,6 +24,9 @@ class WaveformWidget(QLabel):
         self.placeholder_text = ""
         self.placeholder_visible = False
 
+        # Markers visibility state
+        self.markers_visible = True  # Hide markers when player disabled or no media
+
         # Overlay for showing the current play position
         self.overlay = QWidget(self)
         self.overlay.setFixedSize(self.size())
@@ -42,6 +45,9 @@ class WaveformWidget(QLabel):
 
     def paint_overlay(self, event):
         """Draw playhead and gap markers on waveform."""
+        if not self.markers_visible:
+            return  # Skip drawing markers when disabled
+
         painter = QPainter(self.overlay)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         overlay_width = self.overlay.width()
@@ -82,6 +88,11 @@ class WaveformWidget(QLabel):
         self.placeholder_text = ""
         self.placeholder_visible = False
         self.update()  # Trigger repaint
+
+    def set_markers_visible(self, visible: bool):
+        """Control marker visibility (hide when player disabled or no media)"""
+        self.markers_visible = visible
+        self.overlay.update()  # Trigger marker overlay repaint
 
     def paintEvent(self, arg__1):
         """Custom paint event to draw placeholder text when visible"""
@@ -145,8 +156,10 @@ class WaveformWidget(QLabel):
         if file and os.path.exists(file):
             self.setPixmap(QPixmap(file))
             self.clear_placeholder()  # Clear placeholder when waveform loads
+            self.set_markers_visible(True)  # Restore markers when media loaded
         else:
             self.setPixmap(QPixmap())
+            self.set_markers_visible(False)  # Hide markers when no media
             # Don't clear placeholder here - let caller set appropriate message
 
     def mousePressEvent(self, ev):

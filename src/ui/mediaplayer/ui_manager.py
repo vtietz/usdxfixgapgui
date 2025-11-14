@@ -101,5 +101,7 @@ class UIManager:
         if is_multiple:
             self.position_label.setText("Player disabled (multiple songs selected)")
             self.syllable_label.setText("")
+            self.waveform_widget.set_markers_visible(False)  # Hide markers when disabled
         else:
             self.position_label.setText("")
+            self.waveform_widget.set_markers_visible(True)  # Restore markers
