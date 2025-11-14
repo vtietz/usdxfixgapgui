@@ -90,7 +90,7 @@ jobs:
 
   build-linux:
     name: Build Linux Executable
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
@@ -184,7 +184,7 @@ jobs:
 
   build-macos:
     name: Build macOS Executable
-    runs-on: macos-latest
+    runs-on: macos-13
 
     steps:
       - name: Checkout code
