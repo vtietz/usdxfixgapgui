@@ -25,11 +25,29 @@ def _setup_local_vlc_runtime():
     Returns:
         True if local VLC runtime was set up, False otherwise
     """
-    # Find project root (4 levels up from this file: media/ -> services/ -> src/ -> project/)
-    project_root = Path(__file__).parent.parent.parent.parent
+    # Find project root (different for frozen/dev mode)
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable (PyInstaller)
+        # In onefile: sys._MEIPASS is temp extraction dir
+        # In onedir: look relative to executable
+        if hasattr(sys, '_MEIPASS'):
+            # Onefile build - check temp extraction dir
+            project_root = Path(sys._MEIPASS)
+            logger.debug(f"Frozen onefile mode, using _MEIPASS: {project_root}")
+        else:
+            # Onedir build - check next to executable
+            project_root = Path(sys.executable).parent
+            logger.debug(f"Frozen onedir mode, using executable parent: {project_root}")
+    else:
+        # Running as script - 4 levels up from this file
+        project_root = Path(__file__).parent.parent.parent.parent
+        logger.debug(f"Development mode, using __file__ parent: {project_root}")
+    
     vlc_runtime_dir = project_root / "vlc_runtime"
+    logger.debug(f"Looking for VLC runtime at: {vlc_runtime_dir}")
 
     if not vlc_runtime_dir.exists():
+        logger.debug("VLC runtime directory not found")
         return False
 
     # Find VLC installation (e.g., vlc-3.0.21)
@@ -85,22 +103,29 @@ def _is_vlc_available() -> bool:
 
 
 def _warn_wmf_fallback() -> None:
-    """Show warning dialog about WMF fallback."""
-    # Import here to avoid circular dependency
-    from PySide6.QtWidgets import QMessageBox
+    """Log warning about WMF fallback (no dialog for bundled apps)."""
+    logger.warning("=" * 60)
+    logger.warning("Using Windows Media Foundation (WMF) backend")
+    logger.warning("WMF may cause UI freezes during playback")
+    logger.warning("VLC runtime not detected - check installation")
+    logger.warning("=" * 60)
+    
+    # Only show dialog in development mode (not frozen)
+    if not getattr(sys, 'frozen', False):
+        from PySide6.QtWidgets import QMessageBox
 
-    msg = QMessageBox()
-    msg.setIcon(QMessageBox.Icon.Warning)
-    msg.setWindowTitle("Media Backend Warning")
-    msg.setText(
-        "Using Windows Media Foundation (WMF) backend.\n\n"
-        "WMF may cause UI freezes during playback. "
-        "For best results, install VLC:\n\n"
-        "pip install python-vlc\n\n"
-        "and restart the application."
-    )
-    msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-    msg.exec()
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.setWindowTitle("Media Backend Warning")
+        msg.setText(
+            "Using Windows Media Foundation (WMF) backend.\n\n"
+            "WMF may cause UI freezes during playback. "
+            "For best results, install VLC:\n\n"
+            "pip install python-vlc\n\n"
+            "and restart the application."
+        )
+        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg.exec()
 
 
 def create_backend(warn_on_wmf_fallback: bool = True) -> MediaBackend:
