@@ -49,10 +49,10 @@ class ReloadSongWorker(IWorker):
         try:
             txt_file = files.find_txt_file(self.song_path)
             song = await self.song_service.load_song(txt_file, True, self.is_cancelled)
-            
+
             # Apply USDB ID from .usdb file if present
             song.usdb_id = self._get_usdb_id_for_directory(song.path)
-            
+
             return song
 
         except RuntimeError as e:
