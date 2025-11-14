@@ -1,6 +1,9 @@
 # Runtime dependencies (includes shared base + flexible torch entries)
 -r requirements-base.txt
 
-# PyTorch (CPU by default) - allow GPU pack override at runtime.
+# PyTorch (CPU-only for development)
+# To install: pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements/requirements.txt
+# For GPU: use run.bat/run.sh install --gpu instead
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.0.0,<2.5.0
 torchaudio>=2.0.0,<2.5.0
