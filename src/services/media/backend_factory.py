@@ -29,7 +29,7 @@ def _setup_local_vlc_runtime():
     if getattr(sys, 'frozen', False):
         logger.debug("Frozen mode: skipping local VLC runtime, using system VLC")
         return False
-    
+
     # Development mode - check for local vlc_runtime
     project_root = Path(__file__).parent.parent.parent.parent
     vlc_runtime_dir = project_root / "vlc_runtime"
@@ -96,34 +96,13 @@ def _is_vlc_available() -> bool:
 
 
 def _warn_wmf_fallback() -> None:
-    """Show helpful message about VLC installation."""
+    """Log warning about WMF fallback (no dialog - info shown in startup/about)."""
     logger.warning("=" * 60)
     logger.warning("Using Windows Media Foundation (WMF) backend")
     logger.warning("WMF may cause UI freezes during playback")
     logger.warning("VLC not detected - install for better experience")
+    logger.warning("Visit https://www.videolan.org/vlc/ to download VLC")
     logger.warning("=" * 60)
-    
-    # Show user-friendly dialog with installation instructions
-    from PySide6.QtWidgets import QMessageBox
-    from PySide6.QtCore import Qt
-
-    msg = QMessageBox()
-    msg.setIcon(QMessageBox.Icon.Information)
-    msg.setWindowTitle("Media Playback Backend")
-    msg.setText(
-        "<b>Using Windows Media Foundation (WMF) backend</b><br><br>"
-        "WMF works but may cause UI freezes during playback.<br><br>"
-        "For the best experience, install VLC Media Player:"
-    )
-    msg.setInformativeText(
-        "1. Download VLC from: <a href='https://www.videolan.org/vlc/'>videolan.org/vlc</a><br>"
-        "2. Install VLC (any version)<br>"
-        "3. Restart this application<br><br>"
-        "VLC will be detected automatically - no configuration needed!"
-    )
-    msg.setTextFormat(Qt.TextFormat.RichText)
-    msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-    msg.exec()
 
 
 def create_backend(warn_on_wmf_fallback: bool = True) -> MediaBackend:
