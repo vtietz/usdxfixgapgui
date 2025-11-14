@@ -361,16 +361,16 @@ class StartupDialog(QDialog):
         self.log("System Components:")
         self.log(f"  • Application: {app_version}")
         self.log(f"  • Qt Framework: {pyside_version}")
-    
+
     def _log_media_backend(self):
         """Log media backend information with helpful notes."""
         try:
             from services.media.backend_factory import get_backend_info, _is_vlc_available
             import sys
-            
+
             info = get_backend_info()
             vlc_available = _is_vlc_available()
-            
+
             if sys.platform == "win32":
                 if vlc_available:
                     self.log("  • Media Backend: VLC (recommended)")
