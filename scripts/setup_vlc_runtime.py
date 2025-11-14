@@ -13,6 +13,12 @@ import urllib.request
 import platform
 from pathlib import Path
 
+# Force UTF-8 output for CI environments
+if sys.stdout.encoding != 'utf-8':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 VLC_VERSION = "3.0.21"
 VLC_DOWNLOAD_URL = f"https://download.videolan.org/pub/videolan/vlc/{VLC_VERSION}/win64/vlc-{VLC_VERSION}-win64.7z"
 VLC_RUNTIME_DIR = Path(__file__).parent.parent / "vlc_runtime"
@@ -27,7 +33,7 @@ def download_file(url: str, dest: Path, show_progress: bool = True):
         percent = min(100, (downloaded / total_size) * 100)
         bar_length = 40
         filled = int(bar_length * downloaded / total_size)
-        bar = '█' * filled + '░' * (bar_length - filled)
+        bar = '#' * filled + '-' * (bar_length - filled)
         mb_downloaded = downloaded / (1024 * 1024)
         mb_total = total_size / (1024 * 1024)
         print(f'\r[{bar}] {percent:.1f}% ({mb_downloaded:.1f}/{mb_total:.1f} MB)', end='', flush=True)
@@ -92,7 +98,7 @@ def setup_vlc():
     # Check if already exists
     vlc_dir = VLC_RUNTIME_DIR / f"vlc-{VLC_VERSION}"
     if vlc_dir.exists():
-        print(f"✅ VLC runtime already exists: {vlc_dir}")
+        print(f"[OK] VLC runtime already exists: {vlc_dir}")
         print("   Delete this directory to re-download.")
         return True
 
@@ -125,7 +131,7 @@ def setup_vlc():
     except Exception as e:
         print(f"Warning: Could not delete archive: {e}")
 
-    print("\n✅ VLC runtime setup complete!")
+    print("\n[OK] VLC runtime setup complete!")
     print(f"   Location: {vlc_dir}")
     print("   The app will auto-detect this on startup.")
     return True
@@ -142,8 +148,8 @@ if __name__ == "__main__":
     print()
     print("="*60)
     if success:
-        print("✅ Setup complete! Run 'run.bat start' to use the app.")
+        print("[OK] Setup complete! Run 'run.bat start' to use the app.")
     else:
-        print("❌ Setup failed. See errors above.")
+        print("[FAIL] Setup failed. See errors above.")
         sys.exit(1)
     print("="*60)
