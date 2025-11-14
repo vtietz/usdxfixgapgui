@@ -85,9 +85,13 @@ def _is_vlc_available() -> bool:
     """Check if VLC backend is available."""
     try:
         import vlc  # noqa: F401
-
         return True
-    except ImportError:
+    except (ImportError, OSError, Exception) as e:
+        # Catch all exceptions including:
+        # - ImportError: python-vlc not installed
+        # - OSError: libvlc.dll not found
+        # - PyInstallerImportError: frozen app dll loading issues
+        logger.debug(f"VLC not available: {type(e).__name__}: {e}")
         return False
 
 
