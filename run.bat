@@ -453,17 +453,31 @@ if /i "%1"=="set-version" (
     )
 
     :: Push commit before creating tag (only if there were changes)
-    git diff @{upstream}.. --quiet >nul 2>nul
+    :: First check if upstream is set
+    git rev-parse --abbrev-ref --symbolic-full-name @{u} >nul 2>nul
     if !errorlevel! neq 0 (
-        echo Pushing commit to remote...
-        git push
+        echo WARNING: No upstream branch set
+        echo Setting upstream: git push --set-upstream origin %CURRENT_BRANCH%
+        for /f "delims=" %%i in ('git branch --show-current') do set CURRENT_BRANCH=%%i
+        git push --set-upstream origin !CURRENT_BRANCH!
         if !errorlevel! neq 0 (
-            echo ERROR: Failed to push commit
+            echo ERROR: Failed to set upstream and push
             exit /b 1
         )
-        echo [4/5] Pushed commit to remote
+        echo [4/5] Pushed commit and set upstream
     ) else (
-        echo [4/5] No new commits to push
+        git diff @{upstream}.. --quiet >nul 2>nul
+        if !errorlevel! neq 0 (
+            echo Pushing commit to remote...
+            git push
+            if !errorlevel! neq 0 (
+                echo ERROR: Failed to push commit
+                exit /b 1
+            )
+            echo [4/5] Pushed commit to remote
+        ) else (
+            echo [4/5] No new commits to push
+        )
     )
 
     :: Create or overwrite tag (force)
