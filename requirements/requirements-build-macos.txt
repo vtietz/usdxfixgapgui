@@ -10,5 +10,5 @@
 # ===== PyTorch - macOS standard versions =====
 # macOS doesn't use +cpu suffix, just standard version numbers
 # PyTorch for macOS includes MPS (Metal Performance Shaders) support
-torch==2.4.1
-torchaudio==2.4.1
+torch==2.3.1
+torchaudio==2.3.1
