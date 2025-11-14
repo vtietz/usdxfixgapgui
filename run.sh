@@ -443,8 +443,18 @@ case "$1" in
             print_success "[3/6] Committed VERSION file"
         fi
 
-        # Push commit before creating tag (only if there are unpushed commits)
-        if ! git diff @{upstream}.. --quiet 2>/dev/null; then
+        # Check if upstream is set before pushing
+        if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} &> /dev/null; then
+            print_warning "No upstream branch set"
+            CURRENT_BRANCH=$(git branch --show-current)
+            print_info "Setting upstream: git push --set-upstream origin $CURRENT_BRANCH"
+            git push --set-upstream origin "$CURRENT_BRANCH"
+            if [[ $? -ne 0 ]]; then
+                print_error "Failed to set upstream branch"
+                exit 1
+            fi
+            print_success "[4/6] Pushed commit and set upstream"
+        elif ! git diff @{upstream}.. --quiet 2>/dev/null; then
             print_info "Pushing commit to remote..."
             git push
             if [[ $? -ne 0 ]]; then
