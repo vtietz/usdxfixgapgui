@@ -82,14 +82,20 @@ _local_vlc_setup = _setup_local_vlc_runtime()
 
 
 def _is_vlc_available() -> bool:
-    """Check if VLC backend is available."""
+    """Check if VLC backend is available and functional."""
     try:
-        import vlc  # noqa: F401
-        return True
-    except (ImportError, OSError, Exception) as e:
+        import vlc
+        # Test actual VLC library instantiation - not just python-vlc import
+        instance = vlc.Instance()
+        if instance:
+            return True
+        logger.debug("VLC import succeeded but instance creation failed")
+        return False
+    except (ImportError, OSError, NameError, Exception) as e:
         # Catch all exceptions including:
         # - ImportError: python-vlc not installed
         # - OSError: libvlc.dll not found
+        # - NameError: libvlc functions not found (library missing)
         # - PyInstallerImportError: frozen app dll loading issues
         logger.debug(f"VLC not available: {type(e).__name__}: {e}")
         return False
