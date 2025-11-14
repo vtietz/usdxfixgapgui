@@ -11,6 +11,7 @@ from PySide6.QtCore import Signal
 
 class PlaybackState(Enum):
     """Unified playback state across all backends."""
+
     STOPPED = "stopped"
     PLAYING = "playing"
     PAUSED = "paused"
@@ -18,6 +19,7 @@ class PlaybackState(Enum):
 
 class MediaStatus(Enum):
     """Unified media status across all backends."""
+
     NO_MEDIA = "no_media"
     LOADING = "loading"
     LOADED = "loaded"

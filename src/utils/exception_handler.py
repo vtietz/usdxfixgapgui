@@ -215,6 +215,7 @@ class GlobalExceptionHandler(QObject):
         # Don't exit - let the application continue
         # (unless it's a truly critical error, the app might still be usable)
 
+
 def install_global_exception_handler(log_file_path: Optional[str] = None) -> GlobalExceptionHandler:
     """
     Install global exception handler.

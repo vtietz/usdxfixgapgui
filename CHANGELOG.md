@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New: VLC instance configured for audio-only mode (no video subsystem, lower memory)
 - New: Millisecond-precise seeking using VLC's set_time() (faster, more accurate than ratio-based positioning)
 - New: Smart polling timers only run when media loaded (reduced CPU usage when idle)
+- New: Adaptive position interpolation (auto-disables if backend provides ≥20 FPS, measures actual update frequency)
+- New: Smart cursor snapping to nearest position (forward or backward, not always backward)
+- New: Position display shows milliseconds (MM:SS:mmm format) for precise gap editing
 - New: Requirements files organized in requirements/ subdirectory for cleaner project root
 - New: VLC setup helper script (scripts/setup_vlc_runtime.py) automates portable VLC download
 

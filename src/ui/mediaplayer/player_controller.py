@@ -1,22 +1,14 @@
 import os
 import logging
 from PySide6.QtCore import QObject, Signal
-from utils.files import get_file_checksum
 
 from ui.mediaplayer.constants import AudioFileStatus
 from services.media import create_backend, MediaStatus, PlaybackState
 
 logger = logging.getLogger(__name__)
 
-# Try to import torchaudio for validation, but make it optional
-torchaudio: object | None = None
-try:
-    import torchaudio
-
-    TORCHAUDIO_AVAILABLE = True
-except (ImportError, OSError) as e:
-    logger.warning(f"torchaudio not available for media validation: {e}")
-    TORCHAUDIO_AVAILABLE = False
+# torchaudio not needed for playback anymore - VLC/Qt handles validation
+TORCHAUDIO_AVAILABLE = False
 
 
 class PlayerController(QObject):
@@ -50,15 +42,23 @@ class PlayerController(QObject):
         logger.info(f"Media backend: {backend_type}")
 
         # Connect signals for both backends (sender-anchored)
-        self.audio_backend.playback_state_changed.connect(lambda state: self._on_playback_state_changed(self.audio_backend, state))
-        self.audio_backend.media_status_changed.connect(lambda status: self._on_media_status_changed(self.audio_backend, status))
-        self.audio_backend.error_occurred.connect(lambda error_msg: self._on_media_error(self.audio_backend, error_msg))
-        self.audio_backend.position_changed.connect(lambda position: self._on_position_changed(self.audio_backend, position))
+        self.audio_backend.playback_state_changed.connect(
+            lambda state: self._on_playback_state_changed(self.audio_backend, state))
+        self.audio_backend.media_status_changed.connect(
+            lambda status: self._on_media_status_changed(self.audio_backend, status))
+        self.audio_backend.error_occurred.connect(
+            lambda error_msg: self._on_media_error(self.audio_backend, error_msg))
+        self.audio_backend.position_changed.connect(
+            lambda position: self._on_position_changed(self.audio_backend, position))
 
-        self.vocals_backend.playback_state_changed.connect(lambda state: self._on_playback_state_changed(self.vocals_backend, state))
-        self.vocals_backend.media_status_changed.connect(lambda status: self._on_media_status_changed(self.vocals_backend, status))
-        self.vocals_backend.error_occurred.connect(lambda error_msg: self._on_media_error(self.vocals_backend, error_msg))
-        self.vocals_backend.position_changed.connect(lambda position: self._on_position_changed(self.vocals_backend, position))
+        self.vocals_backend.playback_state_changed.connect(
+            lambda state: self._on_playback_state_changed(self.vocals_backend, state))
+        self.vocals_backend.media_status_changed.connect(
+            lambda status: self._on_media_status_changed(self.vocals_backend, status))
+        self.vocals_backend.error_occurred.connect(
+            lambda error_msg: self._on_media_error(self.vocals_backend, error_msg))
+        self.vocals_backend.position_changed.connect(
+            lambda position: self._on_position_changed(self.vocals_backend, position))
 
         # Per-backend state maps
         self._is_loaded_map = {self.audio_backend: False, self.vocals_backend: False}
@@ -239,7 +239,9 @@ class PlayerController(QObject):
         if self._is_active_backend(backend):
             old_state = self._is_playing
             self._is_playing = is_playing
-            logger.debug(f"Playback state changed (active={backend is self.media_backend}): {old_state} -> {self._is_playing} (state={state})")
+            logger.debug(
+                f"Playback state changed (active={backend is self.media_backend}): "
+                f"{old_state} -> {self._is_playing} (state={state})")
             self.is_playing_changed.emit(self._is_playing)
 
     def _on_position_changed(self, backend, position):

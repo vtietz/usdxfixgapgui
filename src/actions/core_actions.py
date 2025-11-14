@@ -35,7 +35,6 @@ class CoreActions(BaseActions):
             return
 
         logger.info(f"Setting directory to: {directory}")
-        old_directory = self.data.directory
         self.data.directory = directory
 
         # Save this directory as the last used directory in config

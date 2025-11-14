@@ -51,6 +51,7 @@
 * If replacing, **rename/reuse** (don't keep old + new).
 * **Docs:** integrate updates into existing pages.
   Temporary plans/notes → put in `temp/` and clean up.
+  Use code examples and snippets very rarely - better never.
 * **Imports:** snake_case dirs; e.g., `from model.song import Song`.
 * **No side effects at import time.**
 

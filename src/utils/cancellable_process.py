@@ -101,13 +101,14 @@ def run_cancellable_process(command, check_cancellation=None):
         stdout_thread.join(timeout=2.0)
         stderr_thread.join(timeout=2.0)
 
-    except Exception as e:
+    except Exception:
         # Ensure process cleanup on any error
         if process and process.poll() is None:
             try:
                 process.kill()
                 process.wait(timeout=1.0)
             except Exception:
+                pass
                 pass
         raise
     finally:

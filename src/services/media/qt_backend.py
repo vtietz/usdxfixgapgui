@@ -7,10 +7,10 @@ Wraps QMediaPlayer to implement the unified MediaBackend interface.
 import os
 import logging
 from typing import Optional
-from PySide6.QtCore import QObject, Signal, QUrl
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 
-from services.media.backend import MediaBackend, PlaybackState, MediaStatus
+from services.media.backend import PlaybackState, MediaStatus
 from ui.mediaplayer.loader import MediaPlayerLoader
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,12 @@ class QtBackendAdapter(QObject):
         # State tracking
         self._playback_state = PlaybackState.STOPPED
         self._media_status = MediaStatus.NO_MEDIA
+
+        # Position update frequency tracking
+        self._last_position = -1
+        self._last_position_time = 0
+        self._position_update_intervals = []
+        self._avg_update_interval_ms = 0
 
         # Connect Qt signals to our unified signals
         self._player.playbackStateChanged.connect(self._on_playback_state_changed)
@@ -174,6 +180,7 @@ class QtBackendAdapter(QObject):
     def get_backend_version(self) -> Optional[str]:
         """Get Qt version."""
         from PySide6 import __version__
+
         return f"PySide6 {__version__}"
 
     def get_current_file(self) -> Optional[str]:
@@ -183,6 +190,12 @@ class QtBackendAdapter(QObject):
             return None
         # Convert QUrl to local file path
         return source.toLocalFile() if source.isLocalFile() else source.toString()
+
+    def get_position_update_frequency(self) -> float:
+        """Get average position update frequency in Hz."""
+        if self._avg_update_interval_ms > 0:
+            return 1000.0 / self._avg_update_interval_ms
+        return 0.0
 
     # Signal handlers (map Qt signals to unified signals)
 
@@ -217,7 +230,35 @@ class QtBackendAdapter(QObject):
         self.media_status_changed.emit(self._media_status)
 
     def _on_position_changed(self, position: int) -> None:
-        """Forward position changes."""
+        """Forward position changes and measure update frequency."""
+        # Measure position update interval
+        if self._last_position >= 0 and position != self._last_position:
+            from PySide6.QtCore import QElapsedTimer
+
+            current_time = QElapsedTimer()
+            current_time.start()
+
+            if self._last_position_time > 0:
+                # For Qt we track via timestamp difference
+                import time
+
+                current_ms = int(time.time() * 1000)
+                if self._last_position_time > 0:
+                    interval = current_ms - self._last_position_time
+                    if 10 < interval < 1000:  # Sanity check
+                        self._position_update_intervals.append(interval)
+                        if len(self._position_update_intervals) > 10:
+                            self._position_update_intervals.pop(0)
+                        if len(self._position_update_intervals) >= 3:
+                            intervals = self._position_update_intervals
+                            self._avg_update_interval_ms = sum(intervals) / len(intervals)
+                self._last_position_time = current_ms
+            else:
+                import time
+
+                self._last_position_time = int(time.time() * 1000)
+
+        self._last_position = position
         self.position_changed.emit(position)
 
     def _on_error_occurred(self, error: QMediaPlayer.Error, error_string: str) -> None:

@@ -35,7 +35,8 @@ class UIManager:
         self.save_current_play_position_btn.setEnabled(is_enabled and self._play_position > 0)
         # Check if detected_gap exists and is greater than 0
         has_detected_gap = (
-            is_enabled and song.gap_info and song.gap_info.detected_gap is not None and song.gap_info.detected_gap > 0 if song else False
+            is_enabled and song.gap_info and song.gap_info.detected_gap is not None
+            and song.gap_info.detected_gap > 0 if song else False
         )
         self.save_detected_gap_btn.setEnabled(has_detected_gap)
         self.keep_original_gap_btn.setEnabled(is_enabled)
@@ -77,7 +78,7 @@ class UIManager:
             self.position_label.setText("")
             return
 
-        playposition_text = audio.milliseconds_to_str(position)
+        playposition_text = audio.milliseconds_to_str(position, with_milliseconds=True)
         self.position_label.setText(playposition_text)
         self.save_current_play_position_btn.setText(f"  Save play position ({position} ms)")
 

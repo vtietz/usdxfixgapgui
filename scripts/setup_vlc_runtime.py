@@ -10,7 +10,6 @@ Usage:
 
 import sys
 import urllib.request
-import os
 import platform
 from pathlib import Path
 
@@ -42,7 +41,7 @@ def extract_7z(archive_path: Path, dest_dir: Path):
     """Extract 7z archive using Python's shutil or 7z command."""
     try:
         import py7zr
-        print(f"Extracting with py7zr...")
+        print("Extracting with py7zr...")
         with py7zr.SevenZipFile(archive_path, mode='r') as archive:
             archive.extractall(path=dest_dir)
         print(f"Extracted to: {dest_dir}")
@@ -71,7 +70,7 @@ def extract_7z(archive_path: Path, dest_dir: Path):
             continue
 
     if seven_z_cmd:
-        print(f"Extracting with 7-Zip...")
+        print("Extracting with 7-Zip...")
         subprocess.run([seven_z_cmd, "x", str(archive_path), f"-o{dest_dir}", "-y"], check=True)
         print(f"Extracted to: {dest_dir}")
         return True
@@ -86,7 +85,7 @@ def extract_7z(archive_path: Path, dest_dir: Path):
 def setup_vlc():
     """Download and extract VLC runtime."""
     if platform.system() != "Windows":
-        print(f"VLC auto-download only needed on Windows for development.")
+        print("VLC auto-download only needed on Windows for development.")
         print(f"On {platform.system()}, VLC will use system installation or Qt backend.")
         return True
 
@@ -94,7 +93,7 @@ def setup_vlc():
     vlc_dir = VLC_RUNTIME_DIR / f"vlc-{VLC_VERSION}"
     if vlc_dir.exists():
         print(f"✅ VLC runtime already exists: {vlc_dir}")
-        print(f"   Delete this directory to re-download.")
+        print("   Delete this directory to re-download.")
         return True
 
     # Create runtime directory
@@ -126,9 +125,9 @@ def setup_vlc():
     except Exception as e:
         print(f"Warning: Could not delete archive: {e}")
 
-    print(f"\n✅ VLC runtime setup complete!")
+    print("\n✅ VLC runtime setup complete!")
     print(f"   Location: {vlc_dir}")
-    print(f"   The app will auto-detect this on startup.")
+    print("   The app will auto-detect this on startup.")
     return True
 
 

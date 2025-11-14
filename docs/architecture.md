@@ -584,6 +584,7 @@ Encapsulate signals within specific layers:
 
 - **[Coding Standards](coding-standards.md)**: DRY principle, SOLID principles, clean code practices, testing standards
 - **[Development Guide](DEVELOPMENT.md)**: Setup, testing, code quality tools
+- **[Media Backends](MEDIA_BACKENDS.md)**: Backend architecture, VLC vs Qt, platform-specific strategies, interpolation details, limitations
 - **[GitHub Copilot Instructions](../.github/copilot-instructions.md)**: AI assistance guidelines for consistent code generation
 
 ### **13. Testing Strategy by Layer**

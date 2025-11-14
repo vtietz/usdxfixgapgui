@@ -87,7 +87,9 @@ class GapActions(BaseActions):
             new_status_name: Name of the new status (e.g., 'SOLVED', 'UPDATED')
         """
         current_filter = self.data.songs.filter
-        logger.debug(f"_clear_selection_if_filtered: song={song.title}, new_status={new_status_name}, current_filter={current_filter}")
+        logger.debug(
+            f"_clear_selection_if_filtered: song={song.title}, new_status={new_status_name}, "
+            f"current_filter={current_filter}")
 
         if not current_filter:
             # No filter active - song won't be hidden
@@ -97,15 +99,18 @@ class GapActions(BaseActions):
         # Check if the new status is in the filter (visible)
         if new_status_name in current_filter:
             # Song will remain visible - safe to keep selected
-            logger.debug(f"Status {new_status_name} is in filter {current_filter} - selection kept")
+            logger.debug(
+                f"Status {new_status_name} is in filter {current_filter} - selection kept")
             return
 
         # Song will be filtered out - clear selection to prevent freeze
         if song in self.data.selected_songs:
-            logger.info(f"CLEARING SELECTION: song will be filtered out (new status {new_status_name} not in filter {current_filter})")
+            logger.info(
+                f"CLEARING SELECTION: song will be filtered out "
+                f"(new status {new_status_name} not in filter {current_filter})")
             self.data.selected_songs = []
         else:
-            logger.debug(f"Song not in selected_songs - no need to clear")
+            logger.debug("Song not in selected_songs - no need to clear")
 
     def _detect_gap_if_valid(self, song, is_first):
         if song.audio_file:
@@ -169,7 +174,9 @@ class GapActions(BaseActions):
         if self.config.auto_normalize and song.audio_file:
             # Check if already normalized to avoid unnecessary re-processing
             if song.gap_info and song.gap_info.is_normalized:
-                logger.debug(f"Skipping auto-normalization for {song} - already normalized on {song.gap_info.normalized_date}")
+                logger.debug(
+                    f"Skipping auto-normalization for {song} - "
+                    f"already normalized on {song.gap_info.normalized_date}")
             else:
                 logger.info(f"Queueing auto-normalization for {song} after gap detection")
                 # Use start_now=False to let queue manager schedule it after current tasks

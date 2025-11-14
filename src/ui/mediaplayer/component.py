@@ -193,7 +193,8 @@ class MediaPlayerComponent(QWidget):
 
         self.ui_manager.update_syllable_label(position, self._song)
         self.waveform_widget.update_position(position, self.player.get_duration())
-        self.update_ui()
+        # Don't call update_ui() here - button states don't change with position
+        # This allows smooth 50ms position updates without UI thrashing
 
     def update_ui(self):
         """Update all UI elements based on current state"""
@@ -252,9 +253,11 @@ class MediaPlayerComponent(QWidget):
             pass
         self._suspend_loads = True
         from PySide6.QtCore import QTimer
+
         def _clear():
             self._suspend_loads = False
             logger.debug("Media load suspension window ended")
+
         logger.debug(f"Suspending media loads for {ms}ms")
         QTimer.singleShot(ms, _clear)
 

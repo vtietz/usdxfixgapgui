@@ -344,7 +344,7 @@ def main():
             # GPU Pack was activated but validation failed - show error to user
             from PySide6.QtWidgets import QApplication, QMessageBox
 
-            app = QApplication.instance() or QApplication(sys.argv)
+            _ = QApplication.instance() or QApplication(sys.argv)
 
             error_msg = (
                 "GPU Pack Validation Failed\n\n"
