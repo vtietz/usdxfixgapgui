@@ -290,34 +290,12 @@ def _offer_flavor_switch_if_applicable(dialog) -> bool:
     if not can_switch_flavor:
         return False
 
-    switch_msg = (
-        f"GPU Pack download has failed {dialog._download_failure_count} times with CUDA 12.1.\n\n"
-        f"Your driver ({driver_version}) supports CUDA 12.4.\n\n"
-        "Would you like to try downloading CUDA 12.4 instead?\n"
-        "(This is a different PyTorch build that may work better)"
-    )
-    reply = QMessageBox.question(
-        dialog,
-        "Try Alternative CUDA Version?",
-        switch_msg,
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        QMessageBox.StandardButton.Yes,
-    )
-
-    if reply != QMessageBox.StandardButton.Yes:
-        return False
-
+    # Don't prompt - user can manually switch CUDA version in Config if needed
+    # Automatic switching often fails for the same reasons (network/mirrors)
     dialog.log("")
-    dialog.log("→ Switching to CUDA 12.4 (cu124) flavor...")
-    if dialog.config:
-        dialog.config.gpu_flavor = "cu124"
-        try:
-            dialog.config.save_config()
-            logger.info("Switched GPU flavor to cu124")
-        except Exception as e:
-            logger.warning("Failed to save flavor switch: %s", e)
-
-    cleanup_download_files_safe(dialog.config)
+    dialog.log(f"ℹ Note: Your driver ({driver_version}) supports CUDA 12.4.")
+    dialog.log("  You can try switching CUDA version in Config tab if downloads keep failing.")
+    return False
     _reset_download_ui(dialog)
     QTimer.singleShot(100, lambda: on_download_clicked(dialog))
     return True
