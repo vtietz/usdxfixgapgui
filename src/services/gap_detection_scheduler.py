@@ -74,11 +74,10 @@ class GapDetectionScheduler(QObject):
         # Track in-flight detection tasks by song folder path
         self._in_flight: Set[str] = set()
 
-                # Extensions that trigger gap detection when modified
-        self._trigger_extensions = {".txt", ".mp3", ".m4a", ".ogg", ".flac", ".wav"}
-
-        # Extensions that trigger song reload when modified/deleted
-        self._reload_extensions = {".info"}  # usdxfixgap.info files
+        # File extensions to watch for changes
+        # - txt/audio files: reload song + conditionally trigger gap detection (if NOT_PROCESSED)
+        # - .info files: reload song only (gap detection results)
+        self._watched_extensions = {".txt", ".mp3", ".m4a", ".ogg", ".flac", ".wav", ".info"}
 
         # Maximum retry attempts when files aren't ready
         self._max_retries = 5
@@ -106,15 +105,20 @@ class GapDetectionScheduler(QObject):
             _, ext = os.path.splitext(event.path)
             logger.debug(f"File extension: {ext}")
 
-            # Handle usdxfixgap.info file changes (MODIFIED or DELETED) → trigger song reload
-            if ext.lower() in self._reload_extensions:
+            # Only process watched extensions
+            if ext.lower() not in self._watched_extensions:
+                logger.debug(f"Ignoring unwatched extension: {ext}")
+                return
+
+            # Handle .info files (MODIFIED or DELETED) → reload only
+            if ext.lower() == ".info":
                 logger.info(f"Detected gap_info file change: {event.event_type.name} {event.path}")
                 self._handle_gap_info_change(event)
                 return
 
-            # Handle txt/audio file MODIFIED → trigger gap detection
-            if event.event_type == WatchEventType.MODIFIED and ext.lower() in self._trigger_extensions:
-                logger.info(f"Detected trigger file modification: {event.path}")
+            # Handle txt/audio files (MODIFIED only) → reload + conditional gap detection
+            if event.event_type == WatchEventType.MODIFIED:
+                logger.info(f"Detected song file modification: {event.path}")
                 self._handle_file_modified(event)
                 return
 
