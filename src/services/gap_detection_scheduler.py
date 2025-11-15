@@ -74,11 +74,11 @@ class GapDetectionScheduler(QObject):
         # Track in-flight detection tasks by song folder path
         self._in_flight: Set[str] = set()
 
-        # Extensions that trigger gap detection (txt/audio modified)
-        self._trigger_extensions = {".txt", ".mp3", ".wav", ".ogg", ".m4a", ".flac"}
+                # Extensions that trigger gap detection when modified
+        self._trigger_extensions = {".txt", ".mp3", ".m4a", ".ogg", ".flac", ".wav"}
 
-        # Extensions that trigger song reload (gap_info deleted/modified)
-        self._reload_extensions = {".json"}  # gap_info files
+        # Extensions that trigger song reload when modified/deleted
+        self._reload_extensions = {".info"}  # usdxfixgap.info files
 
         # Maximum retry attempts when files aren't ready
         self._max_retries = 5
@@ -106,7 +106,7 @@ class GapDetectionScheduler(QObject):
             _, ext = os.path.splitext(event.path)
             logger.debug(f"File extension: {ext}")
 
-            # Handle gap_info.json file changes (MODIFIED or DELETED) → trigger song reload
+            # Handle usdxfixgap.info file changes (MODIFIED or DELETED) → trigger song reload
             if ext.lower() in self._reload_extensions:
                 logger.info(f"Detected gap_info file change: {event.event_type.name} {event.path}")
                 self._handle_gap_info_change(event)
@@ -161,7 +161,7 @@ class GapDetectionScheduler(QObject):
             logger.debug(f"Song status is {song.status.name}, skipping gap detection for {song.artist} - {song.title}")
 
     def _handle_gap_info_change(self, event: WatchEvent):
-        """Handle gap_info.json modification/deletion → trigger song reload."""
+        """Handle usdxfixgap.info modification/deletion → trigger song reload."""
         song_path = os.path.dirname(event.path)
 
         logger.info(f"Gap info file changed: {event.path}, requesting reload for {song_path}")

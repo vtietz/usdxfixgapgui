@@ -11,10 +11,10 @@ from model.song import Song
 
 
 class TestGapInfoFileChanges:
-    """Tests for gap_info.json file change detection"""
+    """Tests for usdxfixgap.info file change detection"""
 
     def test_gap_info_modified_triggers_reload(self, qtbot):
-        """Test that modifying gap_info.json triggers reload signal"""
+        """Test that modifying usdxfixgap.info triggers reload signal"""
         reload_calls = []
 
         def mock_reload_handler(song_path):
@@ -35,10 +35,10 @@ class TestGapInfoFileChanges:
         scheduler.reload_requested.connect(mock_reload_handler)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            gap_info_path = os.path.join(tmpdir, "gap_info.json")
+            gap_info_path = os.path.join(tmpdir, "usdxfixgap.info")
             Path(gap_info_path).write_text('{"test": "data"}')
 
-            # Simulate gap_info.json modification
+            # Simulate usdxfixgap.info modification
             event = WatchEvent(
                 event_type=WatchEventType.MODIFIED,
                 path=gap_info_path,
@@ -55,7 +55,7 @@ class TestGapInfoFileChanges:
             mock_start_detection.assert_not_called()
 
     def test_gap_info_deleted_triggers_reload(self, qtbot):
-        """Test that deleting gap_info.json triggers reload signal"""
+        """Test that deleting usdxfixgap.info triggers reload signal"""
         reload_calls = []
 
         def mock_reload_handler(song_path):
@@ -76,9 +76,9 @@ class TestGapInfoFileChanges:
         scheduler.reload_requested.connect(mock_reload_handler)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            gap_info_path = os.path.join(tmpdir, "gap_info.json")
+            gap_info_path = os.path.join(tmpdir, "usdxfixgap.info")
 
-            # Simulate gap_info.json deletion
+            # Simulate usdxfixgap.info deletion
             event = WatchEvent(
                 event_type=WatchEventType.DELETED,
                 path=gap_info_path,
@@ -142,7 +142,7 @@ class TestGapInfoFileChanges:
             assert len(scheduler._pending) == 1
 
     def test_multiple_gap_info_changes_all_trigger_reload(self, qtbot):
-        """Test that multiple gap_info.json changes all trigger reload"""
+        """Test that multiple usdxfixgap.info changes all trigger reload"""
         reload_calls = []
 
         def mock_reload_handler(song_path):
@@ -163,7 +163,7 @@ class TestGapInfoFileChanges:
         scheduler.reload_requested.connect(mock_reload_handler)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            gap_info_path = os.path.join(tmpdir, "gap_info.json")
+            gap_info_path = os.path.join(tmpdir, "usdxfixgap.info")
 
             # Multiple modifications
             for i in range(3):
