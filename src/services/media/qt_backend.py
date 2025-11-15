@@ -104,21 +104,21 @@ class QtBackendAdapter(QObject):
 
     def play(self) -> None:
         """Start or resume playback."""
+        logger.debug("QtBackend.play() called, status: %s, state: %s", self._media_status.value, self._playback_state.value)
         # Check if media is ready
         if self._media_status in (MediaStatus.LOADED, MediaStatus.BUFFERED):
-            logger.debug("QtBackend: play()")
+            logger.debug("QtBackend: play() - media ready")
             self._player.play()
         elif self._playback_state == PlaybackState.PAUSED:
             logger.debug("QtBackend: resume from pause")
             self._player.play()
         else:
-            logger.debug(f"QtBackend: play() ignored (status={self._media_status})")
+            logger.debug("QtBackend: play() ignored (status=%s)", self._media_status.value)
 
     def pause(self) -> None:
         """Pause playback."""
-        if self._playback_state == PlaybackState.PLAYING:
-            logger.debug("QtBackend: pause()")
-            self._player.pause()
+        logger.debug("QtBackend.pause() called, current state: %s", self._playback_state.value)
+        self._player.pause()
 
     def stop(self) -> None:
         """Stop playback."""
@@ -209,7 +209,7 @@ class QtBackendAdapter(QObject):
         else:  # StoppedState
             self._playback_state = PlaybackState.STOPPED
 
-        logger.debug(f"QtBackend: playback state -> {self._playback_state.value}")
+        logger.debug("QtBackend: playback state -> %s", self._playback_state.value)
         self.playback_state_changed.emit(self._playback_state)
 
     def _on_media_status_changed(self, qt_status: QMediaPlayer.MediaStatus) -> None:
@@ -225,8 +225,12 @@ class QtBackendAdapter(QObject):
             QMediaPlayer.MediaStatus.InvalidMedia: MediaStatus.INVALID,
         }
 
+        old_status = self._media_status
         self._media_status = status_map.get(qt_status, MediaStatus.NO_MEDIA)
-        logger.debug(f"QtBackend: media status -> {self._media_status.value}")
+        logger.info("QtBackend: media status changed %s -> %s (Qt status: %s)",
+                    old_status.value if old_status else "None",
+                    self._media_status.value,
+                    qt_status)
         self.media_status_changed.emit(self._media_status)
 
     def _on_position_changed(self, position: int) -> None:

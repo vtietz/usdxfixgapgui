@@ -81,7 +81,7 @@ class MediaPlayerComponent(QWidget):
     def initUI(self):
         # Create control buttons
         self.play_btn = QPushButton("Play")
-        self.play_btn.setCheckable(True)
+        # Don't make checkable - we manage state via text (Play/Stop) to avoid Qt checkable button issues
         self.play_btn.setToolTip("Play/Pause audio (Space or Left/Right arrows)")
 
         self.audio_btn = QPushButton("Original Audio")

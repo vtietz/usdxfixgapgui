@@ -188,9 +188,8 @@ class VlcBackendAdapter(QObject):
 
     def pause(self) -> None:
         """Pause playback."""
-        if self._playback_state == PlaybackState.PLAYING:
-            logger.debug("VlcBackend: pause()")
-            self._player.pause()
+        logger.debug("VlcBackend: pause() called")
+        self._player.pause()
 
     def stop(self) -> None:
         """Stop playback."""

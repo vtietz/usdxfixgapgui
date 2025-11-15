@@ -40,7 +40,8 @@ class UIManager:
         )
         self.save_detected_gap_btn.setEnabled(has_detected_gap)
         self.keep_original_gap_btn.setEnabled(is_enabled)
-        self.play_btn.setEnabled(is_enabled and (is_media_loaded or is_playing))
+        # Play button enabled when song selected and media file exists (not just when backend reports loaded)
+        self.play_btn.setEnabled(is_enabled)
         self.vocals_btn.setEnabled(is_enabled)
         self.audio_btn.setEnabled(is_enabled)
         # Check if gap differs from original (with None safety for gap_info)
@@ -66,8 +67,7 @@ class UIManager:
 
     def set_playback_state(self, is_playing):
         """Update UI for play/pause state"""
-        self.play_btn.setChecked(is_playing)
-        # Update button text based on playback state
+        # Button is not checkable - only update text
         self.play_btn.setText("Stop" if is_playing else "Play")
 
     def update_position_label(self, position, is_media_loaded, is_playing):

@@ -73,24 +73,39 @@ class PlayerController(QObject):
 
     def play(self):
         """Toggle play/pause - uses active backend based on mode"""
+        logger.debug("play() called")
+
         # Stop the inactive backend first
         inactive_backend = self.vocals_backend if self._audioFileStatus == AudioFileStatus.AUDIO else self.audio_backend
         if inactive_backend.is_playing():
+            logger.debug("Stopping inactive backend")
             inactive_backend.stop()
 
         # Now control the active backend
         active_backend = self.media_backend
+        logger.debug("Active backend: %s", type(active_backend).__name__)
 
-        # Check if media is loaded and ready
-        if not active_backend.is_loaded():
-            logger.debug("Play ignored: media not loaded")
+        # Query backend's actual state for reliable toggle
+        backend_is_playing = active_backend.is_playing()
+        is_loaded = active_backend.is_loaded()
+        current_file = active_backend.get_current_file()
+        logger.debug("Backend is_loaded: %s, is_playing: %s, has_file: %s, Controller _is_playing: %s",
+                    is_loaded, backend_is_playing, current_file is not None, self._is_playing)
+
+        # If playing, always allow pause (even if backend reports not loaded - Qt bug)
+        if backend_is_playing:
+            logger.debug("Calling backend.pause() (currently playing)")
+            active_backend.pause()
             return
 
-        # Toggle play/pause
-        if active_backend.is_playing():
-            active_backend.pause()
-        else:
-            active_backend.play()
+        # Check if we have media to play (use current_file as fallback for buggy is_loaded)
+        if not is_loaded and current_file is None:
+            logger.warning("Play ignored: no media loaded (is_loaded=%s, has_file=%s)", is_loaded, current_file is not None)
+            return
+
+        # Start playback
+        logger.debug("Calling backend.play() (currently stopped/paused)")
+        active_backend.play()
 
     def stop(self):
         """Stop both backends"""
@@ -239,10 +254,12 @@ class PlayerController(QObject):
         if self._is_active_backend(backend):
             old_state = self._is_playing
             self._is_playing = is_playing
-            logger.debug(
-                f"Playback state changed (active={backend is self.media_backend}): "
-                f"{old_state} -> {self._is_playing} (state={state})")
-            self.is_playing_changed.emit(self._is_playing)
+            # Only emit if state actually changed (prevent duplicate emissions from optimistic updates)
+            if old_state != self._is_playing:
+                logger.debug(
+                    "Playback state changed (active=%s): %s -> %s (state=%s)",
+                    backend is self.media_backend, old_state, self._is_playing, state)
+                self.is_playing_changed.emit(self._is_playing)
 
     def _on_position_changed(self, backend, position):
         """Internal handler for position changes - forwards to external signal (only from active backend)"""
