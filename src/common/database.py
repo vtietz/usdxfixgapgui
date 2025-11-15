@@ -9,10 +9,18 @@ from utils.files import get_localappdata_dir
 
 logger = logging.getLogger(__name__)
 
-# Define the database path
-DB_PATH = os.path.join(get_localappdata_dir(), "cache.db")
+# Define the database path (lazy initialization to avoid import-time side effects)
+_DB_PATH: str | None = None
 _db_initialized = False
 _cache_was_cleared = False  # Track if cache was cleared due to version mismatch
+
+
+def _get_db_path() -> str:
+    """Get database path, initializing it on first access."""
+    global _DB_PATH
+    if _DB_PATH is None:
+        _DB_PATH = os.path.join(get_localappdata_dir(), "cache.db")
+    return _DB_PATH
 
 # Cache schema version - increment when cache structure changes
 # Version 1: Original cache (pre-multi-txt support)
@@ -22,7 +30,7 @@ CACHE_VERSION = 2
 
 def get_connection():
     """Get a connection to the database."""
-    return sqlite3.connect(DB_PATH)
+    return sqlite3.connect(_get_db_path())
 
 
 def init_database():
@@ -37,7 +45,7 @@ def init_database():
     if _db_initialized:
         return _cache_was_cleared
 
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(_get_db_path()), exist_ok=True)
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -123,7 +131,7 @@ def initialize_song_cache():
                if a re-scan is required due to version upgrade
     """
     cache_cleared = init_database()
-    return DB_PATH, cache_cleared
+    return _get_db_path(), cache_cleared
 
 
 def get_cache_entry(key, modified_time=None):

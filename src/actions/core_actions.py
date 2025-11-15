@@ -12,22 +12,29 @@ class CoreActions(BaseActions):
 
     def auto_load_last_directory(self):
         """Check and auto-load songs from the last directory if available"""
+        dir_to_load = None
         if self.config.last_directory and os.path.isdir(self.config.last_directory):
-            logger.info(f"Auto-loading songs from last directory: {self.config.last_directory}")
-            # Set the directory in the data model first
-            self.data.directory = self.config.last_directory
-            # Then load songs from it
-            self._clear_songs()
-            self._load_songs()
-            return True
+            dir_to_load = self.config.last_directory
+            logger.info("Auto-loading songs from last directory: %s", dir_to_load)
+        elif self.config.default_directory and os.path.isdir(self.config.default_directory):
+            dir_to_load = self.config.default_directory
+            logger.info("Auto-loading songs from default directory: %s", dir_to_load)
         else:
             if self.config.last_directory:
                 logger.warning(
-                    f"Last directory in config is invalid or no longer exists: '{self.config.last_directory}'"
+                    "Last directory in config is invalid or no longer exists: '%s'", self.config.last_directory
                 )
-            else:
-                logger.info("No previous directory found in configuration")
+            if self.config.default_directory:
+                logger.warning(
+                    "Default directory in config is invalid or no longer exists: '%s'", self.config.default_directory
+                )
+            logger.info("No valid directory found in configuration")
             return False
+
+        self.data.directory = dir_to_load
+        self._clear_songs()
+        self._load_songs()
+        return True
 
     def set_directory(self, directory: str):
         if not directory or not os.path.isdir(directory):
