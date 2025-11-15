@@ -272,7 +272,7 @@ class StartupDialog(QDialog):
         self.log("")
         self._log_system_details()
         self.log("")
-        
+
         # Validate GPU Pack before offering activation
         if not self._validate_gpu_pack(existing_pack):
             self.log("⚠️ GPU Pack found but appears corrupted or incomplete")
@@ -281,7 +281,7 @@ class StartupDialog(QDialog):
             self.log("→ Download a fresh GPU Pack below")
             self._render_download_flow()
             return
-        
+
         self.log("⚡ GPU Pack Detected (Not Activated)")
         self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
         self.log(f"  • GPU Pack found at: {existing_pack}")
@@ -467,25 +467,25 @@ class StartupDialog(QDialog):
         """Validate GPU Pack has required files."""
         from pathlib import Path
         pack = Path(pack_path)
-        
+
         # Check essential files exist
         required_files = [
             "torch",  # torch package directory
-            "torchaudio",  # torchaudio package directory  
+            "torchaudio",  # torchaudio package directory
             "install.json",  # metadata file
         ]
-        
+
         for file in required_files:
             if not (pack / file).exists():
                 logger.warning(f"GPU Pack validation failed: missing {file}")
                 return False
-        
+
         # Check torch has essential CUDA libraries
         torch_lib = pack / "torch" / "lib"
         if not torch_lib.exists() or not list(torch_lib.glob("*cuda*")):
             logger.warning("GPU Pack validation failed: missing CUDA libraries in torch/lib")
             return False
-            
+
         return True
 
     def _on_activate_gpu_pack(self):
@@ -517,7 +517,7 @@ class StartupDialog(QDialog):
             # Hide activate button
             self.download_btn.setVisible(False)
             self.flavor_combo.setVisible(False)
-            
+
             # Show restart button (or keep existing Close App button)
             if hasattr(self, 'close_app_btn'):
                 self.close_app_btn.setText("Restart App")

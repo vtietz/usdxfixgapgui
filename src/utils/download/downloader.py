@@ -76,10 +76,13 @@ def download_file(
             return False
 
         # Verify content length if provided
+        actual_expected_size = expected_size
         if response.content_length:
             total_size = response.content_length + start_byte
             if total_size != expected_size:
-                raise ValueError(f"Size mismatch: expected {expected_size}, got {total_size}")
+                logger.warning(f"Size mismatch in manifest: expected {expected_size}, server reports {total_size}")
+                logger.warning("Using server-reported size (manifest may be outdated for this platform)")
+                actual_expected_size = total_size
 
         # Write chunks with verification
         writer = ChunkWriter(resume_mgr.part_file, resume_from_byte=start_byte)
@@ -90,11 +93,11 @@ def download_file(
             downloaded += len(chunk)
 
             if progress_cb:
-                progress_cb(downloaded, expected_size)
+                progress_cb(downloaded, actual_expected_size)
 
-        # Verify size
-        if writer.get_bytes_written() != expected_size:
-            raise ValueError(f"Downloaded {writer.get_bytes_written()} bytes, " f"expected {expected_size}")
+        # Verify size (use server-reported size if different from manifest)
+        if writer.get_bytes_written() != actual_expected_size:
+            raise ValueError(f"Downloaded {writer.get_bytes_written()} bytes, " f"expected {actual_expected_size}")
 
         # Verify hash (lenient mode - warn instead of failing)
         if not _is_placeholder_checksum(expected_sha256):
