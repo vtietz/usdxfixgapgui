@@ -33,6 +33,9 @@ class Actions(BaseActions):
     def set_directory(self, directory: str):
         self._core_actions.set_directory(directory)
 
+    def rescan_directory(self):
+        self._core_actions.rescan_directory()
+
     # Song Actions
     def set_selected_songs(self, songs):
         self._song_actions.set_selected_songs(songs)

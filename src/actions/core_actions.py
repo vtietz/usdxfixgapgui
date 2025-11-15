@@ -59,20 +59,20 @@ class CoreActions(BaseActions):
     def rescan_directory(self):
         """
         Re-scan the current directory with full cache invalidation.
-        
+
         This clears all cached data and reloads songs fresh from disk,
         useful when files have been modified externally.
         """
         if not self.data.directory or not os.path.isdir(self.data.directory):
             logger.error("Cannot re-scan: no valid directory loaded")
             return
-        
+
         logger.info(f"Re-scanning directory with cache invalidation: {self.data.directory}")
-        
+
         # Clear the entire cache to force fresh parsing
         clear_cache()
         logger.info("Cache cleared for re-scan")
-        
+
         # Clear songs and reload
         self._clear_songs()
         self._load_songs()

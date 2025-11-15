@@ -65,7 +65,7 @@ class TestRescanDirectory:
         """set_directory should NOT clear cache (different from rescan)"""
         new_dir = tmp_path / "songs"
         new_dir.mkdir()
-        
+
         core_actions.set_directory(str(new_dir))
 
         # Should not clear cache
