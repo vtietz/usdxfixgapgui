@@ -123,7 +123,8 @@ case "$1" in
         TEST_DOCS=""
         PYTEST_ARGS=""
 
-        # Parse arguments looking for --docs or --artifacts
+        # Parse arguments looking for --docs or --artifacts (skip first arg which is "test")
+        shift  # Remove "test" from arguments
         for arg in "$@"; do
             if [[ "$arg" == "--docs" ]] || [[ "$arg" == "--artifacts" ]]; then
                 TEST_DOCS=1

@@ -96,6 +96,7 @@ class WatchModeActions(BaseActions):
                 songs_get_by_path=self.data.songs.get_by_path,
                 songs_add=self.data.songs.add,
                 songs_remove_by_txt_file=self.data.songs.remove_by_txt_file,
+                reload_song=self._reload_song,
             )
 
             # Connect error signal
@@ -157,6 +158,18 @@ class WatchModeActions(BaseActions):
 
         except Exception as e:
             logger.error(f"Error starting gap detection for {song}: {e}", exc_info=True)
+
+    def _reload_song(self, song: Song):
+        """Reload a song from disk (called when gap_info changes)."""
+        try:
+            # Import here to avoid circular dependency
+            from actions.song_actions import SongActions
+
+            song_actions = SongActions(self.data)
+            song_actions.reload_song(song)
+
+        except Exception as e:
+            logger.error(f"Error reloading song {song}: {e}", exc_info=True)
 
     def _on_watch_error(self, error: str):
         """Handle watch mode error."""

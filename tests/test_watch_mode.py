@@ -61,20 +61,24 @@ class TestGapDetectionScheduler:
         def mock_start_detection(song):
             detection_calls.append(song)
 
-        mock_get_by_txt = Mock(return_value=Song(txt_file="/test/song.txt"))
-        mock_get_by_path = Mock(return_value=None)
-
-        scheduler = GapDetectionScheduler(
-            debounce_ms=100,  # Short debounce for testing
-            start_gap_detection=mock_start_detection,
-            songs_get_by_txt_file=mock_get_by_txt,
-            songs_get_by_path=mock_get_by_path,
-        )
-
         # Create test directory
         with tempfile.TemporaryDirectory() as tmpdir:
             txt_path = os.path.join(tmpdir, "song.txt")
+            audio_path = os.path.join(tmpdir, "song.mp3")
             Path(txt_path).touch()
+            Path(audio_path).write_bytes(b"fake audio data")  # Create fake audio file
+
+            test_song = Song(txt_file=txt_path)
+            test_song.audio_file = audio_path
+            mock_get_by_txt = Mock(return_value=test_song)
+            mock_get_by_path = Mock(return_value=None)
+
+            scheduler = GapDetectionScheduler(
+                debounce_ms=100,  # Short debounce for testing
+                start_gap_detection=mock_start_detection,
+                songs_get_by_txt_file=mock_get_by_txt,
+                songs_get_by_path=mock_get_by_path,
+            )
 
             # Simulate multiple rapid modifications
             for i in range(5):
@@ -127,20 +131,23 @@ class TestGapDetectionScheduler:
         def mock_start_detection(song):
             detection_calls.append(song)
 
-        test_song = Song(txt_file="/test/song.txt")
-        mock_get_by_txt = Mock(return_value=test_song)
-        mock_get_by_path = Mock(return_value=None)
-
-        scheduler = GapDetectionScheduler(
-            debounce_ms=50,
-            start_gap_detection=mock_start_detection,
-            songs_get_by_txt_file=mock_get_by_txt,
-            songs_get_by_path=mock_get_by_path,
-        )
-
         with tempfile.TemporaryDirectory() as tmpdir:
             txt_path = os.path.join(tmpdir, "song.txt")
+            audio_path = os.path.join(tmpdir, "song.mp3")
             Path(txt_path).touch()
+            Path(audio_path).write_bytes(b"fake audio data")
+
+            test_song = Song(txt_file=txt_path)
+            test_song.audio_file = audio_path
+            mock_get_by_txt = Mock(return_value=test_song)
+            mock_get_by_path = Mock(return_value=None)
+
+            scheduler = GapDetectionScheduler(
+                debounce_ms=50,
+                start_gap_detection=mock_start_detection,
+                songs_get_by_txt_file=mock_get_by_txt,
+                songs_get_by_path=mock_get_by_path,
+            )
 
             # First event
             event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)

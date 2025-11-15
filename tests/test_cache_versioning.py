@@ -18,8 +18,8 @@ class TestCacheVersioning:
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = os.path.join(temp_dir, "test_cache.db")
 
-            # Mock the DB_PATH
-            with patch("common.database.DB_PATH", db_path):
+            # Mock the _DB_PATH
+            with patch("common.database._DB_PATH", db_path):
                 # Reset initialization flag
                 import common.database as db_module
 
@@ -94,7 +94,7 @@ class TestCacheVersioning:
             conn.close()
 
             # Now initialize with new version
-            with patch("common.database.DB_PATH", db_path):
+            with patch("common.database._DB_PATH", db_path):
                 import common.database as db_module
 
                 db_module._db_initialized = False
@@ -172,7 +172,7 @@ class TestCacheVersioning:
             conn.close()
 
             # Now initialize (should not clear cache)
-            with patch("common.database.DB_PATH", db_path):
+            with patch("common.database._DB_PATH", db_path):
                 db_module._db_initialized = False
                 db_module._cache_was_cleared = False
 
@@ -221,7 +221,7 @@ class TestCacheVersioning:
             conn.close()
 
             # Initialize with versioning
-            with patch("common.database.DB_PATH", db_path):
+            with patch("common.database._DB_PATH", db_path):
                 import common.database as db_module
 
                 db_module._db_initialized = False

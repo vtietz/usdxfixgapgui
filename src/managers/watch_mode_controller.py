@@ -47,6 +47,7 @@ class WatchModeController(QObject):
         songs_get_by_path,
         songs_add,
         songs_remove_by_txt_file,
+        reload_song,
     ):
         """
         Initialize WatchModeController.
@@ -61,12 +62,14 @@ class WatchModeController(QObject):
             songs_get_by_path: Callable(path) to get Song by folder path
             songs_add: Callable(song) to add song to Songs collection
             songs_remove_by_txt_file: Callable(txt_file) to remove song
+            reload_song: Callable(song) to reload song from disk
         """
         super().__init__()
 
         self._directory = directory
         self._debounce_ms = debounce_ms
         self._is_running = False
+        self._reload_song = reload_song
 
         # Initialize components
         self._watcher = DirectoryWatcher(ignore_patterns=ignore_patterns)
@@ -97,6 +100,8 @@ class WatchModeController(QObject):
 
         self._cache_scheduler.song_added.connect(self._on_song_added_worker)
         self._cache_scheduler.song_removed.connect(self._on_song_removed)
+
+        self._gap_scheduler.reload_requested.connect(self._on_reload_requested)
 
     def start(self) -> bool:
         """
@@ -152,8 +157,8 @@ class WatchModeController(QObject):
             if event.event_type in [event.event_type.CREATED, event.event_type.DELETED, event.event_type.MOVED]:
                 self._cache_scheduler.handle_event(event)
 
-            # Route to gap detection scheduler for modify
-            if event.event_type == event.event_type.MODIFIED:
+            # Route to gap detection scheduler for modify/delete (handles txt/audio modify + gap_info modify/delete)
+            if event.event_type in [event.event_type.MODIFIED, event.event_type.DELETED]:
                 self._gap_scheduler.handle_event(event)
 
         except Exception as e:
@@ -195,6 +200,22 @@ class WatchModeController(QObject):
 
         except Exception as e:
             logger.error(f"Error removing song: {e}", exc_info=True)
+
+    def _on_reload_requested(self, song_path: str):
+        """Handle reload request when gap_info file changes."""
+        try:
+            # Find song by path
+            song = self._songs_get_by_path(song_path)
+
+            if not song:
+                logger.warning(f"Song not found for reload: {song_path}")
+                return
+
+            logger.info(f"Reloading song due to gap_info change: {song.artist} - {song.title}")
+            self._reload_song(song)
+
+        except Exception as e:
+            logger.error(f"Error reloading song: {e}", exc_info=True)
 
     def _on_watcher_error(self, error: str):
         """Handle watcher error."""
