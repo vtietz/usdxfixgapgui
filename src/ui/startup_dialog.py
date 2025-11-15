@@ -268,6 +268,10 @@ class StartupDialog(QDialog):
         self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
 
     def _render_activation_flow(self, existing_pack):
+        self.log("✅ System ready (CPU mode)")
+        self.log("")
+        self._log_system_details()
+        self.log("")
         self.log("⚡ GPU Pack Detected (Not Activated)")
         self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
         self.log(f"  • GPU Pack found at: {existing_pack}")
@@ -293,6 +297,10 @@ class StartupDialog(QDialog):
         self.download_btn.clicked.connect(self._on_activate_gpu_pack)
 
     def _render_download_flow(self):
+        self.log("✅ System ready (CPU mode)")
+        self.log("")
+        self._log_system_details()
+        self.log("")
         self.log("⚡ GPU Pack Available for Download")
         self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
         self.log("  • Current mode: CPU (GPU Pack not installed)")
@@ -379,8 +387,12 @@ class StartupDialog(QDialog):
                     self.log("    💡 Install VLC for better playback: videolan.org/vlc")
             elif sys.platform == "darwin":
                 self.log("  • Media Backend: Qt/AVFoundation (native)")
-            else:
-                self.log(f"  • Media Backend: {info['recommended']}")
+            else:  # Linux
+                if vlc_available:
+                    self.log("  • Media Backend: VLC (recommended)")
+                else:
+                    self.log("  • Media Backend: Qt/GStreamer")
+                    self.log("    💡 Optional: Install VLC for better playback: sudo apt install vlc")
         except Exception as e:
             logger.debug(f"Could not determine media backend: {e}")
             pass
