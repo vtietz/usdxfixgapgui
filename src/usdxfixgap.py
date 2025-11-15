@@ -335,13 +335,15 @@ def main():
         gpu_enabled, gpu_status = _bootstrap_gpu_and_models(config, logger)
 
         # Check if GPU Pack was expected but failed validation
+        # Show error ONLY on first failure (don't spam on every startup)
         if (
             not gpu_enabled
             and gpu_status.error
             and hasattr(config, "gpu_last_health")
             and config.gpu_last_health == "failed"
+            and not getattr(config, "gpu_error_shown", False)
         ):
-            # GPU Pack was activated but validation failed - show error to user
+            # GPU Pack was activated but validation failed - show error to user ONCE
             from PySide6.QtWidgets import QApplication, QMessageBox
 
             _ = QApplication.instance() or QApplication(sys.argv)
@@ -364,7 +366,11 @@ def main():
             msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
             msg_box.exec()
 
-            logger.warning("Showed GPU Pack validation failure dialog to user")
+            # Mark error as shown - don't spam on every startup
+            config.gpu_error_shown = True
+            config.save_config()
+
+            logger.warning("Showed GPU Pack validation failure dialog to user (first time only)")
 
         # Optional GPU CLI flow (may exit)
         maybe_exit = _maybe_handle_gpu_cli(args, config)
