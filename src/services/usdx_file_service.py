@@ -57,6 +57,10 @@ class USDXFileService:
         async with aiofiles.open(usdx_file.filepath, "rb") as file:
             raw = await file.read()
 
+        # Check if file is empty or too small (likely still being written)
+        if not raw or len(raw) < 10:
+            raise Exception(f"File is empty or too small: {usdx_file.filepath}")
+
         encodings = [
             "utf-8",
             "utf-16",

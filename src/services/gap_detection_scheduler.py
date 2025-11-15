@@ -26,6 +26,7 @@ class _PendingDetection:
     txt_file: str
     last_event_time: datetime
     timer: QTimer
+    retry_count: int = 0  # Track reschedule attempts
 
 
 class GapDetectionScheduler(QObject):
@@ -74,6 +75,9 @@ class GapDetectionScheduler(QObject):
         # Extensions that trigger gap detection
         self._trigger_extensions = {".txt", ".mp3", ".wav", ".ogg", ".m4a", ".flac"}
 
+        # Maximum retry attempts when files aren't ready
+        self._max_retries = 5
+
     def handle_event(self, event: WatchEvent):
         """
         Handle a filesystem event and schedule gap detection if appropriate.
@@ -119,6 +123,44 @@ class GapDetectionScheduler(QObject):
 
         return None
 
+    def _validate_song_files_ready(self, song: Song) -> tuple[bool, str]:
+        """
+        Validate that song has both txt and audio files that are ready.
+
+        Args:
+            song: The song to validate
+
+        Returns:
+            Tuple of (is_ready, reason)
+        """
+        # Check if txt file exists
+        if not song.txt_file or not os.path.exists(song.txt_file):
+            return False, "txt file missing"
+
+        # Check if audio file exists
+        if not song.audio_file:
+            return False, "no audio file found"
+
+        if not os.path.exists(song.audio_file):
+            return False, "audio file missing"
+
+        # Check if audio file is stable (not currently being written)
+        # Try to open it to ensure it's accessible and not locked
+        try:
+            # Get file size
+            size1 = os.path.getsize(song.audio_file)
+
+            # Check if file is readable
+            with open(song.audio_file, 'rb') as f:
+                # Try to read first byte to ensure file is not locked
+                f.read(1)
+
+            # File seems ready
+            return True, "ready"
+
+        except (OSError, IOError) as e:
+            return False, f"audio file not ready: {e}"
+
     def _schedule_detection(self, song_path: str, txt_file: str):
         """Schedule detection with debouncing."""
         now = datetime.now()
@@ -154,6 +196,36 @@ class GapDetectionScheduler(QObject):
 
             logger.debug(f"Scheduled gap detection for {song_path} (debounce {self._debounce_ms}ms)")
 
+    def _schedule_detection_with_retry(self, song_path: str, txt_file: str, retry_count: int):
+        """Schedule detection with specific retry count (used for rescheduling)."""
+        # Check if already in-flight
+        if song_path in self._in_flight:
+            logger.debug(f"Gap detection already in-flight for {song_path}, skipping reschedule")
+            return
+
+        # Cancel existing pending if any
+        if song_path in self._pending:
+            self._pending[song_path].timer.stop()
+            del self._pending[song_path]
+
+        # Create new pending detection with retry count
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.timeout.connect(lambda: self._execute_detection(song_path))
+
+        pending = _PendingDetection(
+            song_path=song_path,
+            txt_file=txt_file,
+            last_event_time=datetime.now(),
+            timer=timer,
+            retry_count=retry_count,
+        )
+
+        self._pending[song_path] = pending
+        timer.start(self._debounce_ms)
+
+        logger.debug(f"Rescheduled gap detection for {song_path} (retry {retry_count}, debounce {self._debounce_ms}ms)")
+
     def _execute_detection(self, song_path: str):
         """Execute gap detection after debounce period."""
         if song_path not in self._pending:
@@ -177,6 +249,42 @@ class GapDetectionScheduler(QObject):
 
             if not song:
                 logger.warning(f"Song not found for gap detection: {song_path}")
+                self._in_flight.discard(song_path)
+                return
+
+            # Skip songs with ERROR status (failed to load)
+            if song.status and song.status.name == 'ERROR':
+                logger.warning(f"Skipping gap detection for song with ERROR status: {song_path}")
+                self._in_flight.discard(song_path)
+                return
+
+            # Validate that both txt and audio files exist and are ready
+            is_ready, reason = self._validate_song_files_ready(song)
+            if not is_ready:
+                # Check retry limit
+                if pending.retry_count >= self._max_retries:
+                    logger.error(
+                        f"Giving up on gap detection for {song.artist} - {song.title} after "
+                        f"{pending.retry_count} retries: {reason}"
+                    )
+                    self._in_flight.discard(song_path)
+                    return
+
+                logger.info(
+                    f"Song files not ready for {song.artist} - {song.title}: {reason}, "
+                    f"rescheduling (retry {pending.retry_count + 1}/{self._max_retries})..."
+                )
+                self._in_flight.discard(song_path)
+
+                # Reschedule with incremented retry count
+                # This handles the race condition where txt is detected before audio is fully written
+                self._schedule_detection_with_retry(song_path, pending.txt_file, pending.retry_count + 1)
+                return
+
+            # Skip if song already has valid gap detection (watch mode auto-update)
+            # Only re-detect if explicitly requested via UI
+            if song.gap_info and song.gap_info.status and song.gap_info.status.name in ['MATCH', 'SOLVED']:
+                logger.info(f"Skipping gap detection for {song.artist} - {song.title} (already detected: {song.gap_info.status.name})")
                 self._in_flight.discard(song_path)
                 return
 
