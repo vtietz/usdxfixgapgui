@@ -153,12 +153,16 @@ class WatchModeController(QObject):
     def _on_file_event(self, event: WatchEvent):
         """Handle filesystem event by routing to appropriate scheduler."""
         try:
+            logger.debug(f"WatchModeController received event: {event.event_type.name} for {event.path}")
+            
             # Route to cache scheduler for create/delete/move
             if event.event_type in [event.event_type.CREATED, event.event_type.DELETED, event.event_type.MOVED]:
+                logger.debug(f"Routing {event.event_type.name} to cache_scheduler")
                 self._cache_scheduler.handle_event(event)
 
             # Route to gap detection scheduler for modify/delete (handles txt/audio modify + gap_info modify/delete)
             if event.event_type in [event.event_type.MODIFIED, event.event_type.DELETED]:
+                logger.debug(f"Routing {event.event_type.name} to gap_scheduler")
                 self._gap_scheduler.handle_event(event)
 
         except Exception as e:
@@ -204,6 +208,8 @@ class WatchModeController(QObject):
     def _on_reload_requested(self, song_path: str):
         """Handle reload request when gap_info file changes."""
         try:
+            logger.info(f"Reload requested for song path: {song_path}")
+            
             # Find song by path
             song = self._songs_get_by_path(song_path)
 

@@ -91,42 +91,74 @@ class GapDetectionScheduler(QObject):
             event: The filesystem event to handle
         """
         try:
+            logger.debug(f"GapDetectionScheduler received event: {event.event_type.name} for {event.path}")
+            
             # Only handle MODIFIED and DELETED events
             if event.event_type not in [WatchEventType.MODIFIED, WatchEventType.DELETED]:
+                logger.debug(f"Ignoring event type {event.event_type.name}")
                 return
 
             if event.is_directory:
+                logger.debug("Ignoring directory event")
                 return
 
             # Check file extension
             _, ext = os.path.splitext(event.path)
+            logger.debug(f"File extension: {ext}")
 
             # Handle gap_info.json file changes (MODIFIED or DELETED) → trigger song reload
             if ext.lower() in self._reload_extensions:
+                logger.info(f"Detected gap_info file change: {event.event_type.name} {event.path}")
                 self._handle_gap_info_change(event)
                 return
 
             # Handle txt/audio file MODIFIED → trigger gap detection
             if event.event_type == WatchEventType.MODIFIED and ext.lower() in self._trigger_extensions:
+                logger.info(f"Detected trigger file modification: {event.path}")
                 self._handle_file_modified(event)
                 return
+            
+            logger.debug(f"No action for {ext} file with event {event.event_type.name}")
 
         except Exception as e:
             logger.error(f"Error handling gap detection event: {e}", exc_info=True)
 
     def _handle_file_modified(self, event: WatchEvent):
-        """Handle txt/audio file modification → schedule gap detection."""
+        """Handle txt/audio file modification → reload song + conditionally schedule gap detection."""
+        from model.song import SongStatus
+        
         # Determine song folder and txt file
         song_path = os.path.dirname(event.path)
-
-        # Find txt file in the folder
         txt_file = self._find_txt_file(song_path)
+
         if not txt_file:
-            logger.debug(f"No .txt file found in {song_path}, skipping")
+            logger.warning(f"No txt file found in {song_path}, cannot process modification")
             return
 
-        # Schedule detection with debouncing
-        self._schedule_detection(song_path, txt_file)
+        logger.info(f"Text/audio file modified, reloading song at {song_path}")
+
+        # Emit reload signal to update song metadata from disk
+        self.reload_requested.emit(song_path)
+
+        # After reload signal is emitted, check if we should schedule gap detection
+        # Get the song to check its status
+        song = self._songs_get_by_txt_file(txt_file)
+        if not song:
+            song = self._songs_get_by_path(song_path)
+
+        if not song:
+            logger.debug(f"Song not found for {song_path}, will schedule detection for when it's added")
+            # Schedule detection anyway - song will be added/reloaded
+            self._schedule_detection(song_path, txt_file)
+            return
+
+        # Only schedule gap detection if status is NOT_PROCESSED
+        # This implements "auto processing" behavior: watch mode detects gaps for unprocessed songs
+        if song.status == SongStatus.NOT_PROCESSED:
+            logger.info(f"Song status is NOT_PROCESSED, scheduling gap detection for {song.artist} - {song.title}")
+            self._schedule_detection(song_path, txt_file)
+        else:
+            logger.debug(f"Song status is {song.status.name}, skipping gap detection for {song.artist} - {song.title}")
 
     def _handle_gap_info_change(self, event: WatchEvent):
         """Handle gap_info.json modification/deletion → trigger song reload."""

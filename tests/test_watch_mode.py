@@ -52,48 +52,49 @@ class TestDirectoryWatcher:
 
 
 class TestGapDetectionScheduler:
-    """Tests for GapDetectionScheduler with debouncing"""
+    """Tests for GapDetectionScheduler reload signals"""
 
-    def test_debouncing_coalesces_events(self, qtbot):
-        """Test that multiple events for same song are debounced"""
-        detection_calls = []
+    def test_txt_modification_triggers_reload_and_detection_for_not_processed(self, qtbot):
+        """Test that txt file modifications trigger reload + gap detection if NOT_PROCESSED"""
+        from model.song import SongStatus
+        
+        reload_calls = []
 
-        def mock_start_detection(song):
-            detection_calls.append(song)
+        def mock_reload_handler(song_path):
+            reload_calls.append(song_path)
 
-        # Create test directory
+        mock_start_detection = Mock()
+        
+        # Create song with NOT_PROCESSED status
+        song = Song(txt_file="/test/song.txt")
+        song.status = SongStatus.NOT_PROCESSED
+        mock_get_by_txt = Mock(return_value=song)
+        mock_get_by_path = Mock(return_value=song)
+
+        scheduler = GapDetectionScheduler(
+            debounce_ms=100,
+            start_gap_detection=mock_start_detection,
+            songs_get_by_txt_file=mock_get_by_txt,
+            songs_get_by_path=mock_get_by_path,
+        )
+
+        # Connect to reload signal
+        scheduler.reload_requested.connect(mock_reload_handler)
+
         with tempfile.TemporaryDirectory() as tmpdir:
             txt_path = os.path.join(tmpdir, "song.txt")
-            audio_path = os.path.join(tmpdir, "song.mp3")
             Path(txt_path).touch()
-            Path(audio_path).write_bytes(b"fake audio data")  # Create fake audio file
 
-            test_song = Song(txt_file=txt_path)
-            test_song.audio_file = audio_path
-            mock_get_by_txt = Mock(return_value=test_song)
-            mock_get_by_path = Mock(return_value=None)
+            # Simulate txt file modification
+            event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
+            scheduler.handle_event(event)
 
-            scheduler = GapDetectionScheduler(
-                debounce_ms=100,  # Short debounce for testing
-                start_gap_detection=mock_start_detection,
-                songs_get_by_txt_file=mock_get_by_txt,
-                songs_get_by_path=mock_get_by_path,
-            )
+            # Should emit reload signal
+            assert len(reload_calls) == 1
+            assert reload_calls[0] == tmpdir
 
-            # Simulate multiple rapid modifications
-            for i in range(5):
-                event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
-                scheduler.handle_event(event)
-
-            # Should have 1 pending detection, not 5
+            # Should schedule gap detection since status is NOT_PROCESSED
             assert len(scheduler._pending) == 1
-
-            # Wait for debounce + margin
-            qtbot.wait(200)
-
-            # Should have executed detection exactly once
-            assert len(detection_calls) == 1
-            assert len(scheduler._pending) == 0
 
     def test_ignores_non_trigger_extensions(self):
         """Test that only trigger extensions schedule detection"""
@@ -124,84 +125,49 @@ class TestGapDetectionScheduler:
             assert len(scheduler._pending) == 0
             assert len(detection_calls) == 0
 
-    def test_idempotency_prevents_duplicate_in_flight(self, qtbot):
-        """Test that in-flight tasks prevent duplicates"""
-        detection_calls = []
+    def test_txt_modification_skips_detection_for_processed_songs(self, qtbot):
+        """Test that txt file modifications skip gap detection if song status is not NOT_PROCESSED"""
+        from model.song import SongStatus
+        
+        reload_calls = []
 
-        def mock_start_detection(song):
-            detection_calls.append(song)
+        def mock_reload_handler(song_path):
+            reload_calls.append(song_path)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            txt_path = os.path.join(tmpdir, "song.txt")
-            audio_path = os.path.join(tmpdir, "song.mp3")
-            Path(txt_path).touch()
-            Path(audio_path).write_bytes(b"fake audio data")
-
-            test_song = Song(txt_file=txt_path)
-            test_song.audio_file = audio_path
-            mock_get_by_txt = Mock(return_value=test_song)
-            mock_get_by_path = Mock(return_value=None)
-
-            scheduler = GapDetectionScheduler(
-                debounce_ms=50,
-                start_gap_detection=mock_start_detection,
-                songs_get_by_txt_file=mock_get_by_txt,
-                songs_get_by_path=mock_get_by_path,
-            )
-
-            # First event
-            event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
-            scheduler.handle_event(event)
-
-            # Wait for execution
-            qtbot.wait(100)
-
-            assert len(detection_calls) == 1
-
-            # Mark as in-flight manually (simulating detection not finished)
-            # scheduler._in_flight.add("/test")
-            # Note: In real usage, detection completes and calls mark_detection_complete
-
-            # Try to schedule again - should be blocked if still in-flight
-            # For this test, we'll clear in-flight to test the mechanism
-            scheduler._in_flight.clear()
-
-            # Second event after clearing
-            scheduler.handle_event(event)
-            qtbot.wait(100)
-
-            # Should have executed again
-            assert len(detection_calls) == 2
-
-    def test_clear_pending(self):
-        """Test that clear_pending stops all timers"""
         mock_start_detection = Mock()
-        mock_get_by_txt = Mock(return_value=Song(txt_file="/test/song.txt"))
-        mock_get_by_path = Mock(return_value=None)
+        
+        # Create song with MATCH status (already processed)
+        song = Song(txt_file="/test/song.txt")
+        song.status = SongStatus.MATCH
+        song.audio_file = "/test/song.mp3"
+        mock_get_by_txt = Mock(return_value=song)
+        mock_get_by_path = Mock(return_value=song)
 
         scheduler = GapDetectionScheduler(
-            debounce_ms=1000,  # Long debounce
+            debounce_ms=50,
             start_gap_detection=mock_start_detection,
             songs_get_by_txt_file=mock_get_by_txt,
             songs_get_by_path=mock_get_by_path,
         )
 
+        # Connect to reload signal
+        scheduler.reload_requested.connect(mock_reload_handler)
+
         with tempfile.TemporaryDirectory() as tmpdir:
             txt_path = os.path.join(tmpdir, "song.txt")
             Path(txt_path).touch()
 
+            # Simulate txt file modification
             event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
             scheduler.handle_event(event)
 
-            assert len(scheduler._pending) == 1
+            # Should emit reload signal
+            assert len(reload_calls) == 1
+            assert reload_calls[0] == tmpdir
 
-            # Clear before execution
-            scheduler.clear_pending()
-
-            assert len(scheduler._pending) == 0
-            # Detection should never be called
-            assert mock_start_detection.call_count == 0
-
+            # Should NOT schedule gap detection since status is MATCH
+            assert len(scheduler._pending) == 0            # Should NOT schedule gap detection
+            mock_start_detection.assert_not_called()
 
 class TestWatchModeIntegration:
     """Integration tests for watch mode enablement logic"""
