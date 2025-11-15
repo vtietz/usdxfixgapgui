@@ -41,7 +41,7 @@ class MenuBar(QWidget):
         # Re-Scan Button - Re-scans the current directory
         self.rescan_button = QPushButton("Re-Scan")
         self.rescan_button.clicked.connect(self.onRescanButtonClicked)
-        self.rescan_button.setToolTip("Re-scan the current directory to reload all songs")
+        self.rescan_button.setToolTip("Re-scan the current directory (clears cache and reloads all songs from disk)")
         self.rescan_button.setEnabled(False)  # Disabled until a directory is loaded
         self._layout.addWidget(self.rescan_button)
 
@@ -205,14 +205,14 @@ class MenuBar(QWidget):
         msgBox = QMessageBox()
         msgBox.setIcon(QMessageBox.Icon.Question)
         msgBox.setText(f"Re-scan the current directory?\r\n{self.data.directory}")
-        msgBox.setInformativeText("This will reload all songs from the directory.")
+        msgBox.setInformativeText("This will clear the cache and reload all songs fresh from disk.")
         msgBox.setWindowTitle("Re-Scan Directory")
         msgBox.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
 
         returnValue = msgBox.exec()
         if returnValue == QMessageBox.StandardButton.Ok:
             logger.info(f"User initiated re-scan of directory: {self.data.directory}")
-            self._actions.set_directory(self.data.directory)
+            self._actions.rescan_directory()
 
     def onFilterChanged(self, selectedStatuses):
         self._actions.data.songs.filter = selectedStatuses

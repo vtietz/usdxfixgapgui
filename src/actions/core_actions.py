@@ -3,6 +3,7 @@ import os
 from actions.base_actions import BaseActions
 from model.song import Song, SongStatus
 from workers.load_usdx_files import LoadUsdxFilesWorker
+from common.database import clear_cache
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,27 @@ class CoreActions(BaseActions):
         logger.info(f"Saved last directory to config: {directory}")
 
         # Clear songs and reload from new directory
+        self._clear_songs()
+        self._load_songs()
+
+    def rescan_directory(self):
+        """
+        Re-scan the current directory with full cache invalidation.
+        
+        This clears all cached data and reloads songs fresh from disk,
+        useful when files have been modified externally.
+        """
+        if not self.data.directory or not os.path.isdir(self.data.directory):
+            logger.error("Cannot re-scan: no valid directory loaded")
+            return
+        
+        logger.info(f"Re-scanning directory with cache invalidation: {self.data.directory}")
+        
+        # Clear the entire cache to force fresh parsing
+        clear_cache()
+        logger.info("Cache cleared for re-scan")
+        
+        # Clear songs and reload
         self._clear_songs()
         self._load_songs()
 
