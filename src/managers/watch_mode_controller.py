@@ -91,6 +91,7 @@ class WatchModeController(QObject):
         self._songs_add = songs_add
         self._songs_remove_by_txt_file = songs_remove_by_txt_file
         self._songs_get_by_txt_file = songs_get_by_txt_file
+        self._songs_get_by_path = songs_get_by_path
 
         # Connect signals
         self._watcher.file_event.connect(self._on_file_event)
@@ -154,7 +155,7 @@ class WatchModeController(QObject):
         """Handle filesystem event by routing to appropriate scheduler."""
         try:
             logger.debug(f"WatchModeController received event: {event.event_type.name} for {event.path}")
-            
+
             # Route to cache scheduler for create/delete/move
             if event.event_type in [event.event_type.CREATED, event.event_type.DELETED, event.event_type.MOVED]:
                 logger.debug(f"Routing {event.event_type.name} to cache_scheduler")
@@ -209,7 +210,7 @@ class WatchModeController(QObject):
         """Handle reload request when gap_info file changes."""
         try:
             logger.info(f"Reload requested for song path: {song_path}")
-            
+
             # Find song by path
             song = self._songs_get_by_path(song_path)
 

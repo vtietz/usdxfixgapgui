@@ -57,14 +57,14 @@ class TestGapDetectionScheduler:
     def test_txt_modification_triggers_reload_and_detection_for_not_processed(self, qtbot):
         """Test that txt file modifications trigger reload + gap detection if NOT_PROCESSED"""
         from model.song import SongStatus
-        
+
         reload_calls = []
 
         def mock_reload_handler(song_path):
             reload_calls.append(song_path)
 
         mock_start_detection = Mock()
-        
+
         # Create song with NOT_PROCESSED status
         song = Song(txt_file="/test/song.txt")
         song.status = SongStatus.NOT_PROCESSED
@@ -128,14 +128,14 @@ class TestGapDetectionScheduler:
     def test_txt_modification_skips_detection_for_processed_songs(self, qtbot):
         """Test that txt file modifications skip gap detection if song status is not NOT_PROCESSED"""
         from model.song import SongStatus
-        
+
         reload_calls = []
 
         def mock_reload_handler(song_path):
             reload_calls.append(song_path)
 
         mock_start_detection = Mock()
-        
+
         # Create song with MATCH status (already processed)
         song = Song(txt_file="/test/song.txt")
         song.status = SongStatus.MATCH

@@ -40,8 +40,8 @@ class TestGapInfoFileChanges:
 
             # Simulate gap_info.json modification
             event = WatchEvent(
-                event_type=WatchEventType.MODIFIED, 
-                path=gap_info_path, 
+                event_type=WatchEventType.MODIFIED,
+                path=gap_info_path,
                 is_directory=False
             )
             scheduler.handle_event(event)
@@ -80,8 +80,8 @@ class TestGapInfoFileChanges:
 
             # Simulate gap_info.json deletion
             event = WatchEvent(
-                event_type=WatchEventType.DELETED, 
-                path=gap_info_path, 
+                event_type=WatchEventType.DELETED,
+                path=gap_info_path,
                 is_directory=False
             )
             scheduler.handle_event(event)
@@ -128,8 +128,8 @@ class TestGapInfoFileChanges:
 
             # Simulate .txt file modification
             event = WatchEvent(
-                event_type=WatchEventType.MODIFIED, 
-                path=txt_path, 
+                event_type=WatchEventType.MODIFIED,
+                path=txt_path,
                 is_directory=False
             )
             scheduler.handle_event(event)
@@ -168,8 +168,8 @@ class TestGapInfoFileChanges:
             # Multiple modifications
             for i in range(3):
                 event = WatchEvent(
-                    event_type=WatchEventType.MODIFIED, 
-                    path=gap_info_path, 
+                    event_type=WatchEventType.MODIFIED,
+                    path=gap_info_path,
                     is_directory=False
                 )
                 scheduler.handle_event(event)

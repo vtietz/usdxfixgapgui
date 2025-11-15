@@ -92,7 +92,7 @@ class GapDetectionScheduler(QObject):
         """
         try:
             logger.debug(f"GapDetectionScheduler received event: {event.event_type.name} for {event.path}")
-            
+
             # Only handle MODIFIED and DELETED events
             if event.event_type not in [WatchEventType.MODIFIED, WatchEventType.DELETED]:
                 logger.debug(f"Ignoring event type {event.event_type.name}")
@@ -117,7 +117,7 @@ class GapDetectionScheduler(QObject):
                 logger.info(f"Detected trigger file modification: {event.path}")
                 self._handle_file_modified(event)
                 return
-            
+
             logger.debug(f"No action for {ext} file with event {event.event_type.name}")
 
         except Exception as e:
@@ -126,7 +126,7 @@ class GapDetectionScheduler(QObject):
     def _handle_file_modified(self, event: WatchEvent):
         """Handle txt/audio file modification → reload song + conditionally schedule gap detection."""
         from model.song import SongStatus
-        
+
         # Determine song folder and txt file
         song_path = os.path.dirname(event.path)
         txt_file = self._find_txt_file(song_path)
