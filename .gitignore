@@ -38,3 +38,5 @@ debug_*.py
 analysis_output.txt
 
 models/
+
+.download/

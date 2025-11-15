@@ -54,7 +54,7 @@ class StartupDialog(QDialog):
 
     def __init__(self, parent=None, config=None, startup_mode=True):
         """
-        Initialize startup dialog.
+        Initialize dialog.
 
         Args:
             parent: Parent widget (None for startup, main window for About)
@@ -386,25 +386,47 @@ class StartupDialog(QDialog):
             from services.media.backend_factory import get_backend_info, _is_vlc_available
             import sys
 
-            info = get_backend_info()
-            vlc_available = _is_vlc_available()
+            # Try to get actual running backend from parent window's media player component (About dialog)
+            actual_backend_name = None
+            if self.parent() and hasattr(self.parent(), 'findChild'):
+                try:
+                    from ui.mediaplayer import MediaPlayerComponent
+                    media_player = self.parent().findChild(MediaPlayerComponent)
+                    if media_player and hasattr(media_player, 'player') and hasattr(media_player.player, 'audio_backend'):
+                        backend = media_player.player.audio_backend
+                        actual_backend_name = backend.get_backend_name()
+                except Exception:
+                    pass
 
-            if sys.platform == "win32":
-                if vlc_available:
-                    self.log("  • Media Backend: VLC (recommended)")
-                else:
-                    self.log("  • Media Backend: Qt/WMF (may cause UI freezes)")
+            # If we have actual backend, show it
+            if actual_backend_name:
+                self.log(f"  • Media Backend: {actual_backend_name}")
+                # Add hints for non-optimal backends
+                if actual_backend_name == "Qt/WMF":
                     self.log("    💡 Install VLC for better playback: videolan.org/vlc")
-            elif sys.platform == "darwin":
-                self.log("  • Media Backend: Qt/AVFoundation (native)")
-            else:  # Linux
-                if vlc_available:
-                    self.log("  • Media Backend: VLC (recommended)")
-                else:
-                    self.log("  • Media Backend: Qt/GStreamer")
+                elif actual_backend_name.startswith("Qt/") and sys.platform.startswith("linux"):
+                    # On Linux, any Qt backend (GStreamer, ffmpeg, etc.) can benefit from VLC
                     self.log("    💡 Optional: Install VLC for better playback: sudo apt install vlc")
+            else:
+                # Fallback: show what would be selected (startup mode before backend created)
+                vlc_available = _is_vlc_available()
+
+                if sys.platform == "win32":
+                    if vlc_available:
+                        self.log("  • Media Backend: VLC (recommended)")
+                    else:
+                        self.log("  • Media Backend: Qt/WMF (may cause UI freezes)")
+                        self.log("    💡 Install VLC for better playback: videolan.org/vlc")
+                elif sys.platform == "darwin":
+                    self.log("  • Media Backend: Qt/AVFoundation (native)")
+                else:  # Linux
+                    if vlc_available:
+                        self.log("  • Media Backend: VLC (recommended)")
+                    else:
+                        self.log("  • Media Backend: Qt/GStreamer")
+                        self.log("    💡 Optional: Install VLC for better playback: sudo apt install vlc")
         except Exception as e:
-            logger.debug(f"Could not determine media backend: {e}")
+            logger.debug("Could not determine media backend: %s", e)
             pass
 
     def _log_system_components(self):

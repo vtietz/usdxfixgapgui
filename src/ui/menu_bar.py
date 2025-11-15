@@ -175,12 +175,11 @@ class MenuBar(QWidget):
             )
 
     def show_about_dialog(self):
-        """Show About dialog (reuses startup dialog in about mode)."""
+        """Show the About dialog (reuses startup dialog)."""
         from ui.startup_dialog import StartupDialog
 
-        # Store reference to prevent garbage collection (dialog is non-modal)
-        self._about_dialog = StartupDialog.show_about(parent=self, config=self.config)
-        logger.info("Showed About dialog")
+        # Use the static factory method for About mode
+        StartupDialog.show_about(parent=self.parent(), config=self.data.config)
 
     def choose_directory(self):
         # Use the last directory from config if available, otherwise use the current directory
