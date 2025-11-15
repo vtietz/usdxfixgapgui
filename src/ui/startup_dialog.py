@@ -272,6 +272,16 @@ class StartupDialog(QDialog):
         self.log("")
         self._log_system_details()
         self.log("")
+        
+        # Validate GPU Pack before offering activation
+        if not self._validate_gpu_pack(existing_pack):
+            self.log("⚠️ GPU Pack found but appears corrupted or incomplete")
+            self.log(f"  • Location: {existing_pack}")
+            self.log("")
+            self.log("→ Download a fresh GPU Pack below")
+            self._render_download_flow()
+            return
+        
         self.log("⚡ GPU Pack Detected (Not Activated)")
         self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
         self.log(f"  • GPU Pack found at: {existing_pack}")
@@ -453,6 +463,31 @@ class StartupDialog(QDialog):
 
         self.log("")
 
+    def _validate_gpu_pack(self, pack_path) -> bool:
+        """Validate GPU Pack has required files."""
+        from pathlib import Path
+        pack = Path(pack_path)
+        
+        # Check essential files exist
+        required_files = [
+            "torch",  # torch package directory
+            "torchaudio",  # torchaudio package directory  
+            "install.json",  # metadata file
+        ]
+        
+        for file in required_files:
+            if not (pack / file).exists():
+                logger.warning(f"GPU Pack validation failed: missing {file}")
+                return False
+        
+        # Check torch has essential CUDA libraries
+        torch_lib = pack / "torch" / "lib"
+        if not torch_lib.exists() or not list(torch_lib.glob("*cuda*")):
+            logger.warning("GPU Pack validation failed: missing CUDA libraries in torch/lib")
+            return False
+            
+        return True
+
     def _on_activate_gpu_pack(self):
         """Handle Activate GPU Pack button click."""
         if not hasattr(self, "_existing_pack_path"):
@@ -479,11 +514,19 @@ class StartupDialog(QDialog):
             self.status_label.setText("✅ GPU Pack Activated (Restart Required)")
             self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
 
-            # Change button to close app
-            self.download_btn.setText("Close App")
-            self.download_btn.setEnabled(True)
-            self.download_btn.clicked.disconnect()
-            self.download_btn.clicked.connect(self._on_restart_for_gpu)
+            # Hide activate button
+            self.download_btn.setVisible(False)
+            self.flavor_combo.setVisible(False)
+            
+            # Show restart button (or keep existing Close App button)
+            if hasattr(self, 'close_app_btn'):
+                self.close_app_btn.setText("Restart App")
+            else:
+                self.download_btn.setText("Restart App")
+                self.download_btn.setVisible(True)
+                self.download_btn.setEnabled(True)
+                self.download_btn.clicked.disconnect()
+                self.download_btn.clicked.connect(self._on_restart_for_gpu)
         else:
             self.log("❌ Failed to activate GPU Pack")
             self.log("")
