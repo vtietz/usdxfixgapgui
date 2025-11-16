@@ -41,7 +41,7 @@ class MultiSelectComboBox(QWidget):
 
         # Set the custom ClickableLineEdit
         self.clickableLineEdit = ClickableLineEdit(self.filterDropdown)
-        self.clickableLineEdit.setText("Select item")
+        self.clickableLineEdit.setText("")
         self.clickableLineEdit.setReadOnly(True)
         self.filterDropdown.setLineEdit(self.clickableLineEdit)
 
@@ -86,7 +86,7 @@ class MultiSelectComboBox(QWidget):
             for i in range(self.model.rowCount())
             if self.model.item(i).checkState() == Qt.CheckState.Checked
         ]
-        self.filterDropdown.lineEdit().setText(", ".join(selectedItems) if selectedItems else "Select item")
+        self.filterDropdown.lineEdit().setText(", ".join(selectedItems) if selectedItems else "")
         self.selectionChanged.emit(selectedItems)
 
     def onItemChanged(self, _):
