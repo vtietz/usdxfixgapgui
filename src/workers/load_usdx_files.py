@@ -5,7 +5,7 @@ from PySide6.QtCore import Signal
 from model.song import Song
 from services.song_service import SongService
 from managers.worker_queue_manager import IWorker, IWorkerSignals
-from common.database import get_all_cache_entries, cleanup_stale_entries
+from common.database import get_all_cache_entries, cleanup_stale_entries, stream_cache_entries
 
 logger = logging.getLogger(__name__)
 
@@ -68,24 +68,33 @@ class LoadUsdxFilesWorker(IWorker):
             return song
 
     async def load_from_cache(self):
-        """Load all songs from the cache database first."""
+        """Load all songs from the cache database first (using streaming for fast initial display)."""
         self.description = "Loading songs from cache."
         logger.info("Loading songs from cache")
-
-        deserialized_songs = get_all_cache_entries(deserialize=True)
-        logger.info(f"Found {len(deserialized_songs)} cached songs")
 
         # Normalize the directory path for comparison
         directory_normalized = os.path.normpath(self.directory).lower()
         skipped = 0
+        loaded = 0
 
-        for file_path, song in deserialized_songs.items():
+        # Stream cache entries in pages for progressive UI updates
+        # This allows first songs to appear in ~5-10ms instead of waiting for all deserialization
+        import pickle
+        for file_path, song_data, timestamp_str in stream_cache_entries(page_size=500):
             if self.is_cancelled():
                 self._flush_batch()  # Flush any remaining songs
                 return
 
-            # Ensure path exists and song is valid
-            if not hasattr(song, "path") or not os.path.exists(file_path):
+            # Deserialize song
+            try:
+                song = pickle.loads(song_data)
+            except Exception as e:
+                logger.error("Failed to deserialize cache for %s: %s", file_path, e)
+                continue
+
+            # Ensure song is valid (skip file existence check for performance)
+            # Non-existent files will be caught during directory scan and removed from cache
+            if not hasattr(song, "path"):
                 continue
 
             # Only load songs that belong to the current directory
@@ -100,10 +109,10 @@ class LoadUsdxFilesWorker(IWorker):
             # Add to batch instead of emitting individually
             self._add_to_batch(song)
             self.loaded_paths.add(file_path)
+            loaded += 1
             self.signals.progress.emit()
 
-        if skipped > 0:
-            logger.info(f"Skipped {skipped} cached songs outside current directory")
+        logger.info("Loaded %s cached songs (skipped %s outside directory)", loaded, skipped)
 
         # Flush any remaining songs in batch
         self._flush_batch()

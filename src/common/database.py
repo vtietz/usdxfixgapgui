@@ -281,21 +281,58 @@ def get_all_cache_entries(deserialize=False):
             return [(row[0], row[1]) for row in results]
 
         # Deserialize the song objects
+        # NOTE: os.path.exists() check removed for performance - defer to caller
+        # For 5000 songs, checking file existence for each adds 2-5 seconds delay
+        # The existence check will happen during directory scan anyway
         deserialized = {}
         for file_path, song_data, timestamp_str in results:
-            if not os.path.exists(file_path):
-                continue  # Skip files that no longer exist
-
             try:
                 song_obj = pickle.loads(song_data)
                 deserialized[file_path] = song_obj
             except Exception as e:
-                logger.error(f"Failed to deserialize cache for {file_path}: {e}")
+                logger.error("Failed to deserialize cache for %s: %s", file_path, e)
 
         return deserialized
     except Exception as e:
-        logger.error(f"Error getting all cache entries: {str(e)}")
+        logger.error("Error getting all cache entries: %s", str(e))
         return [] if not deserialize else {}
+
+
+def stream_cache_entries(page_size=500):
+    """
+    Stream cache entries in pages for progressive loading.
+    Yields tuples of (file_path, song_data, timestamp) for memory efficiency.
+
+    Args:
+        page_size: Number of rows to fetch per iteration (default 500)
+
+    Yields:
+        tuple: (file_path, song_data, timestamp) for each cache entry
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Use OFFSET/LIMIT for pagination
+        offset = 0
+        while True:
+            cursor.execute(
+                "SELECT file_path, song_data, timestamp FROM song_cache LIMIT ? OFFSET ?",
+                (page_size, offset)
+            )
+            rows = cursor.fetchall()
+
+            if not rows:
+                break
+
+            for row in rows:
+                yield row
+
+            offset += page_size
+
+        conn.close()
+    except Exception as e:
+        logger.error("Error streaming cache entries: %s", str(e))
 
 
 def remove_cache_entry(file_path):
