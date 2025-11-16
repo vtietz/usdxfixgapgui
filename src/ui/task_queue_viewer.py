@@ -78,29 +78,29 @@ class TaskQueueViewer(QWidget):
         # 1. Running instant task
         if self.workerQueueManager.running_instant_task:
             worker = self.workerQueueManager.running_instant_task
-            description = getattr(worker, 'description', worker.__class__.__name__)
-            status_name = getattr(worker.status, 'name', str(worker.status)) if hasattr(worker, 'status') else 'RUNNING'
-            can_cancel = status_name not in ('CANCELLING', 'FINISHED', 'ERROR')
+            description = getattr(worker, "description", worker.__class__.__name__)
+            status_name = getattr(worker.status, "name", str(worker.status)) if hasattr(worker, "status") else "RUNNING"
+            can_cancel = status_name not in ("CANCELLING", "FINISHED", "ERROR")
             tasks.append((worker.id, description, status_name, can_cancel))
 
         # 2. Running standard tasks
         for worker_id, worker in self.workerQueueManager.running_tasks.items():
-            description = getattr(worker, 'description', worker.__class__.__name__)
-            status_name = getattr(worker.status, 'name', str(worker.status)) if hasattr(worker, 'status') else 'RUNNING'
-            can_cancel = status_name not in ('CANCELLING', 'FINISHED', 'ERROR')
+            description = getattr(worker, "description", worker.__class__.__name__)
+            status_name = getattr(worker.status, "name", str(worker.status)) if hasattr(worker, "status") else "RUNNING"
+            can_cancel = status_name not in ("CANCELLING", "FINISHED", "ERROR")
             tasks.append((worker_id, description, status_name, can_cancel))
 
         # 3. Queued instant tasks
         for worker in self.workerQueueManager.queued_instant_tasks:
-            description = getattr(worker, 'description', worker.__class__.__name__)
-            status_name = 'QUEUED'
+            description = getattr(worker, "description", worker.__class__.__name__)
+            status_name = "QUEUED"
             can_cancel = True
             tasks.append((worker.id, description, status_name, can_cancel))
 
         # 4. Queued standard tasks
         for worker in self.workerQueueManager.queued_tasks:
-            description = getattr(worker, 'description', worker.__class__.__name__)
-            status_name = 'QUEUED'
+            description = getattr(worker, "description", worker.__class__.__name__)
+            status_name = "QUEUED"
             can_cancel = True
             tasks.append((worker.id, description, status_name, can_cancel))
 
@@ -147,7 +147,7 @@ class TaskQueueViewer(QWidget):
                 btn.setProperty("task_id", task_id)
                 btn.setEnabled(can_cancel)
                 if not can_cancel:
-                    btn.setText("Cancelling..." if status_string == 'CANCELLING' else "Done")
+                    btn.setText("Cancelling..." if status_string == "CANCELLING" else "Done")
                 # Connect clicked signal
                 btn.clicked.connect(lambda checked=False, tid=task_id: self._on_cancel_clicked(tid))
                 # Parent to table (Qt will auto-cleanup on row removal)

@@ -26,7 +26,7 @@ def _setup_local_vlc_runtime():
         True if local VLC runtime was set up, False otherwise
     """
     # Skip in frozen/production mode - use system VLC
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         logger.debug("Frozen mode: skipping local VLC runtime, using system VLC")
         return False
 
@@ -85,6 +85,7 @@ def _is_vlc_available() -> bool:
     """Check if VLC backend is available and functional."""
     try:
         import vlc
+
         # Test actual VLC library instantiation - not just python-vlc import
         instance = vlc.Instance()
         if instance:

@@ -99,6 +99,7 @@ class TestUpdateGapValue:
         # Mock QTimer.singleShot to immediately invoke the callback
         def immediate_callback(delay, callback):
             callback()
+
         mock_qtimer.singleShot.side_effect = immediate_callback
 
         # Setup
@@ -203,6 +204,7 @@ class TestRevertGapValue:
         # Mock QTimer.singleShot to immediately invoke the callback
         def immediate_callback(delay, callback):
             callback()
+
         mock_qtimer.singleShot.side_effect = immediate_callback
 
         # Setup

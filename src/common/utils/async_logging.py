@@ -31,7 +31,6 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
             )
             # Reset file size tracking to prevent continuous rotation attempts
             # Keep logging to the current file even if it exceeds maxBytes
-            pass
 
 
 def setup_async_logging(

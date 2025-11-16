@@ -26,7 +26,7 @@ def temp_song_dir(tmp_path):
     usdb_data = {
         "song_id": 1806,
         "usdb_mtime": 1204888333,
-        "txt": {"fname": "Artist - Title.txt", "resource": "https://usdb.animux.de/?link=gettxt&id=1806"}
+        "txt": {"fname": "Artist - Title.txt", "resource": "https://usdb.animux.de/?link=gettxt&id=1806"},
     }
     usdb_file.write_text(json.dumps(usdb_data))
 

@@ -106,9 +106,7 @@ class SongService:
 
         logger.debug("Updating status from gap_info for %s", song.txt_file)
 
-    async def load_song_metadata_only(
-        self, txt_file: str, cancel_check: Optional[Callable] = None
-    ) -> Song:
+    async def load_song_metadata_only(self, txt_file: str, cancel_check: Optional[Callable] = None) -> Song:
         """Load only metadata (tags + notes) without gap_info or status mutation."""
         logger.debug("Loading metadata only for %s", txt_file)
         song = Song(txt_file)

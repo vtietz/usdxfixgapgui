@@ -58,17 +58,11 @@ class MediaPlayerLoader:
         try:
             if self._timer.isActive():
                 self._timer.stop()
-                logger.debug(
-                    f"MediaPlayerLoader: canceled pending load "
-                    f"(player_id={id(self.media_player)})"
-                )
+                logger.debug(f"MediaPlayerLoader: canceled pending load " f"(player_id={id(self.media_player)})")
         finally:
             self._pending_file = None
             self.media_player.setSource(QUrl())
-            logger.debug(
-                f"MediaPlayerLoader: source cleared "
-                f"(player_id={id(self.media_player)})"
-            )
+            logger.debug(f"MediaPlayerLoader: source cleared " f"(player_id={id(self.media_player)})")
 
     def cancel(self):
         """
@@ -76,10 +70,7 @@ class MediaPlayerLoader:
         """
         if self._timer.isActive():
             self._timer.stop()
-            logger.debug(
-                f"MediaPlayerLoader: pending load canceled "
-                f"(player_id={id(self.media_player)})"
-            )
+            logger.debug(f"MediaPlayerLoader: pending load canceled " f"(player_id={id(self.media_player)})")
         self._pending_file = None
 
     def has_pending(self) -> bool:

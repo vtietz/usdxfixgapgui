@@ -189,6 +189,7 @@ def set_cache_entry(key, obj):
     """
     import time
     import threading
+
     start_time = time.perf_counter()
 
     try:
@@ -249,13 +250,11 @@ def clear_cache(key=None):
 
 
 @overload
-def get_all_cache_entries(deserialize: Literal[False] = False) -> list[tuple[str, bytes]]:
-    ...
+def get_all_cache_entries(deserialize: Literal[False] = False) -> list[tuple[str, bytes]]: ...
 
 
 @overload
-def get_all_cache_entries(deserialize: Literal[True]) -> dict[str, Any]:
-    ...
+def get_all_cache_entries(deserialize: Literal[True]) -> dict[str, Any]: ...
 
 
 def get_all_cache_entries(deserialize=False):

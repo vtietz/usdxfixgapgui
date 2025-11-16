@@ -89,7 +89,8 @@ class GapActions(BaseActions):
         current_filter = self.data.songs.filter
         logger.debug(
             f"_clear_selection_if_filtered: song={song.title}, new_status={new_status_name}, "
-            f"current_filter={current_filter}")
+            f"current_filter={current_filter}"
+        )
 
         if not current_filter:
             # No filter active - song won't be hidden
@@ -99,15 +100,15 @@ class GapActions(BaseActions):
         # Check if the new status is in the filter (visible)
         if new_status_name in current_filter:
             # Song will remain visible - safe to keep selected
-            logger.debug(
-                f"Status {new_status_name} is in filter {current_filter} - selection kept")
+            logger.debug(f"Status {new_status_name} is in filter {current_filter} - selection kept")
             return
 
         # Song will be filtered out - clear selection to prevent freeze
         if song in self.data.selected_songs:
             logger.info(
                 f"CLEARING SELECTION: song will be filtered out "
-                f"(new status {new_status_name} not in filter {current_filter})")
+                f"(new status {new_status_name} not in filter {current_filter})"
+            )
             self.data.selected_songs = []
         else:
             logger.debug("Song not in selected_songs - no need to clear")
@@ -176,7 +177,8 @@ class GapActions(BaseActions):
             if song.gap_info and song.gap_info.is_normalized:
                 logger.debug(
                     f"Skipping auto-normalization for {song} - "
-                    f"already normalized on {song.gap_info.normalized_date}")
+                    f"already normalized on {song.gap_info.normalized_date}"
+                )
             else:
                 logger.info(f"Queueing auto-normalization for {song} after gap detection")
                 # Use start_now=False to let queue manager schedule it after current tasks
@@ -234,7 +236,7 @@ class GapActions(BaseActions):
         song_to_process.gap_info.updated_gap = gap
 
         # Clear selection before status change if song will be filtered out
-        self._clear_selection_if_filtered(song_to_process, 'UPDATED')
+        self._clear_selection_if_filtered(song_to_process, "UPDATED")
 
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
         song_to_process.gap_info.status = GapInfoStatus.UPDATED
@@ -267,6 +269,7 @@ class GapActions(BaseActions):
 
         # Defer signal emission to prevent cascade
         from PySide6.QtCore import QTimer
+
         # Extend the suspension window slightly to cover the deferred emission
         if hasattr(self.data, "media_suspend_requested"):
             self.data.media_suspend_requested.emit(250)
@@ -314,6 +317,7 @@ class GapActions(BaseActions):
 
         # Defer signal emission to prevent cascade
         from PySide6.QtCore import QTimer
+
         # Extend the suspension window slightly to cover the deferred emission
         if hasattr(self.data, "media_suspend_requested"):
             self.data.media_suspend_requested.emit(250)
@@ -348,7 +352,7 @@ class GapActions(BaseActions):
             song_to_process.gap_info = GapInfoServiceRef.create_for_song_path(song_to_process.path)
 
         # Clear selection BEFORE status change if song will be filtered out (prevents UI freeze)
-        self._clear_selection_if_filtered(song_to_process, 'SOLVED')
+        self._clear_selection_if_filtered(song_to_process, "SOLVED")
 
         song_to_process.gap_info.status = GapInfoStatus.SOLVED
 

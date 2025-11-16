@@ -72,12 +72,7 @@ def analyze_formatting(files: Optional[List[str]] = None) -> Tuple[int, str]:
 
     try:
         result = subprocess.run(
-            cmd,
-            cwd=PROJECT_ROOT,
-            capture_output=True,
-            encoding='utf-8',
-            errors='replace',
-            timeout=300
+            cmd, cwd=PROJECT_ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=300
         )
         output = (result.stdout or "") + (result.stderr or "")
 

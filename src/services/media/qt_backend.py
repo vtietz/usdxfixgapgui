@@ -104,7 +104,9 @@ class QtBackendAdapter(QObject):
 
     def play(self) -> None:
         """Start or resume playback."""
-        logger.debug("QtBackend.play() called, status: %s, state: %s", self._media_status.value, self._playback_state.value)
+        logger.debug(
+            "QtBackend.play() called, status: %s, state: %s", self._media_status.value, self._playback_state.value
+        )
         # Check if media is ready
         if self._media_status in (MediaStatus.LOADED, MediaStatus.BUFFERED):
             logger.debug("QtBackend: play() - media ready")
@@ -227,10 +229,12 @@ class QtBackendAdapter(QObject):
 
         old_status = self._media_status
         self._media_status = status_map.get(qt_status, MediaStatus.NO_MEDIA)
-        logger.info("QtBackend: media status changed %s -> %s (Qt status: %s)",
-                    old_status.value if old_status else "None",
-                    self._media_status.value,
-                    qt_status)
+        logger.info(
+            "QtBackend: media status changed %s -> %s (Qt status: %s)",
+            old_status.value if old_status else "None",
+            self._media_status.value,
+            qt_status,
+        )
         self.media_status_changed.emit(self._media_status)
 
     def _on_position_changed(self, position: int) -> None:

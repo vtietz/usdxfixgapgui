@@ -109,7 +109,6 @@ def run_cancellable_process(command, check_cancellation=None):
                 process.wait(timeout=1.0)
             except Exception:
                 pass
-                pass
         raise
     finally:
         # Always close streams

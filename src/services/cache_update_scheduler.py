@@ -170,12 +170,7 @@ class CacheUpdateScheduler(QObject):
             timer.setSingleShot(True)
             timer.timeout.connect(lambda: self._execute_creation_scan(txt_file))
 
-            pending = _PendingCreation(
-                txt_file=txt_file,
-                last_event_time=now,
-                timer=timer,
-                file_size=0
-            )
+            pending = _PendingCreation(txt_file=txt_file, last_event_time=now, timer=timer, file_size=0)
 
             self._pending_creations[txt_file] = pending
             timer.start(self._debounce_ms)

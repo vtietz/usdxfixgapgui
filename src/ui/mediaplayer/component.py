@@ -211,6 +211,7 @@ class MediaPlayerComponent(QWidget):
         logger.debug("Audio file status changed - switching between dual players (debounced)")
         # Debounce reload to coalesce rapid toggles and avoid WMF races
         from PySide6.QtCore import QTimer
+
         if self._mode_switch_timer is None:
             self._mode_switch_timer = QTimer(self)
             self._mode_switch_timer.setSingleShot(True)
@@ -363,12 +364,14 @@ class MediaPlayerComponent(QWidget):
         if updated_song.notes and not WaveformPathService.waveforms_exists(updated_song, self._data.tmp_path):
             logger.debug(f"Notes loaded for {updated_song.title}, creating waveforms with notes")
             from actions.audio_actions import AudioActions
+
             audio_actions = AudioActions(self._data)
             audio_actions._create_waveforms(updated_song, overwrite=False, use_queue=True)
 
     def update_player_files(self):
         """Load the appropriate media files based on current state"""
         import time
+
         start_time = time.perf_counter()
 
         # Guard: skip loads during suspension window (status/filter transitions in progress)

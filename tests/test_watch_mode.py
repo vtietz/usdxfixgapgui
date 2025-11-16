@@ -166,7 +166,7 @@ class TestGapDetectionScheduler:
             assert reload_calls[0] == tmpdir
 
             # Should NOT schedule gap detection since status is MATCH
-            assert len(scheduler._pending) == 0            # Should NOT schedule gap detection
+            assert len(scheduler._pending) == 0  # Should NOT schedule gap detection
             mock_start_detection.assert_not_called()
 
 

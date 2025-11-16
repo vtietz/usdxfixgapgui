@@ -209,7 +209,7 @@ class GapDetectionScheduler(QObject):
         # Try to open it to ensure it's accessible and not locked
         try:
             # Check if file is readable
-            with open(song.audio_file, 'rb') as f:
+            with open(song.audio_file, "rb") as f:
                 # Try to read first byte to ensure file is not locked
                 f.read(1)
 
@@ -311,7 +311,7 @@ class GapDetectionScheduler(QObject):
                 return
 
             # Skip songs with ERROR status (failed to load)
-            if song.status and song.status.name == 'ERROR':
+            if song.status and song.status.name == "ERROR":
                 logger.warning(f"Skipping gap detection for song with ERROR status: {song_path}")
                 self._in_flight.discard(song_path)
                 return
@@ -341,7 +341,7 @@ class GapDetectionScheduler(QObject):
 
             # Skip if song already has valid gap detection (watch mode auto-update)
             # Only re-detect if explicitly requested via UI
-            if song.gap_info and song.gap_info.status and song.gap_info.status.name in ['MATCH', 'SOLVED']:
+            if song.gap_info and song.gap_info.status and song.gap_info.status.name in ["MATCH", "SOLVED"]:
                 logger.info(
                     f"Skipping gap detection for {song.artist} - {song.title} "
                     f"(already detected: {song.gap_info.status.name})"

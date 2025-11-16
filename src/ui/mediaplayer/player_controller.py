@@ -43,22 +43,28 @@ class PlayerController(QObject):
 
         # Connect signals for both backends (sender-anchored)
         self.audio_backend.playback_state_changed.connect(
-            lambda state: self._on_playback_state_changed(self.audio_backend, state))
+            lambda state: self._on_playback_state_changed(self.audio_backend, state)
+        )
         self.audio_backend.media_status_changed.connect(
-            lambda status: self._on_media_status_changed(self.audio_backend, status))
-        self.audio_backend.error_occurred.connect(
-            lambda error_msg: self._on_media_error(self.audio_backend, error_msg))
+            lambda status: self._on_media_status_changed(self.audio_backend, status)
+        )
+        self.audio_backend.error_occurred.connect(lambda error_msg: self._on_media_error(self.audio_backend, error_msg))
         self.audio_backend.position_changed.connect(
-            lambda position: self._on_position_changed(self.audio_backend, position))
+            lambda position: self._on_position_changed(self.audio_backend, position)
+        )
 
         self.vocals_backend.playback_state_changed.connect(
-            lambda state: self._on_playback_state_changed(self.vocals_backend, state))
+            lambda state: self._on_playback_state_changed(self.vocals_backend, state)
+        )
         self.vocals_backend.media_status_changed.connect(
-            lambda status: self._on_media_status_changed(self.vocals_backend, status))
+            lambda status: self._on_media_status_changed(self.vocals_backend, status)
+        )
         self.vocals_backend.error_occurred.connect(
-            lambda error_msg: self._on_media_error(self.vocals_backend, error_msg))
+            lambda error_msg: self._on_media_error(self.vocals_backend, error_msg)
+        )
         self.vocals_backend.position_changed.connect(
-            lambda position: self._on_position_changed(self.vocals_backend, position))
+            lambda position: self._on_position_changed(self.vocals_backend, position)
+        )
 
         # Per-backend state maps
         self._is_loaded_map = {self.audio_backend: False, self.vocals_backend: False}
@@ -89,8 +95,13 @@ class PlayerController(QObject):
         backend_is_playing = active_backend.is_playing()
         is_loaded = active_backend.is_loaded()
         current_file = active_backend.get_current_file()
-        logger.debug("Backend is_loaded: %s, is_playing: %s, has_file: %s, Controller _is_playing: %s",
-                    is_loaded, backend_is_playing, current_file is not None, self._is_playing)
+        logger.debug(
+            "Backend is_loaded: %s, is_playing: %s, has_file: %s, Controller _is_playing: %s",
+            is_loaded,
+            backend_is_playing,
+            current_file is not None,
+            self._is_playing,
+        )
 
         # If playing, always allow pause (even if backend reports not loaded - Qt bug)
         if backend_is_playing:
@@ -100,7 +111,9 @@ class PlayerController(QObject):
 
         # Check if we have media to play (use current_file as fallback for buggy is_loaded)
         if not is_loaded and current_file is None:
-            logger.warning("Play ignored: no media loaded (is_loaded=%s, has_file=%s)", is_loaded, current_file is not None)
+            logger.warning(
+                "Play ignored: no media loaded (is_loaded=%s, has_file=%s)", is_loaded, current_file is not None
+            )
             return
 
         # Start playback
@@ -243,12 +256,13 @@ class PlayerController(QObject):
 
     def _is_active_backend(self, backend) -> bool:
         """Check if given backend is the currently active backend based on mode"""
-        return (self._audioFileStatus == AudioFileStatus.AUDIO and backend is self.audio_backend) or \
-               (self._audioFileStatus == AudioFileStatus.VOCALS and backend is self.vocals_backend)
+        return (self._audioFileStatus == AudioFileStatus.AUDIO and backend is self.audio_backend) or (
+            self._audioFileStatus == AudioFileStatus.VOCALS and backend is self.vocals_backend
+        )
 
     def _on_playback_state_changed(self, backend, state):
         """Internal handler for playback state changes (sender-anchored)"""
-        is_playing = (state == PlaybackState.PLAYING)
+        is_playing = state == PlaybackState.PLAYING
         self._is_playing_map[backend] = is_playing
 
         if self._is_active_backend(backend):
@@ -258,7 +272,11 @@ class PlayerController(QObject):
             if old_state != self._is_playing:
                 logger.debug(
                     "Playback state changed (active=%s): %s -> %s (state=%s)",
-                    backend is self.media_backend, old_state, self._is_playing, state)
+                    backend is self.media_backend,
+                    old_state,
+                    self._is_playing,
+                    state,
+                )
                 self.is_playing_changed.emit(self._is_playing)
 
     def _on_position_changed(self, backend, position):
@@ -295,7 +313,7 @@ class PlayerController(QObject):
             return
 
         # Normal status handling: update per-backend loaded flag
-        is_loaded = (status == MediaStatus.LOADED or status == MediaStatus.BUFFERED)
+        is_loaded = status == MediaStatus.LOADED or status == MediaStatus.BUFFERED
         self._is_loaded_map[backend] = is_loaded
         if self._is_active_backend(backend):
             self._media_is_loaded = is_loaded

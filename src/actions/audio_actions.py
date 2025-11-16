@@ -128,9 +128,7 @@ class AudioActions(BaseActions):
         # Check if audio file exists
         if not hasattr(song, "audio_file") or not song.audio_file:
             title = song.title if hasattr(song, "title") else "Unknown"
-            logger.warning(
-                f"Cannot create waveforms for '{title}': Missing audio file"
-            )
+            logger.warning(f"Cannot create waveforms for '{title}': Missing audio file")
             # Don't trigger reload - missing audio file is a data issue, not a loading issue
             return
 

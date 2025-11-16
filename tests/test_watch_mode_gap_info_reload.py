@@ -38,11 +38,7 @@ class TestGapInfoFileChanges:
             Path(gap_info_path).write_text('{"test": "data"}')
 
             # Simulate usdxfixgap.info modification
-            event = WatchEvent(
-                event_type=WatchEventType.MODIFIED,
-                path=gap_info_path,
-                is_directory=False
-            )
+            event = WatchEvent(event_type=WatchEventType.MODIFIED, path=gap_info_path, is_directory=False)
             scheduler.handle_event(event)
 
             # Should have emitted reload signal
@@ -78,11 +74,7 @@ class TestGapInfoFileChanges:
             gap_info_path = os.path.join(tmpdir, "usdxfixgap.info")
 
             # Simulate usdxfixgap.info deletion
-            event = WatchEvent(
-                event_type=WatchEventType.DELETED,
-                path=gap_info_path,
-                is_directory=False
-            )
+            event = WatchEvent(event_type=WatchEventType.DELETED, path=gap_info_path, is_directory=False)
             scheduler.handle_event(event)
 
             # Should have emitted reload signal
@@ -120,17 +112,14 @@ class TestGapInfoFileChanges:
 
             # Create song with NOT_PROCESSED status
             from model.song import SongStatus
+
             song = Song(txt_file=txt_path)
             song.status = SongStatus.NOT_PROCESSED
             mock_get_by_txt.return_value = song
             mock_get_by_path.return_value = song
 
             # Simulate .txt file modification
-            event = WatchEvent(
-                event_type=WatchEventType.MODIFIED,
-                path=txt_path,
-                is_directory=False
-            )
+            event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
             scheduler.handle_event(event)
 
             # Should emit reload signal
@@ -166,11 +155,7 @@ class TestGapInfoFileChanges:
 
             # Multiple modifications
             for i in range(3):
-                event = WatchEvent(
-                    event_type=WatchEventType.MODIFIED,
-                    path=gap_info_path,
-                    is_directory=False
-                )
+                event = WatchEvent(event_type=WatchEventType.MODIFIED, path=gap_info_path, is_directory=False)
                 scheduler.handle_event(event)
 
             # Should have emitted reload signal for each change

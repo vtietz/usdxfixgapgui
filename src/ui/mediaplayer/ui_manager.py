@@ -35,8 +35,9 @@ class UIManager:
         self.save_current_play_position_btn.setEnabled(is_enabled and self._play_position > 0)
         # Check if detected_gap exists and is greater than 0
         has_detected_gap = (
-            is_enabled and song.gap_info and song.gap_info.detected_gap is not None
-            and song.gap_info.detected_gap > 0 if song else False
+            is_enabled and song.gap_info and song.gap_info.detected_gap is not None and song.gap_info.detected_gap > 0
+            if song
+            else False
         )
         self.save_detected_gap_btn.setEnabled(has_detected_gap)
         self.keep_original_gap_btn.setEnabled(is_enabled)
@@ -45,9 +46,7 @@ class UIManager:
         self.vocals_btn.setEnabled(is_enabled)
         self.audio_btn.setEnabled(is_enabled)
         # Check if gap differs from original (with None safety for gap_info)
-        has_changed_gap = (
-            is_enabled and song.gap_info and song.gap != song.gap_info.original_gap if song else False
-        )
+        has_changed_gap = is_enabled and song.gap_info and song.gap != song.gap_info.original_gap if song else False
         self.revert_btn.setEnabled(has_changed_gap)
 
         if song and song.gap_info:

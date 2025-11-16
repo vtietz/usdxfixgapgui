@@ -383,16 +383,21 @@ class StartupDialog(QDialog):
     def _log_media_backend(self):
         """Log media backend information with helpful notes."""
         try:
-            from services.media.backend_factory import get_backend_info, _is_vlc_available
+            from services.media.backend_factory import _is_vlc_available
             import sys
 
             # Try to get actual running backend from parent window's media player component (About dialog)
             actual_backend_name = None
-            if self.parent() and hasattr(self.parent(), 'findChild'):
+            if self.parent() and hasattr(self.parent(), "findChild"):
                 try:
                     from ui.mediaplayer import MediaPlayerComponent
+
                     media_player = self.parent().findChild(MediaPlayerComponent)
-                    if media_player and hasattr(media_player, 'player') and hasattr(media_player.player, 'audio_backend'):
+                    if (
+                        media_player
+                        and hasattr(media_player, "player")
+                        and hasattr(media_player.player, "audio_backend")
+                    ):
                         backend = media_player.player.audio_backend
                         actual_backend_name = backend.get_backend_name()
                 except Exception:
@@ -427,7 +432,6 @@ class StartupDialog(QDialog):
                         self.log("    💡 Optional: Install VLC for better playback: sudo apt install vlc")
         except Exception as e:
             logger.debug("Could not determine media backend: %s", e)
-            pass
 
     def _log_system_components(self):
         """Log PyTorch and GPU information."""
@@ -488,6 +492,7 @@ class StartupDialog(QDialog):
     def _validate_gpu_pack(self, pack_path) -> bool:
         """Validate GPU Pack has required files."""
         from pathlib import Path
+
         pack = Path(pack_path)
 
         # Check essential files exist
@@ -541,7 +546,7 @@ class StartupDialog(QDialog):
             self.flavor_combo.setVisible(False)
 
             # Show restart button (or keep existing Close App button)
-            if hasattr(self, 'close_app_btn'):
+            if hasattr(self, "close_app_btn"):
                 self.close_app_btn.setText("Restart App")
             else:
                 self.download_btn.setText("Restart App")
@@ -577,6 +582,7 @@ class StartupDialog(QDialog):
         if self.startup_mode:
             self.reject()
             import sys
+
             sys.exit(0)
         else:
             self.accept()

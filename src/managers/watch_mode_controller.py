@@ -77,7 +77,7 @@ class WatchModeController(QObject):
         self._cache_scheduler = CacheUpdateScheduler(
             worker_queue_add_task=worker_queue_add_task,
             songs_get_by_txt_file=songs_get_by_txt_file,
-            debounce_ms=debounce_ms
+            debounce_ms=debounce_ms,
         )
 
         self._gap_scheduler = GapDetectionScheduler(
@@ -179,10 +179,8 @@ class WatchModeController(QObject):
         """Handle newly scanned song."""
         try:
             # Skip songs that failed to load
-            if song.status and song.status.name == 'ERROR':
-                logger.warning(
-                    f"Skipping failed song scan: {song.txt_file} - Error: {song.error_message or 'unknown'}"
-                )
+            if song.status and song.status.name == "ERROR":
+                logger.warning(f"Skipping failed song scan: {song.txt_file} - Error: {song.error_message or 'unknown'}")
                 return
 
             # Check if song already exists (prevent duplicates)

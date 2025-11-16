@@ -136,6 +136,7 @@ class SongListView(QTableView):
     def _process_selection(self):
         """Actually process the selection after debounce period"""
         import time
+
         start_time = time.perf_counter()
 
         selected_songs = []

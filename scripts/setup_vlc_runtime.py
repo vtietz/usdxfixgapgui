@@ -14,10 +14,11 @@ import platform
 from pathlib import Path
 
 # Force UTF-8 output for CI environments
-if sys.stdout.encoding != 'utf-8':
+if sys.stdout.encoding != "utf-8":
     import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 VLC_VERSION = "3.0.21"
 VLC_DOWNLOAD_URL = f"https://download.videolan.org/pub/videolan/vlc/{VLC_VERSION}/win64/vlc-{VLC_VERSION}-win64.7z"
@@ -26,6 +27,7 @@ VLC_RUNTIME_DIR = Path(__file__).parent.parent / "vlc_runtime"
 
 def download_file(url: str, dest: Path, show_progress: bool = True):
     """Download file with progress bar."""
+
     def progress_hook(block_num, block_size, total_size):
         if not show_progress or total_size <= 0:
             return
@@ -33,10 +35,10 @@ def download_file(url: str, dest: Path, show_progress: bool = True):
         percent = min(100, (downloaded / total_size) * 100)
         bar_length = 40
         filled = int(bar_length * downloaded / total_size)
-        bar = '#' * filled + '-' * (bar_length - filled)
+        bar = "#" * filled + "-" * (bar_length - filled)
         mb_downloaded = downloaded / (1024 * 1024)
         mb_total = total_size / (1024 * 1024)
-        print(f'\r[{bar}] {percent:.1f}% ({mb_downloaded:.1f}/{mb_total:.1f} MB)', end='', flush=True)
+        print(f"\r[{bar}] {percent:.1f}% ({mb_downloaded:.1f}/{mb_total:.1f} MB)", end="", flush=True)
 
     print(f"Downloading: {url}")
     urllib.request.urlretrieve(url, dest, reporthook=progress_hook)
@@ -47,8 +49,9 @@ def extract_7z(archive_path: Path, dest_dir: Path):
     """Extract 7z archive using Python's shutil or 7z command."""
     try:
         import py7zr
+
         print("Extracting with py7zr...")
-        with py7zr.SevenZipFile(archive_path, mode='r') as archive:
+        with py7zr.SevenZipFile(archive_path, mode="r") as archive:
             archive.extractall(path=dest_dir)
         print(f"Extracted to: {dest_dir}")
         return True
@@ -57,6 +60,7 @@ def extract_7z(archive_path: Path, dest_dir: Path):
 
     # Try system 7z command
     import subprocess
+
     seven_z_cmd = None
 
     # Check common 7z locations
@@ -138,18 +142,18 @@ def setup_vlc():
 
 
 if __name__ == "__main__":
-    print("="*60)
+    print("=" * 60)
     print("VLC Runtime Setup for Development")
-    print("="*60)
+    print("=" * 60)
     print()
 
     success = setup_vlc()
 
     print()
-    print("="*60)
+    print("=" * 60)
     if success:
         print("[OK] Setup complete! Run 'run.bat start' to use the app.")
     else:
         print("[FAIL] Setup failed. See errors above.")
         sys.exit(1)
-    print("="*60)
+    print("=" * 60)
