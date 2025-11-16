@@ -112,6 +112,7 @@ class IWorker(QObject):
 class WorkerQueueManager(QObject):
     task_id_counter = 0
     on_task_list_changed = pyqtSignal()
+    _start_queued_task_signal = pyqtSignal()  # Internal signal for heartbeat safety check
 
     def __init__(self, ui_update_interval=0.25):
         super().__init__()
@@ -127,6 +128,10 @@ class WorkerQueueManager(QObject):
         self._ui_update_interval = ui_update_interval  # Update interval in seconds
         self._ui_update_pending = False  # Flag to track if UI updates are needed
         self._last_ui_update = time.time()  # Track when the last update occurred
+        
+        # Connect the internal signal to start_next_task
+        self._start_queued_task_signal.connect(self.start_next_task)
+        
         # Start a regular Python thread for heartbeat
         self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
         self._heartbeat_thread.start()
@@ -135,6 +140,15 @@ class WorkerQueueManager(QObject):
         """Background thread that periodically signals UI updates"""
         while self._heartbeat_active:
             time.sleep(0.1)  # Check more frequently, but update UI less frequently
+
+            # Safety check: ensure queued tasks get started if no tasks are running
+            # This prevents tasks from getting stuck in WAITING status
+            if self.queued_tasks and not self.running_tasks:
+                # Emit signal to start task on main thread
+                try:
+                    self._start_queued_task_signal.emit()
+                except Exception as e:
+                    logger.debug("Error in heartbeat task starter: %s", e)
 
             # Only update the UI if needed and if enough time has passed since the last update
             current_time = time.time()
