@@ -105,6 +105,7 @@ class SongsStatusVisualizer(QWidget):
             SongStatus.SOLVED: QColor("#338240"),
             SongStatus.MATCH: QColor("#66896C"),
             SongStatus.MISMATCH: QColor("#90492B"),
+            SongStatus.MISSING_AUDIO: QColor("#8A2900"),  # Same dark red as ERROR
             SongStatus.ERROR: QColor("#8A2900"),
         }
         return colors.get(status, QColor("grey"))
