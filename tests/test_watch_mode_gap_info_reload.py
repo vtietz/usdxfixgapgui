@@ -1,10 +1,9 @@
 """Test watch mode gap_info file change detection and song reload"""
 
-import pytest
 import tempfile
 import os
 from pathlib import Path
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from services.gap_detection_scheduler import GapDetectionScheduler
 from services.directory_watcher import WatchEvent, WatchEventType
 from model.song import Song

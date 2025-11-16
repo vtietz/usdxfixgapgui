@@ -9,7 +9,6 @@ Uses debouncing for CREATED events to ensure files are fully written before scan
 
 import logging
 import os
-import time
 from typing import Callable, Dict
 from dataclasses import dataclass
 from datetime import datetime

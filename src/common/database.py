@@ -22,6 +22,7 @@ def _get_db_path() -> str:
         _DB_PATH = os.path.join(get_localappdata_dir(), "cache.db")
     return _DB_PATH
 
+
 # Cache schema version - increment when cache structure changes
 # Version 1: Original cache (pre-multi-txt support)
 # Version 2: Multi-txt support (txt_file path is primary key)

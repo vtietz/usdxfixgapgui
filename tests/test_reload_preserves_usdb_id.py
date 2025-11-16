@@ -3,10 +3,9 @@ Test that reload operations preserve USDB ID from .usdb files.
 """
 
 import pytest
-import os
 import json
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from workers.reload_song_worker import ReloadSongWorker
 from workers.load_usdx_files import LoadUsdxFilesWorker
 from model.song import Song

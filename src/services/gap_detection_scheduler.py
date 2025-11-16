@@ -208,9 +208,6 @@ class GapDetectionScheduler(QObject):
         # Check if audio file is stable (not currently being written)
         # Try to open it to ensure it's accessible and not locked
         try:
-            # Get file size
-            size1 = os.path.getsize(song.audio_file)
-
             # Check if file is readable
             with open(song.audio_file, 'rb') as f:
                 # Try to read first byte to ensure file is not locked
@@ -345,7 +342,10 @@ class GapDetectionScheduler(QObject):
             # Skip if song already has valid gap detection (watch mode auto-update)
             # Only re-detect if explicitly requested via UI
             if song.gap_info and song.gap_info.status and song.gap_info.status.name in ['MATCH', 'SOLVED']:
-                logger.info(f"Skipping gap detection for {song.artist} - {song.title} (already detected: {song.gap_info.status.name})")
+                logger.info(
+                    f"Skipping gap detection for {song.artist} - {song.title} "
+                    f"(already detected: {song.gap_info.status.name})"
+                )
                 self._in_flight.discard(song_path)
                 return
 

@@ -169,6 +169,7 @@ class TestGapDetectionScheduler:
             assert len(scheduler._pending) == 0            # Should NOT schedule gap detection
             mock_start_detection.assert_not_called()
 
+
 class TestWatchModeIntegration:
     """Integration tests for watch mode enablement logic"""
 
