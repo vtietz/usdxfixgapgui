@@ -1,7 +1,7 @@
 import logging
 import os
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
-from PySide6.QtCore import Signal, Qt, QSize
+from PySide6.QtCore import Signal, Qt, QSize, QTimer, QElapsedTimer
 
 from actions import Actions
 from app.app_data import AppData
@@ -40,6 +40,18 @@ class MediaPlayerComponent(QWidget):
         # Initialize controllers
         self.player = PlayerController(self._config)
         self.ui_manager = UIManager(self._config)
+
+        # Position interpolation for smooth 60 FPS updates (works for all backends)
+        self._last_backend_position = 0  # Last position from backend
+        self._interpolation_timer = QElapsedTimer()  # Time since last backend update
+        self._interpolation_timer.start()
+        self._interpolation_active = False  # Only interpolate during playback
+
+        # 60 FPS interpolation timer
+        self._position_interpolation_timer = QTimer()
+        self._position_interpolation_timer.setInterval(16)  # 60 FPS
+        self._position_interpolation_timer.setTimerType(Qt.TimerType.PreciseTimer)
+        self._position_interpolation_timer.timeout.connect(self._emit_interpolated_position)
 
         # Initialize UI
         self.initUI()
@@ -187,19 +199,38 @@ class MediaPlayerComponent(QWidget):
         # Waveform events
         self.waveform_widget.position_clicked.connect(lambda pos: self.player.set_position(pos))
 
-    def update_position(self, position):
-        """Update UI elements when position changes"""
-        self.ui_manager.update_position_label(position, self.player.is_media_loaded(), self.player.is_playing())
+    def _emit_interpolated_position(self):
+        """Emit interpolated position for smooth 60 FPS updates."""
+        if not self._interpolation_active:
+            return
 
+        # Calculate interpolated position
+        elapsed_ms = self._interpolation_timer.elapsed()
+        interpolated_position = self._last_backend_position + elapsed_ms
+
+        # Update UI with interpolated position
+        self._update_position_ui(interpolated_position)
+
+    def _update_position_ui(self, position):
+        """Internal method to update UI with given position."""
+        self.ui_manager.update_position_label(position, self.player.is_media_loaded(), self.player.is_playing())
         self.ui_manager.update_syllable_label(position, self._song)
         self.waveform_widget.update_position(position, self.player.get_duration())
 
         # Update save_position button state when position crosses 0 threshold
-        # Only update this one button to avoid UI thrashing (50ms updates)
         if self._song and self._song.status != SongStatus.PROCESSING:
             should_enable = position > 0
             if self.save_current_play_position_btn.isEnabled() != should_enable:
                 self.save_current_play_position_btn.setEnabled(should_enable)
+
+    def update_position(self, position):
+        """Update UI elements when position changes from backend."""
+        # Backend reported new position - update interpolation base
+        self._last_backend_position = position
+        self._interpolation_timer.restart()
+
+        # Update UI immediately with backend position
+        self._update_position_ui(position)
 
     def update_ui(self):
         """Update all UI elements based on current state"""
@@ -210,6 +241,18 @@ class MediaPlayerComponent(QWidget):
     def on_play_state_changed(self, playing: bool):
         """Update UI when play state changes"""
         self.ui_manager.set_playback_state(playing)
+
+        # Start/stop position interpolation
+        if playing:
+            self._interpolation_active = True
+            if not self._position_interpolation_timer.isActive():
+                self._position_interpolation_timer.start()
+                logger.debug("Started 60 FPS position interpolation")
+        else:
+            self._interpolation_active = False
+            if self._position_interpolation_timer.isActive():
+                self._position_interpolation_timer.stop()
+                logger.debug("Stopped 60 FPS position interpolation")
 
     def on_audio_file_status_changed(self):
         """Handle change between audio/vocals mode"""

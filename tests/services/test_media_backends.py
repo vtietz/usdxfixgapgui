@@ -86,30 +86,6 @@ class TestVlcBackendAdapter:
         vlc_backend._player.audio_get_volume.return_value = 75
         assert vlc_backend.get_volume() == 75
 
-    def test_update_interval_stats(self, vlc_backend):
-        """Test _update_position_interval_stats method."""
-        assert vlc_backend._avg_update_interval_ms == 300
-
-        # Simulate intervals
-        vlc_backend._last_position_update_time = 100
-        vlc_backend._update_position_interval_stats(400)
-
-        assert len(vlc_backend._position_update_intervals) == 1
-        assert vlc_backend._position_update_intervals[0] == 300
-
-    def test_interpolation_calculation(self, vlc_backend):
-        """Test _calculate_interpolated_position method."""
-        vlc_backend._last_vlc_position = 1000
-        vlc_backend._avg_update_interval_ms = 300
-
-        # Normal interpolation
-        pos = vlc_backend._calculate_interpolated_position(1000, 150)
-        assert pos == 1150
-
-        # Extrapolation cap
-        pos = vlc_backend._calculate_interpolated_position(1000, 600)
-        assert pos == 1450  # Capped at 1.5× 300ms
-
     def test_backend_info(self, vlc_backend):
         """Test backend name and version."""
         assert vlc_backend.get_backend_name() == "VLC"

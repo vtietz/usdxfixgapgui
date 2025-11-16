@@ -73,20 +73,9 @@ class VlcBackendAdapter(QObject):
         self._duration_ms = 0
         self._last_emitted_position = -1  # Track last emitted position to avoid redundant signals
 
-        # Position interpolation (VLC get_time() only updates 3-4x per second)
-        self._last_vlc_position = 0  # Last position from VLC
-        self._interpolation_timer = QElapsedTimer()  # Tracks elapsed time since last VLC update
-        self._interpolation_timer.start()
-
-        # Dynamic update frequency detection
-        self._position_update_intervals = []  # Track VLC update intervals
-        self._last_position_update_time = 0
-        self._avg_update_interval_ms = 300  # Default assumption: 3-4 updates/sec
-        self._use_interpolation = True  # Enable interpolation by default
-
         # Position polling timer (VLC doesn't emit position signals)
         self._position_timer = QTimer()
-        self._position_timer.setInterval(33)  # Poll every ~33ms (30 FPS) for smooth playback line
+        self._position_timer.setInterval(16)  # Poll every ~16ms (60 FPS) for smooth playback line
         self._position_timer.setTimerType(Qt.TimerType.PreciseTimer)  # PreciseTimer for accurate intervals
         self._position_timer.timeout.connect(self._poll_position)
 
@@ -276,97 +265,18 @@ class VlcBackendAdapter(QObject):
         """Get the currently loaded file path."""
         return self._current_file
 
-    def get_position_update_frequency(self) -> float:
-        """Get average position update frequency in Hz."""
-        if self._avg_update_interval_ms > 0:
-            return 1000.0 / self._avg_update_interval_ms
-        return 0.0
-
-    def is_interpolation_enabled(self) -> bool:
-        """Check if position interpolation is currently enabled."""
-        return self._use_interpolation
-
     # Polling (VLC doesn't have Qt signals)
 
-    def _update_position_interval_stats(self, current_time: int) -> None:
-        """Update rolling average of position update intervals.
-
-        Args:
-            current_time: Current elapsed time in milliseconds
-        """
-        if self._last_position_update_time <= 0:
-            return
-
-        interval = current_time - self._last_position_update_time
-        self._position_update_intervals.append(interval)
-
-        # Keep only last 10 intervals for rolling average
-        if len(self._position_update_intervals) > 10:
-            self._position_update_intervals.pop(0)
-
-        # Calculate average update interval
-        if len(self._position_update_intervals) >= 3:
-            avg = sum(self._position_update_intervals) / len(self._position_update_intervals)
-            self._avg_update_interval_ms = avg
-            # Disable interpolation if updates are frequent (>20 FPS = <50ms)
-            self._use_interpolation = self._avg_update_interval_ms > 50
-
-    def _calculate_interpolated_position(self, vlc_position: int, elapsed_ms: int) -> int:
-        """Calculate interpolated position with smart snapping.
-
-        Args:
-            vlc_position: Current position reported by VLC
-            elapsed_ms: Time elapsed since last VLC update
-
-        Returns:
-            Interpolated position in milliseconds
-        """
-        position = self._last_vlc_position + elapsed_ms
-
-        # Smart snapping: snap to nearest VLC position (forward or backward)
-        # Prevents always jumping backward after seek
-        snap_threshold = self._avg_update_interval_ms * 0.8
-        if elapsed_ms > snap_threshold and vlc_position > position:
-            # Close to next expected update - check if forward snap is closer
-            distance_to_vlc = vlc_position - position
-            distance_from_last = position - self._last_vlc_position
-            if distance_to_vlc < distance_from_last:
-                return vlc_position  # Snap forward
-
-        # Cap extrapolation at 1.5× average interval to prevent drift
-        max_extrapolation = int(self._avg_update_interval_ms * 1.5)
-        if elapsed_ms > max_extrapolation:
-            return self._last_vlc_position + max_extrapolation
-
-        return position
-
     def _poll_position(self) -> None:
-        """Poll current position and emit signal with interpolation for smooth updates."""
+        """Poll current position and emit signal."""
         if self._playback_state not in (PlaybackState.PLAYING, PlaybackState.PAUSED):
             return
 
-        vlc_position = self.get_position()
-        if vlc_position < 0:
+        position = self.get_position()
+        if position < 0:
             return
 
-        # Determine position to emit
-        if vlc_position != self._last_vlc_position:
-            # VLC updated - measure interval and use exact position
-            current_time = self._interpolation_timer.elapsed()
-            self._update_position_interval_stats(current_time)
-            self._last_position_update_time = current_time
-            self._last_vlc_position = vlc_position
-            self._interpolation_timer.restart()
-            position = vlc_position
-        elif self._playback_state == PlaybackState.PLAYING and self._use_interpolation:
-            # Interpolate between VLC updates for smooth playback
-            elapsed_ms = self._interpolation_timer.elapsed()
-            position = self._calculate_interpolated_position(vlc_position, elapsed_ms)
-        else:
-            # Paused or interpolation disabled - use exact VLC position
-            position = vlc_position
-
-        # Emit signal if position changed
+        # Emit position if changed (VLC updates every ~300ms)
         if position != self._last_emitted_position:
             self._last_emitted_position = position
             self.position_changed.emit(position)
