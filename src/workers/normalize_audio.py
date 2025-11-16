@@ -33,7 +33,7 @@ class NormalizeAudioWorker(IWorker):
 
         except Exception as e:
             logger.error(f"Error normalizing audio: {self.song.audio_file}")
-            self.song.error_message = str(e)
+            self.save_error_to_song(self.song, e)
             self.signals.error.emit(e)
 
         # Always emit finished signal, even if cancelled

@@ -56,6 +56,9 @@ class GapInfo:
         self.first_note_ms: Optional[float] = None
         self.tolerance_band_ms: Optional[int] = None
 
+        # Error information
+        self.error_message: Optional[str] = None
+
         # Reference to owner song
         self.owner = None
 

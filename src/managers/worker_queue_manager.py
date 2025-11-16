@@ -102,6 +102,21 @@ class IWorker(QObject):
         """Check if the worker's task has been cancelled."""
         return self._is_canceled
 
+    def save_error_to_song(self, song, error: Exception):
+        """
+        Save error message to both song and gap_info (if exists).
+        This is a generic helper for all workers that process songs.
+        
+        Args:
+            song: The song object to save the error to
+            error: The exception that occurred
+        """
+        error_msg = str(error)
+        song.error_message = error_msg
+        if hasattr(song, 'gap_info') and song.gap_info:
+            song.gap_info.error_message = error_msg
+        logger.debug(f"Saved error to song {song.txt_file}: {error_msg}")
+
     # New method to let workers handle completion logic
     def complete(self):
         """Mark the worker as complete - this should be called by the worker itself"""

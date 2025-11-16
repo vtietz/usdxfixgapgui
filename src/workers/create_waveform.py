@@ -31,8 +31,8 @@ class CreateWaveform(IWorker):
             self._create_waveform()
             self.signals.finished.emit()  # This matches the base IWorkerSignals.finished
         except Exception as e:
-            logger.error(f"Error creating waveform: {self.waveform_file}")
-            self.song.error_message = str(e)
+            logger.error(f"Error creating waveform for: {self.song.audio_file}")
+            self.save_error_to_song(self.song, e)
             self.signals.error.emit(e)
 
     def cancel(self):

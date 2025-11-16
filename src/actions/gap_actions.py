@@ -147,6 +147,7 @@ class GapActions(BaseActions):
         song.gap_info.waveform_json_path = result.waveform_json_path
         song.gap_info.detected_gap_ms = result.detected_gap_ms
         song.gap_info.tolerance_band_ms = self.config.gap_tolerance
+        song.gap_info.error_message = result.error  # Store error message if present
 
         # Clear selection before status change if song will be filtered out
         if result.status:

@@ -105,6 +105,7 @@ class GapInfoService:
         gap_info.detected_gap_ms = data.get("detected_gap_ms", None)
         gap_info.first_note_ms = data.get("first_note_ms", None)
         gap_info.tolerance_band_ms = data.get("tolerance_band_ms", None)
+        gap_info.error_message = data.get("error_message", None)
 
     @staticmethod
     async def save(gap_info: GapInfo) -> bool:
@@ -158,6 +159,7 @@ class GapInfoService:
                 "normalization_level": gap_info.normalization_level,
                 # New detection metadata fields
                 "detection_method": gap_info.detection_method,
+                "error_message": gap_info.error_message,
                 "preview_wav_path": gap_info.preview_wav_path,
                 "waveform_json_path": gap_info.waveform_json_path,
                 "confidence": gap_info.confidence,
