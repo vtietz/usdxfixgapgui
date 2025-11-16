@@ -193,8 +193,13 @@ class MediaPlayerComponent(QWidget):
 
         self.ui_manager.update_syllable_label(position, self._song)
         self.waveform_widget.update_position(position, self.player.get_duration())
-        # Don't call update_ui() here - button states don't change with position
-        # This allows smooth 50ms position updates without UI thrashing
+
+        # Update save_position button state when position crosses 0 threshold
+        # Only update this one button to avoid UI thrashing (50ms updates)
+        if self._song and self._song.status != SongStatus.PROCESSING:
+            should_enable = position > 0
+            if self.save_current_play_position_btn.isEnabled() != should_enable:
+                self.save_current_play_position_btn.setEnabled(should_enable)
 
     def update_ui(self):
         """Update all UI elements based on current state"""
