@@ -94,6 +94,10 @@ class Song:
 
     def _gap_info_updated(self):
         """Private method to update song status based on current state"""
+        # Preserve MISSING_AUDIO status - don't overwrite it
+        if self.status == SongStatus.MISSING_AUDIO:
+            return
+            
         if not self._gap_info:
             self.status = SongStatus.NOT_PROCESSED
             return

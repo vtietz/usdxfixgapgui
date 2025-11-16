@@ -128,10 +128,10 @@ class WorkerQueueManager(QObject):
         self._ui_update_interval = ui_update_interval  # Update interval in seconds
         self._ui_update_pending = False  # Flag to track if UI updates are needed
         self._last_ui_update = time.time()  # Track when the last update occurred
-        
+
         # Connect the internal signal to start_next_task
         self._start_queued_task_signal.connect(self.start_next_task)
-        
+
         # Start a regular Python thread for heartbeat
         self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
         self._heartbeat_thread.start()

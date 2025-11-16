@@ -99,11 +99,16 @@ class SongService:
         song.start = usdx_file.tags.START
         song.is_relative = usdx_file.tags.RELATIVE
         song.notes = usdx_file.notes
-        song.audio_file = os.path.join(song.path, song.audio)
-
-        if not os.path.exists(song.audio_file):
-            logger.warning("Audio file not found for %s: %s", song.txt_file, song.audio_file)
+        
+        # Handle missing or invalid audio file
+        if not song.audio:
+            logger.warning("AUDIO tag is missing for %s", song.txt_file)
             song.status = SongStatus.MISSING_AUDIO
+        else:
+            song.audio_file = os.path.join(song.path, song.audio)
+            if not os.path.exists(song.audio_file):
+                logger.warning("Audio file not found for %s: %s", song.txt_file, song.audio_file)
+                song.status = SongStatus.MISSING_AUDIO
 
         logger.debug("Updating status from gap_info for %s", song.txt_file)
 

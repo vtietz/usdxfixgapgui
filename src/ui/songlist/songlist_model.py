@@ -215,10 +215,8 @@ class SongTableModel(QAbstractTableModel):
                 return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         elif role == Qt.ItemDataRole.BackgroundRole:
-            if song.status == SongStatus.ERROR:
-                return Qt.GlobalColor.red
-            elif song.status == SongStatus.MISSING_AUDIO:
-                return QColor(180, 50, 50)  # Dark red for missing audio
+            if song.status == SongStatus.ERROR or song.status == SongStatus.MISSING_AUDIO:
+                return QColor(180, 50, 50)  # Dark red for errors and missing audio
         return None
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):

@@ -198,8 +198,6 @@ class StatusColumn:
         return 11
 
     def format_display(self, song: Song, cache_entry: Optional[dict]) -> str:
-        if song.status == SongStatus.ERROR:
-            return f"ERROR: {song.error_message}"
         return song.status.name
 
     def get_sort_key(self, song: Song, cache_entry: Optional[dict]) -> Any:

@@ -111,7 +111,7 @@ class USDXFileService:
         if usdx_file.tags.GAP is None:
             raise ValidationError("GAP tag is missing")
         if usdx_file.tags.AUDIO is None:
-            raise ValidationError("AUDIO tag is missing")
+            logger.warning(f"AUDIO tag is missing in '{usdx_file.filepath}' - song will have MISSING_AUDIO status")
         if usdx_file.tags.BPM is None:
             raise ValidationError("BPM tag is missing")
         if not usdx_file.notes:
