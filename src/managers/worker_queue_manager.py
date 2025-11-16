@@ -113,7 +113,7 @@ class IWorker(QObject):
         """
         error_msg = str(error)
         song.error_message = error_msg
-        if hasattr(song, 'gap_info') and song.gap_info:
+        if hasattr(song, "gap_info") and song.gap_info:
             song.gap_info.error_message = error_msg
         logger.debug(f"Saved error to song {song.txt_file}: {error_msg}")
 
@@ -253,6 +253,9 @@ class WorkerQueueManager(QObject):
             # Standard lane: long-running sequential tasks
             worker.status = WorkerStatus.WAITING
             self.queued_tasks.append(worker)
+            logger.debug(
+                f"[QUEUE] Added to standard queue: {worker.description} (queue size: {len(self.queued_tasks)})"
+            )
 
             # Emit immediate UI update when adding to queue (don't wait for heartbeat)
             # This ensures users see queued tasks right away
@@ -271,8 +274,9 @@ class WorkerQueueManager(QObject):
             logger.debug(f"Starting worker: {worker.description}")
             worker.status = WorkerStatus.RUNNING
             worker.signals.started.emit()
-            self.running_tasks[worker.id] = worker
-            # Reflect move from queue->running immediately
+            # Note: worker already added to running_tasks in start_next_task()
+            # to prevent race condition
+            # Reflect status change immediately
             self.on_task_list_changed.emit()
             self._mark_ui_update_needed()
 
@@ -300,33 +304,49 @@ class WorkerQueueManager(QObject):
         # Check if this is an instant task
         if self.running_instant_task and self.running_instant_task.id == task_id:
             self.running_instant_task = None
+            # Emit immediately before starting next task to show current state
+            self.on_task_list_changed.emit()
             # Start next instant task if any queued
             if self.queued_instant_tasks:
                 self.start_next_instant_task()
         else:
             # Standard task lane
             self.running_tasks.pop(task_id, None)
+            # Emit immediately before starting next task to show current state
+            self.on_task_list_changed.emit()
             if self.queued_tasks and not self.running_tasks:
                 # Start next task directly, no need for QTimer
                 self.start_next_task()
 
-        # Emit immediately so the UI reflects removals promptly, and mark for coalesced updates
-        self.on_task_list_changed.emit()
+        # Mark for coalesced updates
         self._mark_ui_update_needed()
 
     def start_next_task(self):
-        if self.queued_tasks and not self.running_tasks:
-            worker = self.queued_tasks.popleft()  # FIFO: remove from head
-            logger.info(f"Starting task: {worker.description}")
-            # Defer UI update until _start_worker sets RUNNING state
-            run_async(self._start_worker(worker))
+        # Critical: Check BEFORE removing from queue to prevent race condition
+        # where multiple tasks are removed before any have been added to running_tasks
+        if not self.queued_tasks:
+            return
+        if self.running_tasks:
+            return
+
+        worker = self.queued_tasks.popleft()  # FIFO: remove from head
+        logger.info(
+            f"[QUEUE] Starting task: {worker.description} (remaining queued: {len(self.queued_tasks)})"
+        )
+        # Immediately add a placeholder to running_tasks to prevent race condition
+        # where _finalize_task → start_next_task is called before _start_worker executes
+        self.running_tasks[worker.id] = worker
+        # Emit immediately to show task transition
+        self.on_task_list_changed.emit()
+        run_async(self._start_worker(worker))
 
     def start_next_instant_task(self):
         """Start the next instant task if the instant slot is available"""
         if self.queued_instant_tasks and self.running_instant_task is None:
             worker = self.queued_instant_tasks.popleft()  # FIFO: remove from head
             logger.info(f"Starting task: {worker.description}")
-            # Defer UI update until _start_instant_worker sets RUNNING state
+            # Emit immediately after removing from queue to show transition
+            self.on_task_list_changed.emit()
             run_async(self._start_instant_worker(worker))
 
     async def _start_instant_worker(self, worker: IWorker):
@@ -524,8 +544,10 @@ class WorkerQueueManager(QObject):
             MAX_WAIT_MS = 3000  # 3 seconds max wait (increased to allow proper cleanup)
             start_time = time.time()
 
-            logger.debug("Waiting for %s tasks to complete cancellation",
-                        len(self.running_tasks) + (1 if self.running_instant_task else 0))
+            logger.debug(
+                "Waiting for %s tasks to complete cancellation",
+                len(self.running_tasks) + (1 if self.running_instant_task else 0),
+            )
 
             while (self.running_tasks or self.running_instant_task) and time.time() - start_time < (MAX_WAIT_MS / 1000):
                 QApplication.processEvents()

@@ -317,8 +317,7 @@ def stream_cache_entries(page_size=500):
         offset = 0
         while True:
             cursor.execute(
-                "SELECT file_path, song_data, timestamp FROM song_cache LIMIT ? OFFSET ?",
-                (page_size, offset)
+                "SELECT file_path, song_data, timestamp FROM song_cache LIMIT ? OFFSET ?", (page_size, offset)
             )
             rows = cursor.fetchall()
 

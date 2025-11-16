@@ -93,6 +93,7 @@ def shutdown_asyncio():
 
     # Give a brief moment for cancellations to process
     import time
+
     time.sleep(0.1)
 
     # Stop the event loop (will exit run_forever())

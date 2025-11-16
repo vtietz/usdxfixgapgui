@@ -80,6 +80,7 @@ class LoadUsdxFilesWorker(IWorker):
         # Stream cache entries in pages for progressive UI updates
         # This allows first songs to appear in ~5-10ms instead of waiting for all deserialization
         import pickle
+
         for file_path, song_data, timestamp_str in stream_cache_entries(page_size=500):
             if self.is_cancelled():
                 self._flush_batch()  # Flush any remaining songs
