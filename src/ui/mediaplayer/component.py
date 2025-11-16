@@ -343,17 +343,20 @@ class MediaPlayerComponent(QWidget):
 
         # Check if waveform was just created (file now exists but placeholder is showing)
         # This fixes the "Loading waveform..." placeholder persistence issue
-        if self.waveform_widget.placeholder_visible:
-            waveforms_exist = WaveformPathService.waveforms_exists(updated_song, self._data.tmp_path)
-            if waveforms_exist:
-                logger.info(f"Waveform created for {updated_song.title} - reloading display")
-                self.update_player_files()
-                return  # Early return - update_player_files already called
+        waveforms_exist = WaveformPathService.waveforms_exists(updated_song, self._data.tmp_path)
+        if self.waveform_widget.placeholder_visible and waveforms_exist:
+            logger.info(f"Waveform created for {updated_song.title} - reloading display")
+            self.update_player_files()
+            return  # Early return - update_player_files already called
 
-        # Only reload media if status is QUEUED/PROCESSING (handled by _should_skip_loading)
-        # For status changes like SOLVED/UPDATED, media files haven't changed, so skip reload
-        if updated_song.status in (SongStatus.QUEUED, SongStatus.PROCESSING):
-            logger.debug(f"Status changed to {updated_song.status.name}, reloading player files")
+        # Reload media/waveform if status is QUEUED/PROCESSING (handled by _should_skip_loading)
+        # Or if waveform exists and was just regenerated (for gap updates, note changes, etc.)
+        should_reload = updated_song.status in (SongStatus.QUEUED, SongStatus.PROCESSING) or waveforms_exist
+        if should_reload:
+            if updated_song.status in (SongStatus.QUEUED, SongStatus.PROCESSING):
+                logger.debug(f"Status changed to {updated_song.status.name}, reloading player files")
+            else:
+                logger.debug(f"Waveform regenerated for {updated_song.title}, reloading display")
             self.update_player_files()
 
         # Update gap markers from updated song's gap_info
