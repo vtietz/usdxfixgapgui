@@ -99,7 +99,7 @@ class SongService:
         song.start = usdx_file.tags.START
         song.is_relative = usdx_file.tags.RELATIVE
         song.notes = usdx_file.notes
-        
+
         # Handle missing or invalid audio file
         if not song.audio:
             logger.warning("AUDIO tag is missing for %s", song.txt_file)

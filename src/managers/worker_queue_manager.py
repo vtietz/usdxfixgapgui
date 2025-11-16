@@ -310,7 +310,6 @@ class WorkerQueueManager(QObject):
         if self.queued_instant_tasks and self.running_instant_task is None:
             worker = self.queued_instant_tasks.popleft()  # FIFO: remove from head
             logger.info(f"Starting task: {worker.description}")
-            self.running_instant_task = worker
             # Defer UI update until _start_instant_worker sets RUNNING state
             run_async(self._start_instant_worker(worker))
 
@@ -320,6 +319,7 @@ class WorkerQueueManager(QObject):
             logger.debug(f"Starting instant worker: {worker.description}")
             worker.status = WorkerStatus.RUNNING
             worker.signals.started.emit()
+            self.running_instant_task = worker
             # Reflect move from queue->running immediately
             self.on_task_list_changed.emit()
             self._mark_ui_update_needed()
