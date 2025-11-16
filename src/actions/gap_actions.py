@@ -77,41 +77,19 @@ class GapActions(BaseActions):
         return cast(Optional[Song], candidate)
 
     def _clear_selection_if_filtered(self, song: Song, new_status_name: str):
-        """Clear selection if song will be filtered out after status change.
+        """No longer clears selection - selected songs are always visible in filter.
 
-        This prevents UI freeze when a song disappears from the filtered list
-        while still selected.
+        This method is kept for backward compatibility but no longer clears selection.
+        The filter now shows selected songs regardless of their status.
 
         Args:
             song: The song whose status is changing
             new_status_name: Name of the new status (e.g., 'SOLVED', 'UPDATED')
         """
-        current_filter = self.data.songs.filter
-        logger.debug(
-            f"_clear_selection_if_filtered: song={song.title}, new_status={new_status_name}, "
-            f"current_filter={current_filter}"
-        )
-
-        if not current_filter:
-            # No filter active - song won't be hidden
-            logger.debug("No filter active - selection kept")
-            return
-
-        # Check if the new status is in the filter (visible)
-        if new_status_name in current_filter:
-            # Song will remain visible - safe to keep selected
-            logger.debug(f"Status {new_status_name} is in filter {current_filter} - selection kept")
-            return
-
-        # Song will be filtered out - clear selection to prevent freeze
-        if song in self.data.selected_songs:
-            logger.info(
-                f"CLEARING SELECTION: song will be filtered out "
-                f"(new status {new_status_name} not in filter {current_filter})"
-            )
-            self.data.selected_songs = []
-        else:
-            logger.debug("Song not in selected_songs - no need to clear")
+        # Note: Selected songs are now always visible in the song list,
+        # even if their status doesn't match the active filter.
+        # The CustomSortFilterProxyModel handles this automatically.
+        pass
 
     def _detect_gap_if_valid(self, song, is_first):
         if song.audio_file:

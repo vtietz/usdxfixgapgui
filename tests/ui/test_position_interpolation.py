@@ -101,23 +101,23 @@ class TestPositionInterpolation:
         with patch.object(component._interpolation_timer, 'elapsed', return_value=50):
             # Calculate what interpolated position should be
             expected = 1000 + 50  # 1050ms
-            
+
             # This would be calculated in _emit_interpolated_position
             elapsed_ms = component._interpolation_timer.elapsed()
             interpolated = component._last_backend_position + elapsed_ms
-            
+
             assert interpolated == expected
 
     def test_interpolation_not_active_when_paused(self, component):
         """Verify interpolation doesn't emit when not active."""
         component._interpolation_active = False
-        
+
         # Mock update method
         component._update_position_ui = Mock()
-        
+
         # Try to emit interpolated position
         component._emit_interpolated_position()
-        
+
         # Should not update UI when interpolation is inactive
         component._update_position_ui.assert_not_called()
 
@@ -125,13 +125,13 @@ class TestPositionInterpolation:
         """Verify interpolation updates UI during playback."""
         component._interpolation_active = True
         component._last_backend_position = 2000
-        
+
         # Mock update method
         component._update_position_ui = Mock()
-        
+
         # Emit interpolated position
         component._emit_interpolated_position()
-        
+
         # Should update UI with interpolated position
         component._update_position_ui.assert_called_once()
         # Position should be >= backend position (time has elapsed)
@@ -145,9 +145,9 @@ class TestPositionUpdateUI:
     def test_update_position_ui_called_on_backend_update(self, component):
         """Verify UI updates when backend reports position."""
         component._update_position_ui = Mock()
-        
+
         component.update_position(5000)
-        
+
         component._update_position_ui.assert_called_once_with(5000)
 
     def test_backend_position_restarts_interpolation_timer(self, component):
@@ -155,14 +155,14 @@ class TestPositionUpdateUI:
         # Set initial position and let some time pass
         component._last_backend_position = 1000
         component._interpolation_timer.restart()
-        
+
         # Wait a bit (mock elapsed time)
         with patch.object(component._interpolation_timer, 'elapsed', return_value=200):
             assert component._interpolation_timer.elapsed() == 200
-        
+
         # Backend updates position
         component.update_position(2000)
-        
+
         # Timer should be restarted (low elapsed time)
         assert component._interpolation_timer.elapsed() < 50
         assert component._last_backend_position == 2000

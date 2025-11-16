@@ -17,19 +17,24 @@ CHUNK_DELAY_MS = 16  # Delay between chunks (60 FPS)
 
 
 class CustomSortFilterProxyModel(QSortFilterProxyModel):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, app_data: AppData, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.selectedStatuses = []
         self.textFilter = ""
+        self.app_data = app_data  # Reference to AppData for selected songs
 
     def filterAcceptsRow(self, source_row, source_parent):
-        # Fast-path: skip filtering if no filters are active
-        if not self.selectedStatuses and not self.textFilter:
-            return True
-
         # Access the source model's data for the given row
         source_model = cast(SongTableModel, self.sourceModel())
         song: Song = source_model.songs[source_row]
+
+        # Always show selected songs regardless of filters
+        if hasattr(self.app_data, "selected_songs") and song in self.app_data.selected_songs:
+            return True
+
+        # Fast-path: skip filtering if no filters are active
+        if not self.selectedStatuses and not self.textFilter:
+            return True
 
         # Implement filtering logic
         statusMatch = song.status.name in self.selectedStatuses if self.selectedStatuses else True
@@ -92,7 +97,7 @@ class SongListWidget(QWidget):
 
     def _create_proxy_model(self) -> CustomSortFilterProxyModel:
         """Create and configure the proxy model for filtering and sorting."""
-        proxy = CustomSortFilterProxyModel()
+        proxy = CustomSortFilterProxyModel(self._data)
         proxy.setSourceModel(self.tableModel)
         proxy.setDynamicSortFilter(True)
         return proxy
@@ -170,6 +175,9 @@ class SongListWidget(QWidget):
 
     def _on_song_updated(self, song: Song):
         """Refresh buttons if an updated song is currently selected (status change, etc.)."""
+        # Invalidate filter to handle status changes (selected songs stay visible regardless)
+        QTimer.singleShot(0, self.proxyModel.invalidate)
+
         if not self._selected_songs:
             return
         # Compare by identity or stable key (txt_file) to detect if affected
@@ -231,6 +239,10 @@ class SongListWidget(QWidget):
         self._update_detect_button(songs, has_selection, is_busy_selection)
         self._update_normalize_button(songs, has_selection, is_busy_selection)
         self._update_usdb_button(num_selected, first_song)
+
+        # Invalidate filter to show/hide songs based on new selection
+        # (selected songs are always visible regardless of filter)
+        QTimer.singleShot(0, self.proxyModel.invalidate)
 
     def _update_basic_action_buttons(self, has_selection: bool, is_busy_selection: bool):
         """Update open folder, reload, and delete button states."""
