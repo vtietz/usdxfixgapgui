@@ -109,9 +109,11 @@ class Song:
             self.status = SongStatus.MISMATCH
         elif info.status == GapInfoStatus.ERROR:
             self.status = SongStatus.ERROR
-            # Copy error message from gap_info to song
+            # Copy error message from gap_info to song, with fallback for legacy data
             if info.error_message:
                 self.error_message = info.error_message
+            else:
+                self.error_message = "Historical error (no details available)"
         elif info.status == GapInfoStatus.UPDATED:
             self.status = SongStatus.UPDATED
         elif info.status == GapInfoStatus.SOLVED:

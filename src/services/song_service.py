@@ -4,6 +4,7 @@ import datetime
 from typing import Callable, Optional
 
 from model.song import Song, SongStatus
+from model.gap_info import GapInfoStatus
 from model.usdx_file import USDXFile
 from utils import audio
 import utils.files as files
@@ -69,6 +70,14 @@ class SongService:
             if song.gap_info:
                 await GapInfoService.load(song.gap_info)
                 logger.debug("Gap_info loaded for %s", txt_file)
+
+                # If force_reload and gap_info has ERROR status, clear it
+                # This allows fresh detection after fixing issues
+                if force_reload and song.gap_info.status == GapInfoStatus.ERROR:
+                    logger.info("Clearing historical ERROR status on reload for %s", txt_file)
+                    song.gap_info.status = GapInfoStatus.NOT_PROCESSED
+                    song.status = SongStatus.NOT_PROCESSED
+                    song.error_message = None
             else:
                 logger.warning("gap_info not available for %s, duration_ms set to 0", song.txt_file)
         except Exception as e:  # pragma: no cover - unexpected errors

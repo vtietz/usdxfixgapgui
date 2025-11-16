@@ -233,14 +233,16 @@ class SongListWidget(QWidget):
 
     def _update_basic_action_buttons(self, has_selection: bool, is_busy_selection: bool):
         """Update open folder, reload, and delete button states."""
-        buttons_enabled = has_selection and not is_busy_selection
-        self.openFolderButton.setEnabled(buttons_enabled)
-        self.reload_button.setEnabled(buttons_enabled)
-        self.delete_button.setEnabled(buttons_enabled)
+        # Open folder and reload are safe even when queued/processing
+        self.openFolderButton.setEnabled(has_selection)
+        self.reload_button.setEnabled(has_selection)
+
+        # Delete is dangerous - keep disabled when busy
+        delete_enabled = has_selection and not is_busy_selection
+        self.delete_button.setEnabled(delete_enabled)
 
         if is_busy_selection:
             busy_tip = "Disabled while selected song(s) are queued or processing"
-            self.reload_button.setToolTip(busy_tip)
             self.delete_button.setToolTip(busy_tip)
         else:
             self.reload_button.setToolTip("Reload song data from file")

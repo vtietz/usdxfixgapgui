@@ -54,6 +54,9 @@ class MultiSelectComboBox(QWidget):
         self.filterDropdown.setModel(self.model)
         self.model.itemChanged.connect(self.onItemChanged)
 
+        # Set placeholder text for when no items are selected
+        self.clickableLineEdit.setPlaceholderText("")
+
         layout.addWidget(self.filterDropdown)
 
     def addItem(self, text):

@@ -106,7 +106,7 @@ class IWorker(QObject):
         """
         Save error message to both song and gap_info (if exists).
         This is a generic helper for all workers that process songs.
-        
+
         Args:
             song: The song object to save the error to
             error: The exception that occurred
@@ -247,15 +247,16 @@ class WorkerQueueManager(QObject):
             if self.running_instant_task is None:
                 self.start_next_instant_task()
             else:
-                # Queue update; let heartbeat coalesce UI refresh to avoid WAITING flicker
-                self._mark_ui_update_needed()
+                # Emit immediate UI update so user sees queued instant task
+                self.on_task_list_changed.emit()
         else:
             # Standard lane: long-running sequential tasks
             worker.status = WorkerStatus.WAITING
             self.queued_tasks.append(worker)
 
-            # Mark UI update needed; heartbeat will coalesce refresh
-            self._mark_ui_update_needed()
+            # Emit immediate UI update when adding to queue (don't wait for heartbeat)
+            # This ensures users see queued tasks right away
+            self.on_task_list_changed.emit()
 
             # Start immediately if requested or if nothing is running
             if start_now or not self.running_tasks:
