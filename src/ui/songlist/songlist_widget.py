@@ -37,10 +37,20 @@ class CustomSortFilterProxyModel(QSortFilterProxyModel):
         # Prefer cached lowercase strings from model if available
         cache_entry = source_model._row_cache.get(song.path) if hasattr(source_model, "_row_cache") else None
         if cache_entry:
-            textMatch = self.textFilter in cache_entry["artist_lower"] or self.textFilter in cache_entry["title_lower"]
+            textMatch = (
+                self.textFilter in cache_entry["artist_lower"] or
+                self.textFilter in cache_entry["title_lower"] or
+                self.textFilter in cache_entry.get("relative_path_lower", "")
+            )
         else:
             # Fallback to direct lowercase conversion
-            textMatch = self.textFilter in song.artist.lower() or self.textFilter in song.title.lower()
+            from utils import files
+            relative_path = files.get_relative_path(source_model.app_data.directory, song.path).lower()
+            textMatch = (
+                self.textFilter in song.artist.lower() or
+                self.textFilter in song.title.lower() or
+                self.textFilter in relative_path
+            )
 
         return statusMatch and textMatch
 

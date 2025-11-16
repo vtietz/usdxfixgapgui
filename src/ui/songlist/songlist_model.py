@@ -95,8 +95,10 @@ class SongTableModel(QAbstractTableModel):
 
     def _add_to_cache(self, song: Song):
         """Add a single song to the cache."""
+        relative_path = files.get_relative_path(self.app_data.directory, song.path)
         self._row_cache[song.path] = {
-            "relative_path": files.get_relative_path(self.app_data.directory, song.path),
+            "relative_path": relative_path,
+            "relative_path_lower": relative_path.lower(),
             "artist_lower": song.artist.lower(),
             "title_lower": song.title.lower(),
         }
@@ -104,6 +106,9 @@ class SongTableModel(QAbstractTableModel):
     def _update_cache(self, song: Song):
         """Update cache entry for a song."""
         if song.path in self._row_cache:
+            relative_path = files.get_relative_path(self.app_data.directory, song.path)
+            self._row_cache[song.path]["relative_path"] = relative_path
+            self._row_cache[song.path]["relative_path_lower"] = relative_path.lower()
             self._row_cache[song.path]["artist_lower"] = song.artist.lower()
             self._row_cache[song.path]["title_lower"] = song.title.lower()
 
