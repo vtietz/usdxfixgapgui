@@ -18,6 +18,7 @@ class SongStatus(Enum):
     UPDATED = "UPDATED"
     MATCH = "MATCH"
     MISMATCH = "MISMATCH"
+    MISSING_AUDIO = "MISSING_AUDIO"
     ERROR = "ERROR"
 
 

@@ -78,9 +78,9 @@ class SongActions(BaseActions):
 
             logger.info(f"Reloading song {song.path}")
             try:
-                # Reset ERROR or PROCESSING states before reloading
-                # This allows users to retry after errors or stuck processing states
-                if song.status in (SongStatus.ERROR, SongStatus.PROCESSING):
+                # Reset ERROR, PROCESSING, or MISSING_AUDIO states before reloading
+                # This allows users to retry after errors, stuck processing states, or if audio file was added
+                if song.status in (SongStatus.ERROR, SongStatus.PROCESSING, SongStatus.MISSING_AUDIO):
                     logger.info(f"Resetting status from {song.status} to NOT_PROCESSED for reload")
                     song.clear_error()  # Clears error message and resets to NOT_PROCESSED
 

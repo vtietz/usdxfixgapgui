@@ -103,6 +103,7 @@ class SongService:
 
         if not os.path.exists(song.audio_file):
             logger.warning("Audio file not found for %s: %s", song.txt_file, song.audio_file)
+            song.status = SongStatus.MISSING_AUDIO
 
         logger.debug("Updating status from gap_info for %s", song.txt_file)
 

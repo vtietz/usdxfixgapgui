@@ -1,5 +1,6 @@
 from typing import List
 from PySide6.QtCore import QAbstractTableModel, Qt, QModelIndex, QTimer
+from PySide6.QtGui import QColor
 import logging
 
 from app.app_data import AppData
@@ -216,6 +217,8 @@ class SongTableModel(QAbstractTableModel):
         elif role == Qt.ItemDataRole.BackgroundRole:
             if song.status == SongStatus.ERROR:
                 return Qt.GlobalColor.red
+            elif song.status == SongStatus.MISSING_AUDIO:
+                return QColor(180, 50, 50)  # Dark red for missing audio
         return None
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
