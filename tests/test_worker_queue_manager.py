@@ -417,5 +417,70 @@ class TestWorkerProperties:
         assert found is None
 
 
+class TestShutdown:
+    """Test proper shutdown behavior"""
+
+    def test_shutdown_cancels_running_standard_tasks(self):
+        """Verify shutdown cancels all running standard tasks"""
+        manager = WorkerQueueManager()
+
+        # Create and add a task that simulates running
+        worker = MockWorker("Long Running Task", is_instant=False)
+        manager.add_task(worker, start_now=False)
+
+        # Manually set as running to simulate active task
+        worker.status = WorkerStatus.RUNNING
+        manager.running_tasks[worker.id] = worker
+
+        # Shutdown should cancel it
+        manager.shutdown()
+
+        # Verify the worker was cancelled (status may be CANCELLING or FINISHED after cleanup)
+        assert worker._is_canceled is True
+
+    def test_shutdown_cancels_running_instant_task(self):
+        """Verify shutdown cancels running instant task"""
+        manager = WorkerQueueManager()
+
+        # Create instant task and simulate it running
+        worker = MockWorker("Running Instant Task", is_instant=True)
+        worker.id = manager.get_unique_task_id()
+        worker.status = WorkerStatus.RUNNING
+        manager.running_instant_task = worker
+
+        # Shutdown should cancel it
+        manager.shutdown()
+
+        # Verify the worker was cancelled (status may be CANCELLING or FINISHED after cleanup)
+        assert worker._is_canceled is True
+
+    def test_shutdown_cancels_queued_tasks(self):
+        """Verify shutdown cancels all queued tasks"""
+        manager = WorkerQueueManager()
+
+        # Add several queued tasks
+        with patch.object(manager, "start_next_task"):
+            worker_a = MockWorker("Queued A", is_instant=False)
+            worker_b = MockWorker("Queued B", is_instant=False)
+
+            manager.add_task(worker_a, start_now=False)
+            manager.add_task(worker_b, start_now=False)
+
+            assert len(manager.queued_tasks) == 2
+
+            # Shutdown should clear the queue
+            manager.shutdown()
+
+            assert len(manager.queued_tasks) == 0
+
+    def test_shutdown_calls_cleanup(self):
+        """Verify shutdown calls cleanup to stop heartbeat"""
+        manager = WorkerQueueManager()
+
+        with patch.object(manager, "cleanup") as mock_cleanup:
+            manager.shutdown()
+            mock_cleanup.assert_called_once()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

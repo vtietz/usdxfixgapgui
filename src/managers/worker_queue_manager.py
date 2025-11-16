@@ -470,18 +470,48 @@ class WorkerQueueManager(QObject):
     # Add this method to the WorkerQueueManager class
     def shutdown(self):
         """Properly shut down all workers when the application is closing"""
-        logger.info("Shutting down worker queue")
+        logger.info("Shutting down worker queue - cancelling all tasks")
 
-        # Cancel all pending tasks
-        self.cancel_queue()  # Use existing method instead of cancel_all_tasks
+        # Cancel all queued tasks (standard and instant)
+        self.cancel_queue()
 
-        # Wait for running tasks to finish (with a timeout)
-        if self.running_tasks:  # Check if there are running tasks instead of current_worker
-            MAX_WAIT_MS = 2000  # 2 seconds max wait
+        # Cancel all currently running tasks (standard lane)
+        running_task_ids = list(self.running_tasks.keys())
+        for task_id in running_task_ids:
+            worker = self.running_tasks.get(task_id)
+            if worker:
+                logger.info("Cancelling task: %s %s", task_id, worker.description)
+                worker.cancel()
+
+        # Cancel instant task if running
+        if self.running_instant_task:
+            logger.info("Cancelling instant task: %s", self.running_instant_task.description)
+            self.running_instant_task.cancel()
+
+        # Wait for running tasks to finish gracefully (with a timeout)
+        # This is critical - we must wait for async tasks to complete before asyncio shutdown
+        if self.running_tasks or self.running_instant_task:
+            MAX_WAIT_MS = 3000  # 3 seconds max wait (increased to allow proper cleanup)
             start_time = time.time()
-            while self.running_tasks and time.time() - start_time < (MAX_WAIT_MS / 1000):
+
+            logger.debug("Waiting for %s tasks to complete cancellation",
+                        len(self.running_tasks) + (1 if self.running_instant_task else 0))
+
+            while (self.running_tasks or self.running_instant_task) and time.time() - start_time < (MAX_WAIT_MS / 1000):
                 QApplication.processEvents()
-                time.sleep(0.1)
+                time.sleep(0.05)  # Check every 50ms
+
+            # Log results
+            remaining = len(self.running_tasks) + (1 if self.running_instant_task else 0)
+            if remaining > 0:
+                logger.warning("Shutdown timeout - %s tasks still running after %sms", remaining, MAX_WAIT_MS)
+                # Force-clear to prevent further issues
+                self.running_tasks.clear()
+                self.running_instant_task = None
+            else:
+                elapsed_ms = int((time.time() - start_time) * 1000)
+                logger.info("All tasks completed cancellation in %sms", elapsed_ms)
 
         # Clean up resources
         self.cleanup()
+        logger.info("Worker queue shutdown complete")
