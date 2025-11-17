@@ -24,6 +24,16 @@ class Songs(QObject):
         self.listChanged.emit()  # Emit list changed signal
 
     def add(self, song: Song):
+        # Check for duplicate before adding (if txt_file is available)
+        if hasattr(song, 'txt_file') and song.txt_file:
+            existing = self.get_by_txt_file(song.txt_file)
+            if existing:
+                logger.debug(f"Song already exists, updating instead of adding: {song.txt_file}")
+                # Update the existing song's data rather than adding duplicate
+                existing.__dict__.update(song.__dict__)
+                self.updated.emit(existing)
+                return
+        
         self.songs.append(song)
         self.added.emit(song)
         self.listChanged.emit()  # Emit list changed signal
@@ -33,11 +43,26 @@ class Songs(QObject):
         if not songs:
             return
 
-        self.songs.extend(songs)
-        # Don't emit individual 'added' signals in batch mode - only emit once at the end
-        # This prevents N UI updates for N songs (massive performance win)
-        # Only emit list changed once at the end
-        self.listChanged.emit()
+        added_count = 0
+        updated_count = 0
+        for song in songs:
+            if hasattr(song, 'txt_file') and song.txt_file:
+                existing = self.get_by_txt_file(song.txt_file)
+                if existing:
+                    # Update existing song instead of adding duplicate
+                    existing.__dict__.update(song.__dict__)
+                    updated_count += 1
+                    continue
+            
+            self.songs.append(song)
+            added_count += 1
+        
+        if added_count > 0 or updated_count > 0:
+            logger.debug(f"Batch operation: added {added_count}, updated {updated_count} songs")
+            # Don't emit individual 'added' signals in batch mode - only emit once at the end
+            # This prevents N UI updates for N songs (massive performance win)
+            # Only emit list changed once at the end
+            self.listChanged.emit()
 
     def remove(self, song: Song):
         self.songs.remove(song)
