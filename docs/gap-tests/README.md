@@ -1,6 +1,6 @@
 # Gap Detection Tests
 
-**Status**: ✅ 617 tests passing (38 gap-specific scenarios)
+**Status**: ✅ 665 tests passing (39 gap-specific scenarios)
 **Coverage**: Energy detection, scanner orchestration, gap-focused search, pipeline integration
 **Test Files**: `tests/gap_scenarios/test_tier*.py`
 
@@ -53,7 +53,7 @@ hysteresis_ms = 300
 
 ## Test Suite Structure
 
-### Level 1: Energy-Based Onset Detection (12 tests)
+### Level 1: Energy-Based Onset Detection (13 tests)
 **Target**: [`detect_onset_in_vocal_chunk()`](../../src/utils/providers/mdx/detection.py)
 **Scope**: Pure energy-based detection logic on synthetic vocals
 **Execution**: ~1-2 seconds
@@ -64,10 +64,10 @@ hysteresis_ms = 300
 |-----------|---------|-------------|
 | `frame_duration_ms` | 25 ms | RMS analysis frame size |
 | `hop_duration_ms` | 20 ms | RMS hop size |
-| `noise_floor_duration_ms` | 1000 ms | Noise floor estimation window |
-| `onset_snr_threshold` | 4.0 σ | SNR threshold above noise |
-| `onset_abs_threshold` | 0.01 | Absolute RMS threshold |
-| `min_voiced_duration_ms` | 300 ms | Minimum sustained duration |
+| `noise_floor_duration_ms` | 300 ms | Noise floor estimation window (reduced to avoid including early vocals) |
+| `onset_snr_threshold` | 2.5 σ | SNR threshold above noise (reduced for early quiet vocals) |
+| `onset_abs_threshold` | 0.008 | Absolute RMS threshold (reduced for sensitivity) |
+| `min_voiced_duration_ms` | 100 ms | Minimum sustained duration (reduced to catch earlier onsets) |
 | `hysteresis_ms` | 200 ms | Onset refinement window |
 
 **Threshold Logic**: `max(SNR_threshold, absolute_threshold)`
@@ -78,9 +78,10 @@ hysteresis_ms = 300
 |---|----------|--------------|-----------|-------|
 | 1 | Abrupt onset | 1500 ms | ±50 ms | ![](tier1/01-abrupt-onset.png) |
 | 2 | Gradual fade-in (1000ms) | 1500 ms | ±200 ms | ![](tier1/02-gradual-fade-in.png) |
-| 2b | Very gradual fade-in (2000ms) | 1500 ms | ±300 ms | ![](tier1/02b-very-gradual-fade-in.png) |
+| 2b | Very gradual fade-in (2000ms) | 2000 ms | ±300 ms | ![](tier1/02b-very-gradual-fade-in.png) |
 | 3 | Breathy start (300ms preroll) | 1500 ms | ±150 ms | ![](tier1/03-breathy-start.png) |
 | 4 | Quiet vocals (low SNR) | 1500 ms | ±250 ms | ![](tier1/04-quiet-vocals.png) |
+| 4b | Early quiet vocals + later louder (Britney scenario) | 500 ms | ±400 ms | ![](tier1/04b-normal-early-vocals.png) |
 | 5 | High noise floor (-24dB) | 1500 ms | ±200 ms | ![](tier1/05-high-noise-floor.png) |
 | 6 | Instrument spike (false positive guard) | 1500 ms | ±150 ms | ![](tier1/06-instrument-spike.png) |
 | 7 | Too short energy (<300ms) | N/A | No detection | ![](tier1/07-too-short-energy.png) |

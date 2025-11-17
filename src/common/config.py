@@ -66,6 +66,12 @@ class Config(QObject):
 
     def _get_defaults(self):
         """Get default configuration values as a dictionary structure."""
+        # Import here to get MdxConfig dataclass defaults
+        from utils.providers.mdx.config import MdxConfig
+        
+        # Create default instance to extract values
+        mdx_defaults = MdxConfig()
+        
         localappdata = get_localappdata_dir()
 
         # In portable mode, use relative paths for app-internal directories
@@ -88,9 +94,9 @@ class Config(QObject):
             "Detection": {
                 "default_detection_time": 30,
                 "gap_tolerance": 500,
-                "vocal_start_window_sec": 20,
-                "vocal_window_increment_sec": 10,
-                "vocal_window_max_sec": 60,
+                "vocal_start_window_sec": int(mdx_defaults.start_window_ms / 1000),
+                "vocal_window_increment_sec": int(mdx_defaults.start_window_increment_ms / 1000),
+                "vocal_window_max_sec": int(mdx_defaults.start_window_max_ms / 1000),
             },
             "Colors": {
                 "detected_gap_color": "blue",
@@ -101,25 +107,25 @@ class Config(QObject):
             "Player": {"adjust_player_position_step_audio": 100, "adjust_player_position_step_vocals": 10},
             "Processing": {"method": "mdx", "normalization_level": -20, "auto_normalize": False},
             "mdx": {
-                "chunk_duration_ms": 12000,
-                "chunk_overlap_ms": 6000,
-                "frame_duration_ms": 25,
-                "hop_duration_ms": 20,
-                "noise_floor_duration_ms": 1200,
-                "onset_snr_threshold": 4.5,
-                "onset_abs_threshold": 0.012,
-                "min_voiced_duration_ms": 150,
-                "hysteresis_ms": 350,
-                "initial_radius_ms": 7500,
-                "radius_increment_ms": 7500,
-                "max_expansions": 3,
-                "use_fp16": False,
-                "resample_hz": 0,
-                "early_stop_tolerance_ms": 500,
-                "tf32": True,
-                "confidence_threshold": 0.55,
-                "preview_pre_ms": 3000,
-                "preview_post_ms": 9000,
+                "chunk_duration_ms": mdx_defaults.chunk_duration_ms,
+                "chunk_overlap_ms": mdx_defaults.chunk_overlap_ms,
+                "frame_duration_ms": mdx_defaults.frame_duration_ms,
+                "hop_duration_ms": mdx_defaults.hop_duration_ms,
+                "noise_floor_duration_ms": mdx_defaults.noise_floor_duration_ms,
+                "onset_snr_threshold": mdx_defaults.onset_snr_threshold,
+                "onset_abs_threshold": mdx_defaults.onset_abs_threshold,
+                "min_voiced_duration_ms": mdx_defaults.min_voiced_duration_ms,
+                "hysteresis_ms": mdx_defaults.hysteresis_ms,
+                "initial_radius_ms": mdx_defaults.initial_radius_ms,
+                "radius_increment_ms": mdx_defaults.radius_increment_ms,
+                "max_expansions": mdx_defaults.max_expansions,
+                "use_fp16": mdx_defaults.use_fp16,
+                "resample_hz": mdx_defaults.resample_hz,
+                "early_stop_tolerance_ms": mdx_defaults.early_stop_tolerance_ms,
+                "tf32": mdx_defaults.tf32,
+                "confidence_threshold": mdx_defaults.confidence_threshold,
+                "preview_pre_ms": mdx_defaults.preview_pre_ms,
+                "preview_post_ms": mdx_defaults.preview_post_ms,
             },
             "General": {
                 "log_level": "INFO",

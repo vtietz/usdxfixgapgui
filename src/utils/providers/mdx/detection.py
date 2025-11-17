@@ -74,6 +74,10 @@ def estimate_noise_floor(rms_values: np.ndarray, noise_floor_frames: int) -> Tup
     noise_floor = float(np.median(noise_frames))
     noise_sigma = float(np.std(noise_frames))
 
+    logger.debug(f"Noise floor estimation: using {len(noise_frames)} frames out of {len(rms_values)} total")
+    logger.debug(f"Noise frames used: {noise_frames[:20] if len(noise_frames) > 20 else noise_frames}")
+    logger.debug(f"Calculated: median={noise_floor:.6f}, std={noise_sigma:.6f}")
+
     return (noise_floor, noise_sigma)
 
 
@@ -81,15 +85,17 @@ def detect_onset_in_vocal_chunk(
     vocal_audio: np.ndarray, sample_rate: int, chunk_start_ms: float, config: MdxConfig
 ) -> Optional[float]:
     """
-    Detect vocal onset in a vocal stem chunk using energy threshold.
+    Detect vocal onset in a vocal stem chunk using silence-to-sound transition.
 
-    Implementation strategy:
-        1. Convert to mono
-        2. Estimate noise floor from first 800ms
-        3. Compute short-time RMS (25ms frames, 10ms hop)
-        4. Find onset where RMS > noise_floor + k*sigma for ≥180ms
-        5. Refine using energy derivative (steepest rise)
-        6. Return absolute timestamp (chunk_start + offset)
+    NEW STRATEGY (silence-centric):
+        1. Convert to mono and compute short-time RMS energy
+        2. Estimate noise floor from initial frames
+        3. Find ALL silence regions (energy below threshold)
+        4. Identify the longest/earliest significant silence
+        5. Return the END of that silence (silence→sound boundary) as the onset
+
+    This approach correctly handles cases where vocals start quietly and get louder,
+    by finding the actual silence boundary rather than the first sustained loud vocal.
 
     Args:
         vocal_audio: Numpy array of vocal stem audio (channels, samples)
@@ -106,6 +112,8 @@ def detect_onset_in_vocal_chunk(
             vocal_mono = np.mean(vocal_audio, axis=0)
         else:
             vocal_mono = vocal_audio
+
+        logger.debug(f"Vocal audio shape: {vocal_audio.shape}, mono shape: {vocal_mono.shape}, dtype: {vocal_mono.dtype}")
 
         # Compute RMS
         frame_samples = int((config.frame_duration_ms / 1000.0) * sample_rate)
@@ -128,10 +136,14 @@ def detect_onset_in_vocal_chunk(
             )
             noise_floor_frames = max(1, len(rms_values) - 1)
 
+        logger.debug(f"Noise floor config: duration={config.noise_floor_duration_ms}ms, hop={config.hop_duration_ms}ms, calculated frames={noise_floor_frames}")
+
         noise_floor, noise_sigma = estimate_noise_floor(rms_values, noise_floor_frames)
 
         max_rms = np.max(rms_values)
         mean_rms = np.mean(rms_values)
+
+        logger.debug(f"First 10 RMS values: {rms_values[:10]}")
 
         logger.info(
             f"Chunk analysis - Noise floor={noise_floor:.6f}, sigma={noise_sigma:.6f}, "
@@ -148,80 +160,102 @@ def detect_onset_in_vocal_chunk(
             f"Combined={combined_threshold:.6f}"
         )
 
-        # Find sustained energy above threshold
-        min_frames = int((config.min_voiced_duration_ms / 1000.0) / (config.hop_duration_ms / 1000.0))
-        hysteresis_frames = int((config.hysteresis_ms / 1000.0) / (config.hop_duration_ms / 1000.0))
-
-        above_threshold = rms_values > combined_threshold
+        # NEW APPROACH: Find the first significant silence→sound transition
+        hop_samples = int((config.hop_duration_ms / 1000.0) * sample_rate)
+        min_silence_frames = int((config.min_voiced_duration_ms / 1000.0) / (config.hop_duration_ms / 1000.0))
+        min_sound_frames = min_silence_frames  # Sound must also sustain for verification
+        
+        # Identify frames below/above threshold
+        below_threshold = rms_values <= combined_threshold
+        above_threshold = ~below_threshold
+        
+        # Start search from beginning (don't skip noise floor region - we want to find the FIRST silence)
+        search_start = 0
+        
+        # Find first significant silence→sound transition
+        # Strategy: scan forward looking for pattern: [sustained silence] → [sustained sound]
         onset_frame = None
+        i = search_start
+        
+        while i < len(below_threshold) - min_silence_frames - min_sound_frames:
+            # Check if we have sustained silence starting at i
+            if np.all(below_threshold[i : i + min_silence_frames]):
+                # Found sustained silence, now check if followed by sustained sound
+                silence_end = i + min_silence_frames
+                
+                # Look for sound starting after the silence
+                for j in range(silence_end, min(silence_end + 50, len(above_threshold) - min_sound_frames)):
+                    # Check if we have sustained sound at position j
+                    if np.all(above_threshold[j : j + min_sound_frames]):
+                        # Found silence→sound transition!
+                        onset_frame = j  # Onset is where sound begins
+                        logger.info(
+                            f"Found silence→sound transition: silence at frames {i}-{silence_end}, "
+                            f"sound starts at frame {onset_frame}"
+                        )
+                        break
+                
+                if onset_frame is not None:
+                    break  # Found the first transition, stop searching
+                else:
+                    # No sound after this silence, skip ahead
+                    i = silence_end
+            else:
+                i += 1
+        
+        if onset_frame is None:
+            logger.info("No silence→sound transition found, falling back to first sustained sound")
+            # Fallback: find first sustained sound (original vocal-centric approach)
+            for i in range(search_start, len(above_threshold) - min_sound_frames):
+                if np.all(above_threshold[i : i + min_sound_frames]):
+                    onset_frame = i
+                    logger.info(f"Fallback: first sustained sound at frame {onset_frame}")
+                    break
+        
+        if onset_frame is None:
+            logger.info("No onset found")
+            return None
+        
+        # Refine onset by looking for energy rise pattern
+        refine_window = min(10, len(rms_values) - onset_frame - 1)  # 10 frames = 200ms
+        if refine_window > 2 and onset_frame < len(rms_values) - 1:
+            window_start = max(search_start, onset_frame - 5)  # Look back slightly
+            window_end = min(onset_frame + refine_window, len(rms_values))
+            
+            # Compute energy derivative
+            rms_window = rms_values[window_start:window_end]
+            if len(rms_window) > 1:
+                energy_derivative = np.diff(rms_window)
+                
+                if len(energy_derivative) > 0:
+                    # Find first significant positive derivative (rising energy)
+                    mean_derivative = np.mean(np.abs(energy_derivative))
+                    threshold_derivative = mean_derivative * 0.3  # 30% of mean change
+                    
+                    first_rise_idx = None
+                    for idx, deriv in enumerate(energy_derivative):
+                        if deriv > threshold_derivative:
+                            first_rise_idx = idx
+                            break
+                    
+                    if first_rise_idx is not None:
+                        # Adjust onset to the rising edge
+                        refined_onset = window_start + first_rise_idx
+                        if refined_onset <= onset_frame:  # Only refine backwards
+                            logger.debug(
+                                f"Refined onset from frame {onset_frame} to {refined_onset} "
+                                f"using energy derivative"
+                            )
+                            onset_frame = refined_onset
 
-        # Skip the noise floor region when searching
-        search_start = max(noise_floor_frames + 1, 0)
-
-        # Find first sustained onset (after noise floor region)
-        for i in range(search_start, len(above_threshold) - min_frames):
-            if np.all(above_threshold[i : i + min_frames]):
-                # Found sustained energy - now look back for the actual onset (rising edge)
-                onset_frame = i
-
-                # Look back to find where energy first crosses threshold
-                for j in range(i - 1, max(search_start - 1, i - hysteresis_frames - 1), -1):
-                    if j >= 0 and above_threshold[j]:
-                        onset_frame = j  # Keep going back while above threshold
-                    else:
-                        break  # Stop at first frame below threshold (this is the onset!)
-
-                # Refine onset by looking for energy rise pattern
-                # For abrupt onsets: find steepest rise
-                # For gradual fade-ins: find first consistent rise
-                refine_window = min(15, onset_frame - search_start)  # 15 frames = 300ms window
-                if refine_window > 2:
-                    window_start = max(search_start, onset_frame - refine_window)
-                    window_end = min(onset_frame + 5, len(rms_values) - 1)
-
-                    # Compute energy derivative (rate of change)
-                    rms_window = rms_values[window_start:window_end]
-                    if len(rms_window) > 1:
-                        energy_derivative = np.diff(rms_window)
-
-                        if len(energy_derivative) > 0:
-                            # Strategy: Find the first significant positive derivative
-                            # This catches gradual fade-ins better than finding the steepest rise
-                            mean_derivative = np.mean(np.abs(energy_derivative))
-                            threshold_derivative = mean_derivative * 0.5  # 50% of mean change
-
-                            # Find first frame where derivative exceeds threshold (consistent rise)
-                            first_rise_idx = None
-                            for idx, deriv in enumerate(energy_derivative):
-                                if deriv > threshold_derivative:
-                                    first_rise_idx = idx
-                                    break
-
-                            if first_rise_idx is not None:
-                                refined_onset = window_start + first_rise_idx
-
-                                # Only use refined onset if it makes sense (earlier than or close to original)
-                                if refined_onset <= onset_frame:
-                                    logger.debug(
-                                        f"Refined onset from frame {onset_frame} to {refined_onset} "
-                                        f"(first rise: {energy_derivative[first_rise_idx]:.4f}, "
-                                        f"threshold: {threshold_derivative:.4f})"
-                                    )
-                                    onset_frame = refined_onset
-
-                break
-
-        if onset_frame is not None:
-            # Convert frame to absolute timestamp
-            onset_offset_ms = (onset_frame * hop_samples / sample_rate) * 1000.0
-            onset_abs_ms = chunk_start_ms + onset_offset_ms
-            logger.info(
-                f"Onset detected at {onset_abs_ms:.1f}ms "
-                f"(RMS={rms_values[onset_frame]:.4f}, threshold={combined_threshold:.4f})"
-            )
-            return float(onset_abs_ms)
-
-        return None
+        # Convert frame to absolute timestamp
+        onset_offset_ms = (onset_frame * hop_samples / sample_rate) * 1000.0
+        onset_abs_ms = chunk_start_ms + onset_offset_ms
+        logger.info(
+            f"Onset detected at {onset_abs_ms:.1f}ms "
+            f"(frame {onset_frame}, RMS={rms_values[min(onset_frame, len(rms_values)-1)]:.4f})"
+        )
+        return float(onset_abs_ms)
 
     except Exception as e:
         logger.warning(f"MDX onset detection in chunk failed: {e}")
