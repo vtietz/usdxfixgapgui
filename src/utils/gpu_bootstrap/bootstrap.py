@@ -213,18 +213,24 @@ def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
 
 
 def _to_gpu_status_from_context(source: str, pack_dir: Path | None, error: str | None = None) -> GPUStatus:
-    """Build a GPUStatus snapshot from current torch context."""
+    """Build a GPUStatus snapshot from current torch context.
+    
+    Only imports torch if already in sys.modules to avoid triggering premature imports.
+    """
     torch_version = None
     cuda_version = None
     cuda_available = False
-    try:
-        import torch
+    
+    # Only check torch if it's already imported - don't trigger import
+    if "torch" in sys.modules:
+        try:
+            import torch
 
-        torch_version = getattr(torch, "__version__", None)
-        cuda_version = getattr(torch.version, "cuda", None)
-        cuda_available = bool(getattr(torch.cuda, "is_available", lambda: False)())
-    except Exception:
-        pass
+            torch_version = getattr(torch, "__version__", None)
+            cuda_version = getattr(torch.version, "cuda", None)
+            cuda_available = bool(getattr(torch.cuda, "is_available", lambda: False)())
+        except Exception:
+            pass
 
     enabled = bool(cuda_available)
     return GPUStatus(
@@ -290,6 +296,20 @@ def bootstrap_gpu(config) -> GPUStatus:
             logger.info(status.as_structured_log())
             return status
 
+        # CRITICAL: Only validate if torch is already imported
+        # If torch is not yet imported, validation would import it from venv instead of GPU Pack
+        # In that case, skip validation and trust that GPU Pack will work when app imports torch
+        if "torch" not in sys.modules:
+            logger.info(
+                "GPU Pack configured and in sys.path; skipping validation to avoid importing torch "
+                "(torch will be imported from GPU Pack when app needs it)"
+            )
+            status = _to_gpu_status_from_context("pack", pack_dir)
+            logger.info(status.as_structured_log())
+            return status
+
+
+        # Torch already imported - validate it
         success = _validate_pack_and_update_config(config, pack_dir, gpu_flavor, expected_cuda)
         if success:
             status = _to_gpu_status_from_context("pack", pack_dir)

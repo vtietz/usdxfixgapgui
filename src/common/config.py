@@ -66,12 +66,23 @@ class Config(QObject):
 
     def _get_defaults(self):
         """Get default configuration values as a dictionary structure."""
-        # Import here to get MdxConfig dataclass defaults
-        from utils.providers.mdx.config import MdxConfig
-        
+        # Lazy import: Defer MdxConfig import to avoid importing torch at Config instantiation.
+        # CRITICAL: 'from utils.providers.mdx.config import MdxConfig' triggers the mdx
+        # package __init__.py, which imports separator.py, which imports torch from venv
+        # BEFORE bootstrap_gpu() has a chance to add GPU Pack to sys.path.
+        # Solution: Use direct module import bypassing __init__.py.
+        import importlib.util
+        mdx_config_path = os.path.join(
+            os.path.dirname(__file__), "..", "utils", "providers", "mdx", "config.py"
+        )
+        spec = importlib.util.spec_from_file_location("mdx_config_module", mdx_config_path)
+        mdx_config_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mdx_config_module)
+        MdxConfig = mdx_config_module.MdxConfig
+
         # Create default instance to extract values
         mdx_defaults = MdxConfig()
-        
+
         localappdata = get_localappdata_dir()
 
         # In portable mode, use relative paths for app-internal directories
@@ -568,17 +579,33 @@ class Config(QObject):
 
         # Create a fresh ConfigParser to read the current file state
         current = configparser.ConfigParser()
+        config_loaded = False
+
         if os.path.exists(self.config_path):
             try:
                 current.read(self.config_path, encoding="utf-8-sig")
                 logger.debug(f"Re-read existing config from {self.config_path}")
+                config_loaded = True
             except Exception as e:
                 logger.warning(f"Failed to re-read config file: {e}. Will create fresh config.")
+
+        # If config doesn't exist or failed to load, populate with defaults
+        if not config_loaded:
+            logger.debug("Populating config with defaults before save")
+            defaults = self._get_defaults()
+            for section, values in defaults.items():
+                current[section] = {}
+                for key, value in values.items():
+                    # Convert all values to strings for ConfigParser
+                    if isinstance(value, bool):
+                        current[section][key] = "true" if value else "false"
+                    else:
+                        current[section][key] = str(value)
 
         # Create backup before modifying
         self._create_backup()
 
-        # Update managed sections
+        # Update managed sections (these override defaults/existing values)
         self._update_paths_section(current)
         self._update_general_section(current)
         self._update_window_section(current)

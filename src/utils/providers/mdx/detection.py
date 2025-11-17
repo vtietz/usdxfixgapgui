@@ -164,25 +164,25 @@ def detect_onset_in_vocal_chunk(
         hop_samples = int((config.hop_duration_ms / 1000.0) * sample_rate)
         min_silence_frames = int((config.min_voiced_duration_ms / 1000.0) / (config.hop_duration_ms / 1000.0))
         min_sound_frames = min_silence_frames  # Sound must also sustain for verification
-        
+
         # Identify frames below/above threshold
         below_threshold = rms_values <= combined_threshold
         above_threshold = ~below_threshold
-        
+
         # Start search from beginning (don't skip noise floor region - we want to find the FIRST silence)
         search_start = 0
-        
+
         # Find first significant silence→sound transition
         # Strategy: scan forward looking for pattern: [sustained silence] → [sustained sound]
         onset_frame = None
         i = search_start
-        
+
         while i < len(below_threshold) - min_silence_frames - min_sound_frames:
             # Check if we have sustained silence starting at i
             if np.all(below_threshold[i : i + min_silence_frames]):
                 # Found sustained silence, now check if followed by sustained sound
                 silence_end = i + min_silence_frames
-                
+
                 # Look for sound starting after the silence
                 for j in range(silence_end, min(silence_end + 50, len(above_threshold) - min_sound_frames)):
                     # Check if we have sustained sound at position j
@@ -194,7 +194,7 @@ def detect_onset_in_vocal_chunk(
                             f"sound starts at frame {onset_frame}"
                         )
                         break
-                
+
                 if onset_frame is not None:
                     break  # Found the first transition, stop searching
                 else:
@@ -202,7 +202,7 @@ def detect_onset_in_vocal_chunk(
                     i = silence_end
             else:
                 i += 1
-        
+
         if onset_frame is None:
             logger.info("No silence→sound transition found, falling back to first sustained sound")
             # Fallback: find first sustained sound (original vocal-centric approach)
@@ -211,33 +211,33 @@ def detect_onset_in_vocal_chunk(
                     onset_frame = i
                     logger.info(f"Fallback: first sustained sound at frame {onset_frame}")
                     break
-        
+
         if onset_frame is None:
             logger.info("No onset found")
             return None
-        
+
         # Refine onset by looking for energy rise pattern
         refine_window = min(10, len(rms_values) - onset_frame - 1)  # 10 frames = 200ms
         if refine_window > 2 and onset_frame < len(rms_values) - 1:
             window_start = max(search_start, onset_frame - 5)  # Look back slightly
             window_end = min(onset_frame + refine_window, len(rms_values))
-            
+
             # Compute energy derivative
             rms_window = rms_values[window_start:window_end]
             if len(rms_window) > 1:
                 energy_derivative = np.diff(rms_window)
-                
+
                 if len(energy_derivative) > 0:
                     # Find first significant positive derivative (rising energy)
                     mean_derivative = np.mean(np.abs(energy_derivative))
                     threshold_derivative = mean_derivative * 0.3  # 30% of mean change
-                    
+
                     first_rise_idx = None
                     for idx, deriv in enumerate(energy_derivative):
                         if deriv > threshold_derivative:
                             first_rise_idx = idx
                             break
-                    
+
                     if first_rise_idx is not None:
                         # Adjust onset to the rising edge
                         refined_onset = window_start + first_rise_idx

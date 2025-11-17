@@ -258,7 +258,7 @@ class StartupDialog(QDialog):
             if getattr(self.config, "gpu_opt_in", False):
                 # Pack is activated, get the path directly from config
                 pack_path = getattr(self.config, "gpu_pack_path", "")
-                if pack_path and Path(pack_path).exists():
+                if pack_path and isinstance(pack_path, (str, Path)) and Path(pack_path).exists():
                     self._render_activation_flow(Path(pack_path))
                 else:
                     # gpu_opt_in=true but pack missing - show download
@@ -302,10 +302,16 @@ class StartupDialog(QDialog):
                 self.log("  • In development (run.bat/run.sh), CPU torch from .venv is always used")
                 self.log("  • This is normal and expected - development uses .venv dependencies")
                 self.log("")
-                self.log("To test GPU Pack:")
-                self.log("  • Build the executable: run.bat build")
-                self.log("  • Run the built .exe from dist/ folder")
-                self.log("  • GPU Pack will activate automatically")
+                self.log("To test GPU Pack in development:")
+                self.log("  Option 1 (Recommended): Build and run the executable")
+                self.log("    • Build: run.bat build")
+                self.log("    • Run the .exe from dist/ folder")
+                self.log("    • GPU Pack will activate automatically")
+                self.log("")
+                self.log("  Option 2 (Advanced): Uninstall torch from venv")
+                self.log("    • Run: .venv\\Scripts\\pip uninstall torch torchaudio")
+                self.log("    • App will use GPU Pack torch for development")
+                self.log("    • Reinstall CPU torch when needed: run.bat install")
                 self.log("")
                 self.log("→ Running in CPU mode (fully functional for development)")
                 self.status_label.setText("✅ System Ready (Development Mode - CPU Only)")
@@ -314,7 +320,7 @@ class StartupDialog(QDialog):
                 if hasattr(self, "dont_show_checkbox"):
                     self.dont_show_checkbox.setChecked(True)
                 return
-            
+
             # Frozen mode - actual restart required
             self.log("⚡ GPU Pack Activated - Restart Required")
             self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
@@ -595,7 +601,7 @@ class StartupDialog(QDialog):
         Returns True if:
         1. Torch package with CUDA libraries exists
         2. GPU hardware is detected
-        
+
         This allows offering activation when GPU is present, even if current
         torch is CPU-only.
         """
