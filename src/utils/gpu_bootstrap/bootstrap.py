@@ -214,13 +214,13 @@ def enable_gpu_runtime(pack_dir: Path, config=None) -> bool:
 
 def _to_gpu_status_from_context(source: str, pack_dir: Path | None, error: str | None = None) -> GPUStatus:
     """Build a GPUStatus snapshot from current torch context.
-    
+
     Only imports torch if already in sys.modules to avoid triggering premature imports.
     """
     torch_version = None
     cuda_version = None
     cuda_available = False
-    
+
     # Only check torch if it's already imported - don't trigger import
     if "torch" in sys.modules:
         try:
@@ -232,7 +232,10 @@ def _to_gpu_status_from_context(source: str, pack_dir: Path | None, error: str |
         except Exception:
             pass
 
-    enabled = bool(cuda_available)
+    # If source is "pack", GPU will be enabled once torch is imported from GPU Pack
+    # Even if torch is not yet imported, trust that GPU Pack will work
+    enabled = bool(cuda_available) if "torch" in sys.modules else (source == "pack" and pack_dir is not None)
+    
     return GPUStatus(
         enabled=enabled,
         source=source,

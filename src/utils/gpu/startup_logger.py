@@ -32,7 +32,7 @@ def log_gpu_status(config, gpu_enabled, show_gui_dialog=True):
         status, pack_path = hook_status
         if status == "ACTIVE":
             print("[ok] GPU Pack activated via runtime hook")
-            print(f"  Import redirection: torch/torchaudio → {pack_path}")
+            print(f"  Import redirection: torch/torchaudio -> {pack_path}")
         elif status == "FAILED":
             print("[!] GPU Pack found but activation failed")
             print(f"  Pack location: {pack_path}")
