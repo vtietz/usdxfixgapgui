@@ -67,18 +67,10 @@ class Config(QObject):
     def _get_defaults(self):
         """Get default configuration values as a dictionary structure."""
         # Lazy import: Defer MdxConfig import to avoid importing torch at Config instantiation.
-        # CRITICAL: 'from utils.providers.mdx.config import MdxConfig' triggers the mdx
-        # package __init__.py, which imports separator.py, which imports torch from venv
-        # BEFORE bootstrap_gpu() has a chance to add GPU Pack to sys.path.
-        # Solution: Use direct module import bypassing __init__.py.
-        import importlib.util
-        mdx_config_path = os.path.join(
-            os.path.dirname(__file__), "..", "utils", "providers", "mdx", "config.py"
-        )
-        spec = importlib.util.spec_from_file_location("mdx_config_module", mdx_config_path)
-        mdx_config_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mdx_config_module)
-        MdxConfig = mdx_config_module.MdxConfig
+        # CRITICAL: This import must happen after GPU bootstrap to ensure torch comes from GPU Pack.
+        # The mdx package __init__.py now uses lazy imports via __getattr__ to avoid
+        # importing torch-dependent modules (separator.py, model_loader.py) at package load time.
+        from utils.providers.mdx.config import MdxConfig
 
         # Create default instance to extract values
         mdx_defaults = MdxConfig()
