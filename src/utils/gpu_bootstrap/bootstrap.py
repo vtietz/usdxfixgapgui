@@ -153,11 +153,14 @@ def _validate_pack_and_update_config(config, pack_dir: Path, gpu_flavor: str, ex
     logger.warning(f"GPU Pack validation failed: {cuda_error}")
     torch_source = "unknown"
     torch_cuda_version = "unknown"
+    torch_from_venv = False
     try:
         import torch
 
         torch_source = getattr(torch, "__file__", "unknown")
         torch_cuda_version = getattr(torch.version, "cuda", "None")
+        # Check if torch was imported from venv (not GPU Pack)
+        torch_from_venv = ".venv" in torch_source or "site-packages" in torch_source
     except Exception as import_err:
         torch_source = f"import failed: {import_err}"
 
@@ -173,9 +176,16 @@ def _validate_pack_and_update_config(config, pack_dir: Path, gpu_flavor: str, ex
     )
     config.gpu_last_error = diagnostic_info
     config.gpu_last_health = "failed"
-    config.gpu_opt_in = False  # Disable to prevent boot loop
+
+    # Only disable GPU opt-in if this is actual corruption, not just pre-imported CPU torch
+    # If torch was pre-imported from venv, keep gpu_opt_in=true so it works on next clean start
+    if not torch_from_venv:
+        config.gpu_opt_in = False  # Disable to prevent boot loop
+        logger.warning("GPU Pack disabled due to validation failure - user can re-activate from startup dialog")
+    else:
+        logger.info("GPU Pack validation failed because CPU torch was pre-imported - keeping gpu_opt_in=true for next restart")
+
     config.save_config()
-    logger.warning("GPU Pack disabled due to validation failure - user can re-activate from startup dialog")
     return False
 
 
