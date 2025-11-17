@@ -70,10 +70,10 @@ class ConfigStub:
         self.method = method
         self.default_detection_time = default_detection_time
         self.gap_tolerance = gap_tolerance
-        
+
         # Vocal window settings: use provided or fall back to MdxConfig defaults
         self.vocal_start_window_sec = (
-            vocal_start_window_sec if vocal_start_window_sec is not None 
+            vocal_start_window_sec if vocal_start_window_sec is not None
             else int(_MDX_DEFAULTS.start_window_ms / 1000)
         )
         self.vocal_window_increment_sec = (
@@ -87,7 +87,7 @@ class ConfigStub:
 
         # MDX settings: use provided or fall back to MdxConfig defaults
         self.mdx_chunk_duration_ms = (
-            mdx_chunk_duration_ms if mdx_chunk_duration_ms is not None 
+            mdx_chunk_duration_ms if mdx_chunk_duration_ms is not None
             else _MDX_DEFAULTS.chunk_duration_ms
         )
         self.mdx_chunk_overlap_ms = (

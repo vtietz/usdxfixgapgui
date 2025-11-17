@@ -89,7 +89,7 @@ class MultiSelectComboBox(QWidget):
             for i in range(self.model.rowCount())
             if self.model.item(i).checkState() == Qt.CheckState.Checked
         ]
-        self.filterDropdown.lineEdit().setText(", ".join(selectedItems) if selectedItems else "")
+        self.clickableLineEdit.setText(", ".join(selectedItems) if selectedItems else "")
         self.selectionChanged.emit(selectedItems)
 
     def onItemChanged(self, _):
