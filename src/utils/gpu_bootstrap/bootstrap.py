@@ -235,7 +235,7 @@ def _to_gpu_status_from_context(source: str, pack_dir: Path | None, error: str |
     # If source is "pack", GPU will be enabled once torch is imported from GPU Pack
     # Even if torch is not yet imported, trust that GPU Pack will work
     enabled = bool(cuda_available) if "torch" in sys.modules else (source == "pack" and pack_dir is not None)
-    
+
     return GPUStatus(
         enabled=enabled,
         source=source,

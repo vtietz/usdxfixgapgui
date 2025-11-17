@@ -193,8 +193,10 @@ This strategy solves two critical issues:
 - Call tracking for verification
 
 **ConfigStub** (`tests/test_utils/config_stub.py`):
-- Minimal Config duck-type
+- Minimal Config duck-type for testing without full config system
+- Defaults pulled from `MdxConfig` dataclass (single source of truth)
 - Fields: `tmp_root`, `method`, detection times, MDX settings
+- Supports test-specific overrides while maintaining default consistency
 
 #### Scenarios
 
