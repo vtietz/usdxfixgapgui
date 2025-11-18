@@ -9,6 +9,24 @@ from utils.files import get_localappdata_dir
 
 logger = logging.getLogger(__name__)
 
+
+def normalize_cache_key(file_path: str) -> str:
+    """
+    Normalize a file path for use as a cache key.
+    Converts all backslashes to forward slashes for consistent comparison.
+
+    Args:
+        file_path: Raw file path with potentially mixed separators
+
+    Returns:
+        Normalized path with forward slashes only
+
+    Example:
+        'Z:/Songs\\ABBA\\song.txt' -> 'Z:/Songs/ABBA/song.txt'
+    """
+    return file_path.replace('\\', '/')
+
+
 # Define the database path (lazy initialization to avoid import-time side effects)
 _DB_PATH: str | None = None
 _db_initialized = False
@@ -32,6 +50,69 @@ CACHE_VERSION = 2
 def get_connection():
     """Get a connection to the database."""
     return sqlite3.connect(_get_db_path())
+
+
+def migrate_cache_paths():
+    """
+    One-time migration to normalize all file_path entries in the cache.
+    Converts backslashes to forward slashes and removes duplicates.
+
+    This fixes the issue where the same song was cached with both
+    Z:/Songs/Artist/song.txt and Z:/Songs\\Artist\\song.txt paths.
+
+    Returns:
+        int: Number of duplicate entries removed
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Get all cache entries
+        cursor.execute("SELECT file_path, song_data, timestamp FROM song_cache")
+        all_entries = cursor.fetchall()
+
+        if not all_entries:
+            conn.close()
+            return 0
+
+        # Track normalized paths to detect duplicates
+        normalized_map = {}  # normalized_path -> (song_data, timestamp, original_path)
+        duplicates_removed = 0
+
+        for file_path, song_data, timestamp in all_entries:
+            normalized_path = normalize_cache_key(file_path)
+
+            # If normalized path already exists, keep the newer entry
+            if normalized_path in normalized_map:
+                duplicates_removed += 1
+                existing_timestamp = normalized_map[normalized_path][1]
+                # Keep the newer timestamp
+                if timestamp > existing_timestamp:
+                    normalized_map[normalized_path] = (song_data, timestamp, file_path)
+            else:
+                normalized_map[normalized_path] = (song_data, timestamp, file_path)
+
+        if duplicates_removed > 0:
+            logger.info(f"Found {duplicates_removed} duplicate cache entries with different path separators")
+
+            # Clear the entire cache table
+            cursor.execute("DELETE FROM song_cache")
+
+            # Re-insert with normalized paths
+            for normalized_path, (song_data, timestamp, _) in normalized_map.items():
+                cursor.execute(
+                    "INSERT INTO song_cache (file_path, song_data, timestamp) VALUES (?, ?, ?)",
+                    (normalized_path, song_data, timestamp)
+                )
+
+            conn.commit()
+            logger.info(f"Cache normalized: removed {duplicates_removed} duplicates, kept {len(normalized_map)} unique songs")
+
+        conn.close()
+        return duplicates_removed
+    except Exception as e:
+        logger.error(f"Error migrating cache paths: {str(e)}")
+        return 0
 
 
 def init_database():
@@ -116,6 +197,11 @@ def init_database():
     _db_initialized = True
     logger.debug("Database initialized")
 
+    # Run path normalization migration (one-time cleanup of duplicates)
+    # This is safe to run multiple times - only processes duplicates
+    if not _cache_was_cleared:  # Only migrate if we didn't just clear the cache
+        migrate_cache_paths()
+
     return _cache_was_cleared
 
 
@@ -147,6 +233,7 @@ def get_cache_entry(key, modified_time=None):
     Returns:
         object or None: The cached object if found and valid, None otherwise.
     """
+    key = normalize_cache_key(key)  # Normalize path separators
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -187,6 +274,7 @@ def set_cache_entry(key, obj):
         key (str): The cache key (filepath)
         obj (object): The object to cache
     """
+    key = normalize_cache_key(key)  # Normalize path separators
     import time
     import threading
 
@@ -232,6 +320,8 @@ def clear_cache(key=None):
         key (str, optional): If provided, only clear this specific key.
                             If None, clear the entire cache.
     """
+    if key:
+        key = normalize_cache_key(key)  # Normalize path separators
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -341,6 +431,7 @@ def remove_cache_entry(file_path):
     Args:
         file_path (str): Path of the file to remove from cache
     """
+    file_path = normalize_cache_key(file_path)  # Normalize path separators
     try:
         conn = get_connection()
         cursor = conn.cursor()

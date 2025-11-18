@@ -1,6 +1,9 @@
+import logging
 from typing import List
 from PySide6.QtCore import QObject, Signal  # Updated import
 from model.song import Song, SongStatus
+
+logger = logging.getLogger(__name__)
 
 
 class Songs(QObject):
@@ -33,7 +36,7 @@ class Songs(QObject):
                 existing.__dict__.update(song.__dict__)
                 self.updated.emit(existing)
                 return
-        
+
         self.songs.append(song)
         self.added.emit(song)
         self.listChanged.emit()  # Emit list changed signal
@@ -53,10 +56,10 @@ class Songs(QObject):
                     existing.__dict__.update(song.__dict__)
                     updated_count += 1
                     continue
-            
+
             self.songs.append(song)
             added_count += 1
-        
+
         if added_count > 0 or updated_count > 0:
             logger.debug(f"Batch operation: added {added_count}, updated {updated_count} songs")
             # Don't emit individual 'added' signals in batch mode - only emit once at the end
@@ -71,8 +74,11 @@ class Songs(QObject):
 
     def get_by_txt_file(self, txt_file: str) -> Song | None:
         """Get song by txt file path."""
+        # Normalize paths for comparison (handle Z:/path vs Z:\\path)
+        txt_file_normalized = txt_file.replace('\\', '/')
         for song in self.songs:
-            if song.txt_file == txt_file:
+            song_txt_normalized = song.txt_file.replace('\\', '/')
+            if song_txt_normalized == txt_file_normalized:
                 return song
         return None
 
