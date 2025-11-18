@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QComboBox, QSizePolicy, QListView, QLineEdit
-from PySide6.QtCore import Qt, Signal  # Changed from pyqtSignal
+from PySide6.QtCore import Qt, Signal, QTimer  # Changed from pyqtSignal
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QMouseEvent
 
 
@@ -57,6 +57,12 @@ class MultiSelectComboBox(QWidget):
         # Set placeholder text for when no items are selected
         self.clickableLineEdit.setPlaceholderText("")
 
+        # Debounce timer to prevent rapid-fire updates
+        self._update_timer = QTimer()
+        self._update_timer.setSingleShot(True)
+        self._update_timer.setInterval(50)  # 50ms debounce
+        self._update_timer.timeout.connect(self._performUpdate)
+
         layout.addWidget(self.filterDropdown)
 
     def addItem(self, text):
@@ -70,30 +76,45 @@ class MultiSelectComboBox(QWidget):
         Set the selected items programmatically.
         :param selectedItems: A list of strings representing the items to be selected.
         """
-        for i in range(self.model.rowCount()):
-            item = self.model.item(i)
-            if item.text() in selectedItems:
-                item.setCheckState(Qt.CheckState.Checked)
-            else:
-                item.setCheckState(Qt.CheckState.Unchecked)
+        # Block signals to prevent cascading itemChanged events during programmatic update
+        self.model.blockSignals(True)
+        try:
+            for i in range(self.model.rowCount()):
+                item = self.model.item(i)
+                if item.text() in selectedItems:
+                    item.setCheckState(Qt.CheckState.Checked)
+                else:
+                    item.setCheckState(Qt.CheckState.Unchecked)
+        finally:
+            self.model.blockSignals(False)
 
-        # Update the QLineEdit to show the selected items
-        self.updateLineEdit()
+        # Update the QLineEdit to show the selected items (no debounce for programmatic updates)
+        self._performUpdate()
 
     def updateLineEdit(self):
         """
         Update the QLineEdit to show the currently selected items.
+        Deprecated: Use _performUpdate() directly or trigger via debounce timer.
+        """
+        # Restart debounce timer for user-initiated changes
+        self._update_timer.start()
+
+    def _performUpdate(self):
+        """
+        Immediately update the QLineEdit text and emit selection change signal.
+        Called after debounce timer expires or during programmatic updates.
         """
         selectedItems = [
             self.model.item(i).text()
             for i in range(self.model.rowCount())
             if self.model.item(i).checkState() == Qt.CheckState.Checked
         ]
+        # Explicitly clear text when no items selected (fixes stale text bug)
         self.clickableLineEdit.setText(", ".join(selectedItems) if selectedItems else "")
         self.selectionChanged.emit(selectedItems)
 
     def onItemChanged(self, _):
-        # Call updateLineEdit directly to refresh the displayed text and emit the signal
+        # Debounce updates to prevent rapid-fire signal emissions during multi-checkbox changes
         self.updateLineEdit()
 
 
