@@ -17,13 +17,31 @@ class CheckableComboBoxListView(QListView):
 class ClickableLineEdit(QLineEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.parent = parent  # Store reference to the parent widget (the combo box)
+        self.combo = parent  # Store reference to the parent combo box
+        self.setReadOnly(True)
+        # Set focus policy to prevent stealing focus from combo box
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
     def mousePressEvent(self, event: QMouseEvent):
-        super().mousePressEvent(event)
-        # Check if the parent is set and is a QComboBox, then show its dropdown list
-        if self.parent and isinstance(self.parent, QComboBox):
-            self.parent.showPopup()
+        # Consume press event - do NOT open on press to avoid immediate close on release
+        # Opening on press causes the popup to see the subsequent release as "click outside"
+        event.accept()
+
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        # Open/toggle popup on release, deferred to next event loop tick
+        # This ensures the mouse gesture completes before popup appears
+        if event.button() == Qt.MouseButton.LeftButton and self.combo:
+            QTimer.singleShot(0, self._togglePopup)
+        event.accept()
+
+    def _togglePopup(self):
+        """Toggle popup visibility (deferred to avoid close-on-release race)."""
+        if self.combo and isinstance(self.combo, QComboBox):
+            view = self.combo.view()
+            if view.isVisible():
+                self.combo.hidePopup()
+            else:
+                self.combo.showPopup()
 
 
 class MultiSelectComboBox(QWidget):
