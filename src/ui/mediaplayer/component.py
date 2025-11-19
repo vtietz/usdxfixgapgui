@@ -202,28 +202,28 @@ class MediaPlayerComponent(QWidget):
             # In audio mode: duration_ms = audio duration (241s)
             # In vocals mode: duration_ms = vocals duration (45s)
             current_duration = self.waveform_widget.duration_ms
-            
+
             # Validate we have duration
             if current_duration <= 0:
                 logger.warning(f"Cannot seek: waveform duration is {current_duration}ms")
                 return
-            
+
             try:
                 # Simple mapping: click position * current media duration
                 seek_position = int(pos * current_duration)
-                
+
                 logger.debug(
                     f"Click seek: pos={pos:.3f}, duration={current_duration}ms, "
                     f"→ seek_position={seek_position}ms"
                 )
-                
+
                 # Seek and emit position to update UI
                 self.player.media_backend.seek(seek_position)
                 self.player.position_changed.emit(seek_position)
-                
+
             except Exception as e:
                 logger.error(f"Seek error: {e}")
-        
+
         self.waveform_widget.position_clicked.connect(on_waveform_clicked)
 
     def _emit_interpolated_position(self):
@@ -242,7 +242,7 @@ class MediaPlayerComponent(QWidget):
         """Internal method to update UI with given position."""
         self.ui_manager.update_position_label(position, self.player.is_media_loaded(), self.player.is_playing())
         self.ui_manager.update_syllable_label(position, self._song)
-        
+
         # Use waveform's duration (from ffprobe) instead of VLC's get_duration() which is unreliable
         # This ensures playhead aligns correctly with the waveform display
         display_duration = self.waveform_widget.duration_ms if self.waveform_widget.duration_ms > 0 else self.player.get_duration()

@@ -219,10 +219,10 @@ class VlcBackendAdapter(QObject):
         if duration > 0:
             self._duration_ms = duration
         return self._duration_ms
-    
+
     def set_duration(self, duration_ms: int) -> None:
         """Set the correct duration (for files where VLC reports incorrect duration).
-        
+
         Args:
             duration_ms: Accurate duration from ffprobe in milliseconds
         """

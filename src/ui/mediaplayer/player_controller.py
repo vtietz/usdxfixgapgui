@@ -229,7 +229,7 @@ class PlayerController(QObject):
 
     def set_position(self, relative_position, duration_ms=None):
         """Set position as a percentage of media duration.
-        
+
         Args:
             relative_position: Position as 0.0-1.0 ratio
             duration_ms: Optional accurate duration in ms (from ffprobe). If not provided,
@@ -241,7 +241,7 @@ class PlayerController(QObject):
         if duration <= 0:
             logger.warning(f"Cannot seek - duration is {duration}ms")
             return
-        
+
         new_position = int(relative_position * duration)
         logger.debug(
             f"Click seek: relative={relative_position:.3f}, provided_duration={duration_ms}ms, "

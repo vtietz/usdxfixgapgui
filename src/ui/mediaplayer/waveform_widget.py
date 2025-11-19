@@ -161,7 +161,7 @@ class WaveformWidget(QLabel):
 
     def set_original_audio_duration(self, duration_ms: int):
         """Set the original audio duration for correct timeline mapping in vocals mode.
-        
+
         Args:
             duration_ms: Duration of the original audio file in milliseconds
         """

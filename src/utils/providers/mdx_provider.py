@@ -196,13 +196,13 @@ class MdxProvider(IDetectionProvider):
                 # VBR MP3 has seeking issues; CBR ensures accurate position calculation
                 logger.info(f"Saving vocals to: {destination_vocals_filepath}")
                 os.makedirs(os.path.dirname(destination_vocals_filepath), exist_ok=True)
-                
+
                 if destination_vocals_filepath.endswith('.mp3'):
                     # Convert to CBR MP3 using ffmpeg
                     # torchaudio doesn't expose CBR directly, so we save as WAV then convert
                     temp_wav = destination_vocals_filepath.replace('.mp3', '_temp.wav')
                     torchaudio.save(temp_wav, vocals, sample_rate)
-                    
+
                     import subprocess
                     cmd = [
                         'ffmpeg', '-y', '-i', temp_wav,
@@ -210,8 +210,13 @@ class MdxProvider(IDetectionProvider):
                         '-write_xing', '0',  # Disable VBR tag
                         destination_vocals_filepath
                     ]
-                    subprocess.run(cmd, capture_output=True, check=True)
-                    
+                    result = subprocess.run(cmd, capture_output=True)
+
+                    # Log ffmpeg output if there was an error
+                    if result.returncode != 0:
+                        logger.error(f"FFmpeg conversion failed: {result.stderr.decode('utf-8', errors='ignore')}")
+                        raise RuntimeError(f"FFmpeg MP3 conversion failed with exit code {result.returncode}")
+
                     # Cleanup temp WAV
                     if os.path.exists(temp_wav):
                         os.remove(temp_wav)
