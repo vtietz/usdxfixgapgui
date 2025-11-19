@@ -197,21 +197,31 @@ class VlcBackendAdapter(QObject):
     def seek(self, position_ms: int) -> None:
         """Seek to position with millisecond precision."""
         if self._duration_ms > 0:
+            # Remember if we were playing before seeking
+            was_playing = self._playback_state == PlaybackState.PLAYING
+
             # VLC requires media to be at least paused for seeking to work reliably
             # If media is just loaded but never started, seeking won't stick
             if self._playback_state == PlaybackState.STOPPED and self._media_status == MediaStatus.LOADED:
                 logger.debug("VlcBackend: pausing before seek (media was never started)")
                 self._player.play()  # Start briefly
+                import time
+                time.sleep(0.05)  # Wait for VLC to start (50ms)
                 self._player.pause()  # Then pause immediately
 
             # Use set_time for precise millisecond seeking (preferred for gap editing)
-            logger.debug(f"VlcBackend: seek to {position_ms}ms")
+            logger.debug(f"VlcBackend: seek to {position_ms}ms (was_playing={was_playing})")
             result = self._player.set_time(position_ms)
             if result == -1:
                 # Fallback to ratio-based seek if set_time fails
                 position_ratio = position_ms / self._duration_ms
                 logger.debug(f"VlcBackend: set_time failed, using ratio={position_ratio:.3f}")
                 self._player.set_position(position_ratio)
+
+            # Resume playing if we were playing before seek
+            if was_playing:
+                logger.debug("VlcBackend: resuming playback after seek")
+                self._player.play()
         else:
             logger.warning("VlcBackend: cannot seek (duration unknown)")
 

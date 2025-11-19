@@ -128,19 +128,50 @@ class PlayerController(QObject):
 
     def audio_mode(self):
         """Switch to audio mode"""
-        # Stop vocals backend if playing
-        if self.vocals_backend.is_playing():
+        # Save current position and playing state from vocals backend
+        was_playing = self.vocals_backend.is_playing()
+        current_pos = self.vocals_backend.get_position() if self.vocals_backend.is_loaded() else 0
+
+        # Stop vocals backend
+        if was_playing:
             self.vocals_backend.stop()
+
         self._audioFileStatus = AudioFileStatus.AUDIO
         self.audio_file_status_changed.emit(self._audioFileStatus)
 
+        # Restore position in audio backend (seek will trigger playhead update)
+        if current_pos > 0 and self.audio_backend.is_loaded():
+            self.audio_backend.seek(current_pos)
+            self.position_changed.emit(current_pos)
+
+        # Resume playing if we were playing before
+        if was_playing and self.audio_backend.is_loaded():
+            self.audio_backend.play()
+
     def vocals_mode(self):
         """Switch to vocals mode"""
-        # Stop audio backend if playing
-        if self.audio_backend.is_playing():
+        # Save current position and playing state from audio backend
+        was_playing = self.audio_backend.is_playing()
+        current_pos = self.audio_backend.get_position() if self.audio_backend.is_loaded() else 0
+
+        # Stop audio backend
+        if was_playing:
             self.audio_backend.stop()
+
         self._audioFileStatus = AudioFileStatus.VOCALS
         self.audio_file_status_changed.emit(self._audioFileStatus)
+
+        # Restore position in vocals backend (clamp to vocals duration)
+        if current_pos > 0 and self.vocals_backend.is_loaded():
+            vocals_duration = self.vocals_backend.get_duration()
+            # Clamp position to vocals duration (vocals may be shorter)
+            seek_pos = min(current_pos, vocals_duration) if vocals_duration > 0 else current_pos
+            self.vocals_backend.seek(seek_pos)
+            self.position_changed.emit(seek_pos)
+
+        # Resume playing if we were playing before
+        if was_playing and self.vocals_backend.is_loaded():
+            self.vocals_backend.play()
 
     def load_media(self, file: str | None):
         """Load a media file into the active backend (audio or vocals)"""

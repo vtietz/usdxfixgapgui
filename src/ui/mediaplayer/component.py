@@ -303,8 +303,17 @@ class MediaPlayerComponent(QWidget):
 
     def _on_mode_switch_timeout(self):
         """Apply mode switch reload after debounce window."""
+        # Save current position before reload (player_controller already switched and seeked)
+        current_pos = self.player.media_backend.get_position()
+
         self.update_player_files()
         self.update_ui()
+
+        # Restore playhead position after waveform reload
+        if current_pos > 0:
+            duration = self.waveform_widget.duration_ms
+            if duration > 0:
+                self.waveform_widget.update_position(current_pos, duration)
 
     def on_vocals_validation_failed(self):
         """Handle when vocals file fails validation"""
