@@ -178,7 +178,7 @@ class MdxProvider(IDetectionProvider):
                     waveform = waveform.to(self._device)
                     # Use FP16 mixed precision on CUDA if enabled
                     use_autocast = self._device == "cuda" and self.mdx_config.use_fp16
-                    with torch.cuda.amp.autocast(enabled=use_autocast, dtype=torch.float16):
+                    with torch.amp.autocast('cuda', enabled=use_autocast, dtype=torch.float16):
                         # Use apply_model for Demucs inference (not direct call)
                         sources = apply_model(model, waveform.unsqueeze(0), device=self._device)
 
