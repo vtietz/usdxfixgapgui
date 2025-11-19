@@ -52,9 +52,10 @@ class AudioActions(BaseActions):
 
     def _normalize_song(self, song: Song, start_now=False):
         worker = NormalizeAudioWorker(song)
-        worker.signals.started.connect(lambda: self._on_song_worker_started(song))
-        worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
-        worker.signals.finished.connect(lambda: self._on_song_worker_finished(song))
+        # Early-bind song using default args to avoid late-binding closure bugs
+        worker.signals.started.connect(lambda s=song: self._on_song_worker_started(s))
+        worker.signals.error.connect(lambda e, s=song: self._on_song_worker_error(s, e))
+        worker.signals.finished.connect(lambda s=song: self._on_song_worker_finished(s))
 
         # Defer reload only on success; skip when status is ERROR to preserve the error display
         def _reload_if_success():
@@ -178,8 +179,9 @@ class AudioActions(BaseActions):
                 waveform_file,
                 is_instant=True,  # Mark as instant task - runs in parallel with standard tasks
             )
-            worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
-            worker.signals.finished.connect(lambda song=song: self.data.songs.updated.emit(song))
+            # Early-bind song to avoid late-binding closure bugs
+            worker.signals.error.connect(lambda e, s=song: self._on_song_worker_error(s, e))
+            worker.signals.finished.connect(lambda s=song: self.data.songs.updated.emit(s))
             self.worker_queue.add_task(worker, True)  # start_now=True for instant tasks
         else:
             # New behavior: run in background thread without queueing (for selected song only)

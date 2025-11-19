@@ -43,9 +43,10 @@ class GapActions(BaseActions):
 
         worker = DetectGapWorker(options)
 
-        worker.signals.started.connect(lambda: self._on_song_worker_started(song))
-        worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
-        worker.signals.finished.connect(lambda result: self._on_detect_gap_finished(song, result))
+        # Early-bind song using default args to avoid late-binding closure bugs
+        worker.signals.started.connect(lambda s=song: self._on_song_worker_started(s))
+        worker.signals.error.connect(lambda e, s=song: self._on_song_worker_error(s, e))
+        worker.signals.finished.connect(lambda result, s=song: self._on_detect_gap_finished(s, result))
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
