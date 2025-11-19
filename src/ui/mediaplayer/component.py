@@ -562,6 +562,8 @@ class MediaPlayerComponent(QWidget):
             self.player.media_backend.set_duration(duration_ms)
             # Trigger initial position update so waveform displays with duration
             self.waveform_widget.update_position(0, duration_ms)
+            # Update position label to show 00:00:00.000
+            self.update_position(0)
 
         duration_ms = (time.perf_counter() - start_time) * 1000
         if duration_ms > 100:
@@ -617,6 +619,8 @@ class MediaPlayerComponent(QWidget):
             # (original_audio_duration_ms was set when audio waveform was loaded)
             # Trigger initial position update so waveform displays with duration
             self.waveform_widget.update_position(0, int(vocals_duration_f))
+            # Update position label to show 00:00:00.000
+            self.update_position(0)
 
     def on_selected_songs_changed(self, songs: list):
         """Disable player when multiple songs are selected"""

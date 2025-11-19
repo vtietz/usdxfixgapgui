@@ -73,13 +73,13 @@ class UIManager:
         """Update the position label with the current playback position"""
         self._play_position = position
 
-        if not is_media_loaded and not is_playing:
+        # Show position if media is loaded, even if not playing (show 00:00:00.000 for new songs)
+        if is_media_loaded or is_playing:
+            playposition_text = audio.milliseconds_to_str(position, with_milliseconds=True)
+            self.position_label.setText(playposition_text)
+            self.save_current_play_position_btn.setText(f"  Save play position ({position} ms)")
+        else:
             self.position_label.setText("")
-            return
-
-        playposition_text = audio.milliseconds_to_str(position, with_milliseconds=True)
-        self.position_label.setText(playposition_text)
-        self.save_current_play_position_btn.setText(f"  Save play position ({position} ms)")
 
     def update_syllable_label(self, position, song):
         """Update the syllable label with the current lyric"""
