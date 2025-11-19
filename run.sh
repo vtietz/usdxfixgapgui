@@ -433,6 +433,7 @@ case "$1" in
         print_success "[2/6] Staged VERSION file"
 
         # Check if there are changes to commit
+        COMMIT_MADE=0
         if git diff --cached --quiet; then
             echo "[3/6] VERSION file already committed with this version, skipping commit"
         else
@@ -441,30 +442,33 @@ case "$1" in
                 print_error "Failed to commit VERSION file"
                 exit 1
             fi
+            COMMIT_MADE=1
             print_success "[3/6] Committed VERSION file"
         fi
 
-        # Check if upstream is set before pushing
-        if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} &> /dev/null; then
-            print_warning "No upstream branch set"
-            CURRENT_BRANCH=$(git branch --show-current)
-            print_info "Setting upstream: git push --set-upstream origin $CURRENT_BRANCH"
-            git push --set-upstream origin "$CURRENT_BRANCH"
-            if [[ $? -ne 0 ]]; then
-                print_error "Failed to set upstream branch"
-                exit 1
+        # Check if upstream is set before pushing (only if new commit was made)
+        if [[ $COMMIT_MADE -eq 1 ]]; then
+            if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} &> /dev/null; then
+                print_warning "No upstream branch set"
+                CURRENT_BRANCH=$(git branch --show-current)
+                print_info "Setting upstream: git push --set-upstream origin $CURRENT_BRANCH"
+                git push --set-upstream origin "$CURRENT_BRANCH"
+                if [[ $? -ne 0 ]]; then
+                    print_error "Failed to set upstream branch"
+                    exit 1
+                fi
+                print_success "[4/6] Pushed commit and set upstream"
+            else
+                print_info "Pushing commit to remote..."
+                git push
+                if [[ $? -ne 0 ]]; then
+                    print_error "Failed to push commit"
+                    exit 1
+                fi
+                print_success "[4/6] Pushed commit to remote"
             fi
-            print_success "[4/6] Pushed commit and set upstream"
-        elif ! git diff @{upstream}.. --quiet 2>/dev/null; then
-            print_info "Pushing commit to remote..."
-            git push
-            if [[ $? -ne 0 ]]; then
-                print_error "Failed to push commit"
-                exit 1
-            fi
-            print_success "[4/6] Pushed commit to remote"
         else
-            echo "[4/6] No new commits to push"
+            echo "[4/6] No new commit, skipping push"
         fi
 
         # Create or overwrite tag (force)

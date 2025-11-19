@@ -440,6 +440,7 @@ if /i "%1"=="set-version" (
     echo [2/5] Staged VERSION file
 
     :: Check if there are changes to commit
+    set COMMIT_MADE=0
     git diff --cached --quiet
     if !errorlevel! equ 0 (
         echo [3/5] VERSION file already committed with this version, skipping commit
@@ -449,25 +450,25 @@ if /i "%1"=="set-version" (
             echo ERROR: Failed to commit VERSION file
             exit /b 1
         )
+        set COMMIT_MADE=1
         echo [3/5] Committed VERSION file
     )
 
     :: Push commit before creating tag (only if there were changes)
-    :: First check if upstream is set
-    git rev-parse --abbrev-ref --symbolic-full-name @{u} >nul 2>nul
-    if !errorlevel! neq 0 (
-        echo WARNING: No upstream branch set
-        echo Setting upstream: git push --set-upstream origin %CURRENT_BRANCH%
-        for /f "delims=" %%i in ('git branch --show-current') do set CURRENT_BRANCH=%%i
-        git push --set-upstream origin !CURRENT_BRANCH!
+    if !COMMIT_MADE! equ 1 (
+        :: First check if upstream is set
+        git rev-parse --abbrev-ref --symbolic-full-name @{u} >nul 2>nul
         if !errorlevel! neq 0 (
-            echo ERROR: Failed to set upstream and push
-            exit /b 1
-        )
-        echo [4/5] Pushed commit and set upstream
-    ) else (
-        git diff @{upstream}.. --quiet >nul 2>nul
-        if !errorlevel! neq 0 (
+            echo WARNING: No upstream branch set
+            echo Setting upstream: git push --set-upstream origin %CURRENT_BRANCH%
+            for /f "delims=" %%i in ('git branch --show-current') do set CURRENT_BRANCH=%%i
+            git push --set-upstream origin !CURRENT_BRANCH!
+            if !errorlevel! neq 0 (
+                echo ERROR: Failed to set upstream and push
+                exit /b 1
+            )
+            echo [4/5] Pushed commit and set upstream
+        ) else (
             echo Pushing commit to remote...
             git push
             if !errorlevel! neq 0 (
@@ -475,9 +476,9 @@ if /i "%1"=="set-version" (
                 exit /b 1
             )
             echo [4/5] Pushed commit to remote
-        ) else (
-            echo [4/5] No new commits to push
         )
+    ) else (
+        echo [4/5] No new commit, skipping push
     )
 
     :: Create or overwrite tag (force)
