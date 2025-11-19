@@ -93,15 +93,20 @@ class Song:
 
     def _gap_info_updated(self):
         """Private method to update song status based on current state"""
+        logger.debug(f"_gap_info_updated called for {self.txt_file}: current status={self.status}")
+
         # Preserve MISSING_AUDIO status - don't overwrite it
         if self.status == SongStatus.MISSING_AUDIO:
+            logger.debug("Preserving MISSING_AUDIO status")
             return
 
         if not self._gap_info:
+            logger.debug("No gap_info, setting NOT_PROCESSED")
             self.status = SongStatus.NOT_PROCESSED
             return
 
         info: GapInfo = self._gap_info
+        logger.debug(f"gap_info.status={info.status}")
         if info.status == GapInfoStatus.MATCH:
             self.status = SongStatus.MATCH
         elif info.status == GapInfoStatus.MISMATCH:

@@ -133,7 +133,12 @@ class GapActions(BaseActions):
             self._clear_selection_if_filtered(song, result.status.name)
 
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
+        logger.debug(f"Setting gap_info.status: result.status={result.status}, song.status before={song.status}")
         song.gap_info.status = result.status or song.gap_info.status
+        logger.debug(f"After setting gap_info.status: song.status={song.status}, gap_info.status={song.gap_info.status}")
+
+        # Emit signal to update UI with new status
+        self.data.songs.updated.emit(song)
 
         # Save gap info and update cache
         async def save_gap_and_cache():
