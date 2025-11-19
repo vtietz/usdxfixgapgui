@@ -62,12 +62,12 @@ def validate_mdx_config(config) -> List[ConfigValidationError]:
     # Check threshold ranges
     if hasattr(config, "mdx_onset_snr_threshold"):
         snr = config.mdx_onset_snr_threshold
-        if snr < 3.0:
+        if snr < 1.5:
             errors.append(
                 ConfigValidationError(
                     key="mdx.onset_snr_threshold",
                     current_value=snr,
-                    recommended_value=6.5,
+                    recommended_value=2.5,
                     reason="SNR threshold too low - will detect excessive noise/false positives",
                     severity="warning",
                 )
@@ -77,7 +77,7 @@ def validate_mdx_config(config) -> List[ConfigValidationError]:
                 ConfigValidationError(
                     key="mdx.onset_snr_threshold",
                     current_value=snr,
-                    recommended_value=6.5,
+                    recommended_value=2.5,
                     reason="SNR threshold too high - will miss quiet vocal starts",
                     severity="warning",
                 )

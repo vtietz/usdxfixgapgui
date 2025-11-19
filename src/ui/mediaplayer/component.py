@@ -198,6 +198,16 @@ class MediaPlayerComponent(QWidget):
 
         # Waveform events - simple click-to-seek
         def on_waveform_clicked(pos):
+            # Prevent seeking if no song selected or song is disabled/processing
+            if not self._song or self._song.status == SongStatus.PROCESSING:
+                logger.debug("Click ignored: no song loaded or song is processing")
+                return
+
+            # Prevent seeking if media is not loaded
+            if not self.player.is_media_loaded():
+                logger.debug("Click ignored: no media loaded")
+                return
+
             # Click position maps directly to current waveform duration
             # In audio mode: duration_ms = audio duration (241s)
             # In vocals mode: duration_ms = vocals duration (45s)
