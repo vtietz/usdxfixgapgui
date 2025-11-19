@@ -568,8 +568,6 @@ class MediaPlayerComponent(QWidget):
             self.waveform_widget.duration_ms = duration_ms
             # Store original audio duration for gap marker positioning
             self.waveform_widget.set_original_audio_duration(duration_ms)
-            # Set correct duration in VLC backend (VLC's duration may be wrong)
-            self.player.media_backend.set_duration(duration_ms)
             # Trigger initial position update so waveform displays with duration
             self.waveform_widget.update_position(0, duration_ms)
             # Update position label to show 00:00:00.000
@@ -623,8 +621,6 @@ class MediaPlayerComponent(QWidget):
         if vocals_duration_f is not None:
             vocals_duration_ms = int(vocals_duration_f)
             self.waveform_widget.duration_ms = vocals_duration_ms
-            # Set correct duration in VLC backend (VLC's duration may be wrong for vocals)
-            self.player.media_backend.set_duration(vocals_duration_ms)
             # Keep original audio duration for gap marker positioning
             # (original_audio_duration_ms was set when audio waveform was loaded)
             # Trigger initial position update so waveform displays with duration

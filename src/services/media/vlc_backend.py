@@ -237,15 +237,6 @@ class VlcBackendAdapter(QObject):
             self._duration_ms = duration
         return self._duration_ms
 
-    def set_duration(self, duration_ms: int) -> None:
-        """Set the correct duration (for files where VLC reports incorrect duration).
-
-        Args:
-            duration_ms: Accurate duration from ffprobe in milliseconds
-        """
-        logger.debug(f"VlcBackend: overriding duration {self._duration_ms}ms → {duration_ms}ms")
-        self._duration_ms = duration_ms
-
     # State queries
 
     def is_playing(self) -> bool:
