@@ -36,7 +36,8 @@ class WaveformWidget(QLabel):
         self.currentPosition = 0
 
         # Track B: Gap markers
-        self.duration_ms = 0  # Total duration for gap position calculation
+        self.duration_ms = 0  # Current media duration (vocals or audio)
+        self.original_audio_duration_ms = 0  # Original audio duration (for gap markers and position mapping)
         self.original_gap_ms = None  # Original gap marker (orange)
         self.current_gap_ms = None  # Current gap marker (blue)
         self.detected_gap_ms = None  # Detected gap marker (green)
@@ -60,17 +61,23 @@ class WaveformWidget(QLabel):
         painter.drawLine(playhead_x, 0, playhead_x, overlay_height)
 
         # 2. Draw gap markers if duration is known
-        if self.duration_ms > 0:
+        # Gap markers are always relative to original audio duration, but displayed
+        # on the current waveform (which may be vocals with different duration)
+        if self.original_audio_duration_ms > 0:
             # Draw revert/original gap marker (gray, dashed)
             if self.original_gap_ms is not None:
-                original_x = int((self.original_gap_ms / self.duration_ms) * overlay_width)
+                # Map from original audio timeline to current waveform display
+                relative_pos = self.original_gap_ms / self.original_audio_duration_ms
+                original_x = int(relative_pos * overlay_width)
                 pen = QPen(REVERT_GAP_COLOR, 2, Qt.PenStyle.DashLine)
                 painter.setPen(pen)
                 painter.drawLine(original_x, 0, original_x, overlay_height)
 
-            # Draw detected gap marker (blue, solid, thicker)
+            # Draw detected gap marker (green, solid, thicker)
             if self.detected_gap_ms is not None:
-                detected_x = int((self.detected_gap_ms / self.duration_ms) * overlay_width)
+                # Map from original audio timeline to current waveform display
+                relative_pos = self.detected_gap_ms / self.original_audio_duration_ms
+                detected_x = int(relative_pos * overlay_width)
                 pen = QPen(DETECTED_GAP_COLOR, 3)
                 painter.setPen(pen)
                 painter.drawLine(detected_x, 0, detected_x, overlay_height)
@@ -152,6 +159,15 @@ class WaveformWidget(QLabel):
         self.overlay.update()  # Trigger repaint to show markers
         self.update()  # Also update the main widget to ensure proper sync
 
+    def set_original_audio_duration(self, duration_ms: int):
+        """Set the original audio duration for correct timeline mapping in vocals mode.
+        
+        Args:
+            duration_ms: Duration of the original audio file in milliseconds
+        """
+        self.original_audio_duration_ms = duration_ms
+        logger.debug(f"Original audio duration set to {duration_ms}ms for timeline mapping")
+
     def load_waveform(self, file: str | None):
         if file and os.path.exists(file):
             self.setPixmap(QPixmap(file))
@@ -174,7 +190,9 @@ class WaveformWidget(QLabel):
 
         # Safeguard against division by zero
         if widget_width > 0:
-            relative_position = max(0.0, min(1.0, click_position / widget_width))  # Ensure float division
+            # Click position is relative to the current waveform (0.0 to 1.0)
+            # This directly maps to the current media file (audio or vocals)
+            relative_position = max(0.0, min(1.0, click_position / widget_width))
             self.position_clicked.emit(relative_position)
 
         # Let the event continue processing

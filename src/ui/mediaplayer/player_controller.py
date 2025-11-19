@@ -24,6 +24,7 @@ class PlayerController(QObject):
         self._audioFileStatus = AudioFileStatus.AUDIO
         self._media_is_loaded = False
         self._is_playing = False
+        self._original_audio_duration_ms = 0  # For vocals mode position mapping
 
         # Create separate backends for audio and vocals
         # This allows instant mode switching without reloading media
@@ -226,13 +227,29 @@ class PlayerController(QObject):
         newPosition = max(0, self.media_backend.get_position() + ms)
         self.media_backend.seek(newPosition)
 
-    def set_position(self, relative_position):
-        """Set position as a percentage of media duration"""
-        duration = self.media_backend.get_duration()
-        if duration > 0:
-            new_position = int(relative_position * duration)
-            self.media_backend.seek(new_position)
-            self.position_changed.emit(new_position)
+    def set_position(self, relative_position, duration_ms=None):
+        """Set position as a percentage of media duration.
+        
+        Args:
+            relative_position: Position as 0.0-1.0 ratio
+            duration_ms: Optional accurate duration in ms (from ffprobe). If not provided,
+                        will use backend duration which may be inaccurate for some MP3s.
+        """
+        # Use provided duration or fallback to backend duration
+        backend_duration = self.media_backend.get_duration()
+        duration = duration_ms if duration_ms is not None else backend_duration
+        if duration <= 0:
+            logger.warning(f"Cannot seek - duration is {duration}ms")
+            return
+        
+        new_position = int(relative_position * duration)
+        logger.debug(
+            f"Click seek: relative={relative_position:.3f}, provided_duration={duration_ms}ms, "
+            f"backend_duration={backend_duration}ms, using={duration}ms, "
+            f"seeking to {new_position}ms, mode={self._audioFileStatus.name}"
+        )
+        self.media_backend.seek(new_position)
+        self.position_changed.emit(new_position)
 
     def get_position(self):
         """Get current position in milliseconds"""

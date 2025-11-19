@@ -196,8 +196,35 @@ class MediaPlayerComponent(QWidget):
         self.keep_original_gap_btn.clicked.connect(self.on_keep_original_gap_btn_clicked)
         self.save_detected_gap_btn.clicked.connect(self.on_save_detected_gap_btn_clicked)
 
-        # Waveform events
-        self.waveform_widget.position_clicked.connect(lambda pos: self.player.set_position(pos))
+        # Waveform events - simple click-to-seek
+        def on_waveform_clicked(pos):
+            # Click position maps directly to current waveform duration
+            # In audio mode: duration_ms = audio duration (241s)
+            # In vocals mode: duration_ms = vocals duration (45s)
+            current_duration = self.waveform_widget.duration_ms
+            
+            # Validate we have duration
+            if current_duration <= 0:
+                logger.warning(f"Cannot seek: waveform duration is {current_duration}ms")
+                return
+            
+            try:
+                # Simple mapping: click position * current media duration
+                seek_position = int(pos * current_duration)
+                
+                logger.debug(
+                    f"Click seek: pos={pos:.3f}, duration={current_duration}ms, "
+                    f"→ seek_position={seek_position}ms"
+                )
+                
+                # Seek and emit position to update UI
+                self.player.media_backend.seek(seek_position)
+                self.player.position_changed.emit(seek_position)
+                
+            except Exception as e:
+                logger.error(f"Seek error: {e}")
+        
+        self.waveform_widget.position_clicked.connect(on_waveform_clicked)
 
     def _emit_interpolated_position(self):
         """Emit interpolated position for smooth 60 FPS updates."""
@@ -215,7 +242,11 @@ class MediaPlayerComponent(QWidget):
         """Internal method to update UI with given position."""
         self.ui_manager.update_position_label(position, self.player.is_media_loaded(), self.player.is_playing())
         self.ui_manager.update_syllable_label(position, self._song)
-        self.waveform_widget.update_position(position, self.player.get_duration())
+        
+        # Use waveform's duration (from ffprobe) instead of VLC's get_duration() which is unreliable
+        # This ensures playhead aligns correctly with the waveform display
+        display_duration = self.waveform_widget.duration_ms if self.waveform_widget.duration_ms > 0 else self.player.get_duration()
+        self.waveform_widget.update_position(position, display_duration)
 
         # Update save_position button state when position crosses 0 threshold
         if self._song and self._song.status != SongStatus.PROCESSING:
@@ -514,9 +545,14 @@ class MediaPlayerComponent(QWidget):
         self.waveform_widget.load_waveform(paths["audio_waveform_file"])
         duration_f = get_audio_duration(paths["audio_file"])
         if duration_f is not None:
-            self.waveform_widget.duration_ms = int(duration_f)
+            duration_ms = int(duration_f)
+            self.waveform_widget.duration_ms = duration_ms
+            # Store original audio duration for gap marker positioning
+            self.waveform_widget.set_original_audio_duration(duration_ms)
+            # Set correct duration in VLC backend (VLC's duration may be wrong)
+            self.player.media_backend.set_duration(duration_ms)
             # Trigger initial position update so waveform displays with duration
-            self.waveform_widget.update_position(0, int(duration_f))
+            self.waveform_widget.update_position(0, duration_ms)
 
         duration_ms = (time.perf_counter() - start_time) * 1000
         if duration_ms > 100:
@@ -564,7 +600,12 @@ class MediaPlayerComponent(QWidget):
         self.waveform_widget.load_waveform(paths["vocals_waveform_file"])
         vocals_duration_f = get_audio_duration(paths["vocals_file"])
         if vocals_duration_f is not None:
-            self.waveform_widget.duration_ms = int(vocals_duration_f)
+            vocals_duration_ms = int(vocals_duration_f)
+            self.waveform_widget.duration_ms = vocals_duration_ms
+            # Set correct duration in VLC backend (VLC's duration may be wrong for vocals)
+            self.player.media_backend.set_duration(vocals_duration_ms)
+            # Keep original audio duration for gap marker positioning
+            # (original_audio_duration_ms was set when audio waveform was loaded)
             # Trigger initial position update so waveform displays with duration
             self.waveform_widget.update_position(0, int(vocals_duration_f))
 

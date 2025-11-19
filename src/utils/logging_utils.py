@@ -30,7 +30,7 @@ def flush_logs():
     immediately during long-running operations like:
     - Model loading (Demucs, PyTorch)
     - Audio processing (ffmpeg, ffprobe)
-    - Vocal separation (Spleeter, MDX)
+    - Vocal separation (Demucs/MDX)
     - Normalization (loudnorm filter)
 
     Flushes:

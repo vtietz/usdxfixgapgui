@@ -192,10 +192,32 @@ class MdxProvider(IDetectionProvider):
                 if check_cancellation and check_cancellation():
                     raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
 
-                # Save vocals
+                # Save vocals with CBR MP3 for accurate seeking (320kbps = ~2.4MB/min)
+                # VBR MP3 has seeking issues; CBR ensures accurate position calculation
                 logger.info(f"Saving vocals to: {destination_vocals_filepath}")
                 os.makedirs(os.path.dirname(destination_vocals_filepath), exist_ok=True)
-                torchaudio.save(destination_vocals_filepath, vocals, sample_rate)
+                
+                if destination_vocals_filepath.endswith('.mp3'):
+                    # Convert to CBR MP3 using ffmpeg
+                    # torchaudio doesn't expose CBR directly, so we save as WAV then convert
+                    temp_wav = destination_vocals_filepath.replace('.mp3', '_temp.wav')
+                    torchaudio.save(temp_wav, vocals, sample_rate)
+                    
+                    import subprocess
+                    cmd = [
+                        'ffmpeg', '-y', '-i', temp_wav,
+                        '-b:a', '320k',  # CBR 320kbps
+                        '-write_xing', '0',  # Disable VBR tag
+                        destination_vocals_filepath
+                    ]
+                    subprocess.run(cmd, capture_output=True, check=True)
+                    
+                    # Cleanup temp WAV
+                    if os.path.exists(temp_wav):
+                        os.remove(temp_wav)
+                else:
+                    # Save directly as WAV (for tests or explicit WAV requests)
+                    torchaudio.save(destination_vocals_filepath, vocals, sample_rate)
 
                 logger.info(f"Vocals prepared successfully at {destination_vocals_filepath}")
 
