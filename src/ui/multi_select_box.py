@@ -3,6 +3,33 @@ from PySide6.QtCore import Qt, Signal, QTimer  # Changed from pyqtSignal
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QMouseEvent
 
 
+class ToggleComboBox(QComboBox):
+    """QComboBox that properly toggles popup on text field click without reopen."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._popup_visible_on_press = False
+
+    def mousePressEvent(self, ev: QMouseEvent) -> None:
+        if ev.button() == Qt.MouseButton.LeftButton:
+            # Record popup state and consume event
+            self._popup_visible_on_press = self.view().isVisible()
+            ev.accept()
+            return
+        super().mousePressEvent(ev)
+
+    def mouseReleaseEvent(self, ev: QMouseEvent) -> None:
+        if ev.button() == Qt.MouseButton.LeftButton:
+            # Toggle based on state when pressed (prevents close-reopen)
+            if self._popup_visible_on_press:
+                self.hidePopup()
+            else:
+                self.showPopup()
+            ev.accept()
+            return
+        super().mouseReleaseEvent(ev)
+
+
 class CheckableComboBoxListView(QListView):
     def mousePressEvent(self, event: QMouseEvent):
         index = self.indexAt(event.position().toPoint())
@@ -15,33 +42,53 @@ class CheckableComboBoxListView(QListView):
 
 
 class ClickableLineEdit(QLineEdit):
+    """Read-only line edit that forwards events to parent combo via event posting."""
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.combo = parent  # Store reference to the parent combo box
+        self.combo = parent
         self.setReadOnly(True)
-        # Set focus policy to prevent stealing focus from combo box
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
     def mousePressEvent(self, event: QMouseEvent):
-        # Consume press event - do NOT open on press to avoid immediate close on release
-        # Opening on press causes the popup to see the subsequent release as "click outside"
-        event.accept()
+        # Trigger parent combo's mouse handler directly
+        if self.combo and isinstance(self.combo, ToggleComboBox):
+            # Map position to combo's coordinate system
+            global_pos = self.mapToGlobal(event.position().toPoint())
+            combo_pos = self.combo.mapFromGlobal(global_pos)
+            # Create new event for combo
+            new_event = QMouseEvent(
+                event.type(),
+                combo_pos,
+                event.globalPosition(),
+                event.button(),
+                event.buttons(),
+                event.modifiers()
+            )
+            self.combo.mousePressEvent(new_event)
+            event.accept()
+        else:
+            event.accept()
 
     def mouseReleaseEvent(self, event: QMouseEvent):
-        # Open/toggle popup on release, deferred to next event loop tick
-        # This ensures the mouse gesture completes before popup appears
-        if event.button() == Qt.MouseButton.LeftButton and self.combo:
-            QTimer.singleShot(0, self._togglePopup)
-        event.accept()
-
-    def _togglePopup(self):
-        """Toggle popup visibility (deferred to avoid close-on-release race)."""
-        if self.combo and isinstance(self.combo, QComboBox):
-            view = self.combo.view()
-            if view.isVisible():
-                self.combo.hidePopup()
-            else:
-                self.combo.showPopup()
+        # Trigger parent combo's mouse handler directly
+        if self.combo and isinstance(self.combo, ToggleComboBox):
+            # Map position to combo's coordinate system
+            global_pos = self.mapToGlobal(event.position().toPoint())
+            combo_pos = self.combo.mapFromGlobal(global_pos)
+            # Create new event for combo
+            new_event = QMouseEvent(
+                event.type(),
+                combo_pos,
+                event.globalPosition(),
+                event.button(),
+                event.buttons(),
+                event.modifiers()
+            )
+            self.combo.mouseReleaseEvent(new_event)
+            event.accept()
+        else:
+            event.accept()
 
 
 class MultiSelectComboBox(QWidget):
@@ -53,15 +100,13 @@ class MultiSelectComboBox(QWidget):
         layout = QVBoxLayout()
         self.setLayout(layout)
 
-        self.filterDropdown = QComboBox()
+        self.filterDropdown = ToggleComboBox()
         # Use the custom CheckableComboBoxListView
         self.filterDropdown.setView(CheckableComboBoxListView())
 
-        # Set the custom ClickableLineEdit
-        self.clickableLineEdit = ClickableLineEdit(self.filterDropdown)
-        self.clickableLineEdit.setText("")
-        self.clickableLineEdit.setReadOnly(True)
-        self.filterDropdown.setLineEdit(self.clickableLineEdit)
+        # Set a readonly line edit that forwards events to ToggleComboBox
+        self.displayLineEdit = ClickableLineEdit(self.filterDropdown)
+        self.filterDropdown.setLineEdit(self.displayLineEdit)
 
         self.filterDropdown.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
@@ -71,9 +116,6 @@ class MultiSelectComboBox(QWidget):
 
         self.filterDropdown.setModel(self.model)
         self.model.itemChanged.connect(self.onItemChanged)
-
-        # Set placeholder text for when no items are selected
-        self.clickableLineEdit.setPlaceholderText("")
 
         # Debounce timer to prevent rapid-fire updates
         self._update_timer = QTimer()
@@ -119,7 +161,7 @@ class MultiSelectComboBox(QWidget):
 
     def _performUpdate(self):
         """
-        Immediately update the QLineEdit text and emit selection change signal.
+        Immediately update display text and emit selection change signal.
         Called after debounce timer expires or during programmatic updates.
         """
         selectedItems = [
@@ -127,8 +169,8 @@ class MultiSelectComboBox(QWidget):
             for i in range(self.model.rowCount())
             if self.model.item(i).checkState() == Qt.CheckState.Checked
         ]
-        # Explicitly clear text when no items selected (fixes stale text bug)
-        self.clickableLineEdit.setText(", ".join(selectedItems) if selectedItems else "")
+        # Update the line edit display
+        self.displayLineEdit.setText(", ".join(selectedItems) if selectedItems else "")
         self.selectionChanged.emit(selectedItems)
 
     def onItemChanged(self, _):
