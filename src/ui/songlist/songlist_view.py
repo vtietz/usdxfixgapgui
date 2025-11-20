@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # CRITICAL: ResizeToContents is a major performance killer!
 # Always use fixed widths for large datasets
-LARGE_DATASET_THRESHOLD = 100  # Very low threshold - favor performance
+LARGE_DATASET_THRESHOLD = 1000  # Use fixed-width columns for >1000 songs
 RESIZE_DEBOUNCE_MS = 200  # Delay before re-enabling expensive operations after resize
 
 # Viewport-based lazy loading configuration

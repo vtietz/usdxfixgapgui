@@ -28,10 +28,7 @@ class GapInfoService:
         - Fall back to single entry if only one exists
         - Otherwise mark as NOT_PROCESSED
         """
-        logger.debug(f"Loading gap info from {gap_info.file_path} for {gap_info.txt_basename}")
-
         if not gap_info.file_path or not os.path.exists(gap_info.file_path):
-            logger.debug(f"Gap info file does not exist: {gap_info.file_path}")
             return gap_info
 
         try:
@@ -48,15 +45,12 @@ class GapInfoService:
                 # Try exact match first
                 if gap_info.txt_basename and gap_info.txt_basename in entries:
                     entry_data = entries[gap_info.txt_basename]
-                    logger.debug(f"Loaded entry for {gap_info.txt_basename}")
                 # Fall back to default
                 elif "default" in data:
                     entry_data = data["default"]
-                    logger.debug(f"Using default entry for {gap_info.txt_basename}")
                 # Fall back to single entry if only one exists
                 elif len(entries) == 1:
                     entry_data = list(entries.values())[0]
-                    logger.debug(f"Using single entry fallback for {gap_info.txt_basename}")
                 else:
                     logger.warning(
                         f"No matching entry for {gap_info.txt_basename} in multi-entry file. "
@@ -66,7 +60,6 @@ class GapInfoService:
             else:
                 # Legacy single-entry format
                 entry_data = data
-                logger.debug("Loaded legacy single-entry format")
 
             # Populate gap_info from entry_data
             if entry_data:
@@ -197,7 +190,6 @@ class GapInfoService:
             async with aiofiles.open(gap_info.file_path, "w", encoding="utf-8") as file:
                 await file.write(json.dumps(document, indent=4))
 
-            logger.debug(f"Successfully saved gap info for {gap_info.txt_basename}")
             return True
         except Exception as e:
             logger.error(f"Error saving gap info: {e}")

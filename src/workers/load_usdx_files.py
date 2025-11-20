@@ -113,6 +113,9 @@ class LoadUsdxFilesWorker(IWorker):
             loaded += 1
             self.signals.progress.emit()
 
+        # Track how many songs we loaded from cache for cleanup logic
+        self._cache_loaded_count = loaded
+
         logger.info("Loaded %s cached songs (skipped %s outside directory)", loaded, skipped)
 
         # Flush any remaining songs in batch
@@ -234,8 +237,13 @@ class LoadUsdxFilesWorker(IWorker):
         # Scan directory for new/changed songs (USDB metadata collected inline)
         await self.scan_directory()
 
-        # Finally clean up stale cache entries
-        await self.cleanup_cache()
+        # Clean up stale cache entries ONLY if we successfully loaded from cache
+        # This prevents deleting freshly-created cache entries when starting with empty cache
+        # Stale entries are only possible if we loaded songs from cache that no longer exist on disk
+        if hasattr(self, '_cache_loaded_count') and self._cache_loaded_count > 0:
+            await self.cleanup_cache()
+        else:
+            logger.debug("Skipping cache cleanup (no songs loaded from cache)")
 
         # Flush any remaining songs in batch (safety net)
         self._flush_batch()

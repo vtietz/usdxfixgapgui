@@ -508,7 +508,7 @@ class MediaPlayerComponent(QWidget):
             self._load_vocals_mode(paths)
 
         duration_ms = (time.perf_counter() - start_time) * 1000
-        if duration_ms > 100:
+        if duration_ms > 200:
             logger.warning(f"SLOW update_player_files: {duration_ms:.1f}ms")
         else:
             logger.debug(f"update_player_files completed in {duration_ms:.1f}ms")
@@ -574,7 +574,7 @@ class MediaPlayerComponent(QWidget):
             self.update_position(0)
 
         duration_ms = (time.perf_counter() - start_time) * 1000
-        if duration_ms > 100:
+        if duration_ms > 200:
             logger.warning(f"SLOW _load_audio_waveform: {duration_ms:.1f}ms (likely ffprobe blocking)")
         else:
             logger.debug(f"_load_audio_waveform completed in {duration_ms:.1f}ms")

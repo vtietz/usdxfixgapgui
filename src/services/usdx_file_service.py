@@ -15,8 +15,6 @@ class USDXFileService:
     @staticmethod
     async def load(usdx_file: USDXFile) -> USDXFile:
         """Load and parse a USDX file"""
-        logger.debug(f"Loading USDX file: {usdx_file.filepath}")
-
         if not usdx_file.filepath:
             raise ValueError("No filepath provided")
 
@@ -47,7 +45,6 @@ class USDXFileService:
 
         # Mark as loaded
         usdx_file._loaded = True
-        logger.debug(f"Successfully loaded USDX file: {usdx_file.filepath}")
 
         return usdx_file
 
@@ -76,14 +73,12 @@ class USDXFileService:
 
         for encoding in encodings:
             try:
-                logger.debug(f"Trying encoding {encoding} for {usdx_file.filepath}")
                 content = raw.decode(encoding)
                 if re.search(r"#TITLE:.+", content, re.MULTILINE):
                     usdx_file.encoding = encoding
-                    logger.debug(f"Encoding determined as {encoding} for {usdx_file.filepath}")
                     return
-            except Exception as e:
-                logger.debug(f"Failed to decode '{usdx_file.filepath}' with {encoding}: {e}")
+            except Exception:
+                pass
 
         raise Exception(f"Failed to determine encoding for {usdx_file.filepath}")
 

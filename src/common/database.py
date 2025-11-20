@@ -243,7 +243,6 @@ def get_cache_entry(key, modified_time=None):
         conn.close()
 
         if result is None:
-            logger.debug(f"Cache miss: {key}")
             return None
 
         data_blob, timestamp_str = result
@@ -251,12 +250,10 @@ def get_cache_entry(key, modified_time=None):
 
         # Check if cache is stale
         if modified_time and modified_time > cached_timestamp:
-            logger.debug(f"Cache stale: {key}, file mod: {modified_time}, cache: {cached_timestamp}")
             return None
 
         try:
             obj = pickle.loads(data_blob)
-            logger.debug(f"Cache hit: {key}")
             return obj
         except Exception as e:
             logger.error(f"Failed to deserialize cache for key {key}: {e}")
@@ -276,18 +273,12 @@ def set_cache_entry(key, obj):
     """
     key = normalize_cache_key(key)  # Normalize path separators
     import time
-    import threading
 
     start_time = time.perf_counter()
 
     try:
-        logger.debug(f"[Thread: {threading.current_thread().name}] set_cache_entry started for {key}")
         conn = get_connection()
         cursor = conn.cursor()
-
-        # Check if entry already exists to provide better logging
-        cursor.execute("SELECT 1 FROM song_cache WHERE file_path=?", (key,))
-        exists = cursor.fetchone() is not None
 
         data_blob = pickle.dumps(obj)
         timestamp = datetime.datetime.now().isoformat()
@@ -303,11 +294,6 @@ def set_cache_entry(key, obj):
         duration_ms = (time.perf_counter() - start_time) * 1000
         if duration_ms > 100:
             logger.warning(f"SLOW cache operation: {duration_ms:.1f}ms for {key}")
-
-        if exists:
-            logger.debug(f"Cache updated: {key} ({duration_ms:.1f}ms)")
-        else:
-            logger.debug(f"New cache entry created: {key} ({duration_ms:.1f}ms)")
     except Exception as e:
         logger.error(f"Failed to cache data for key {key}: {e}")
 
@@ -334,7 +320,8 @@ def clear_cache(key=None):
         rows_affected = cursor.rowcount
         conn.commit()
         conn.close()
-        logger.debug(f"Cleared {rows_affected} cache entries")
+        if rows_affected > 0:
+            logger.info(f"Cleared {rows_affected} cache entries")
     except Exception as e:
         logger.error(f"Failed to clear cache: {e}")
 
@@ -439,7 +426,6 @@ def remove_cache_entry(file_path):
         cursor.execute("DELETE FROM song_cache WHERE file_path = ?", (file_path,))
         conn.commit()
         conn.close()
-        logger.debug(f"Removed cache entry for {file_path}")
     except Exception as e:
         logger.error(f"Error removing cache entry for {file_path}: {str(e)}")
 
