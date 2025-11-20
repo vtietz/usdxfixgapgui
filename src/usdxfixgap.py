@@ -249,8 +249,10 @@ def _bootstrap_gpu_and_models(config: Any, logger: logging.Logger) -> Tuple[bool
     gpu_status = bootstrap_gpu(config)
     logger.info(f"GPU bootstrap completed: enabled={gpu_status.enabled}")
 
-    # Suppress noisy torio logger AFTER GPU bootstrap (avoids importing torch before bootstrap)
+    # Suppress noisy third-party loggers AFTER GPU bootstrap (avoids importing before bootstrap)
     logging.getLogger("torio._extension.utils").setLevel(logging.WARNING)
+    logging.getLogger("PIL").setLevel(logging.WARNING)
+    logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
 
     # Note: setup_model_paths may import torch — perform after GPU bootstrap
     setup_model_paths(config)

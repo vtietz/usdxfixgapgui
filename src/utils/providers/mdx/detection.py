@@ -74,10 +74,6 @@ def estimate_noise_floor(rms_values: np.ndarray, noise_floor_frames: int) -> Tup
     noise_floor = float(np.median(noise_frames))
     noise_sigma = float(np.std(noise_frames))
 
-    logger.debug(f"Noise floor estimation: using {len(noise_frames)} frames out of {len(rms_values)} total")
-    logger.debug(f"Noise frames used: {noise_frames[:20] if len(noise_frames) > 20 else noise_frames}")
-    logger.debug(f"Calculated: median={noise_floor:.6f}, std={noise_sigma:.6f}")
-
     return (noise_floor, noise_sigma)
 
 
@@ -136,29 +132,11 @@ def detect_onset_in_vocal_chunk(
             )
             noise_floor_frames = max(1, len(rms_values) - 1)
 
-        logger.debug(f"Noise floor config: duration={config.noise_floor_duration_ms}ms, hop={config.hop_duration_ms}ms, calculated frames={noise_floor_frames}")
-
         noise_floor, noise_sigma = estimate_noise_floor(rms_values, noise_floor_frames)
-
-        max_rms = np.max(rms_values)
-        mean_rms = np.mean(rms_values)
-
-        logger.debug(f"First 10 RMS values: {rms_values[:10]}")
-
-        logger.info(
-            f"Chunk analysis - Noise floor={noise_floor:.6f}, sigma={noise_sigma:.6f}, "
-            f"max_rms={max_rms:.6f}, mean_rms={mean_rms:.6f}"
-        )
 
         # Detect onset - use BOTH SNR threshold AND absolute threshold
         snr_threshold = noise_floor + config.onset_snr_threshold * noise_sigma
         combined_threshold = max(snr_threshold, config.onset_abs_threshold)
-
-        logger.info(
-            f"Thresholds - SNR_threshold={snr_threshold:.6f}, "
-            f"Absolute_threshold={config.onset_abs_threshold:.6f}, "
-            f"Combined={combined_threshold:.6f}"
-        )
 
         # NEW APPROACH: Find the first significant silence→sound transition
         hop_samples = int((config.hop_duration_ms / 1000.0) * sample_rate)
