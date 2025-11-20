@@ -278,7 +278,6 @@ class WorkerQueueManager(QObject):
             # to prevent race condition
             # Reflect status change immediately
             self.on_task_list_changed.emit()
-            self._mark_ui_update_needed()
 
             await worker.run()
 
@@ -358,7 +357,6 @@ class WorkerQueueManager(QObject):
             self.running_instant_task = worker
             # Reflect move from queue->running immediately
             self.on_task_list_changed.emit()
-            self._mark_ui_update_needed()
 
             await worker.run()
 
