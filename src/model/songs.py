@@ -31,12 +31,16 @@ class Songs(QObject):
         if hasattr(song, 'txt_file') and song.txt_file:
             existing = self.get_by_txt_file(song.txt_file)
             if existing:
-                logger.debug(f"Song already exists, updating instead of adding: {song.txt_file}")
+                song_desc = f"{getattr(song, 'artist', 'Unknown')} - {getattr(song, 'title', 'Unknown')}"
+                logger.info(f"Prevented duplicate: song already exists, updating instead of adding: {song_desc} ({song.txt_file})")
                 # Update the existing song's data rather than adding duplicate
                 existing.__dict__.update(song.__dict__)
                 self.updated.emit(existing)
                 return
 
+        song_desc = f"{getattr(song, 'artist', 'Unknown')} - {getattr(song, 'title', 'Unknown')}"
+        txt_file = getattr(song, 'txt_file', 'no_txt_file')
+        logger.debug(f"Adding new song to collection: {song_desc} ({txt_file})")
         self.songs.append(song)
         self.added.emit(song)
         self.listChanged.emit()  # Emit list changed signal
@@ -84,8 +88,11 @@ class Songs(QObject):
 
     def get_by_path(self, path: str) -> Song | None:
         """Get song by folder path."""
+        # Normalize paths for comparison (handle Z:/path vs Z:\\path)
+        path_normalized = path.replace('\\', '/')
         for song in self.songs:
-            if song.path == path:
+            song_path_normalized = song.path.replace('\\', '/')
+            if song_path_normalized == path_normalized:
                 return song
         return None
 
