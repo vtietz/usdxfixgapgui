@@ -356,7 +356,9 @@ class SongListWidget(QWidget):
     def updateCountLabel(self):
         total_songs = len(self.songs_model.songs)
         shown_songs = self.proxyModel.rowCount()
-        self.countLabel.setText(f"Showing {shown_songs} of {total_songs} songs")
+        label_text = f"Showing {shown_songs} of {total_songs} songs"
+        self.countLabel.setText(label_text)
+        logger.info("Song count updated: %s", label_text)
 
     def start_chunked_load(self, songs: List[Song]):
         """Start chunked loading for large song lists."""

@@ -5,7 +5,7 @@ from PySide6.QtCore import Signal
 from model.song import Song
 from services.song_service import SongService
 from managers.worker_queue_manager import IWorker, IWorkerSignals
-from common.database import get_all_cache_entries, cleanup_stale_entries, stream_cache_entries
+from common.database import get_all_cache_entries, cleanup_stale_entries, stream_cache_entries, normalize_cache_key
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,8 @@ class LoadUsdxFilesWorker(IWorker):
 
             # Add to batch instead of emitting individually
             self._add_to_batch(song)
-            self.loaded_paths.add(file_path)
+            # Normalize path to match cache key format (forward slashes)
+            self.loaded_paths.add(normalize_cache_key(file_path))
             loaded += 1
             self.signals.progress.emit()
 
@@ -177,7 +178,8 @@ class LoadUsdxFilesWorker(IWorker):
                     song = await self.load(song_path)
                     if song:
                         self._add_to_batch(song)  # Add to batch instead of emitting
-                        self.loaded_paths.add(song_path)
+                        # Normalize path to match cache key format (forward slashes)
+                        self.loaded_paths.add(normalize_cache_key(song_path))
 
                 # Throttled progress update
                 file_count += 1
@@ -221,7 +223,8 @@ class LoadUsdxFilesWorker(IWorker):
             song = await self.load(self.reload_single_file, force_reload=True)
             if song:
                 self.signals.songLoaded.emit(song)
-                self.loaded_paths.add(song.txt_file)  # Changed from song.path to song.txt_file
+                # Normalize path to match cache key format (forward slashes)
+                self.loaded_paths.add(normalize_cache_key(song.txt_file))
 
             self.signals.finished.emit()
             return
