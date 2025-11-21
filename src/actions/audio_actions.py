@@ -101,7 +101,8 @@ class AudioActions(BaseActions):
 
             # Increase delay to 800 ms to ensure QMediaPlayer has released file handles
             # on all systems including network drives
-            QTimer.singleShot(800, lambda: self.worker_queue.add_task(worker, start_now))
+            # Use priority=True for auto-normalization to ensure it runs immediately after current task
+            QTimer.singleShot(800, lambda: self.worker_queue.add_task(worker, start_now, priority=start_now))
         except Exception:
             # If QTimer unavailable, fallback to immediate add
             self.worker_queue.add_task(worker, start_now)

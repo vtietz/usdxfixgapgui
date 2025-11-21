@@ -163,9 +163,11 @@ class GapActions(BaseActions):
                     f"already normalized on {song.gap_info.normalized_date}"
                 )
             else:
-                logger.debug(f"Queueing auto-normalization for {song} after gap detection")
-                # Use start_now=False to let queue manager schedule it after current tasks
-                audio_actions._normalize_song(song, start_now=False)
+                logger.debug(f"Queueing auto-normalization with priority after gap detection for {song}")
+                # Use start_now=True to trigger priority queuing (front of queue)
+                # This ensures normalization runs immediately after gap detection completes,
+                # not at the end of the queue behind other pending tasks
+                audio_actions._normalize_song(song, start_now=True)
 
         # Emit signal once to update UI with new status
         self.data.songs.updated.emit(song)

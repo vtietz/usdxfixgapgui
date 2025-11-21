@@ -65,8 +65,8 @@ class TestDetectGapFinished:
             # Assert: _create_waveforms was invoked with overwrite=True and emit_on_finish=False
             mock_audio_actions._create_waveforms.assert_called_once_with(song, overwrite=True, emit_on_finish=False)
 
-            # Assert: _normalize_song was scheduled (auto_normalize=True)
-            mock_audio_actions._normalize_song.assert_called_once_with(song, start_now=False)
+            # Assert: _normalize_song was scheduled with priority (auto_normalize=True, start_now=True)
+            mock_audio_actions._normalize_song.assert_called_once_with(song, start_now=True)
 
             # Assert: songs.updated.emit was called
             app_data.songs.updated.emit.assert_called_once_with(song)

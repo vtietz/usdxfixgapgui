@@ -231,9 +231,9 @@ class WorkerQueueManager(QObject):
 
         return False
 
-    def add_task(self, worker: IWorker, start_now=False):
+    def add_task(self, worker: IWorker, start_now=False, priority=False):
         worker.id = self.get_unique_task_id()
-        logger.debug(f"Creating task: {worker.description} (instant={worker.is_instant})")
+        logger.debug(f"Creating task: {worker.description} (instant={worker.is_instant}, priority={priority})")
         # Be tolerant to different signal signatures (e.g. DetectGapWorker.finished emits a result)
         worker.signals.finished.connect(lambda *args, wid=worker.id: self.on_task_finished(wid))
         worker.signals.error.connect(lambda e=None, wid=worker.id: self.on_task_error(wid, e))
@@ -256,10 +256,17 @@ class WorkerQueueManager(QObject):
         else:
             # Standard lane: long-running sequential tasks
             worker.status = WorkerStatus.WAITING
-            self.queued_tasks.append(worker)
-            logger.debug(
-                f"[QUEUE] Added to standard queue: {worker.description} (queue size: {len(self.queued_tasks)})"
-            )
+            # Priority tasks go to front of queue (executed next), normal tasks go to back
+            if priority:
+                self.queued_tasks.appendleft(worker)
+                logger.debug(
+                    f"[QUEUE] Added to front of standard queue (priority): {worker.description} (queue size: {len(self.queued_tasks)})"
+                )
+            else:
+                self.queued_tasks.append(worker)
+                logger.debug(
+                    f"[QUEUE] Added to back of standard queue: {worker.description} (queue size: {len(self.queued_tasks)})"
+                )
 
             # Emit immediate UI update when adding to queue (don't wait for heartbeat)
             # This ensures users see queued tasks right away
