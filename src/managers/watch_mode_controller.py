@@ -92,6 +92,7 @@ class WatchModeController(QObject):
         self._songs_remove_by_txt_file = songs_remove_by_txt_file
         self._songs_get_by_txt_file = songs_get_by_txt_file
         self._songs_get_by_path = songs_get_by_path
+        self._start_gap_detection = start_gap_detection
 
         # Connect signals
         self._watcher.file_event.connect(self._on_file_event)
@@ -177,6 +178,8 @@ class WatchModeController(QObject):
 
     def _on_song_scanned(self, song: Song):
         """Handle newly scanned song."""
+        from model.song import SongStatus
+
         try:
             # Skip songs that failed to load
             if song.status and song.status.name == "ERROR":
@@ -191,6 +194,11 @@ class WatchModeController(QObject):
 
             logger.info(f"Adding scanned song to collection: {song.artist} - {song.title}")
             self._songs_add(song)
+
+            # Auto-trigger gap detection for newly added songs with NOT_PROCESSED status
+            if song.status == SongStatus.NOT_PROCESSED:
+                logger.info(f"Newly added song has NOT_PROCESSED status, triggering gap detection: {song.artist} - {song.title}")
+                self._start_gap_detection(song)
 
         except Exception as e:
             logger.error(f"Error adding scanned song: {e}", exc_info=True)

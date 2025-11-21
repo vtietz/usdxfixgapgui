@@ -138,10 +138,16 @@ class CacheUpdateScheduler(QObject):
 
             self.song_removed.emit(src_path)
 
-            # Rescan at new location
-            worker = RescanSingleSongWorker(song_path=dest_path)
-            self._worker_queue_add_task(worker)
-            self.song_added.emit(worker)
+            # Check if song already exists at destination (prevents duplicates on rapid moves)
+            existing = self._songs_get_by_txt_file(dest_path)
+            if not existing:
+                # Rescan at new location
+                worker = RescanSingleSongWorker(song_path=dest_path)
+                self._worker_queue_add_task(worker)
+                self.song_added.emit(worker)
+            else:
+                logger.debug(f"Song already exists at destination, skipping rescan: {dest_path}")
+
             self.song_moved.emit(src_path, dest_path)
 
         elif event.is_directory:
@@ -150,6 +156,12 @@ class CacheUpdateScheduler(QObject):
 
     def _schedule_creation_scan(self, txt_file: str):
         """Schedule a debounced scan for a newly created txt file."""
+        # Check if song already exists in collection
+        existing = self._songs_get_by_txt_file(txt_file)
+        if existing:
+            logger.debug(f"Song already exists in collection, skipping creation scan: {txt_file}")
+            return
+
         now = datetime.now()
 
         # Check if already pending
@@ -235,6 +247,13 @@ class CacheUpdateScheduler(QObject):
                 for filename in files:
                     if filename.lower().endswith(".txt"):
                         txt_path = os.path.join(root, filename)
+
+                        # Check if song already exists in collection
+                        existing = self._songs_get_by_txt_file(txt_path)
+                        if existing:
+                            logger.debug(f"Song already exists in collection, skipping: {txt_path}")
+                            continue
+
                         logger.info(f"Found .txt file in new directory: {txt_path}")
 
                         worker = RescanSingleSongWorker(song_path=txt_path)
@@ -300,10 +319,16 @@ class CacheUpdateScheduler(QObject):
 
                     self.song_removed.emit(txt_path)
 
-                    # Rescan at new location
-                    worker = RescanSingleSongWorker(song_path=new_txt_path)
-                    self._worker_queue_add_task(worker)
-                    self.song_added.emit(worker)
+                    # Check if song already exists at new location (prevents duplicates)
+                    existing = self._songs_get_by_txt_file(new_txt_path)
+                    if not existing:
+                        # Rescan at new location
+                        worker = RescanSingleSongWorker(song_path=new_txt_path)
+                        self._worker_queue_add_task(worker)
+                        self.song_added.emit(worker)
+                    else:
+                        logger.debug(f"Song already exists at new location, skipping rescan: {new_txt_path}")
+
                     self.song_moved.emit(txt_path, new_txt_path)
 
         except Exception as e:
