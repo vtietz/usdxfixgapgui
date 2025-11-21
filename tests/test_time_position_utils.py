@@ -38,19 +38,24 @@ class TestTimeToNormalizedPosition:
 class TestNormalizedPositionToTime:
     """Test normalized_position_to_time function."""
 
-    def test_converts_normalized_position_to_time(self):
+    def test_converts_normalized_position_to_time(self, fake_run_async):
         """Test basic normalized position to time conversion."""
-        # 0.1 of 10 seconds = 1 second
-        assert normalized_position_to_time(0.1, 10000) == pytest.approx(1000)
+        from unittest.mock import patch
 
-        # Halfway = 5 seconds
-        assert normalized_position_to_time(0.5, 10000) == pytest.approx(5000)
+        with patch("actions.gap_actions.run_async") as mock_run_async:
+            mock_run_async.side_effect = fake_run_async
 
-        # End = 10 seconds
-        assert normalized_position_to_time(1.0, 10000) == pytest.approx(10000)
+            # 0.1 of 10 seconds = 1 second
+            assert normalized_position_to_time(0.1, 10000) == pytest.approx(1000)
 
-        # Start = 0 seconds
-        assert normalized_position_to_time(0.0, 10000) == pytest.approx(0)
+            # Halfway = 5 seconds
+            assert normalized_position_to_time(0.5, 10000) == pytest.approx(5000)
+
+            # End = 10 seconds
+            assert normalized_position_to_time(1.0, 10000) == pytest.approx(10000)
+
+            # Start = 0 seconds
+            assert normalized_position_to_time(0.0, 10000) == pytest.approx(0)
 
 
 class TestTimeToPixel:

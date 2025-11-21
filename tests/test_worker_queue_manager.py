@@ -114,7 +114,11 @@ class TestInstantLane:
 
     def test_instant_lane_independent_from_standard_lane(self):
         """Verify instant lane operates independently from standard lane"""
+        from unittest.mock import AsyncMock
+
         manager = WorkerQueueManager()
+        # Mock _start_worker to prevent unawaited coroutine warning
+        manager._start_worker = AsyncMock()
 
         # Add standard task and verify it's running
         standard_worker = MockWorker("Standard Task", is_instant=False)
@@ -152,7 +156,11 @@ class TestCancellation:
 
     def test_cancel_running_standard_task(self):
         """Verify canceling a running standard task calls worker.cancel()"""
+        from unittest.mock import AsyncMock
+
         manager = WorkerQueueManager()
+        # Mock _start_worker to prevent unawaited coroutine warning
+        manager._start_worker = AsyncMock()
 
         # Create running standard task
         worker = MockWorker("Standard Task", is_instant=False)

@@ -1,11 +1,12 @@
 import os
 import logging
 import time
+import datetime
 from PySide6.QtCore import Signal
 from model.song import Song
 from services.song_service import SongService
 from managers.worker_queue_manager import IWorker, IWorkerSignals
-from common.database import get_all_cache_entries, cleanup_stale_entries, stream_cache_entries, normalize_cache_key
+from common.database import get_all_cache_entries, cleanup_stale_entries, stream_cache_entries, normalize_cache_key, get_cache_entry
 
 logger = logging.getLogger(__name__)
 
@@ -170,16 +171,33 @@ class LoadUsdxFilesWorker(IWorker):
                         return
 
                     song_path = os.path.join(root, file)
+                    normalized_path = normalize_cache_key(song_path)
 
-                    # If already loaded from cache, skip
-                    if song_path in self.loaded_paths:
-                        continue
+                    # Check if file was loaded from cache
+                    if normalized_path in self.loaded_paths:
+                        # File exists in cache - check if it's been modified since cached
+                        try:
+                            mod_time = datetime.datetime.fromtimestamp(os.path.getmtime(song_path))
+                            cached_song = get_cache_entry(song_path, mod_time)
 
-                    song = await self.load(song_path)
-                    if song:
-                        self._add_to_batch(song)  # Add to batch instead of emitting
-                        # Normalize path to match cache key format (forward slashes)
-                        self.loaded_paths.add(normalize_cache_key(song_path))
+                            if cached_song:
+                                # Cache is still valid (file hasn't been modified)
+                                continue
+                            else:
+                                # File was modified since cache - reload it
+                                logger.info("Detected modified file: %s", song_path)
+                                song = await self.load(song_path, force_reload=True)
+                                if song:
+                                    self._add_to_batch(song)
+                        except Exception as e:
+                            logger.warning("Error checking mtime for %s: %s", song_path, e)
+                            continue
+                    else:
+                        # New file not in cache
+                        song = await self.load(song_path)
+                        if song:
+                            self._add_to_batch(song)
+                            self.loaded_paths.add(normalized_path)
 
                 # Throttled progress update
                 file_count += 1

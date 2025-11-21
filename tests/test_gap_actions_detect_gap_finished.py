@@ -139,11 +139,17 @@ class TestDetectGapFinished:
         with (
             patch("actions.gap_actions.run_async") as mock_run_async,
             patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock),
+            patch("services.song_service.SongService") as mock_song_service_class,
             patch("actions.gap_actions.AudioActions") as mock_audio_class,
         ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
+
+            # Mock SongService to prevent unawaited coroutine
+            mock_song_service = Mock()
+            mock_song_service.update_cache = Mock()
+            mock_song_service_class.return_value = mock_song_service
 
             mock_audio = Mock()
             mock_audio_class.return_value = mock_audio
@@ -196,8 +202,10 @@ class TestDetectGapFinished:
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
 
-            # Mock SongService instance
+            # Mock SongService instance with AsyncMock for async methods
             mock_song_service = Mock()
+            mock_song_service.update_cache = Mock()
+            mock_song_service.save_gap_info = AsyncMock()
             mock_song_service_class.return_value = mock_song_service
 
             gap_actions = GapActions(app_data)

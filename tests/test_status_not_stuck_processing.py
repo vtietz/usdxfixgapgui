@@ -68,40 +68,51 @@ def test_status_remains_match_after_gap_detection_with_waveform_creation(app_dat
         assert song.status == SongStatus.MATCH, f"Status changed to {song.status} after update signal"
 
 
-def test_status_not_overridden_by_late_binding_lambda(app_data, song_with_audio):
+def test_status_not_overridden_by_late_binding_lambda(app_data, song_with_audio, fake_run_async):
     """Test that late-binding lambda bug doesn't cause wrong song to get PROCESSING status."""
-    song1 = song_with_audio
-    song2 = Song(str(song_with_audio.txt_file).replace("test.txt", "test2.txt"))
-    song2.audio_file = str(song_with_audio.audio_file).replace("test.mp3", "test2.mp3")
-    song2.title = "Song 2"
-    song2.gap_info = GapInfo()
-    song2.gap_info.owner = song2
+    from unittest.mock import patch
 
-    # Song 1 finishes detection with MATCH
-    song1.gap_info.status = GapInfoStatus.MATCH
-    assert song1.status == SongStatus.MATCH
+    with patch("actions.gap_actions.run_async") as mock_run_async:
+        # Use centralized async executor fixture to prevent unawaited coroutines
+        mock_run_async.side_effect = fake_run_async
 
-    # Song 2 starts detection (should set Song 2 to PROCESSING, not Song 1)
-    song2.status = SongStatus.PROCESSING
+        song1 = song_with_audio
+        song2 = Song(str(song_with_audio.txt_file).replace("test.txt", "test2.txt"))
+        song2.audio_file = str(song_with_audio.audio_file).replace("test.mp3", "test2.mp3")
+        song2.title = "Song 2"
+        song2.gap_info = GapInfo()
+        song2.gap_info.owner = song2
 
-    # Song 1 should STILL be MATCH
-    assert song1.status == SongStatus.MATCH, f"Song1 status incorrectly changed to {song1.status}"
-    assert song2.status == SongStatus.PROCESSING
+        # Song 1 finishes detection with MATCH
+        song1.gap_info.status = GapInfoStatus.MATCH
+        assert song1.status == SongStatus.MATCH
+
+        # Song 2 starts detection (should set Song 2 to PROCESSING, not Song 1)
+        song2.status = SongStatus.PROCESSING
+
+        # Song 1 should STILL be MATCH
+        assert song1.status == SongStatus.MATCH, f"Song1 status incorrectly changed to {song1.status}"
+        assert song2.status == SongStatus.PROCESSING
 
 
-def test_restore_status_from_gap_info_preserves_match(app_data, song_with_audio):
+def test_restore_status_from_gap_info_preserves_match(app_data, song_with_audio, fake_run_async):
     """Test that _restore_status_from_gap_info() correctly restores MATCH status."""
     from actions.base_actions import BaseActions
+    from unittest.mock import patch
 
-    song = song_with_audio
-    song.gap_info.status = GapInfoStatus.MATCH
-    song.status = SongStatus.PROCESSING  # Simulate worker setting this
+    with patch("actions.gap_actions.run_async") as mock_run_async:
+        # Use centralized async executor fixture to prevent unawaited coroutines
+        mock_run_async.side_effect = fake_run_async
 
-    base_actions = BaseActions(app_data)
-    base_actions._restore_status_from_gap_info(song)
+        song = song_with_audio
+        song.gap_info.status = GapInfoStatus.MATCH
+        song.status = SongStatus.PROCESSING  # Simulate worker setting this
 
-    # Should restore to MATCH based on gap_info
-    assert song.status == SongStatus.MATCH, f"Expected MATCH but got {song.status}"
+        base_actions = BaseActions(app_data)
+        base_actions._restore_status_from_gap_info(song)
+
+        # Should restore to MATCH based on gap_info
+        assert song.status == SongStatus.MATCH, f"Expected MATCH but got {song.status}"
 
 
 def test_gap_info_status_setter_immediately_updates_song_status(song_with_audio):
