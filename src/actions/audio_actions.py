@@ -114,7 +114,9 @@ class AudioActions(BaseActions):
         # This prevents cascading reloads from blocking the UI
         QTimer.singleShot(100, lambda: self.song_actions.reload_song(specific_song=song))
 
-    def _create_waveforms(self, song: Song, overwrite: bool = False, use_queue: bool = True):
+    def _create_waveforms(
+        self, song: Song, overwrite: bool = False, use_queue: bool = True, emit_on_finish: bool = True
+    ):
         """Create waveforms for both audio and vocals tracks.
 
         Args:
@@ -122,6 +124,8 @@ class AudioActions(BaseActions):
             overwrite: Whether to overwrite existing waveforms
             use_queue: If True, uses WorkerQueueManager (for batch operations).
                       If False, runs in background threads without queueing (for single-song selection).
+            emit_on_finish: If True, emit songs.updated after each waveform completes.
+                           Set to False when caller will emit once after both waveforms complete.
         """
         if not song:
             raise Exception("No song given")
@@ -145,11 +149,21 @@ class AudioActions(BaseActions):
             )
             return
 
-        self._create_waveform(song, paths["audio_file"], paths["audio_waveform_file"], overwrite, use_queue)
-        self._create_waveform(song, paths["vocals_file"], paths["vocals_waveform_file"], overwrite, use_queue)
+        self._create_waveform(
+            song, paths["audio_file"], paths["audio_waveform_file"], overwrite, use_queue, emit_on_finish
+        )
+        self._create_waveform(
+            song, paths["vocals_file"], paths["vocals_waveform_file"], overwrite, use_queue, emit_on_finish
+        )
 
     def _create_waveform(
-        self, song: Song, audio_file: str, waveform_file: str, overwrite: bool = False, use_queue: bool = True
+        self,
+        song: Song,
+        audio_file: str,
+        waveform_file: str,
+        overwrite: bool = False,
+        use_queue: bool = True,
+        emit_on_finish: bool = True,
     ):
         """Create a waveform image for the given audio file.
 
@@ -160,6 +174,8 @@ class AudioActions(BaseActions):
             overwrite: Whether to overwrite existing waveform
             use_queue: If True, uses WorkerQueueManager (for batch operations).
                       If False, runs in background thread without queueing (for single-song selection).
+            emit_on_finish: If True, emit songs.updated when waveform completes.
+                           Set to False when caller will emit once after both waveforms complete.
         """
         if not os.path.exists(audio_file):
             logger.warning(f"Audio file does not exist: {audio_file}")
@@ -181,7 +197,10 @@ class AudioActions(BaseActions):
             )
             # Early-bind song to avoid late-binding closure bugs
             worker.signals.error.connect(lambda e, s=song: self._on_song_worker_error(s, e))
-            worker.signals.finished.connect(lambda s=song: self.data.songs.updated.emit(s))
+            # Only emit songs.updated if caller wants per-waveform updates
+            # When emit_on_finish=False, caller will emit once after all waveforms complete
+            if emit_on_finish:
+                worker.signals.finished.connect(lambda s=song: self.data.songs.updated.emit(s))
             self.worker_queue.add_task(worker, True)  # start_now=True for instant tasks
         else:
             # New behavior: run in background thread without queueing (for selected song only)
