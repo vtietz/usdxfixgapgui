@@ -102,6 +102,7 @@ class GapActions(BaseActions):
             logger.warning(f"Skipping gap detection for '{song.title}': No audio file found.")
 
     def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
+        logger.debug(f"Gap detection finished for: {song.txt_file}")
         # Validate that the result matches the song
         if song.txt_file != result.song_file_path:
             logger.error(f"Gap detection result mismatch: {song.txt_file} vs {result.song_file_path}")
@@ -137,9 +138,6 @@ class GapActions(BaseActions):
         song.gap_info.status = result.status or song.gap_info.status
         logger.debug(f"After setting gap_info.status: song.status={song.status}, gap_info.status={song.gap_info.status}")
 
-        # Emit signal to update UI with new status
-        self.data.songs.updated.emit(song)
-
         # Save gap info and update cache
         async def save_gap_and_cache():
             if song.gap_info:
@@ -152,9 +150,9 @@ class GapActions(BaseActions):
 
         run_async(save_gap_and_cache())
 
-        # Create waveforms first
+        # Create waveforms first (don't emit per-waveform updates, we'll emit once at end)
         audio_actions = AudioActions(self.data)
-        audio_actions._create_waveforms(song, True)
+        audio_actions._create_waveforms(song, overwrite=True, emit_on_finish=False)
 
         # Queue auto-normalization as separate worker task (non-blocking)
         if self.config.auto_normalize and song.audio_file:
@@ -165,11 +163,11 @@ class GapActions(BaseActions):
                     f"already normalized on {song.gap_info.normalized_date}"
                 )
             else:
-                logger.info(f"Queueing auto-normalization for {song} after gap detection")
+                logger.debug(f"Queueing auto-normalization for {song} after gap detection")
                 # Use start_now=False to let queue manager schedule it after current tasks
                 audio_actions._normalize_song(song, start_now=False)
 
-        # Notify that the song has been updated
+        # Emit signal once to update UI with new status
         self.data.songs.updated.emit(song)
 
     def get_notes_overlap(self, song: Optional[Song], silence_periods, detection_time):
@@ -250,7 +248,7 @@ class GapActions(BaseActions):
         self._recalculate_note_times(song_to_process)
 
         audio_actions = AudioActions(self.data)
-        audio_actions._create_waveforms(song_to_process, True)
+        audio_actions._create_waveforms(song_to_process, overwrite=True, emit_on_finish=False)
 
         # Defer signal emission to prevent cascade
         from PySide6.QtCore import QTimer
@@ -298,7 +296,7 @@ class GapActions(BaseActions):
         self._recalculate_note_times(song_to_process)
 
         audio_actions = AudioActions(self.data)
-        audio_actions._create_waveforms(song_to_process, True)
+        audio_actions._create_waveforms(song_to_process, overwrite=True, emit_on_finish=False)
 
         # Defer signal emission to prevent cascade
         from PySide6.QtCore import QTimer

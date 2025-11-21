@@ -30,6 +30,7 @@ class TaskQueueViewer(QWidget):
     def __init__(self, workerQueueManager: WorkerQueueManager, parent=None):
         super().__init__(parent)
         self.workerQueueManager = workerQueueManager
+        self._last_tasks = []  # Cache for skipping unnecessary rebuilds
 
         # UI setup
         self.initUI()
@@ -131,6 +132,14 @@ class TaskQueueViewer(QWidget):
         Simple, predictable, no edge cases.
         """
         try:
+            # Gather current tasks first
+            tasks = self._gather_tasks()
+
+            # Skip rebuild if task count and content haven't changed
+            if hasattr(self, '_last_tasks') and self._last_tasks == tasks:
+                return
+            self._last_tasks = tasks
+
             # Save scroll position
             vscroll = self.tableWidget.verticalScrollBar()
             scroll_pos = vscroll.value() if vscroll else 0
@@ -140,9 +149,6 @@ class TaskQueueViewer(QWidget):
 
             # Clear all rows (Qt automatically destroys child widgets)
             self.tableWidget.setRowCount(0)
-
-            # Gather current tasks
-            tasks = self._gather_tasks()
 
             # Rebuild rows
             for row_idx, (task_id, description, status_string, can_cancel) in enumerate(tasks):

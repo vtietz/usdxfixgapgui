@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QLabel, QWidget, QSizePolicy
 from PySide6.QtGui import QPainter, QPen, QPixmap, QColor
 from PySide6.QtCore import Qt, Signal, QEvent
 from ui.mediaplayer.gap_marker_colors import PLAYHEAD_COLOR, DETECTED_GAP_COLOR, REVERT_GAP_COLOR
+from utils.time_position import time_to_pixel, time_to_normalized_position
 
 logger = logging.getLogger(__name__)
 
@@ -61,23 +62,22 @@ class WaveformWidget(QLabel):
         painter.drawLine(playhead_x, 0, playhead_x, overlay_height)
 
         # 2. Draw gap markers if duration is known
-        # Gap markers are always relative to original audio duration, but displayed
-        # on the current waveform (which may be vocals with different duration)
-        if self.original_audio_duration_ms > 0:
+        # Gap markers represent absolute time positions (milliseconds) that should appear
+        # at the same time position on both audio and vocals waveforms.
+        # Use current waveform duration for positioning (not original_audio_duration).
+        if self.duration_ms > 0:
             # Draw revert/original gap marker (gray, dashed)
             if self.original_gap_ms is not None:
-                # Map from original audio timeline to current waveform display
-                relative_pos = self.original_gap_ms / self.original_audio_duration_ms
-                original_x = int(relative_pos * overlay_width)
+                # Map absolute time (ms) to pixel position on current waveform
+                original_x = time_to_pixel(self.original_gap_ms, self.duration_ms, overlay_width)
                 pen = QPen(REVERT_GAP_COLOR, 2, Qt.PenStyle.DashLine)
                 painter.setPen(pen)
                 painter.drawLine(original_x, 0, original_x, overlay_height)
 
             # Draw detected gap marker (green, solid, thicker)
             if self.detected_gap_ms is not None:
-                # Map from original audio timeline to current waveform display
-                relative_pos = self.detected_gap_ms / self.original_audio_duration_ms
-                detected_x = int(relative_pos * overlay_width)
+                # Map absolute time (ms) to pixel position on current waveform
+                detected_x = time_to_pixel(self.detected_gap_ms, self.duration_ms, overlay_width)
                 pen = QPen(DETECTED_GAP_COLOR, 3)
                 painter.setPen(pen)
                 painter.drawLine(detected_x, 0, detected_x, overlay_height)
@@ -136,11 +136,8 @@ class WaveformWidget(QLabel):
             position: Current playback position in milliseconds
             duration: Current media duration in milliseconds (for playhead normalization only)
         """
-        if duration > 0:
-            self.currentPosition = position / duration
-            self.overlay.update()  # Trigger a repaint
-        else:
-            self.currentPosition = 0
+        self.currentPosition = time_to_normalized_position(position, duration)
+        self.overlay.update()  # Trigger a repaint
 
     def set_gap_markers(self, original_gap_ms=None, detected_gap_ms=None):
         """

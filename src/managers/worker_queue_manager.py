@@ -69,7 +69,8 @@ class IWorker(QObject):
     @description.setter
     def description(self, value):
         self._description = value
-        self.signals.progress.emit()
+        # Don't emit progress on description change - too noisy
+        # UI updates are triggered by explicit status changes
 
     @property
     def status(self):
@@ -78,8 +79,11 @@ class IWorker(QObject):
 
     @status.setter
     def status(self, value):
+        old_status = self._status
         self._status = value
-        self.signals.progress.emit()
+        # Only emit if status actually changed
+        if old_status != value:
+            self.signals.progress.emit()
 
     async def run(self):
         """
@@ -284,7 +288,6 @@ class WorkerQueueManager(QObject):
             # Only update status if not already canceled
             if worker.status != WorkerStatus.CANCELLING:
                 worker.status = WorkerStatus.FINISHED
-                # We don't emit signals here anymore - each worker handles its own signals
 
         except Exception as e:
             logger.error(f"Exception in _start_worker for {worker.description}")
@@ -293,10 +296,12 @@ class WorkerQueueManager(QObject):
             worker.signals.error.emit(e)  # This is still ok as it takes the exception as arg
 
     def on_task_finished(self, task_id):
-        logger.info(f"Task {task_id} finished")
+        logger.debug(f"Task {task_id} finished")
         worker = self.get_worker(task_id)
         if worker:
             worker.status = WorkerStatus.FINISHED
+        else:
+            logger.debug(f"Worker {task_id} not found in running tasks (likely instant worker already cleaned up)")
         self._finalize_task(task_id)
 
     def _finalize_task(self, task_id):
@@ -329,7 +334,7 @@ class WorkerQueueManager(QObject):
             return
 
         worker = self.queued_tasks.popleft()  # FIFO: remove from head
-        logger.info(
+        logger.debug(
             f"[QUEUE] Starting task: {worker.description} (remaining queued: {len(self.queued_tasks)})"
         )
         # Immediately add a placeholder to running_tasks to prevent race condition
@@ -343,7 +348,7 @@ class WorkerQueueManager(QObject):
         """Start the next instant task if the instant slot is available"""
         if self.queued_instant_tasks and self.running_instant_task is None:
             worker = self.queued_instant_tasks.popleft()  # FIFO: remove from head
-            logger.info(f"Starting task: {worker.description}")
+            logger.debug(f"Starting instant task: {worker.description}")
             # Emit immediately after removing from queue to show transition
             self.on_task_list_changed.emit()
             run_async(self._start_instant_worker(worker))

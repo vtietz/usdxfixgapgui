@@ -175,10 +175,10 @@ class SongListWidget(QWidget):
 
     def _on_song_updated(self, song: Song):
         """Refresh buttons if an updated song is currently selected (status change, etc.)."""
-        # Invalidate filter to handle status changes (selected songs stay visible regardless)
-        QTimer.singleShot(0, self.proxyModel.invalidate)
-
         if not self._selected_songs:
+            # Only invalidate filter if song is not selected (selected songs always visible)
+            # Use longer delay to batch multiple updates
+            QTimer.singleShot(100, self.proxyModel.invalidate)
             return
         # Compare by identity or stable key (txt_file) to detect if affected
         sel_txts = {s.txt_file for s in self._selected_songs if getattr(s, "txt_file", None)}
@@ -191,6 +191,8 @@ class SongListWidget(QWidget):
             except Exception:
                 pass
             self._refresh_action_buttons()
+            # Only invalidate filter if this affects visibility
+            QTimer.singleShot(100, self.proxyModel.invalidate)
 
     def onDetectClicked(self):
         """Handle Detect button: unload current media then start gap detection.
@@ -358,7 +360,7 @@ class SongListWidget(QWidget):
         shown_songs = self.proxyModel.rowCount()
         label_text = f"Showing {shown_songs} of {total_songs} songs"
         self.countLabel.setText(label_text)
-        logger.info("Song count updated: %s", label_text)
+        logger.debug("Song count updated: %s", label_text)
 
     def start_chunked_load(self, songs: List[Song]):
         """Start chunked loading for large song lists."""
