@@ -147,9 +147,9 @@ class GapDetectionScheduler(QObject):
         # Don't skip audio MODIFIED events - they need to trigger reload + detection
         event_path_normalized = normalize_path(event.path)
         txt_file_normalized = normalize_path(txt_file)
-        
-        if (event_path_normalized == txt_file_normalized and 
-            self._cache_scheduler and 
+
+        if (event_path_normalized == txt_file_normalized and
+            self._cache_scheduler and
             self._cache_scheduler.is_recently_created(txt_file)):
             logger.debug(f"Skipping MODIFIED event for recently created .txt file (normalized match): {txt_file_normalized}")
             return

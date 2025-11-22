@@ -126,7 +126,7 @@ class TestGapDetectionScheduler:
             song = Song(txt_file=txt_path)
             song.status = SongStatus.NOT_PROCESSED
             song.audio_file = audio_path
-            
+
             mock_get_by_txt = Mock(return_value=song)
             mock_get_by_path = Mock(return_value=song)
 
@@ -174,7 +174,7 @@ class TestGapDetectionScheduler:
 
             # Should NOT enqueue immediately (debounced)
             assert len(enqueue_calls) == 0
-            
+
             # Should have pending creation
             assert len(scheduler._pending_creations) == 1
 

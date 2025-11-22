@@ -131,10 +131,13 @@ class MultiSelectComboBox(QWidget):
         item.setData(Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
         self.model.appendRow(item)
 
-    def setSelectedItems(self, selectedItems):
+    def setSelectedItems(self, selectedItems: list[str]):
         """
         Set the selected items programmatically.
-        :param selectedItems: A list of strings representing the items to be selected.
+
+        Args:
+            selectedItems: A list of strings representing the items to be selected.
+                          Must match item text exactly (case-sensitive).
         """
         # Block signals to prevent cascading itemChanged events during programmatic update
         self.model.blockSignals(True)

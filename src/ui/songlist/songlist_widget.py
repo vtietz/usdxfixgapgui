@@ -19,8 +19,8 @@ CHUNK_DELAY_MS = 16  # Delay between chunks (60 FPS)
 class CustomSortFilterProxyModel(QSortFilterProxyModel):
     def __init__(self, app_data: AppData, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.selectedStatuses = []
-        self.textFilter = ""
+        self.selectedStatuses: list[str] = []  # List of status names (strings)
+        self.textFilter: str = ""
         self.app_data = app_data  # Reference to AppData for selected songs
 
     def filterAcceptsRow(self, source_row, source_parent):

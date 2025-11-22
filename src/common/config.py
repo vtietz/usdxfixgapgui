@@ -153,6 +153,8 @@ class Config(QObject):
                 "maximized": False,
                 "main_splitter_pos": "2,1",
                 "second_splitter_pos": "1,1",
+                "filter_text": "",
+                "filter_statuses": "",
             },
             "WatchMode": {
                 "watch_mode_default": False,
@@ -400,6 +402,10 @@ class Config(QObject):
         self.main_splitter_pos = [int(x.strip()) for x in splitter_pos_str.split(",")]
         second_splitter_pos_str = self._config.get("Window", "second_splitter_pos", fallback=w["second_splitter_pos"])
         self.second_splitter_pos = [int(x.strip()) for x in second_splitter_pos_str.split(",")]
+        # Filter state
+        self.filter_text = self._config.get("Window", "filter_text", fallback=w["filter_text"])
+        filter_statuses_str = self._config.get("Window", "filter_statuses", fallback=w["filter_statuses"])
+        self.filter_statuses = [s.strip() for s in filter_statuses_str.split(",") if s.strip()]
 
     def _init_watch_mode(self, defaults: dict):
         """Initialize WatchMode section properties."""
@@ -548,6 +554,8 @@ class Config(QObject):
         config["Window"]["maximized"] = "true" if self.window_maximized else "false"
         config["Window"]["main_splitter_pos"] = ",".join(str(x) for x in self.main_splitter_pos)
         config["Window"]["second_splitter_pos"] = ",".join(str(x) for x in self.second_splitter_pos)
+        config["Window"]["filter_text"] = self.filter_text
+        config["Window"]["filter_statuses"] = ",".join(self.filter_statuses)
 
     def _create_backup(self):
         """Create backup of config file before modifying."""

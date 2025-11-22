@@ -62,10 +62,10 @@ class CacheUpdateScheduler(QObject):
 
         # Track pending file creations by txt file path
         self._pending_creations: Dict[str, _PendingCreation] = {}
-        
+
         # Track enqueued creations to prevent duplicate worker enqueues
         self._creation_enqueued: Set[str] = set()
-        
+
         # Track recently processed creations to prevent duplicate MODIFIED events
         # Some OS emit both CREATED + MODIFIED for new files
         self._recently_created: Dict[str, datetime] = {}
@@ -73,43 +73,43 @@ class CacheUpdateScheduler(QObject):
     def is_recently_created(self, path: str, within_seconds: int = 5) -> bool:
         """
         Check if a file was recently processed as CREATED.
-        
+
         Used to prevent duplicate processing when OS emits CREATED + MODIFIED
         for the same new file.
-        
+
         Args:
             path: File path to check
             within_seconds: Time window in seconds (default 5)
-            
+
         Returns:
             True if file was created within time window
         """
         path_normalized = normalize_path(path)
-        
+
         if path_normalized not in self._recently_created:
             return False
-            
+
         created_time = self._recently_created[path_normalized]
         age_seconds = (datetime.now() - created_time).total_seconds()
-        
+
         # Clean up old entries
         if age_seconds > within_seconds:
             del self._recently_created[path_normalized]
             return False
-            
+
         return True
 
     def clear_creation_guard(self, txt_file: str):
         """
         Clear creation enqueue guard for a txt file.
-        
+
         Called when song is successfully added to allow future rescans.
-        
+
         Args:
             txt_file: Path to txt file to clear guard for
         """
         txt_file_normalized = normalize_path(txt_file)
-        
+
         if txt_file_normalized in self._creation_enqueued:
             self._creation_enqueued.discard(txt_file_normalized)
             logger.debug(f"Creation guard cleared (normalized): {txt_file_normalized} (song added)")
@@ -211,7 +211,7 @@ class CacheUpdateScheduler(QObject):
     def _schedule_creation_scan(self, txt_file: str):
         """Schedule a debounced scan for a newly created txt file."""
         txt_file_normalized = normalize_path(txt_file)
-        
+
         # Check if song already exists in collection
         existing = self._songs_get_by_txt_file(txt_file)
         if existing:
@@ -248,7 +248,7 @@ class CacheUpdateScheduler(QObject):
     def _execute_creation_scan(self, txt_file: str):
         """Execute scan after debounce period, ensuring file is stable."""
         txt_file_normalized = normalize_path(txt_file)
-        
+
         if txt_file_normalized not in self._pending_creations:
             return
 

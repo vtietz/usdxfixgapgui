@@ -199,7 +199,7 @@ class WatchModeController(QObject):
 
             logger.info(f"Adding scanned song to collection: {song.artist} - {song.title}")
             self._songs_add(song)
-            
+
             # Clear creation guard after successful add
             self._cache_scheduler.clear_creation_guard(song.txt_file)
 

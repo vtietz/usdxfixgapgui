@@ -77,6 +77,7 @@ class MenuBar(QWidget):
         self.filterDropdown = MultiSelectComboBox(items=status_values)
         self.filterDropdown.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.filterDropdown.setMinimumWidth(200)
+        # Initial sync: songs.filter is List[str] of status names
         self.filterDropdown.setSelectedItems(self._actions.data.songs.filter)
         self.filterDropdown.selectionChanged.connect(self.onFilterChanged)
         self._layout.addWidget(self.filterDropdown)
@@ -214,7 +215,8 @@ class MenuBar(QWidget):
             logger.info(f"User initiated re-scan of directory: {self.data.directory}")
             self._actions.rescan_directory()
 
-    def onFilterChanged(self, selectedStatuses):
+    def onFilterChanged(self, selectedStatuses: list[str]):
+        """Handle filter dropdown changes. Receives list of status names (strings)."""
         self._actions.data.songs.filter = selectedStatuses
 
     def onWatchModeToggled(self, checked: bool):

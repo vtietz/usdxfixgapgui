@@ -73,8 +73,8 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
     # Create main window
     window = _create_main_window(app, config, gpu_dialog)
 
-    # Connect to aboutToQuit to save geometry before closing
-    app.aboutToQuit.connect(lambda: _save_window_geometry(window, config))
+    # Connect to aboutToQuit to save geometry and filter state before closing
+    app.aboutToQuit.connect(lambda: _save_window_state(window, config, data))
 
     # Create UI components
     menuBar, songStatus, songListView, mediaPlayerComponent, taskQueueViewer, logViewer = _create_ui_components(
@@ -105,6 +105,13 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
 
     # Auto-load last directory
     actions.auto_load_last_directory()
+
+    # Restore filter state after directory loads
+    QTimer.singleShot(100, lambda: _restore_filter_state(config, data, menuBar))
+
+    # Auto-enable watch mode if configured and initial scan completes
+    if config.watch_mode_default:
+        actions.initial_scan_completed.connect(lambda: _auto_enable_watch_mode(actions))
 
     # Enable dark mode
     enable_dark_mode(app)
@@ -189,8 +196,8 @@ def _create_main_window(app, config, gpu_dialog):
     return window
 
 
-def _save_window_geometry(window, config):
-    """Save window geometry and maximized state."""
+def _save_window_state(window, config, data):
+    """Save window geometry, maximized state, and filter state."""
     if not window.isMaximized():
         geometry = window.geometry()
         config.window_width = geometry.width()
@@ -199,6 +206,19 @@ def _save_window_geometry(window, config):
         config.window_y = geometry.y()
 
     config.window_maximized = window.isMaximized()
+
+    # Save filter state (defensive: normalize to strings)
+    try:
+        config.filter_text = data.songs.filter_text
+        # Handle both str and SongStatus enum values defensively
+        config.filter_statuses = [
+            (s.name if hasattr(s, "name") else str(s)) for s in data.songs.filter
+        ]
+    except Exception as e:
+        logger.warning("Failed to save filter state: %s. Using defaults.", e)
+        config.filter_text = ""
+        config.filter_statuses = []
+
     config.save()
 
     if window.isMaximized():
@@ -211,6 +231,7 @@ def _save_window_geometry(window, config):
             config.window_x,
             config.window_y,
         )
+    logger.debug("Filter state saved: text='%s', statuses=%s", config.filter_text, config.filter_statuses)
 
 
 def _create_ui_components(data, actions, log_file_path):
@@ -381,6 +402,51 @@ def _setup_shutdown_sequence(app, data, logViewer):
     app.aboutToQuit.connect(shutdown_asyncio)
     app.aboutToQuit.connect(logViewer.cleanup)
     app.aboutToQuit.connect(shutdown_async_logging)
+
+
+def _restore_filter_state(config, data, menuBar):
+    """Restore filter state from config."""
+    from model.song import SongStatus
+
+    # Restore text filter
+    if config.filter_text:
+        data.songs.filter_text = config.filter_text
+        menuBar.searchBar.setText(config.filter_text)
+        logger.debug("Restored text filter: '%s'", config.filter_text)
+
+    # Restore status filters (as strings, not enums)
+    if config.filter_statuses:
+        try:
+            # Validate status names exist in SongStatus enum
+            valid_statuses = [name for name in config.filter_statuses if name in SongStatus.__members__]
+            if valid_statuses:
+                # Set as strings directly (Songs.filter expects List[str])
+                data.songs.filter = valid_statuses
+                menuBar.filterDropdown.setSelectedItems(valid_statuses)
+                logger.debug("Restored status filters: %s", valid_statuses)
+
+            # Log any invalid statuses
+            invalid = set(config.filter_statuses) - set(valid_statuses)
+            if invalid:
+                logger.warning("Ignored invalid status filters: %s", invalid)
+        except Exception as e:
+            logger.warning("Failed to restore status filters: %s", e)
+
+
+def _auto_enable_watch_mode(actions):
+    """Auto-enable watch mode after initial scan completes (if configured)."""
+    try:
+        if actions.can_enable_watch_mode():
+            logger.info("Auto-enabling watch mode (watch_mode_default=True)")
+            success = actions.start_watch_mode()
+            if success:
+                logger.info("Watch mode auto-enabled successfully")
+            else:
+                logger.warning("Failed to auto-enable watch mode")
+        else:
+            logger.debug("Cannot auto-enable watch mode - requirements not met")
+    except Exception as e:
+        logger.error("Error auto-enabling watch mode: %s", e, exc_info=True)
 
 
 def _log_delayed_start_info(data):

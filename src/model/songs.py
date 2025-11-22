@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def normalize_path(path: str) -> str:
     """Normalize path for consistent comparison across platforms.
-    
+
     - Normalizes case (Windows case-insensitive)
     - Normalizes separators (unified forward slashes)
     - Resolves relative paths
@@ -27,7 +27,7 @@ class Songs(QObject):
     filterChanged = Signal()  # Updated
     listChanged = Signal()  # Signal for when the list structure changes
 
-    _filter: List[SongStatus] = []
+    _filter: List[str] = []  # List of status names (strings), not SongStatus enums
     _filter_text: str = ""
 
     songs: List[Song] = []
@@ -126,11 +126,13 @@ class Songs(QObject):
         return self.songs[index]
 
     @property
-    def filter(self):
+    def filter(self) -> List[str]:
+        """Get status filter as list of status names (strings)."""
         return self._filter
 
     @filter.setter
-    def filter(self, value):
+    def filter(self, value: List[str]):
+        """Set status filter using list of status names (strings)."""
         self._filter = value
         self.filterChanged.emit()
 

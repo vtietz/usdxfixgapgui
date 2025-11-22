@@ -155,14 +155,14 @@ class _FileSystemEventHandler(FileSystemEventHandler):
 
         # Extract just the filename from the path
         filename = os.path.basename(path).lower()
-        
+
         # Check if filename contains any of the ignore patterns
         for pattern in self._ignore_patterns:
             pattern_lower = pattern.lower()
             # Match if pattern appears anywhere in filename (for temp files like tmpXXX_processed.mp3)
             if pattern_lower in filename:
                 return True
-        
+
         return False
 
     def on_created(self, event: FileSystemEvent):
