@@ -55,25 +55,29 @@ class SongTableModel(QAbstractTableModel):
             self.timer.start()
 
     def list_changed(self):
-        """Handle list structure changes (e.g., batch additions, bulk operations)."""
-        # Check if new songs were added (batch operation that didn't emit individual 'added' signals)
+        """Handle list structure changes (batch operations and clears only)."""
+        # Guard: Skip if pending_songs timer active (avoid race with song_added)
+        if self.pending_songs or self.timer.isActive():
+            logger.debug("list_changed skipped - pending_songs active, avoiding double-insert")
+            return
+
         current_count = len(self.songs)
         model_count = len(self.songs_model.songs)
+        delta = model_count - current_count
 
-        if model_count > current_count:
-            # Songs were added in batch - add them all at once
+        if delta > 1:  # Batch addition (2+ songs)
             new_songs = self.songs_model.songs[current_count:]
             self.beginInsertRows(QModelIndex(), current_count, model_count - 1)
             self.songs.extend(new_songs)
-            # Populate cache for newly added songs
             for song in new_songs:
                 self._add_to_cache(song)
             self.endInsertRows()
-            logger.debug(f"Batch added {len(new_songs)} songs via listChanged")
-        elif model_count < current_count:
-            # Songs were removed - full rebuild needed
+            logger.debug(f"Batch added {len(new_songs)} songs via listChanged (delta={delta})")
+        elif delta == 1:  # Single add - should be handled by song_added
+            logger.debug(f"list_changed ignored single add (delta=1) - deferred to song_added signal")
+        elif model_count < current_count:  # Removal or clear
             self.songs_cleared()
-        # If equal, just a metadata update, no action needed
+            logger.debug("list_changed triggered songs_cleared (removal detected)")
 
     def add_pending_songs(self):
         if self.pending_songs:

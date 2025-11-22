@@ -14,6 +14,7 @@ from datetime import datetime
 from PySide6.QtCore import QObject, QTimer, Signal
 from services.directory_watcher import WatchEvent, WatchEventType
 from model.song import Song
+from model.songs import normalize_path
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ class GapDetectionScheduler(QObject):
         start_gap_detection: Callable,
         songs_get_by_txt_file: Callable,
         songs_get_by_path: Callable,
+        cache_scheduler=None,
     ):
         """
         Initialize GapDetectionScheduler.
@@ -61,12 +63,14 @@ class GapDetectionScheduler(QObject):
             start_gap_detection: Callable(song) to start gap detection
             songs_get_by_txt_file: Callable(txt_path) to get Song by txt file
             songs_get_by_path: Callable(path) to get Song by folder path
+            cache_scheduler: Optional CacheUpdateScheduler to check for recent creations
         """
         super().__init__()
         self._debounce_ms = debounce_ms
         self._start_gap_detection = start_gap_detection
         self._songs_get_by_txt_file = songs_get_by_txt_file
         self._songs_get_by_path = songs_get_by_path
+        self._cache_scheduler = cache_scheduler
 
         # Track pending detections by song folder path
         self._pending: Dict[str, _PendingDetection] = {}
@@ -139,7 +143,18 @@ class GapDetectionScheduler(QObject):
             logger.warning(f"No txt file found in {song_path}, cannot process modification")
             return
 
-        logger.info(f"Text/audio file modified, reloading song at {song_path}")
+        # Skip ONLY if the .txt file itself was recently created (prevents duplicate .txt processing)
+        # Don't skip audio MODIFIED events - they need to trigger reload + detection
+        event_path_normalized = normalize_path(event.path)
+        txt_file_normalized = normalize_path(txt_file)
+        
+        if (event_path_normalized == txt_file_normalized and 
+            self._cache_scheduler and 
+            self._cache_scheduler.is_recently_created(txt_file)):
+            logger.debug(f"Skipping MODIFIED event for recently created .txt file (normalized match): {txt_file_normalized}")
+            return
+
+        logger.info(f"Text/audio file modified, reloading song at {song_path} (event: {os.path.basename(event.path)})")
 
         # Emit reload signal to update song metadata from disk
         self.reload_requested.emit(song_path)

@@ -9,14 +9,15 @@ Uses debouncing for CREATED events to ensure files are fully written before scan
 
 import logging
 import os
-from typing import Callable, Dict
+from typing import Callable, Dict, Set
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from PySide6.QtCore import QObject, Signal, QTimer
 from services.directory_watcher import WatchEvent, WatchEventType
 from workers.rescan_single_song import RescanSingleSongWorker
 from common.database import remove_cache_entry
+from model.songs import normalize_path
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,59 @@ class CacheUpdateScheduler(QObject):
 
         # Track pending file creations by txt file path
         self._pending_creations: Dict[str, _PendingCreation] = {}
+        
+        # Track enqueued creations to prevent duplicate worker enqueues
+        self._creation_enqueued: Set[str] = set()
+        
+        # Track recently processed creations to prevent duplicate MODIFIED events
+        # Some OS emit both CREATED + MODIFIED for new files
+        self._recently_created: Dict[str, datetime] = {}
+
+    def is_recently_created(self, path: str, within_seconds: int = 5) -> bool:
+        """
+        Check if a file was recently processed as CREATED.
+        
+        Used to prevent duplicate processing when OS emits CREATED + MODIFIED
+        for the same new file.
+        
+        Args:
+            path: File path to check
+            within_seconds: Time window in seconds (default 5)
+            
+        Returns:
+            True if file was created within time window
+        """
+        path_normalized = normalize_path(path)
+        
+        if path_normalized not in self._recently_created:
+            return False
+            
+        created_time = self._recently_created[path_normalized]
+        age_seconds = (datetime.now() - created_time).total_seconds()
+        
+        # Clean up old entries
+        if age_seconds > within_seconds:
+            del self._recently_created[path_normalized]
+            return False
+            
+        return True
+
+    def clear_creation_guard(self, txt_file: str):
+        """
+        Clear creation enqueue guard for a txt file.
+        
+        Called when song is successfully added to allow future rescans.
+        
+        Args:
+            txt_file: Path to txt file to clear guard for
+        """
+        txt_file_normalized = normalize_path(txt_file)
+        
+        if txt_file_normalized in self._creation_enqueued:
+            self._creation_enqueued.discard(txt_file_normalized)
+            logger.debug(f"Creation guard cleared (normalized): {txt_file_normalized} (song added)")
+        if txt_file_normalized in self._recently_created:
+            del self._recently_created[txt_file_normalized]
 
     def handle_event(self, event: WatchEvent):
         """
@@ -156,17 +210,19 @@ class CacheUpdateScheduler(QObject):
 
     def _schedule_creation_scan(self, txt_file: str):
         """Schedule a debounced scan for a newly created txt file."""
+        txt_file_normalized = normalize_path(txt_file)
+        
         # Check if song already exists in collection
         existing = self._songs_get_by_txt_file(txt_file)
         if existing:
-            logger.debug(f"Song already exists in collection, skipping creation scan: {txt_file}")
+            logger.debug(f"Song already exists in collection, skipping creation scan: {txt_file_normalized}")
             return
 
         now = datetime.now()
 
-        # Check if already pending
-        if txt_file in self._pending_creations:
-            pending = self._pending_creations[txt_file]
+        # Check if already pending (use normalized key)
+        if txt_file_normalized in self._pending_creations:
+            pending = self._pending_creations[txt_file_normalized]
 
             # Update last event time
             pending.last_event_time = now
@@ -175,26 +231,28 @@ class CacheUpdateScheduler(QObject):
             pending.timer.stop()
             pending.timer.start(self._debounce_ms)
 
-            logger.debug(f"Debouncing creation scan for {txt_file}")
+            logger.debug(f"Debouncing creation scan for {txt_file_normalized}")
         else:
-            # Create new pending creation
+            # Create new pending creation (use normalized key)
             timer = QTimer()
             timer.setSingleShot(True)
-            timer.timeout.connect(lambda: self._execute_creation_scan(txt_file))
+            timer.timeout.connect(lambda: self._execute_creation_scan(txt_file_normalized))
 
             pending = _PendingCreation(txt_file=txt_file, last_event_time=now, timer=timer, file_size=0)
 
-            self._pending_creations[txt_file] = pending
+            self._pending_creations[txt_file_normalized] = pending
             timer.start(self._debounce_ms)
 
-            logger.debug(f"Scheduled creation scan for {txt_file} (debounce {self._debounce_ms}ms)")
+            logger.debug(f"Scheduled creation scan (normalized key): {txt_file_normalized} (debounce {self._debounce_ms}ms)")
 
     def _execute_creation_scan(self, txt_file: str):
         """Execute scan after debounce period, ensuring file is stable."""
-        if txt_file not in self._pending_creations:
+        txt_file_normalized = normalize_path(txt_file)
+        
+        if txt_file_normalized not in self._pending_creations:
             return
 
-        pending = self._pending_creations[txt_file]
+        pending = self._pending_creations[txt_file_normalized]
 
         # Check if file is stable (size hasn't changed)
         try:
@@ -222,8 +280,17 @@ class CacheUpdateScheduler(QObject):
                 return
 
             # File is stable - proceed with scan
-            logger.info(f"File stable, scanning: {txt_file}")
-            del self._pending_creations[txt_file]
+            logger.info(f"File stable, scanning (normalized): {txt_file_normalized}")
+            del self._pending_creations[txt_file_normalized]
+
+            # Check enqueued guard to prevent duplicate enqueues (use normalized key)
+            if txt_file_normalized in self._creation_enqueued:
+                logger.info(f"Creation enqueue suppressed (duplicate, normalized key): {txt_file_normalized}")
+                return
+
+            # Mark as enqueued and recently created (use normalized keys)
+            self._creation_enqueued.add(txt_file_normalized)
+            self._recently_created[txt_file_normalized] = datetime.now()
 
             # Schedule targeted rescan
             worker = RescanSingleSongWorker(song_path=txt_file)
@@ -254,11 +321,11 @@ class CacheUpdateScheduler(QObject):
                             logger.debug(f"Song already exists in collection, skipping: {txt_path}")
                             continue
 
-                        logger.info(f"Found .txt file in new directory: {txt_path}")
+                        logger.info(f"Funnel directory-created: {txt_path} → debounced creation")
 
-                        worker = RescanSingleSongWorker(song_path=txt_path)
-                        self._worker_queue_add_task(worker)
-                        self.song_added.emit(worker)
+                        # Funnel through debounced scheduler instead of direct enqueue
+                        # This prevents duplicates when both dir-created and file-created fire
+                        self._schedule_creation_scan(txt_path)
 
         except Exception as e:
             logger.error(f"Error scanning directory {directory}: {e}", exc_info=True)

@@ -1,9 +1,20 @@
 import logging
+import os
 from typing import List
 from PySide6.QtCore import QObject, Signal  # Updated import
 from model.song import Song, SongStatus
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_path(path: str) -> str:
+    """Normalize path for consistent comparison across platforms.
+    
+    - Normalizes case (Windows case-insensitive)
+    - Normalizes separators (unified forward slashes)
+    - Resolves relative paths
+    """
+    return os.path.normcase(os.path.normpath(path)).replace('\\', '/')
 
 
 class Songs(QObject):
@@ -40,10 +51,10 @@ class Songs(QObject):
 
         song_desc = f"{getattr(song, 'artist', 'Unknown')} - {getattr(song, 'title', 'Unknown')}"
         txt_file = getattr(song, 'txt_file', 'no_txt_file')
-        logger.debug(f"Adding new song to collection: {song_desc} ({txt_file})")
+        logger.debug(f"Single add (added signal only, no listChanged): {song_desc} ({txt_file})")
         self.songs.append(song)
         self.added.emit(song)
-        self.listChanged.emit()  # Emit list changed signal
+        # Don't emit listChanged for single add - prevents UI double-insert
 
     def add_batch(self, songs: List[Song]):
         """Add multiple songs at once - more efficient than adding one by one."""
@@ -74,24 +85,24 @@ class Songs(QObject):
     def remove(self, song: Song):
         self.songs.remove(song)
         self.deleted.emit(song)  # Changed from updated to deleted signal
-        self.listChanged.emit()  # Emit list changed signal
+        # Don't emit listChanged for single remove - prevents UI inconsistency
 
     def get_by_txt_file(self, txt_file: str) -> Song | None:
         """Get song by txt file path."""
-        # Normalize paths for comparison (handle Z:/path vs Z:\\path)
-        txt_file_normalized = txt_file.replace('\\', '/')
+        # Normalize paths for case-insensitive comparison (Windows)
+        txt_file_normalized = normalize_path(txt_file)
         for song in self.songs:
-            song_txt_normalized = song.txt_file.replace('\\', '/')
+            song_txt_normalized = normalize_path(song.txt_file)
             if song_txt_normalized == txt_file_normalized:
                 return song
         return None
 
     def get_by_path(self, path: str) -> Song | None:
         """Get song by folder path."""
-        # Normalize paths for comparison (handle Z:/path vs Z:\\path)
-        path_normalized = path.replace('\\', '/')
+        # Normalize paths for case-insensitive comparison (Windows)
+        path_normalized = normalize_path(path)
         for song in self.songs:
-            song_path_normalized = song.path.replace('\\', '/')
+            song_path_normalized = normalize_path(song.path)
             if song_path_normalized == path_normalized:
                 return song
         return None

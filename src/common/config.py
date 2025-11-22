@@ -157,7 +157,7 @@ class Config(QObject):
             "WatchMode": {
                 "watch_mode_default": False,
                 "watch_debounce_ms": 500,
-                "watch_ignore_patterns": ".tmp,~,.crdownload,.part",
+                "watch_ignore_patterns": ".tmp,~,.crdownload,.part,tmp,_processed.",
             },
         }
 

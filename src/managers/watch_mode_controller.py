@@ -8,7 +8,7 @@ to provide seamless watch mode functionality.
 import logging
 from PySide6.QtCore import QObject, Signal
 
-from services.directory_watcher import DirectoryWatcher, WatchEvent
+from services.directory_watcher import DirectoryWatcher, WatchEvent, WatchEventType
 from services.cache_update_scheduler import CacheUpdateScheduler
 from services.gap_detection_scheduler import GapDetectionScheduler
 from workers.rescan_single_song import RescanSingleSongWorker
@@ -85,6 +85,7 @@ class WatchModeController(QObject):
             start_gap_detection=start_gap_detection,
             songs_get_by_txt_file=songs_get_by_txt_file,
             songs_get_by_path=songs_get_by_path,
+            cache_scheduler=self._cache_scheduler,
         )
 
         # Store callbacks
@@ -158,12 +159,12 @@ class WatchModeController(QObject):
             logger.debug(f"WatchModeController received event: {event.event_type.name} for {event.path}")
 
             # Route to cache scheduler for create/delete/move
-            if event.event_type in [event.event_type.CREATED, event.event_type.DELETED, event.event_type.MOVED]:
+            if event.event_type in [WatchEventType.CREATED, WatchEventType.DELETED, WatchEventType.MOVED]:
                 logger.debug(f"Routing {event.event_type.name} to cache_scheduler")
                 self._cache_scheduler.handle_event(event)
 
             # Route to gap detection scheduler for modify/delete (handles txt/audio modify + gap_info modify/delete)
-            if event.event_type in [event.event_type.MODIFIED, event.event_type.DELETED]:
+            if event.event_type in [WatchEventType.MODIFIED, WatchEventType.DELETED]:
                 logger.debug(f"Routing {event.event_type.name} to gap_scheduler")
                 self._gap_scheduler.handle_event(event)
 
@@ -184,16 +185,23 @@ class WatchModeController(QObject):
             # Skip songs that failed to load
             if song.status and song.status.name == "ERROR":
                 logger.warning(f"Skipping failed song scan: {song.txt_file} - Error: {song.error_message or 'unknown'}")
+                # Clear creation guard even on error to allow retry
+                self._cache_scheduler.clear_creation_guard(song.txt_file)
                 return
 
             # Check if song already exists (prevent duplicates)
             existing = self._songs_get_by_txt_file(song.txt_file)
             if existing:
                 logger.info(f"Song already exists in collection: {song.artist} - {song.title}, skipping add")
+                # Clear creation guard since song already exists
+                self._cache_scheduler.clear_creation_guard(song.txt_file)
                 return
 
             logger.info(f"Adding scanned song to collection: {song.artist} - {song.title}")
             self._songs_add(song)
+            
+            # Clear creation guard after successful add
+            self._cache_scheduler.clear_creation_guard(song.txt_file)
 
             # Auto-trigger gap detection for newly added songs with NOT_PROCESSED status
             if song.status == SongStatus.NOT_PROCESSED:
@@ -202,6 +210,9 @@ class WatchModeController(QObject):
 
         except Exception as e:
             logger.error(f"Error adding scanned song: {e}", exc_info=True)
+            # Clear creation guard on exception to allow retry
+            if song and song.txt_file:
+                self._cache_scheduler.clear_creation_guard(song.txt_file)
 
     def _on_song_removed(self, txt_file: str):
         """Handle song removal."""

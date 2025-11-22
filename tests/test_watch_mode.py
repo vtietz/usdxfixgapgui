@@ -96,6 +96,134 @@ class TestGapDetectionScheduler:
             # Should schedule gap detection since status is NOT_PROCESSED
             assert len(scheduler._pending) == 1
 
+    def test_skips_txt_modified_for_recently_created_but_not_audio(self, qtbot):
+        """Test that MODIFIED events skip .txt but NOT audio for recently created songs"""
+        from services.cache_update_scheduler import CacheUpdateScheduler
+        from model.song import SongStatus
+
+        mock_start_detection = Mock()
+        mock_worker_queue = Mock()
+
+        # Create cache scheduler
+        cache_scheduler = CacheUpdateScheduler(
+            worker_queue_add_task=mock_worker_queue,
+            songs_get_by_txt_file=Mock(return_value=None),
+            debounce_ms=100,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            txt_path = os.path.join(tmpdir, "song.txt")
+            audio_path = os.path.join(tmpdir, "song.mp3")
+            Path(txt_path).touch()
+            Path(audio_path).touch()
+
+            # Mark txt as recently created (use normalized key)
+            from datetime import datetime
+            from model.songs import normalize_path
+            cache_scheduler._recently_created[normalize_path(txt_path)] = datetime.now()
+
+            # Create song with NOT_PROCESSED status
+            song = Song(txt_file=txt_path)
+            song.status = SongStatus.NOT_PROCESSED
+            song.audio_file = audio_path
+            
+            mock_get_by_txt = Mock(return_value=song)
+            mock_get_by_path = Mock(return_value=song)
+
+            scheduler = GapDetectionScheduler(
+                debounce_ms=100,
+                start_gap_detection=mock_start_detection,
+                songs_get_by_txt_file=mock_get_by_txt,
+                songs_get_by_path=mock_get_by_path,
+                cache_scheduler=cache_scheduler,
+            )
+
+            # Simulate MODIFIED on .txt (should be skipped)
+            txt_event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
+            scheduler.handle_event(txt_event)
+            assert len(scheduler._pending) == 0, "txt MODIFIED should be skipped"
+
+            # Simulate MODIFIED on audio (should NOT be skipped)
+            audio_event = WatchEvent(event_type=WatchEventType.MODIFIED, path=audio_path, is_directory=False)
+            scheduler.handle_event(audio_event)
+            assert len(scheduler._pending) == 1, "audio MODIFIED should trigger detection"
+
+    def test_directory_scan_funnels_through_debounced_scheduler(self, qtbot):
+        """Test that directory scan uses debounced scheduler instead of direct enqueue"""
+        from services.cache_update_scheduler import CacheUpdateScheduler
+
+        enqueue_calls = []
+
+        def mock_enqueue(worker):
+            enqueue_calls.append(worker)
+
+        mock_get_by_txt = Mock(return_value=None)
+
+        scheduler = CacheUpdateScheduler(
+            worker_queue_add_task=mock_enqueue,
+            songs_get_by_txt_file=mock_get_by_txt,
+            debounce_ms=100,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            txt_path = os.path.join(tmpdir, "song.txt")
+            Path(txt_path).touch()
+
+            # Scan directory (should schedule via debounced path)
+            scheduler._scan_directory_for_songs(tmpdir)
+
+            # Should NOT enqueue immediately (debounced)
+            assert len(enqueue_calls) == 0
+            
+            # Should have pending creation
+            assert len(scheduler._pending_creations) == 1
+
+    def test_duplicate_enqueue_suppression(self, qtbot):
+        """Test that duplicate enqueues are suppressed by creation guard"""
+        from services.cache_update_scheduler import CacheUpdateScheduler
+
+        enqueue_calls = []
+
+        def mock_enqueue(worker):
+            enqueue_calls.append(worker)
+
+        mock_get_by_txt = Mock(return_value=None)
+
+        scheduler = CacheUpdateScheduler(
+            worker_queue_add_task=mock_enqueue,
+            songs_get_by_txt_file=mock_get_by_txt,
+            debounce_ms=50,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            txt_path = os.path.join(tmpdir, "song.txt")
+            Path(txt_path).write_text("#ARTIST:Test\n#TITLE:Song\n")
+
+            # Schedule creation scan twice rapidly (simulates dir + file CREATED)
+            scheduler._schedule_creation_scan(txt_path)
+            scheduler._schedule_creation_scan(txt_path)
+
+            # Only one pending creation should exist (coalesced)
+            assert len(scheduler._pending_creations) == 1
+
+            # Wait for debounce + stability check (need two cycles)
+            qtbot.wait(200)
+
+            # Only one enqueue should have occurred
+            assert len(enqueue_calls) == 1
+            # Check using normalized key
+            from model.songs import normalize_path
+            assert normalize_path(txt_path) in scheduler._creation_enqueued
+
+            # Clear guard
+            scheduler.clear_creation_guard(txt_path)
+            assert txt_path not in scheduler._creation_enqueued
+
+            # Can schedule again after clearing
+            scheduler._schedule_creation_scan(txt_path)
+            qtbot.wait(200)
+            assert len(enqueue_calls) == 2
+
     def test_ignores_non_trigger_extensions(self):
         """Test that only trigger extensions schedule detection"""
         detection_calls = []

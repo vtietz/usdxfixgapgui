@@ -34,7 +34,7 @@ class TestSongDeletion:
                         mock_song = Mock(spec=Song)
                         self.songs.add(mock_song)
                         mock_added.emit.assert_called_once_with(mock_song)
-                        mock_list_changed.emit.assert_called()
+                        # listChanged no longer emitted on single add (only on batch/clear)
 
                         # Reset mocks
                         mock_list_changed.reset_mock()
@@ -42,7 +42,7 @@ class TestSongDeletion:
                         # Test remove
                         self.songs.remove(mock_song)
                         mock_deleted.emit.assert_called_once_with(mock_song)
-                        mock_list_changed.emit.assert_called()
+                        # listChanged no longer emitted on single remove (only on batch/clear)
 
                         # Reset mocks
                         mock_list_changed.reset_mock()
