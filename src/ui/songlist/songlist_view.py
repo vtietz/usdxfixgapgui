@@ -56,6 +56,7 @@ class SongListView(QTableView):
         self._is_resizing = False
         self._original_header_modes = {}  # Store original header resize modes
         self._auto_fit_enabled = True  # Allow auto-fit for small datasets
+        self._large_policy_applied = False
 
         # Viewport-based lazy loading state
         self._viewport_timer = QTimer()
@@ -65,6 +66,7 @@ class SongListView(QTableView):
         self._loaded_rows = set()  # Track which rows have been loaded
 
         self.setupUi()
+        self._bind_dataset_size_signals()
 
     def setupUi(self):
         self.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
@@ -126,6 +128,35 @@ class SongListView(QTableView):
             for i in range(12):
                 resize_mode = QHeaderView.ResizeMode.Stretch if i < 3 else QHeaderView.ResizeMode.ResizeToContents
                 self.horizontalHeader().setSectionResizeMode(i, resize_mode)
+            self._large_policy_applied = False
+            self._auto_fit_enabled = True
+
+    def _bind_dataset_size_signals(self):
+        models = {self.model()}
+        if self.tableModel:
+            models.add(self.tableModel)
+        for mdl in models:
+            if hasattr(mdl, "rowsInserted"):
+                mdl.rowsInserted.connect(self._check_dataset_size)
+            if hasattr(mdl, "modelReset"):
+                mdl.modelReset.connect(self._reset_dataset_size_tracking)
+
+    def _reset_dataset_size_tracking(self, *args):
+        self._large_policy_applied = False
+        self._auto_fit_enabled = True
+
+    def _check_dataset_size(self, *args):
+        if self._large_policy_applied:
+            return
+
+        source_model = self.tableModel
+        if not isinstance(source_model, SongTableModel):
+            return
+
+        row_count = source_model.rowCount()
+        if row_count >= LARGE_DATASET_THRESHOLD:
+            logger.info("Detected large dataset via stream (%s rows) - locking fixed column widths", row_count)
+            self.apply_resize_policy()
 
     def onSelectionChanged(self, selected, deselected):
         """Debounce selection changes to prevent rapid-fire updates"""

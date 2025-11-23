@@ -48,8 +48,15 @@ CACHE_VERSION = 2
 
 
 def get_connection():
-    """Get a connection to the database."""
-    return sqlite3.connect(_get_db_path())
+    """Get a connection to the database with optimized settings."""
+    conn = sqlite3.connect(_get_db_path())
+    cursor = conn.cursor()
+    # Performance optimizations for read-heavy workloads
+    cursor.execute("PRAGMA journal_mode=WAL")  # Write-ahead logging for better concurrency
+    cursor.execute("PRAGMA synchronous=NORMAL")  # Balance safety and speed
+    cursor.execute("PRAGMA temp_store=MEMORY")  # Use memory for temp tables
+    cursor.execute("PRAGMA cache_size=-32768")  # ~32 MB page cache
+    return conn
 
 
 def migrate_cache_paths():
@@ -80,7 +87,7 @@ def migrate_cache_paths():
         duplicates_removed = 0
 
         for file_path, song_data, timestamp in all_entries:
-            normalized_path = normalize_cache_key(file_path)
+            normalized_path = normalize_cache_key(file_path).lower()
 
             # If normalized path already exists, keep the newer entry
             if normalized_path in normalized_map:
@@ -141,6 +148,11 @@ def init_database():
         timestamp DATETIME
     )
     """
+    )
+
+    # Create index on file_path for fast prefix filtering
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_song_cache_file_path ON song_cache(file_path)"
     )
 
     # Create metadata table for cache versioning
@@ -233,7 +245,7 @@ def get_cache_entry(key, modified_time=None):
     Returns:
         object or None: The cached object if found and valid, None otherwise.
     """
-    key = normalize_cache_key(key)  # Normalize path separators
+    key = normalize_cache_key(key).lower()  # Normalize path separators and lowercase
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -271,7 +283,7 @@ def set_cache_entry(key, obj):
         key (str): The cache key (filepath)
         obj (object): The object to cache
     """
-    key = normalize_cache_key(key)  # Normalize path separators
+    key = normalize_cache_key(key).lower()  # Normalize path separators and lowercase for indexing
     import time
 
     start_time = time.perf_counter()
@@ -375,13 +387,14 @@ def get_all_cache_entries(deserialize=False):
         return [] if not deserialize else {}
 
 
-def stream_cache_entries(page_size=500):
+def stream_cache_entries(page_size=500, directory_filter=None):
     """
     Stream cache entries in pages for progressive loading.
     Yields tuples of (file_path, song_data, timestamp) for memory efficiency.
 
     Args:
         page_size: Number of rows to fetch per iteration (default 500)
+        directory_filter: Optional directory path to filter by (uses rowid-based pagination)
 
     Yields:
         tuple: (file_path, song_data, timestamp) for each cache entry
@@ -390,21 +403,46 @@ def stream_cache_entries(page_size=500):
         conn = get_connection()
         cursor = conn.cursor()
 
-        # Use OFFSET/LIMIT for pagination
-        offset = 0
-        while True:
-            cursor.execute(
-                "SELECT file_path, song_data, timestamp FROM song_cache LIMIT ? OFFSET ?", (page_size, offset)
-            )
-            rows = cursor.fetchall()
+        if directory_filter:
+            # Optimized rowid-based pagination with directory pre-filtering
+            # Normalize and prepare LIKE pattern (stored lowercase for index usage)
+            dir_prefix = normalize_cache_key(directory_filter).lower().rstrip("/\\") + "/"
+            like_pattern = dir_prefix + "%"
 
-            if not rows:
-                break
+            last_rowid = 0
+            while True:
+                cursor.execute(
+                    """SELECT rowid, file_path, song_data, timestamp
+                       FROM song_cache
+                       WHERE file_path LIKE ? ESCAPE '\\' AND rowid > ?
+                       ORDER BY rowid
+                       LIMIT ?""",
+                    (like_pattern, last_rowid, page_size)
+                )
+                rows = cursor.fetchall()
 
-            for row in rows:
-                yield row
+                if not rows:
+                    break
 
-            offset += page_size
+                for row in rows:
+                    last_rowid = row[0]
+                    yield (row[1], row[2], row[3])  # file_path, song_data, timestamp
+        else:
+            # Legacy OFFSET/LIMIT for backward compatibility (no filter)
+            offset = 0
+            while True:
+                cursor.execute(
+                    "SELECT file_path, song_data, timestamp FROM song_cache LIMIT ? OFFSET ?", (page_size, offset)
+                )
+                rows = cursor.fetchall()
+
+                if not rows:
+                    break
+
+                for row in rows:
+                    yield row
+
+                offset += page_size
 
         conn.close()
     except Exception as e:

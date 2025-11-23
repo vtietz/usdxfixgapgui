@@ -1,13 +1,16 @@
+import logging
+import time
+from typing import List, cast
+
+from PySide6.QtCore import QSortFilterProxyModel, QTimer, Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMessageBox
-from PySide6.QtCore import QSortFilterProxyModel, QTimer
 from actions import Actions
 from app.app_data import AppData
 from model.song import Song, SongStatus
 from model.songs import Songs
 from ui.songlist.songlist_view import SongListView
 from ui.songlist.songlist_model import SongTableModel
-from typing import List, cast
-import logging
+from utils import files
 
 logger = logging.getLogger(__name__)
 
@@ -22,43 +25,116 @@ class CustomSortFilterProxyModel(QSortFilterProxyModel):
         self.selectedStatuses: list[str] = []  # List of status names (strings)
         self.textFilter: str = ""
         self.app_data = app_data  # Reference to AppData for selected songs
+        self._filter_eval_started_at = 0.0
+        self._filter_eval_count = 0
+        self._pending_filter_summary = False
 
     def filterAcceptsRow(self, source_row, source_parent):
         # Access the source model's data for the given row
         source_model = cast(SongTableModel, self.sourceModel())
         song: Song = source_model.songs[source_row]
 
+        if self._pending_filter_summary:
+            self._filter_eval_count += 1
+
         # Always show selected songs regardless of filters
         if hasattr(self.app_data, "selected_songs") and song in self.app_data.selected_songs:
             return True
 
-        # Fast-path: skip filtering if no filters are active
+        cache_entry = self._get_cache_entry(song, source_model)
+        return self._song_passes_active_filters(song, cache_entry)
+
+    def invalidate(self):
+        start = time.perf_counter()
+        super().invalidate()
+        duration = (time.perf_counter() - start) * 1000
+        if duration > 50:
+            logger.warning("Proxy invalidate took %.1f ms", duration)
+        else:
+            logger.debug("Proxy invalidate completed in %.1f ms", duration)
+
+    def invalidateFilter(self):
+        self._filter_eval_started_at = time.perf_counter()
+        self._filter_eval_count = 0
+        self._pending_filter_summary = True
+        logger.info(
+            "Proxy filter invalidation requested (statuses=%s, text_len=%s)",
+            len(self.selectedStatuses),
+            len(self.textFilter),
+        )
+        super().invalidateFilter()
+        QTimer.singleShot(0, self._log_filter_eval_summary)
+
+    def sort(self, column, order=Qt.SortOrder.AscendingOrder):
+        start = time.perf_counter()
+        super().sort(column, order)
+        duration = (time.perf_counter() - start) * 1000
+        if duration > 50:
+            logger.warning("Proxy sort on column %s took %.1f ms", column, duration)
+        else:
+            logger.debug("Proxy sort on column %s completed in %.1f ms", column, duration)
+
+    def _log_filter_eval_summary(self):
+        if not self._pending_filter_summary:
+            return
+        self._pending_filter_summary = False
+        duration = (time.perf_counter() - self._filter_eval_started_at) * 1000 if self._filter_eval_started_at else 0.0
+        level = logging.WARNING if duration > 200 else logging.INFO
+        logger.log(
+            level,
+            "Proxy evaluated filter for %s rows in %.1f ms",
+            self._filter_eval_count,
+            duration,
+        )
+        self._filter_eval_started_at = 0.0
+
+    def _get_cache_entry(self, song: Song, source_model: SongTableModel | None = None):
+        model = source_model or cast(SongTableModel, self.sourceModel())
+        if not isinstance(model, SongTableModel):
+            return None
+        return getattr(model, "_row_cache", {}).get(song.path)
+
+    def _song_passes_active_filters(self, song: Song, cache_entry=None) -> bool:
         if not self.selectedStatuses and not self.textFilter:
             return True
 
-        # Implement filtering logic
-        statusMatch = song.status.name in self.selectedStatuses if self.selectedStatuses else True
+        if self.selectedStatuses and song.status.name not in self.selectedStatuses:
+            return False
 
-        # Prefer cached lowercase strings from model if available
-        cache_entry = source_model._row_cache.get(song.path) if hasattr(source_model, "_row_cache") else None
+        if not self.textFilter:
+            return True
+
+        if cache_entry is None:
+            cache_entry = self._get_cache_entry(song)
+
         if cache_entry:
-            textMatch = (
-                self.textFilter in cache_entry["artist_lower"]
-                or self.textFilter in cache_entry["title_lower"]
+            return (
+                self.textFilter in cache_entry.get("artist_lower", "")
+                or self.textFilter in cache_entry.get("title_lower", "")
                 or self.textFilter in cache_entry.get("relative_path_lower", "")
             )
-        else:
-            # Fallback to direct lowercase conversion
-            from utils import files
 
-            relative_path = files.get_relative_path(source_model.app_data.directory, song.path).lower()
-            textMatch = (
-                self.textFilter in song.artist.lower()
-                or self.textFilter in song.title.lower()
-                or self.textFilter in relative_path
-            )
+        relative_path = files.get_relative_path(self.app_data.directory, song.path).lower()
+        return (
+            self.textFilter in (song.artist or "").lower()
+            or self.textFilter in (song.title or "").lower()
+            or self.textFilter in relative_path
+        )
 
-        return statusMatch and textMatch
+    def selection_requires_filter_refresh(self, songs: List[Song]) -> bool:
+        if not songs or (not self.selectedStatuses and not self.textFilter):
+            return False
+
+        source_model = self.sourceModel()
+        if not isinstance(source_model, SongTableModel):
+            return True
+
+        row_cache = getattr(source_model, "_row_cache", {})
+        for song in songs:
+            cache_entry = row_cache.get(song.path)
+            if not self._song_passes_active_filters(song, cache_entry):
+                return True
+        return False
 
 
 class SongListWidget(QWidget):
@@ -67,6 +143,7 @@ class SongListWidget(QWidget):
         self._actions = actions
         self._data = data
         self._selected_songs: List[Song] = []
+        self._bulk_freeze_active = False
 
         # Initialize models and view
         self.songs_model = songs_model
@@ -163,22 +240,67 @@ class SongListWidget(QWidget):
         self.proxyModel.rowsRemoved.connect(self.updateCountLabel)
         self.proxyModel.modelReset.connect(self.updateCountLabel)
 
+        # Bulk loading optimization: disable dynamic filtering during batch inserts
+        self.tableModel.bulk_load_started.connect(self._on_bulk_load_started)
+        self.tableModel.bulk_load_ended.connect(self._on_bulk_load_ended)
+        if hasattr(self.tableModel, "preview_ready"):
+            self.tableModel.preview_ready.connect(self._on_bulk_preview_ready)
+
     def _connect_action_signals(self):
         """Connect action and filter signals to handlers."""
         self.songs_model.filterChanged.connect(self.updateFilter)
         self._data.selected_songs_changed.connect(self.onSelectedSongsChanged)
         self.songs_model.updated.connect(self._on_song_updated)
+        self.songs_model.loadingFinished.connect(self._on_loading_finished)
 
     def _refresh_action_buttons(self):
         """Recompute and apply action button enabled/tooltip states for current selection."""
         self.onSelectedSongsChanged(self._selected_songs)
+
+    def _on_bulk_load_started(self):
+        """Disable expensive view work during bulk streaming."""
+        if self._bulk_freeze_active:
+            return
+
+        self._bulk_freeze_active = True
+        self.proxyModel.setDynamicSortFilter(False)
+        self.tableView.setSortingEnabled(False)
+        self.tableView.setUpdatesEnabled(False)
+        logger.info("SongListWidget bulk freeze engaged")
+
+    def _on_bulk_preview_ready(self, row_count: int):
+        """Release painting early but keep heavy proxy work suppressed."""
+        self._release_bulk_freeze(f"preview {row_count}", enable_dynamic_filter=False)
+
+    def _on_bulk_load_ended(self):
+        """Re-enable dynamic filtering and invalidate once bulk loading completes."""
+        self._release_bulk_freeze("completed", enable_dynamic_filter=True)
+        self.proxyModel.invalidate()
+
+    def _release_bulk_freeze(self, reason: str, *, enable_dynamic_filter: bool):
+        if not self._bulk_freeze_active:
+            return
+
+        self._bulk_freeze_active = False
+        if enable_dynamic_filter:
+            self.proxyModel.setDynamicSortFilter(True)
+        else:
+            logger.debug("Keeping proxy dynamic filtering disabled until load completes")
+        self.tableView.setSortingEnabled(True)
+        self.tableView.setUpdatesEnabled(True)
+        self.tableView.reset_viewport_loading()
+        logger.info("SongListWidget bulk freeze released (%s)", reason)
+
+    def _on_loading_finished(self):
+        """Handle when song loading is complete - ensure bulk loading mode ends."""
+        self.tableModel.end_bulk_loading()
 
     def _on_song_updated(self, song: Song):
         """Refresh buttons if an updated song is currently selected (status change, etc.)."""
         if not self._selected_songs:
             # Only invalidate filter if song is not selected (selected songs always visible)
             # Use longer delay to batch multiple updates
-            QTimer.singleShot(100, self.proxyModel.invalidate)
+            self._schedule_filter_invalidation(delay_ms=100, songs=[song])
             return
         # Compare by identity or stable key (txt_file) to detect if affected
         sel_txts = {s.txt_file for s in self._selected_songs if getattr(s, "txt_file", None)}
@@ -192,7 +314,7 @@ class SongListWidget(QWidget):
                 pass
             self._refresh_action_buttons()
             # Only invalidate filter if this affects visibility
-            QTimer.singleShot(100, self.proxyModel.invalidate)
+            self._schedule_filter_invalidation(delay_ms=100, songs=[song])
 
     def onDetectClicked(self):
         """Handle Detect button: unload current media then start gap detection.
@@ -244,7 +366,7 @@ class SongListWidget(QWidget):
 
         # Invalidate filter to show/hide songs based on new selection
         # (selected songs are always visible regardless of filter)
-        QTimer.singleShot(0, self.proxyModel.invalidate)
+        self._schedule_filter_invalidation(songs=songs)
 
     def _update_basic_action_buttons(self, has_selection: bool, is_busy_selection: bool):
         """Update open folder, reload, and delete button states."""
@@ -338,6 +460,28 @@ class SongListWidget(QWidget):
             and (first_song.usdb_id != 0)
         )
         self.open_usdx_button.setEnabled(can_open_usdb)
+
+    def _filters_active(self) -> bool:
+        return bool(self.proxyModel.selectedStatuses or self.proxyModel.textFilter)
+
+    def _schedule_filter_invalidation(self, delay_ms: int = 0, songs: List[Song] | None = None) -> None:
+        if not self._filters_active():
+            logger.debug("Skipped proxy invalidation - no filters active")
+            return
+
+        if songs and hasattr(self.proxyModel, "selection_requires_filter_refresh"):
+            try:
+                needs_refresh = self.proxyModel.selection_requires_filter_refresh(songs)
+            except Exception:
+                needs_refresh = True
+            if not needs_refresh:
+                logger.debug("Skipped proxy invalidation - selection already visible under filters")
+                return
+
+        if delay_ms:
+            QTimer.singleShot(delay_ms, self.proxyModel.invalidate)
+        else:
+            QTimer.singleShot(0, self.proxyModel.invalidate)
 
     def updateFilter(self):
         """Update filter with deferred invalidation to prevent UI freeze."""

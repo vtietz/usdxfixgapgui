@@ -1,4 +1,5 @@
 import asyncio
+from concurrent.futures import CancelledError
 from PySide6.QtCore import QThread
 import logging
 
@@ -53,7 +54,22 @@ def run_async(coro, callback=None):
 
     future = asyncio.run_coroutine_threadsafe(task_wrapper(), _loop)
     if callback:
-        future.add_done_callback(lambda f: callback(f.result()))
+        def _safe_callback(f):
+            try:
+                result = f.result()
+            except CancelledError:
+                logger.debug("run_async future was cancelled before completion; skipping callback")
+                return
+            except Exception:
+                logger.exception("run_async future raised before callback execution")
+                return
+
+            try:
+                callback(result)
+            except Exception:
+                logger.exception("run_async callback raised an exception")
+
+        future.add_done_callback(_safe_callback)
 
 
 def run_sync(coro):

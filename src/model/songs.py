@@ -1,8 +1,10 @@
 import logging
 import os
-from typing import List
+from typing import Dict, List, Optional, Tuple, Union
 from PySide6.QtCore import QObject, Signal  # Updated import
-from model.song import Song, SongStatus
+from model.song import Song, SongStatus as _SongStatus
+
+SongStatus = _SongStatus  # Re-export for legacy imports
 
 logger = logging.getLogger(__name__)
 
@@ -26,33 +28,42 @@ class Songs(QObject):
     error = Signal(Song, Exception)  # Updated
     filterChanged = Signal()  # Updated
     listChanged = Signal()  # Signal for when the list structure changes
+    loadingFinished = Signal()  # Signal when bulk song loading is complete
 
-    _filter: List[str] = []  # List of status names (strings), not SongStatus enums
-    _filter_text: str = ""
-
-    songs: List[Song] = []
+    def __init__(self):
+        super().__init__()
+        self.songs: List[Song] = []
+        self._filter: List[str] = []
+        self._filter_text: str = ""
+        self._songs_by_txt: Dict[str, Song] = {}
+        self._songs_by_path: Dict[str, Song] = {}
 
     def clear(self):
         self.songs.clear()
+        self._songs_by_txt.clear()
+        self._songs_by_path.clear()
         self.cleared.emit()
         self.listChanged.emit()  # Emit list changed signal
 
     def add(self, song: Song):
         # Check for duplicate before adding (if txt_file is available)
-        if hasattr(song, 'txt_file') and song.txt_file:
-            existing = self.get_by_txt_file(song.txt_file)
-            if existing:
-                song_desc = f"{getattr(song, 'artist', 'Unknown')} - {getattr(song, 'title', 'Unknown')}"
-                logger.info(f"Prevented duplicate: song already exists, updating instead of adding: {song_desc} ({song.txt_file})")
-                # Update the existing song's data rather than adding duplicate
-                existing.__dict__.update(song.__dict__)
-                self.updated.emit(existing)
-                return
+        existing = self._find_existing(song)
+        if existing:
+            song_desc = f"{getattr(song, 'artist', 'Unknown')} - {getattr(song, 'title', 'Unknown')}"
+            logger.info(
+                "Prevented duplicate: song already exists, updating instead of adding: %s (%s)",
+                song_desc,
+                song.txt_file,
+            )
+            self._update_song(existing, song)
+            self.updated.emit(existing)
+            return
 
         song_desc = f"{getattr(song, 'artist', 'Unknown')} - {getattr(song, 'title', 'Unknown')}"
         txt_file = getattr(song, 'txt_file', 'no_txt_file')
-        logger.debug(f"Single add (added signal only, no listChanged): {song_desc} ({txt_file})")
+        logger.debug("Single add (added signal only, no listChanged): %s (%s)", song_desc, txt_file)
         self.songs.append(song)
+        self._prepare_song(song)
         self.added.emit(song)
         # Don't emit listChanged for single add - prevents UI double-insert
 
@@ -64,19 +75,18 @@ class Songs(QObject):
         added_count = 0
         updated_count = 0
         for song in songs:
-            if hasattr(song, 'txt_file') and song.txt_file:
-                existing = self.get_by_txt_file(song.txt_file)
-                if existing:
-                    # Update existing song instead of adding duplicate
-                    existing.__dict__.update(song.__dict__)
-                    updated_count += 1
-                    continue
+            existing = self._find_existing(song)
+            if existing:
+                self._update_song(existing, song)
+                updated_count += 1
+                continue
 
             self.songs.append(song)
+            self._prepare_song(song)
             added_count += 1
 
         if added_count > 0 or updated_count > 0:
-            logger.debug(f"Batch operation: added {added_count}, updated {updated_count} songs")
+            logger.debug("Batch operation: added %s, updated %s songs", added_count, updated_count)
             # Don't emit individual 'added' signals in batch mode - only emit once at the end
             # This prevents N UI updates for N songs (massive performance win)
             # Only emit list changed once at the end
@@ -84,35 +94,32 @@ class Songs(QObject):
 
     def remove(self, song: Song):
         self.songs.remove(song)
+        self._remove_index_keys(*self._snapshot_keys(song))
         self.deleted.emit(song)  # Changed from updated to deleted signal
         # Don't emit listChanged for single remove - prevents UI inconsistency
 
     def get_by_txt_file(self, txt_file: str) -> Song | None:
         """Get song by txt file path."""
-        # Normalize paths for case-insensitive comparison (Windows)
-        txt_file_normalized = normalize_path(txt_file)
-        for song in self.songs:
-            song_txt_normalized = normalize_path(song.txt_file)
-            if song_txt_normalized == txt_file_normalized:
-                return song
-        return None
+        key = self._normalize_key(txt_file)
+        if not key:
+            return None
+        return self._songs_by_txt.get(key)
 
     def get_by_path(self, path: str) -> Song | None:
         """Get song by folder path."""
-        # Normalize paths for case-insensitive comparison (Windows)
-        path_normalized = normalize_path(path)
-        for song in self.songs:
-            song_path_normalized = normalize_path(song.path)
-            if song_path_normalized == path_normalized:
-                return song
-        return None
+        key = self._normalize_key(path)
+        if not key:
+            return None
+        return self._songs_by_path.get(key)
 
     def remove_by_txt_file(self, txt_file: str) -> bool:
         """Remove song by txt file path. Returns True if removed."""
-        song = self.get_by_txt_file(txt_file)
-        if song:
-            self.remove(song)
-            return True
+        key = self._normalize_key(txt_file)
+        if key:
+            song = self._songs_by_txt.get(key)
+            if song:
+                self.remove(song)
+                return True
         return False
 
     def list_changed(self):
@@ -144,3 +151,46 @@ class Songs(QObject):
     def filter_text(self, value):
         self._filter_text = value
         self.filterChanged.emit()
+
+    def _normalize_key(self, value: Optional[Union[str, os.PathLike]]) -> Optional[str]:
+        if not value:
+            return None
+        if isinstance(value, os.PathLike):
+            value = os.fspath(value)
+        if not isinstance(value, str):
+            return None
+        return normalize_path(value)
+
+    def _snapshot_keys(self, song: Song) -> Tuple[Optional[str], Optional[str]]:
+        txt_file = getattr(song, "txt_file", None)
+        song_path = getattr(song, "path", None)
+        return self._normalize_key(txt_file), self._normalize_key(song_path)
+
+    def _remove_index_keys(self, txt_key: Optional[str], path_key: Optional[str]):
+        if txt_key:
+            self._songs_by_txt.pop(txt_key, None)
+        if path_key:
+            self._songs_by_path.pop(path_key, None)
+
+    def _index_song(self, song: Song):
+        txt_key, path_key = self._snapshot_keys(song)
+        if txt_key:
+            self._songs_by_txt[txt_key] = song
+        if path_key:
+            self._songs_by_path[path_key] = song
+
+    def _prepare_song(self, song: Song):
+        song.update_title_sort_key()
+        self._index_song(song)
+
+    def _find_existing(self, song: Song) -> Optional[Song]:
+        if hasattr(song, 'txt_file') and song.txt_file:
+            return self.get_by_txt_file(song.txt_file)
+        return None
+
+    def _update_song(self, target: Song, source: Song):
+        old_txt_key, old_path_key = self._snapshot_keys(target)
+        target.__dict__.update(source.__dict__)
+        target.update_title_sort_key()
+        self._remove_index_keys(old_txt_key, old_path_key)
+        self._index_song(target)

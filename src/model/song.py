@@ -1,5 +1,6 @@
 from enum import Enum
 import os
+import re
 from model.gap_info import GapInfo, GapInfoStatus
 import utils.audio as audio
 import logging
@@ -19,6 +20,26 @@ class SongStatus(Enum):
     MISMATCH = "MISMATCH"
     MISSING_AUDIO = "MISSING_AUDIO"
     ERROR = "ERROR"
+
+
+ARTICLE_PREFIXES = ("the ", "a ", "an ")
+NUMBER_PADDING = 6
+
+
+def _title_sort_substr(value: str) -> str:
+    """Normalize title for sorting (drop articles, pad numbers, collapse whitespace)."""
+    if not value:
+        return ""
+
+    normalized = value.casefold().strip()
+    for prefix in ARTICLE_PREFIXES:
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix):]
+            break
+
+    normalized = re.sub(r"\s+", " ", normalized)
+    normalized = re.sub(r"\d+", lambda match: match.group(0).zfill(NUMBER_PADDING), normalized)
+    return normalized
 
 
 class Song:
@@ -49,6 +70,7 @@ class Song:
         self._gap_info: Optional[GapInfo] = None
         self.status: SongStatus = SongStatus.NOT_PROCESSED
         self.error_message: Optional[str] = ""
+        self._title_sort_key: str = ""
 
     @property
     def path(self):
@@ -70,6 +92,17 @@ class Song:
                 return f"{self.gap_info.normalization_level:.1f} dB"
             return "YES"
         return "NO"
+
+    @property
+    def title_sort_key(self) -> str:
+        """Normalized title used for consistent UI sorting."""
+        if not self._title_sort_key:
+            self._title_sort_key = _title_sort_substr(self.title)
+        return self._title_sort_key
+
+    def update_title_sort_key(self):
+        """Recompute the cached title sort key after metadata changes."""
+        self._title_sort_key = _title_sort_substr(self.title)
 
     @property
     def status_text(self):
@@ -158,3 +191,5 @@ class Song:
         # Restore the state during deserialization
         self.__dict__.update(state)
         self.notes = None
+        if not getattr(self, "_title_sort_key", ""):
+            self.update_title_sort_key()

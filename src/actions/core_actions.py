@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from actions.base_actions import BaseActions
 from model.song import Song, SongStatus
 from workers.load_usdx_files import LoadUsdxFilesWorker
@@ -84,6 +85,7 @@ class CoreActions(BaseActions):
     def _load_songs(self):
         logger.info(f"Loading songs from directory: {self.data.directory}")
         self.data.is_loading_songs = True  # Set loading flag immediately
+        self._load_started_at = time.perf_counter()
         worker = LoadUsdxFilesWorker(self.data.directory, self.data.tmp_path, self.data.config)
         worker.signals.songLoaded.connect(self._on_song_loaded)
         worker.signals.songsLoadedBatch.connect(self._on_songs_batch_loaded)  # Connect batch handler
@@ -93,7 +95,10 @@ class CoreActions(BaseActions):
 
     def _on_songs_batch_loaded(self, songs: list):
         """Handle batch of songs loaded - much faster than one-by-one."""
-        logger.debug(f"Batch loading {len(songs)} songs")
+        elapsed_ms = 0.0
+        if hasattr(self, "_load_started_at") and self._load_started_at:
+            elapsed_ms = (time.perf_counter() - self._load_started_at) * 1000
+        logger.info("CoreActions received batch (%s songs) at %.1f ms", len(songs), elapsed_ms)
 
         # Set original gap for new songs
         for song in songs:
@@ -122,3 +127,5 @@ class CoreActions(BaseActions):
     def _on_loading_songs_finished(self):
         self.data.is_loading_songs = False
         logger.debug("Song loading finished")
+        # Signal UI to end bulk loading mode (re-enable dynamic filtering)
+        self.data.songs.loadingFinished.emit()
