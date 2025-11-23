@@ -9,9 +9,10 @@ Architecture:
 """
 
 import logging
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QPushButton
 from PySide6.QtCore import Qt
 from managers.worker_queue_manager import WorkerQueueManager
+from ui.common.column_layout import ColumnDefaults, ColumnLayoutController
 
 logger = logging.getLogger(__name__)
 
@@ -49,17 +50,27 @@ class TaskQueueViewer(QWidget):
         self.tableWidget = QTableWidget(0, 3)
         self.tableWidget.setHorizontalHeaderLabels(["Task", "Status", ""])
         self.tableWidget.horizontalHeader().setStretchLastSection(False)
-        self.tableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.tableWidget.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-        self.tableWidget.setColumnWidth(1, 100)  # Fixed width for Status column
-        self.tableWidget.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-        self.tableWidget.setColumnWidth(2, 80)  # Fixed width for button column
+        self.tableWidget.horizontalHeader().setSectionsMovable(True)
         self.tableWidget.verticalHeader().setVisible(False)
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tableWidget.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.tableWidget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 
+        column_defaults = ColumnDefaults(
+            numeric_widths={1: 100, 2: 80},
+            primary_ratios=(1.0,),
+            primary_min_width=200,
+            primary_columns=(0,),
+        )
+        self._table_layout = ColumnLayoutController(self.tableWidget, column_defaults)
+        self._table_layout.apply_policy()
+
         self.layout.addWidget(self.tableWidget)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "_table_layout"):
+            self._table_layout.rebalance_viewport()
 
     def _gather_tasks(self):
         """

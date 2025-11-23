@@ -88,7 +88,7 @@ class SongTableModel(QAbstractTableModel):
             elapsed = 0.0
             if self._bulk_started_at:
                 elapsed = (time.perf_counter() - self._bulk_started_at) * 1000
-            logger.info(
+            logger.debug(
                 "SongTableModel inserted %s songs via listChanged at %.1f ms (delta=%s)",
                 len(new_songs),
                 elapsed,

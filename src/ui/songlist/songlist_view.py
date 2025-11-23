@@ -4,14 +4,28 @@ import logging
 
 from actions import Actions
 from model.song import Song, SongStatus
+from ui.common.column_layout import ColumnDefaults, ColumnLayoutController
 from ui.songlist.songlist_model import SongTableModel
 
 logger = logging.getLogger(__name__)
 
 # CRITICAL: ResizeToContents is a major performance killer!
-# Always use fixed widths for large datasets
-LARGE_DATASET_THRESHOLD = 1000  # Use fixed-width columns for >1000 songs
 RESIZE_DEBOUNCE_MS = 200  # Delay before re-enabling expensive operations after resize
+
+COLUMN_DEFAULT_WIDTHS = {
+    3: 60,
+    4: 60,
+    5: 60,
+    6: 60,
+    7: 60,
+    8: 60,
+    9: 100,
+    10: 60,
+    11: 120,
+}
+
+PRIMARY_COLUMN_RATIOS = (0.4, 0.35, 0.25)  # Path, Artist, Title share of remaining width
+PRIMARY_COLUMN_MIN_WIDTH = 120
 
 # Viewport-based lazy loading configuration
 VIEWPORT_LOAD_DELAY_MS = 100  # Delay before loading visible songs
@@ -55,8 +69,6 @@ class SongListView(QTableView):
         self._resize_timer.timeout.connect(self._on_resize_finished)
         self._is_resizing = False
         self._original_header_modes = {}  # Store original header resize modes
-        self._auto_fit_enabled = True  # Allow auto-fit for small datasets
-        self._large_policy_applied = False
 
         # Viewport-based lazy loading state
         self._viewport_timer = QTimer()
@@ -65,8 +77,15 @@ class SongListView(QTableView):
         self._viewport_timer.timeout.connect(self._load_visible_songs)
         self._loaded_rows = set()  # Track which rows have been loaded
 
+        column_defaults = ColumnDefaults(
+            numeric_widths=COLUMN_DEFAULT_WIDTHS,
+            primary_ratios=PRIMARY_COLUMN_RATIOS,
+            primary_min_width=PRIMARY_COLUMN_MIN_WIDTH,
+            primary_columns=(0, 1, 2),
+        )
+        self._column_layout = ColumnLayoutController(self, column_defaults)
+
         self.setupUi()
-        self._bind_dataset_size_signals()
 
     def setupUi(self):
         self.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
@@ -75,6 +94,7 @@ class SongListView(QTableView):
         self.setSortingEnabled(True)
         self.horizontalHeader().setSortIndicatorShown(True)
         self.horizontalHeader().setSectionsClickable(True)
+        self.horizontalHeader().setSectionsMovable(True)
 
         # CRITICAL PERFORMANCE OPTIMIZATIONS
         # Scroll per pixel for smoother experience
@@ -86,10 +106,8 @@ class SongListView(QTableView):
         self.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         self.verticalHeader().setDefaultSectionSize(24)  # Standard row height
 
-        # Apply initial resize policy (conservative for large datasets)
+        # Apply initial resize policy (fixed layout for performance)
         self.apply_resize_policy()
-
-        self.setColumnWidth(9, 100)
 
         # Sorting by the first column initially
         self.sortByColumn(0, Qt.SortOrder.AscendingOrder)
@@ -98,63 +116,8 @@ class SongListView(QTableView):
         self._capture_header_modes()
 
     def apply_resize_policy(self):
-        """Apply column resize policy based on dataset size."""
-        # Get the source model to check row count
-        proxy_model = self.model()
-        source_model = proxy_model.sourceModel() if isinstance(proxy_model, QSortFilterProxyModel) else proxy_model
-
-        row_count = source_model.rowCount() if source_model else 0
-
-        # For large datasets, use fixed width or stretch to avoid expensive resizing
-        if row_count > LARGE_DATASET_THRESHOLD:
-            for i in range(12):
-                if i < 3:
-                    # Keep first 3 columns stretchy
-                    self.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
-                else:
-                    # Use fixed mode for others to avoid expensive calculations
-                    self.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeMode.Fixed)
-                    # Set reasonable default widths
-                    if i in [3, 4, 5, 6, 7, 8, 10]:  # Numeric columns
-                        self.setColumnWidth(i, 80)
-                    elif i == 9:  # Time
-                        self.setColumnWidth(i, 100)
-                    elif i == 11:  # Status
-                        self.setColumnWidth(i, 120)
-        else:
-            # For small datasets, use ResizeToContents for better appearance
-            for i in range(12):
-                resize_mode = QHeaderView.ResizeMode.Stretch if i < 3 else QHeaderView.ResizeMode.ResizeToContents
-                self.horizontalHeader().setSectionResizeMode(i, resize_mode)
-            self._large_policy_applied = False
-            self._auto_fit_enabled = True
-
-    def _bind_dataset_size_signals(self):
-        models = {self.model()}
-        if self.tableModel:
-            models.add(self.tableModel)
-        for mdl in models:
-            if hasattr(mdl, "rowsInserted"):
-                mdl.rowsInserted.connect(self._check_dataset_size)
-            if hasattr(mdl, "modelReset"):
-                mdl.modelReset.connect(self._reset_dataset_size_tracking)
-
-    def _reset_dataset_size_tracking(self, *args):
-        self._large_policy_applied = False
-        self._auto_fit_enabled = True
-
-    def _check_dataset_size(self, *args):
-        if self._large_policy_applied:
-            return
-
-        source_model = self.tableModel
-        if not isinstance(source_model, SongTableModel):
-            return
-
-        row_count = source_model.rowCount()
-        if row_count >= LARGE_DATASET_THRESHOLD:
-            logger.info("Detected large dataset via stream (%s rows) - locking fixed column widths", row_count)
-            self.apply_resize_policy()
+        """Delegate to shared column layout controller."""
+        self._column_layout.apply_policy()
 
     def onSelectionChanged(self, selected, deselected):
         """Debounce selection changes to prevent rapid-fire updates"""
@@ -200,14 +163,6 @@ class SongListView(QTableView):
 
         # Emit the list of selected songs
         self.selected_songs_changed.emit(selected_songs)
-
-        # Keep single song selection action for compatibility if needed elsewhere,
-        # but primary handling should use the list via selected_songs_changed.
-        # If actions.select_song is only used for single selection logic (e.g., detail view),
-        # it might need adjustment or removal depending on overall architecture.
-        # For now, let's assume the main handling is via set_selected_songs in Actions.
-        # if selected_songs:
-        #     self.actions.select_song(selected_songs[0].path) # Or adapt select_song if needed
 
     def _capture_header_modes(self):
         """Capture current header resize modes for restoration after resize."""
@@ -261,30 +216,19 @@ class SongListView(QTableView):
         for col_idx, mode in self._original_header_modes.items():
             header.setSectionResizeMode(col_idx, mode)
 
-        # 2. Check dataset size before applying auto-fit
         model = self.model()
-        source_model = model.sourceModel() if isinstance(model, QSortFilterProxyModel) else model
 
-        row_count = source_model.rowCount() if source_model else 0
-
-        # 4. Conditionally apply auto-fit only for small datasets
-        if self._auto_fit_enabled and row_count <= LARGE_DATASET_THRESHOLD and row_count > 0:
-            logger.debug(f"Applying single auto-fit pass for small dataset ({row_count} rows)")
-            # Only resize text columns selectively
-            for i in [0, 1, 2]:  # Path, Artist, Title
-                if i in self._original_header_modes:
-                    mode = self._original_header_modes[i]
-                    if mode == QHeaderView.ResizeMode.ResizeToContents:
-                        self.resizeColumnToContents(i)
-
-        # 5. Re-enable dynamic filtering (must be before sorting)
+        # Re-enable dynamic filtering (must be before sorting)
         if isinstance(model, QSortFilterProxyModel):
             model.setDynamicSortFilter(True)
 
-        # 6. Re-enable sorting
+        # Re-enable sorting
         self.setSortingEnabled(True)
 
-        # 7. FINAL: Re-enable updates to batch all changes into single repaint
+        # Ensure columns still span the viewport before repaint
+        self._column_layout.rebalance_viewport()
+
+        # FINAL: Re-enable updates to batch all changes into single repaint
         self.setUpdatesEnabled(True)
 
         logger.debug("Resize finished: restored all operations with single batched refresh")

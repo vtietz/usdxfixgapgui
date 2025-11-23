@@ -98,7 +98,7 @@ class CoreActions(BaseActions):
         elapsed_ms = 0.0
         if hasattr(self, "_load_started_at") and self._load_started_at:
             elapsed_ms = (time.perf_counter() - self._load_started_at) * 1000
-        logger.info("CoreActions received batch (%s songs) at %.1f ms", len(songs), elapsed_ms)
+        logger.debug("CoreActions received batch (%s songs) at %.1f ms", len(songs), elapsed_ms)
 
         # Set original gap for new songs
         for song in songs:
