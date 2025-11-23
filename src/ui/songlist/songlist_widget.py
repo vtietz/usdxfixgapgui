@@ -243,8 +243,6 @@ class SongListWidget(QWidget):
         # Bulk loading optimization: disable dynamic filtering during batch inserts
         self.tableModel.bulk_load_started.connect(self._on_bulk_load_started)
         self.tableModel.bulk_load_ended.connect(self._on_bulk_load_ended)
-        if hasattr(self.tableModel, "preview_ready"):
-            self.tableModel.preview_ready.connect(self._on_bulk_preview_ready)
 
     def _connect_action_signals(self):
         """Connect action and filter signals to handlers."""
@@ -268,24 +266,17 @@ class SongListWidget(QWidget):
         self.tableView.setUpdatesEnabled(False)
         logger.info("SongListWidget bulk freeze engaged")
 
-    def _on_bulk_preview_ready(self, row_count: int):
-        """Release painting early but keep heavy proxy work suppressed."""
-        self._release_bulk_freeze(f"preview {row_count}", enable_dynamic_filter=False)
-
     def _on_bulk_load_ended(self):
         """Re-enable dynamic filtering and invalidate once bulk loading completes."""
-        self._release_bulk_freeze("completed", enable_dynamic_filter=True)
+        self._release_bulk_freeze("completed")
         self.proxyModel.invalidate()
 
-    def _release_bulk_freeze(self, reason: str, *, enable_dynamic_filter: bool):
+    def _release_bulk_freeze(self, reason: str):
         if not self._bulk_freeze_active:
             return
 
         self._bulk_freeze_active = False
-        if enable_dynamic_filter:
-            self.proxyModel.setDynamicSortFilter(True)
-        else:
-            logger.debug("Keeping proxy dynamic filtering disabled until load completes")
+        self.proxyModel.setDynamicSortFilter(True)
         self.tableView.setSortingEnabled(True)
         self.tableView.setUpdatesEnabled(True)
         self.tableView.reset_viewport_loading()

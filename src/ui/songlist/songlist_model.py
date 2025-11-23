@@ -13,14 +13,10 @@ from utils import files
 logger = logging.getLogger(__name__)
 
 
-PREVIEW_RELEASE_THRESHOLD = 300  # Rows to insert before re-enabling expensive view work
-
-
 class SongTableModel(QAbstractTableModel):
     # Custom signals for bulk loading optimization
     bulk_load_started = Signal()
     bulk_load_ended = Signal()
-    preview_ready = Signal(int)  # Emits the visible row count once initial slice is ready
     def __init__(self, songs_model: Songs, data: AppData, parent=None):
         super().__init__(parent)
         self.app_data = data
@@ -29,7 +25,6 @@ class SongTableModel(QAbstractTableModel):
         self.pending_songs = []
         self._bulk_loading = False  # Track whether we are inserting streaming batches
         self._bulk_started_at = 0.0
-        self._preview_release_emitted = False
 
         # Column strategy registry
         base_dir = self.app_data.directory or self.app_data.config.default_directory or ""
@@ -99,7 +94,6 @@ class SongTableModel(QAbstractTableModel):
                 elapsed,
                 delta,
             )
-            self._maybe_emit_preview_ready(len(self.songs), elapsed)
         elif model_count < current_count:  # Removal or clear
             self.songs_cleared()
             logger.debug("list_changed triggered songs_cleared (removal detected)")
@@ -126,24 +120,7 @@ class SongTableModel(QAbstractTableModel):
                 elapsed = (time.perf_counter() - self._bulk_started_at) * 1000
             logger.info("SongTableModel bulk load ended at %.1f ms", elapsed)
             self._bulk_started_at = 0.0
-            self._preview_release_emitted = False
             logger.debug("Bulk loading ended - dynamic filtering re-enabled")
-
-    def _maybe_emit_preview_ready(self, total_rows: int, elapsed_ms: float):
-        """Emit a preview-ready signal once enough rows are available to paint."""
-        if (
-            self._bulk_loading
-            and not self._preview_release_emitted
-            and total_rows >= PREVIEW_RELEASE_THRESHOLD
-        ):
-            self._preview_release_emitted = True
-            logger.info(
-                "SongTableModel preview ready after %s rows at %.1f ms (threshold=%s)",
-                total_rows,
-                elapsed_ms,
-                PREVIEW_RELEASE_THRESHOLD,
-            )
-            self.preview_ready.emit(total_rows)
 
     def _rebuild_cache(self):
         """Rebuild the entire cache from current songs list."""
@@ -257,7 +234,6 @@ class SongTableModel(QAbstractTableModel):
         self.songs.clear()
         self._row_cache.clear()
         self.endResetModel()
-        self._preview_release_emitted = False
 
     def rowCount(self, parent=QModelIndex()):
         return len(self.songs)
@@ -331,7 +307,6 @@ class SongTableModel(QAbstractTableModel):
         self.songs.clear()
         self._row_cache.clear()
         self.endResetModel()
-        self._preview_release_emitted = False
         logger.info(f"Started async loading, expecting {total_count} songs")
 
     def load_data_async_append(self, chunk_songs: List[Song]):
