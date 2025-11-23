@@ -5,10 +5,19 @@ Creates and runs the main GUI window with all components.
 Separated from main entry point for better code organization.
 """
 
+import os
 import sys
 import logging
 
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMessageBox, QSplitter
+from PySide6.QtWidgets import (
+    QApplication,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QSplitter,
+)
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer, Qt
@@ -29,6 +38,7 @@ from ui.mediaplayer import MediaPlayerComponent
 from ui.songlist.songlist_widget import SongListWidget
 from ui.task_queue_viewer import TaskQueueViewer
 from ui.log_viewer import LogViewerWidget
+from ui.splash import create_splash_screen
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +83,9 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
     # Create main window
     window = _create_main_window(app, config, gpu_dialog)
 
+    # Optional splash screen before showing the full UI
+    splash_ctx = create_splash_screen(app)
+
     # Connect to aboutToQuit to save geometry and filter state before closing
     app.aboutToQuit.connect(lambda: _save_window_state(window, config, data))
 
@@ -100,28 +113,17 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
     # Log runtime information and check dependencies
     _log_runtime_info_and_check_dependencies()
 
-    # Show window
-    window.show()
-
-    # Auto-load last directory
-    actions.auto_load_last_directory()
-
-    # Restore filter state after directory loads
-    QTimer.singleShot(100, lambda: _restore_filter_state(config, data, menuBar))
-
-    # Auto-enable watch mode if configured and initial scan completes
-    if config.watch_mode_default:
-        actions.initial_scan_completed.connect(lambda: _auto_enable_watch_mode(actions))
-
-    # Enable dark mode
-    enable_dark_mode(app)
-
-    # Setup proper shutdown sequence
-    _setup_shutdown_sequence(app, data, logViewer)
-
-    # Log completion and delayed start message
-    logger.info("GUI Initialized Successfully")
-    QTimer.singleShot(200, lambda: _log_delayed_start_info(data))
+    # Defer showing the main window until splash finishes
+    _schedule_window_show(
+        app,
+        splash_ctx,
+        window,
+        actions,
+        config,
+        data,
+        menuBar,
+        logViewer,
+    )
 
     # Start event loop
     return app.exec()
@@ -190,12 +192,7 @@ def _create_main_window(app, config, gpu_dialog):
     window.resize(config.window_width, config.window_height)
     window.setMinimumSize(600, 600)
 
-    if config.window_maximized:
-        window.showMaximized()
-
     return window
-
-
 def _save_window_state(window, config, data):
     """Save window geometry, maximized state, and filter state."""
     if not window.isMaximized():
@@ -402,6 +399,38 @@ def _setup_shutdown_sequence(app, data, logViewer):
     app.aboutToQuit.connect(shutdown_asyncio)
     app.aboutToQuit.connect(logViewer.cleanup)
     app.aboutToQuit.connect(shutdown_async_logging)
+
+
+def _schedule_window_show(app, splash_ctx, window, actions, config, data, menuBar, logViewer):
+    """Show main window after optional splash delay."""
+
+    def _show_main_window():
+        _post_window_show(app, window, actions, config, data, menuBar, logViewer)
+        if splash_ctx:
+            splash, _ = splash_ctx
+            splash.finish(window)
+
+    if splash_ctx:
+        _, duration_ms = splash_ctx
+        QTimer.singleShot(duration_ms, _show_main_window)
+    else:
+        _show_main_window()
+
+
+def _post_window_show(app, window, actions, config, data, menuBar, logViewer):
+    """Finalize UI activation once the splash screen is complete."""
+    if config.window_maximized:
+        window.showMaximized()
+    else:
+        window.show()
+    actions.auto_load_last_directory()
+    QTimer.singleShot(100, lambda: _restore_filter_state(config, data, menuBar))
+    if config.watch_mode_default:
+        actions.initial_scan_completed.connect(lambda: _auto_enable_watch_mode(actions))
+    enable_dark_mode(app)
+    _setup_shutdown_sequence(app, data, logViewer)
+    logger.info("GUI Initialized Successfully")
+    QTimer.singleShot(200, lambda: _log_delayed_start_info(data))
 
 
 def _restore_filter_state(config, data, menuBar):
