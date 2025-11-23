@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Optional, Tuple
 
 from PySide6.QtWidgets import QApplication, QSplashScreen
@@ -12,6 +11,7 @@ from PySide6.QtCore import Qt
 
 from common.constants import APP_NAME, APP_DESCRIPTION
 from utils.files import resource_path
+from utils.version import get_version
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 def create_splash_screen(app: QApplication, duration_ms: int = 5000) -> Optional[Tuple[QSplashScreen, int]]:
     """Create and display the splash screen, returning (splash, duration)."""
     try:
-        version = _read_app_version()
+        version = get_version()
         pixmap = _build_splash_pixmap(version)
         splash = QSplashScreen(pixmap)
         splash.setWindowFlag(Qt.WindowStaysOnTopHint)
@@ -29,25 +29,6 @@ def create_splash_screen(app: QApplication, duration_ms: int = 5000) -> Optional
     except Exception:
         logger.exception("Failed to initialize splash screen")
         return None
-
-
-def _read_app_version() -> str:
-    """Read version string from VERSION file with fallbacks."""
-    version_paths = [
-        resource_path("VERSION"),
-        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "VERSION"),
-        os.path.join(os.getcwd(), "VERSION"),
-    ]
-    for version_file in version_paths:
-        try:
-            if os.path.exists(version_file):
-                with open(version_file, "r", encoding="utf-8") as handle:
-                    content = handle.read().strip()
-                    if content:
-                        return content
-        except Exception as exc:
-            logger.debug("Splash version read failed for %s: %s", version_file, exc)
-    return "unknown"
 
 
 def _build_splash_pixmap(version: str) -> QPixmap:

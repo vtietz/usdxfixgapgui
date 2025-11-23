@@ -32,6 +32,7 @@ from ui.workers.gpu_download_worker import GpuDownloadWorker
 from utils.gpu.download_cleanup import cleanup_download_files, cleanup_download_files_safe
 from utils.gpu_bootstrap import capability_probe
 from utils.gpu import manifest as gpu_manifest
+from utils.version import get_version
 
 logger = logging.getLogger(__name__)
 
@@ -155,13 +156,7 @@ def _prepare_download_ui(dialog) -> None:
 
 
 def _choose_manifest(dialog):
-    from utils.files import resource_path
-
-    version_file = resource_path("VERSION")
-    app_version = "unknown"
-    if os.path.exists(version_file):
-        with open(version_file, "r", encoding="utf-8") as f:
-            app_version = f.read().strip()
+    app_version = get_version()
 
     manifests = gpu_manifest.load_local_manifest(app_version)
     cap = capability_probe()

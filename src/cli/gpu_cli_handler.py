@@ -15,21 +15,13 @@ from utils.gpu_bootstrap import capability_probe, resolve_pack_dir, ADDED_DLL_DI
 from utils.gpu import manifest as gpu_manifest, downloader as gpu_downloader
 from utils.gpu.utils import is_gpu_pack_installed, get_gpu_pack_info
 from utils.files import get_app_dir
+from utils.version import get_version
 
 
-def get_app_version():
-    """Read application version from VERSION file"""
-    from utils.files import resource_path
-    import os
-
-    try:
-        version_file = resource_path("VERSION")
-        if os.path.exists(version_file):
-            with open(version_file, "r") as f:
-                return f.read().strip().lstrip("v")
-        return "1.0.0"  # Fallback
-    except Exception:
-        return "1.0.0"
+def _get_cli_app_version() -> str:
+    """Return app version for CLI use, defaulting to semver string."""
+    version = get_version().lstrip("v")
+    return version if version and version != "unknown" else "1.0.0"
 
 
 def handle_gpu_enable(config):
@@ -215,7 +207,7 @@ def handle_setup_gpu(config):
     """Download and install GPU Pack"""
     print("Setting up GPU Pack...")
 
-    app_version = get_app_version()
+    app_version = _get_cli_app_version()
     cap = capability_probe()
 
     if not cap["has_nvidia"]:
@@ -309,7 +301,7 @@ def handle_setup_gpu_zip(config, zip_path_str):
         print(f"ERROR: File not found: {zip_path}")
         return
 
-    app_version = get_app_version()
+    app_version = _get_cli_app_version()
 
     # Try to infer flavor from filename (e.g., "usdxfixgap-gpu-cu121-v1.0.0.zip")
     flavor = None

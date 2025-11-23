@@ -31,6 +31,7 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QFont
 
 from common.constants import APP_NAME
+from utils.version import get_version
 from services.system_capabilities import SystemCapabilities, check_system_capabilities
 from utils.gpu_bootstrap import capability_probe, detect_existing_gpu_pack, activate_existing_gpu_pack
 from utils.gpu.download_cleanup import cleanup_download_files
@@ -96,27 +97,8 @@ class StartupDialog(QDialog):
             self.setWindowFlags(Qt.WindowType.Dialog)
         self._drag_position = None
 
-    def _read_version(self) -> str:
-        from utils.files import resource_path
-
-        version_paths = [
-            resource_path("VERSION"),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "VERSION"),
-            "VERSION",
-        ]
-        for version_file in version_paths:
-            try:
-                if os.path.exists(version_file):
-                    with open(version_file, "r", encoding="utf-8") as f:
-                        content = f.read().strip()
-                        if content:
-                            return content
-            except Exception as e:  # Non-critical
-                logger.debug("Failed reading VERSION at %s: %s", version_file, e)
-        return "unknown"
-
     def _build_header(self, layout: QVBoxLayout) -> None:
-        version = self._read_version()
+        version = get_version()
         title_label = QLabel(f"{APP_NAME} {version}")
         title_font = QFont()
         title_font.setPointSize(16)
@@ -441,7 +423,7 @@ class StartupDialog(QDialog):
 
     def _log_app_version(self):
         """Log application version."""
-        app_version = self._read_version()
+        app_version = get_version()
         # Get Qt version
         try:
             from PySide6 import __version__ as pyside_version

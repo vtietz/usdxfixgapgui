@@ -7,6 +7,7 @@ from typing import Optional, Tuple, Any
 
 # Import only the minimal constants needed for early execution
 from common.constants import APP_NAME, APP_DESCRIPTION, APP_LOG_FILENAME
+from utils.version import get_version
 
 # Defer other imports until after health check / version check
 # from app.app_data import Config  # Moved to main()
@@ -104,22 +105,6 @@ def parse_arguments():
     parser.add_argument("--gpu-diagnostics", action="store_true", help="Show GPU status and write diagnostics to file")
 
     return parser.parse_args()
-
-
-def get_version():
-    """Read version from VERSION file"""
-    try:
-        from utils.files import resource_path
-
-        version_file = resource_path("VERSION")
-        if os.path.exists(version_file):
-            with open(version_file, "r") as f:
-                return f.read().strip()
-    except Exception:
-        pass
-    return "unknown"
-
-
 def print_version_info():
     """Print version and dependency information"""
     version = get_version()

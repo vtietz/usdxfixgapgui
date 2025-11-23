@@ -107,7 +107,6 @@ class SongListView(QTableView):
 
         # For large datasets, use fixed width or stretch to avoid expensive resizing
         if row_count > LARGE_DATASET_THRESHOLD:
-            logger.info(f"Large dataset ({row_count} rows), using conservative resize policy")
             for i in range(12):
                 if i < 3:
                     # Keep first 3 columns stretchy
@@ -124,7 +123,6 @@ class SongListView(QTableView):
                         self.setColumnWidth(i, 120)
         else:
             # For small datasets, use ResizeToContents for better appearance
-            logger.info(f"Small dataset ({row_count} rows), using ResizeToContents policy")
             for i in range(12):
                 resize_mode = QHeaderView.ResizeMode.Stretch if i < 3 else QHeaderView.ResizeMode.ResizeToContents
                 self.horizontalHeader().setSectionResizeMode(i, resize_mode)
