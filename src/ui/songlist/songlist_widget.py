@@ -154,6 +154,7 @@ class SongListWidget(QWidget):
         # Create UI components
         self._create_action_buttons()
         self.countLabel = QLabel()
+        self._last_count_label = ""
 
         # Setup layout
         self._setup_layout()
@@ -495,7 +496,9 @@ class SongListWidget(QWidget):
         shown_songs = self.proxyModel.rowCount()
         label_text = f"Showing {shown_songs} of {total_songs} songs"
         self.countLabel.setText(label_text)
-        logger.debug("Song count updated: %s", label_text)
+        if label_text != self._last_count_label:
+            self._last_count_label = label_text
+            logger.debug("Song count updated: %s", label_text)
 
     def start_chunked_load(self, songs: List[Song]):
         """Start chunked loading for large song lists."""
@@ -504,10 +507,10 @@ class SongListWidget(QWidget):
 
         # If the dataset is small, load directly
         if len(songs) <= CHUNK_SIZE:
-            logger.info(f"Small dataset ({len(songs)} songs), loading directly")
+            logger.info("Small dataset (%s songs), loading directly", len(songs))
             return  # Let normal signal-based loading handle it
 
-        logger.info(f"Starting chunked loading for {len(songs)} songs")
+        logger.info("Starting chunked loading for %s songs", len(songs))
 
         # Disable sorting and dynamic filtering during streaming
         self.tableView.setSortingEnabled(False)
@@ -541,7 +544,12 @@ class SongListWidget(QWidget):
         # Update progress
         self._streaming_index = end_index
         progress = (self._streaming_index / len(self._streaming_songs)) * 100
-        logger.debug(f"Streaming progress: {progress:.1f}% ({self._streaming_index}/{len(self._streaming_songs)})")
+        logger.debug(
+            "Streaming progress: %.1f%% (%s/%s)",
+            progress,
+            self._streaming_index,
+            len(self._streaming_songs),
+        )
 
     def _complete_chunked_load(self):
         """Complete chunked loading and restore UI features."""

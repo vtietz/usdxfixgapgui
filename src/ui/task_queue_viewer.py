@@ -32,6 +32,7 @@ class TaskQueueViewer(QWidget):
         super().__init__(parent)
         self.workerQueueManager = workerQueueManager
         self._last_tasks = []  # Cache for skipping unnecessary rebuilds
+        self._last_task_summary = None  # Prevents duplicate debug logs
 
         # UI setup
         self.initUI()
@@ -124,14 +125,23 @@ class TaskQueueViewer(QWidget):
             can_cancel = True
             tasks.append((worker.id, description, status_name, can_cancel))
 
-        # Debug logging
-        logger.debug(
-            f"[TASK QUEUE] Gathered {len(tasks)} tasks: "
-            f"running_instant={1 if self.workerQueueManager.running_instant_task else 0}, "
-            f"running_standard={len(self.workerQueueManager.running_tasks)}, "
-            f"queued_instant={len(self.workerQueueManager.queued_instant_tasks)}, "
-            f"queued_standard={len(self.workerQueueManager.queued_tasks)}"
+        summary = (
+            len(tasks),
+            1 if self.workerQueueManager.running_instant_task else 0,
+            len(self.workerQueueManager.running_tasks),
+            len(self.workerQueueManager.queued_instant_tasks),
+            len(self.workerQueueManager.queued_tasks),
         )
+        if summary != self._last_task_summary:
+            logger.debug(
+                "[TASK QUEUE] Gathered %s tasks (instant_running=%s, standard_running=%s, instant_queued=%s, standard_queued=%s)",
+                summary[0],
+                summary[1],
+                summary[2],
+                summary[3],
+                summary[4],
+            )
+            self._last_task_summary = summary
 
         return tasks
 

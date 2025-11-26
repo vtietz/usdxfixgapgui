@@ -5,6 +5,28 @@ import atexit
 import sys
 from typing import Optional
 
+
+TRACE_LEVEL = 5
+
+
+def _ensure_trace_level() -> None:
+    """Register TRACE log level once and add Logger.trace helper."""
+
+    if getattr(logging, "TRACE", None):
+        return
+
+    logging.TRACE = TRACE_LEVEL  # type: ignore[attr-defined]
+    logging.addLevelName(TRACE_LEVEL, "TRACE")
+
+    def trace(self, message, *args, **kwargs):  # type: ignore[override]
+        if self.isEnabledFor(TRACE_LEVEL):
+            self._log(TRACE_LEVEL, message, args, **kwargs)
+
+    logging.Logger.trace = trace  # type: ignore[attr-defined]
+
+
+_ensure_trace_level()
+
 # Global reference to prevent garbage collection
 _queue_listener = None
 _shutdown_registered = False

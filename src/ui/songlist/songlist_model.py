@@ -98,6 +98,8 @@ class SongTableModel(QAbstractTableModel):
             self.songs_cleared()
             logger.debug("list_changed triggered songs_cleared (removal detected)")
 
+        self._remap_selection_to_current_instances()
+
     def add_pending_songs(self):
         if self.pending_songs:
             self.beginInsertRows(QModelIndex(), len(self.songs), len(self.songs) + len(self.pending_songs) - 1)
@@ -234,6 +236,7 @@ class SongTableModel(QAbstractTableModel):
         self.songs.clear()
         self._row_cache.clear()
         self.endResetModel()
+        self._remap_selection_to_current_instances()
 
     def rowCount(self, parent=QModelIndex()):
         return len(self.songs)
@@ -330,3 +333,31 @@ class SongTableModel(QAbstractTableModel):
         """Complete async data loading."""
         self._is_streaming = False
         logger.info(f"Completed async loading, total songs: {len(self.songs)}")
+        self._remap_selection_to_current_instances()
+
+    def _remap_selection_to_current_instances(self):
+        """Ensure AppData.selected_songs references current Song instances after batch operations."""
+        selected = list(getattr(self.app_data, "selected_songs", []) or [])
+        if not selected:
+            return
+
+        path_map = {}
+        for song in self.songs:
+            path = getattr(song, "path", None)
+            if path:
+                path_map[path] = song
+
+        remapped = []
+        changed = False
+        for song in selected:
+            path = getattr(song, "path", None)
+            replacement = path_map.get(path)
+            if replacement is None:
+                return  # Missing selection in current list; keep existing selection untouched
+            remapped.append(replacement)
+            if replacement is not song:
+                changed = True
+
+        if changed:
+            logger.debug("Selection remapped to new instances: %s entries", len(remapped))
+            self.app_data.selected_songs = remapped
