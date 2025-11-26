@@ -1,6 +1,8 @@
 import logging
+import itertools
+from contextlib import contextmanager
 from PySide6.QtCore import QObject, QTimer
-from typing import List, Callable
+from typing import List, Callable, Optional
 from app.app_data import AppData
 from model.song import Song
 
@@ -9,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 class BaseActions(QObject):
     """Base class for all action modules"""
+
+    _lane_hold_counter = itertools.count(1)
 
     def __init__(self, data: AppData):
         """
@@ -21,6 +25,7 @@ class BaseActions(QObject):
         self.data = data
         self.config = data.config
         self.worker_queue = data.worker_queue  # Use the shared worker queue from AppData
+        self._lane_hold_prefix = self.__class__.__name__
 
     # TODO: currently not sure if this is helpful
     def _queue_tasks_non_blocking(self, songs: List[Song], callback: Callable):
@@ -51,6 +56,61 @@ class BaseActions(QObject):
         # If there are more songs, queue the next one with a delay
         if remaining_songs:
             QTimer.singleShot(50, lambda: self._process_next_song(remaining_songs, callback))
+
+    # ------------------------------------------------------------------
+    # Worker queue standard-lane coordination helpers
+    # ------------------------------------------------------------------
+
+    def _acquire_lane_hold(self, reason: Optional[str] = None) -> Optional[str]:
+        queue = getattr(self, "worker_queue", None)
+        if not queue or not hasattr(queue, "hold_standard_lane"):
+            return None
+        token = f"{self._lane_hold_prefix}:{reason or 'lane-hold'}#{next(BaseActions._lane_hold_counter)}"
+        try:
+            queue.hold_standard_lane(token)
+            return token
+        except Exception:
+            logger.debug("Failed to acquire lane hold", exc_info=True)
+            return None
+
+    def _release_lane_hold(self, token: Optional[str]):
+        if not token:
+            return
+        queue = getattr(self, "worker_queue", None)
+        if not queue or not hasattr(queue, "release_standard_lane"):
+            return
+        try:
+            queue.release_standard_lane(token)
+        except Exception:
+            logger.debug("Failed to release lane hold", exc_info=True)
+
+    @contextmanager
+    def _lane_hold(self, reason: str):
+        token = self._acquire_lane_hold(reason)
+        try:
+            yield token
+        finally:
+            self._release_lane_hold(token)
+
+    def _hold_lane_for_worker(self, worker, reason: str):
+        token = self._acquire_lane_hold(reason)
+        if not token:
+            return
+        released = {"done": False}
+
+        def release_once(*_args, **_kwargs):
+            if released["done"]:
+                return
+            released["done"] = True
+            self._release_lane_hold(token)
+
+        try:
+            worker.signals.finished.connect(release_once)
+            worker.signals.error.connect(release_once)
+            worker.signals.canceled.connect(release_once)
+        except Exception:
+            logger.debug("Failed to attach lane hold release hooks", exc_info=True)
+            release_once()
 
     def _on_song_worker_started(self, song: Song):
         from model.song import SongStatus

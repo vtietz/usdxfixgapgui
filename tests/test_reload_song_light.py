@@ -109,6 +109,29 @@ def test_reload_song_light_does_not_change_status(song_actions, mock_app_data, f
         assert test_song.status == initial_status, f"Status should remain {initial_status}, got {test_song.status}"
 
 
+def test_reload_song_light_force_bypasses_skip(song_actions, fake_run_async):
+    """Ensure force=True reloads even when metadata already exists."""
+    test_song = Song("Z:/Songs/Artist/AlreadyLoaded.txt")
+    test_song.title = "Cached"
+    test_song.artist = "Artist"
+    test_song.notes = []  # Presence of notes would normally skip reload
+
+    with (
+        patch("actions.song_actions.SongService") as mock_service_class,
+        patch("actions.song_actions.run_async") as mock_run_async,
+    ):
+        mock_service = mock_service_class.return_value
+        reloaded = Song(test_song.txt_file)
+        reloaded.title = "Fresh"
+        mock_service.load_song_metadata_only = AsyncMock(return_value=reloaded)
+
+        mock_run_async.side_effect = fake_run_async
+
+        song_actions.reload_song_light(specific_song=test_song, force=True)
+
+        mock_service.load_song_metadata_only.assert_called_once()
+
+
 def test_reload_song_light_with_error_handling(song_actions, fake_run_async):
     """
     Test that reload_song_light() handles service errors gracefully.

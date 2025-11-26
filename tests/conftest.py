@@ -139,6 +139,10 @@ def app_data(tmp_path):
     # Filesystem access
     data.tmp_path = tmp_path
 
+    # Waveform manager mock (allows tests to inspect delegation)
+    data.waveform_manager = Mock()
+    data.waveform_manager.ensure_waveforms = Mock()
+
     return data
 
 

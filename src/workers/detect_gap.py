@@ -71,7 +71,7 @@ class WorkerSignals(IWorkerSignals):
 
 class DetectGapWorker(IWorker):
     def __init__(self, options: DetectGapWorkerOptions):
-        super().__init__()
+        super().__init__(is_instant=True)
         self.signals = WorkerSignals()
         self.options = options
         self._isCancelled = False

@@ -51,6 +51,8 @@ class IWorker(QObject):
         self._description = "Undefined"
         self._is_canceled = False
         self.is_instant = is_instant  # Instant tasks can run in parallel with standard tasks
+        # Cooperative yield: manager can inject a callback the worker checks to decide to yield
+        self._yield_check = None
 
     @property
     def id(self):
@@ -127,6 +129,29 @@ class IWorker(QObject):
         self.status = WorkerStatus.FINISHED
         # Base implementation doesn't emit any signals - each worker handles this
 
+    # Cooperative yield support
+    def set_yield_check(self, fn):
+        """
+        Set a callback that returns True when the worker should cooperatively yield.
+        The manager injects this to allow long-running workers to pause when user-priority work appears.
+        """
+        try:
+            self._yield_check = fn
+        except Exception:
+            logger.debug("Failed to set yield_check on worker", exc_info=True)
+
+    def should_yield(self) -> bool:
+        """
+        Return True if the worker should cooperatively yield (pause) right now.
+        Safe to call from worker code; returns False if no check is set.
+        """
+        try:
+            return bool(self._yield_check and self._yield_check())
+        except Exception:
+            # Defensive: never break worker execution due to yield check errors
+            logger.debug("yield_check raised unexpectedly", exc_info=True)
+            return False
+
 
 class WorkerQueueManager(QObject):
     task_id_counter = 0
@@ -147,6 +172,8 @@ class WorkerQueueManager(QObject):
         self._ui_update_interval = ui_update_interval  # Update interval in seconds
         self._ui_update_pending = False  # Flag to track if UI updates are needed
         self._last_ui_update = time.time()  # Track when the last update occurred
+        self._standard_pause_until: float = 0.0  # When standard lane is allowed to resume
+        self._standard_lane_hold_count = 0  # Re-entrant hold for standard lane
 
         # Connect the internal signal to start_next_task
         self._start_queued_task_signal.connect(self.start_next_task)
@@ -162,7 +189,7 @@ class WorkerQueueManager(QObject):
 
             # Safety check: ensure queued tasks get started if no tasks are running
             # This prevents tasks from getting stuck in WAITING status
-            if self.queued_tasks and not self.running_tasks:
+            if self.queued_tasks and not self.running_tasks and not self._is_standard_lane_paused():
                 # Emit signal to start task on main thread
                 try:
                     self._start_queued_task_signal.emit()
@@ -233,7 +260,12 @@ class WorkerQueueManager(QObject):
 
     def add_task(self, worker: IWorker, start_now=False, priority=False):
         worker.id = self.get_unique_task_id()
-        logger.debug(f"Creating task: {worker.description} (instant={worker.is_instant}, priority={priority})")
+        logger.debug(
+            "Creating task: %s (instant=%s, priority=%s)",
+            worker.description,
+            worker.is_instant,
+            priority,
+        )
         # Be tolerant to different signal signatures (e.g. DetectGapWorker.finished emits a result)
         worker.signals.finished.connect(lambda *args, wid=worker.id: self.on_task_finished(wid))
         worker.signals.error.connect(lambda e=None, wid=worker.id: self.on_task_error(wid, e))
@@ -256,16 +288,35 @@ class WorkerQueueManager(QObject):
         else:
             # Standard lane: long-running sequential tasks
             worker.status = WorkerStatus.WAITING
+
+            # Provide cooperative yield check to allow pre-emption/pause while instant tasks run
+            try:
+
+                def yield_fn() -> bool:
+                    return (
+                        self._is_standard_lane_paused()
+                        or bool(self.running_instant_task)
+                        or bool(self.queued_instant_tasks)
+                    )
+
+                worker.set_yield_check(yield_fn)
+            except Exception:
+                logger.debug("Failed to attach yield_check to worker", exc_info=True)
+
             # Priority tasks go to front of queue (executed next), normal tasks go to back
             if priority:
                 self.queued_tasks.appendleft(worker)
                 logger.debug(
-                    f"[QUEUE] Added to front of standard queue (priority): {worker.description} (queue size: {len(self.queued_tasks)})"
+                    "[QUEUE] Added to front of standard queue (priority): %s (queue size: %s)",
+                    worker.description,
+                    len(self.queued_tasks),
                 )
             else:
                 self.queued_tasks.append(worker)
                 logger.debug(
-                    f"[QUEUE] Added to back of standard queue: {worker.description} (queue size: {len(self.queued_tasks)})"
+                    "[QUEUE] Added to back of standard queue: %s (queue size: %s)",
+                    worker.description,
+                    len(self.queued_tasks),
                 )
 
             # Emit immediate UI update when adding to queue (don't wait for heartbeat)
@@ -339,10 +390,14 @@ class WorkerQueueManager(QObject):
             return
         if self.running_tasks:
             return
+        if self._is_standard_lane_paused():
+            return
 
         worker = self.queued_tasks.popleft()  # FIFO: remove from head
         logger.debug(
-            f"[QUEUE] Starting task: {worker.description} (remaining queued: {len(self.queued_tasks)})"
+            "[QUEUE] Starting task: %s (remaining queued: %s)",
+            worker.description,
+            len(self.queued_tasks),
         )
         # Immediately add a placeholder to running_tasks to prevent race condition
         # where _finalize_task → start_next_task is called before _start_worker executes
@@ -355,7 +410,7 @@ class WorkerQueueManager(QObject):
         """Start the next instant task if the instant slot is available"""
         if self.queued_instant_tasks and self.running_instant_task is None:
             worker = self.queued_instant_tasks.popleft()  # FIFO: remove from head
-            logger.debug(f"Starting instant task: {worker.description}")
+            logger.debug("Starting instant task: %s", worker.description)
             # Emit immediately after removing from queue to show transition
             self.on_task_list_changed.emit()
             run_async(self._start_instant_worker(worker))
@@ -520,6 +575,43 @@ class WorkerQueueManager(QObject):
     def set_update_interval(self, seconds):
         """Change the UI update interval"""
         self._ui_update_interval = max(0.1, seconds)  # Minimum 0.1 seconds
+
+    def pause_standard_lane(self, milliseconds: int = 250):
+        """Temporarily delay starting standard-lane tasks (e.g., to prioritize user actions)."""
+        ms = max(0, milliseconds)
+        pause_until = time.time() + (ms / 1000.0)
+        if pause_until > self._standard_pause_until:
+            self._standard_pause_until = pause_until
+            logger.debug("Standard queue paused for %dms", ms)
+
+    def hold_standard_lane(self, reason=None):
+        """Block standard-lane tasks until the hold is explicitly released (re-entrant)."""
+        self._standard_lane_hold_count += 1
+        logger.debug(
+            "Standard queue hold ++ (reason=%s, count=%d)",
+            reason or "unspecified",
+            self._standard_lane_hold_count,
+        )
+
+    def release_standard_lane(self, reason=None):
+        if self._standard_lane_hold_count <= 0:
+            return
+        self._standard_lane_hold_count -= 1
+        logger.debug(
+            "Standard queue hold -- (reason=%s, count=%d)",
+            reason or "unspecified",
+            self._standard_lane_hold_count,
+        )
+
+    def _is_standard_lane_paused(self) -> bool:
+        if self._standard_lane_hold_count > 0:
+            return True
+        if not self._standard_pause_until:
+            return False
+        if time.time() >= self._standard_pause_until:
+            self._standard_pause_until = 0.0
+            return False
+        return True
 
     # Add method to clean up when app closes
     def cleanup(self):

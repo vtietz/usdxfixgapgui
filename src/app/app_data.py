@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from services.gap_state import GapState
     from services.audio_service import AudioService
     from services.system_capabilities import SystemCapabilities
+    from services.waveform_manager import WaveformManager
 from common.config import Config  # This was from config import Config
 from model.song import Song
 from model.songs import Songs
@@ -36,6 +37,9 @@ class AppData(QObject):
 
     # System capabilities (initialized at startup)
     capabilities: Optional["SystemCapabilities"] = None
+
+    # Waveform lifecycle manager (configured after Actions wiring)
+    waveform_manager: Optional["WaveformManager"] = None
 
     # Add these new signals to support manager communication
     gap_detection_finished = Signal(object)  # Emits the song when gap detection is finished
@@ -78,6 +82,14 @@ class AppData(QObject):
 
         # Initialize the worker queue
         self.worker_queue = WorkerQueueManager()
+
+        # Initialize waveform manager (reload callback injected later by Actions)
+        try:
+            from services.waveform_manager import WaveformManager
+
+            self.waveform_manager = WaveformManager(self)
+        except Exception:
+            self.waveform_manager = None
 
         # Track files locked for processing to prevent UI from reloading them (Windows file-lock mitigation)
         self._processing_locked_files = set()

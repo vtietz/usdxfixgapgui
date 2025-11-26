@@ -36,6 +36,8 @@ class MediaPlayerComponent(QWidget):
         self._song = None
         self._suspend_loads = False  # Guard window to avoid reload during status/filter transitions
         self._mode_switch_timer = None  # Debounce timer for mode switch reload
+        self._pinned_path: str | None = None  # Tracks the last active song path during scans
+        self._waveform_manager = getattr(self._data, "waveform_manager", None)
 
         # Initialize controllers
         self.player = PlayerController(self._config)
@@ -89,6 +91,10 @@ class MediaPlayerComponent(QWidget):
                 self._data.media_suspend_requested.connect(self.on_media_suspend_requested)
             except Exception:
                 pass
+
+        if self._waveform_manager:
+            self._waveform_manager.waveformReady.connect(self._handle_waveform_ready)
+            self._waveform_manager.waveformFailed.connect(self._handle_waveform_failed)
 
     def initUI(self):
         # Create control buttons
@@ -215,7 +221,7 @@ class MediaPlayerComponent(QWidget):
 
             # Validate we have duration
             if current_duration <= 0:
-                logger.warning(f"Cannot seek: waveform duration is {current_duration}ms")
+                logger.warning("Cannot seek: waveform duration is %sms", current_duration)
                 return
 
             try:
@@ -223,8 +229,10 @@ class MediaPlayerComponent(QWidget):
                 seek_position = int(pos * current_duration)
 
                 logger.debug(
-                    f"Click seek: pos={pos:.3f}, duration={current_duration}ms, "
-                    f"→ seek_position={seek_position}ms"
+                    "Click seek: pos=%.3f, duration=%sms, -> seek_position=%sms",
+                    pos,
+                    current_duration,
+                    seek_position,
                 )
 
                 # Seek and emit position to update UI
@@ -232,7 +240,7 @@ class MediaPlayerComponent(QWidget):
                 self.player.position_changed.emit(seek_position)
 
             except Exception as e:
-                logger.error(f"Seek error: {e}")
+                logger.error("Seek error: %s", e)
 
         self.waveform_widget.position_clicked.connect(on_waveform_clicked)
 
@@ -255,7 +263,9 @@ class MediaPlayerComponent(QWidget):
 
         # Use waveform's duration (from ffprobe) instead of VLC's get_duration() which is unreliable
         # This ensures playhead aligns correctly with the waveform display
-        display_duration = self.waveform_widget.duration_ms if self.waveform_widget.duration_ms > 0 else self.player.get_duration()
+        display_duration = (
+            self.waveform_widget.duration_ms if self.waveform_widget.duration_ms > 0 else self.player.get_duration()
+        )
         self.waveform_widget.update_position(position, display_duration)
 
         # Update save_position button state when position crosses 0 threshold
@@ -368,6 +378,9 @@ class MediaPlayerComponent(QWidget):
         if not self.isEnabled():
             return
 
+        # Track pinned path for bypass logic
+        self._pinned_path = getattr(song, "path", None) if song else None
+
         self._song = song
 
         # Guard against None song
@@ -397,23 +410,22 @@ class MediaPlayerComponent(QWidget):
         from PySide6.QtCore import QTimer
 
         # Check if we need to load data (async, non-blocking)
-        if not song.notes:
+        force_light_reload = self._should_force_light_reload(song)
+
+        waveforms_exist = WaveformPathService.waveforms_exists(song, self._data.tmp_path)
+        if not waveforms_exist:
+            self.waveform_widget.set_placeholder("Loading waveform…")
+
+        requires_waveform = not waveforms_exist
+        if requires_waveform:
+            self.waveform_widget.set_placeholder("Loading waveform…")
+            self._ensure_waveform_generation(song, overwrite=False)
+
+        if not song.notes or force_light_reload:
             # Song needs metadata reload - use light reload to avoid status changes
             # Defer by 0ms to let UI render first
-            QTimer.singleShot(0, lambda: self._actions.reload_song_light(song))
+            QTimer.singleShot(0, lambda: self._actions.reload_song_light(song, force=force_light_reload))
             # Note: Waveform will be created after notes load via on_song_updated signal
-        else:
-            # Notes already loaded - safe to create waveforms immediately
-            # Create waveforms for selected song if missing (instant task, runs immediately in parallel)
-            if not WaveformPathService.waveforms_exists(song, self._data.tmp_path):
-                # Set placeholder immediately to show user feedback
-                self.waveform_widget.set_placeholder("Loading waveform…")
-
-                from actions.audio_actions import AudioActions
-
-                audio_actions = AudioActions(self._data)
-                # Defer slightly to let UI render first, then start instant task
-                QTimer.singleShot(0, lambda: audio_actions._create_waveforms(song, overwrite=False, use_queue=True))
 
     def on_song_updated(self, updated_song: Song):
         """Handle when the current song data is updated
@@ -462,12 +474,8 @@ class MediaPlayerComponent(QWidget):
             self.waveform_widget.set_gap_markers(None, None)
 
         # If notes just finished loading and waveforms don't exist, create them now
-        if updated_song.notes and not WaveformPathService.waveforms_exists(updated_song, self._data.tmp_path):
-            logger.debug(f"Notes loaded for {updated_song.title}, creating waveforms with notes")
-            from actions.audio_actions import AudioActions
-
-            audio_actions = AudioActions(self._data)
-            audio_actions._create_waveforms(updated_song, overwrite=False, use_queue=True)
+        if not waveforms_exist:
+            self._ensure_waveform_generation(updated_song, overwrite=False)
 
     def update_player_files(self):
         """Load the appropriate media files based on current state"""
@@ -475,18 +483,7 @@ class MediaPlayerComponent(QWidget):
 
         start_time = time.perf_counter()
 
-        # Guard: skip loads during suspension window (status/filter transitions in progress)
-        if getattr(self, "_suspend_loads", False):
-            logger.debug("update_player_files skipped (media loads suspended)")
-            return
-
-        # Guard: skip loading if current song is no longer selected (likely filtered out)
-        try:
-            selected = getattr(self._data, "selected_songs", [])
-        except Exception:
-            selected = []
-        if selected and self._song is not None and self._song not in selected:
-            logger.debug("update_player_files skipped (song no longer selected/visible)")
+        if self._should_abort_update():
             return
 
         song = self._song
@@ -501,17 +498,63 @@ class MediaPlayerComponent(QWidget):
         if not paths:
             return
 
+        self._load_media_for_mode(song, paths)
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        self._log_update_duration(duration_ms)
+
+    def _should_abort_update(self) -> bool:
+        if getattr(self, "_suspend_loads", False):
+            logger.debug("update_player_files skipped (media loads suspended)")
+            return True
+
+        current_path = getattr(self._song, "path", None) if self._song else None
+        if self._should_skip_due_to_selection(current_path):
+            return True
+
+        return False
+
+    def _should_skip_due_to_selection(self, current_path: str | None) -> bool:
+        if current_path is None:
+            return False
+
+        selected = self._get_selected_safely()
+        if not selected:
+            return False
+
+        is_loading = getattr(self._data, "is_loading_songs", False)
+        if self.isEnabled() and is_loading and self._pinned_path and self._pinned_path == current_path:
+            logger.debug(
+                "update_player_files guard bypassed during scan for pinned song: %s",
+                current_path,
+            )
+            return False
+
+        selected_paths = {
+            getattr(song, "path", None) for song in selected if song is not None and getattr(song, "path", None)
+        }
+        if selected_paths and current_path not in selected_paths:
+            logger.debug("update_player_files skipped (song no longer selected/visible)")
+            return True
+        return False
+
+    def _get_selected_safely(self):
+        try:
+            return getattr(self._data, "selected_songs", [])
+        except Exception:
+            return []
+
+    def _load_media_for_mode(self, song: Song, paths: dict):
         audio_status = self.player.get_audio_status()
         if audio_status == AudioFileStatus.AUDIO:
             self._load_audio_mode(song, paths)
         else:
             self._load_vocals_mode(paths)
 
-        duration_ms = (time.perf_counter() - start_time) * 1000
+    def _log_update_duration(self, duration_ms: float):
         if duration_ms > 200:
-            logger.warning(f"SLOW update_player_files: {duration_ms:.1f}ms")
+            logger.warning("SLOW update_player_files: %.1fms", duration_ms)
         else:
-            logger.debug(f"update_player_files completed in {duration_ms:.1f}ms")
+            logger.debug("update_player_files completed in %.1fms", duration_ms)
 
     def _clear_player_ui(self):
         """Clear all player UI elements"""
@@ -542,6 +585,66 @@ class MediaPlayerComponent(QWidget):
             self._clear_player_ui()
         return paths
 
+    def _should_force_light_reload(self, song: Song | None) -> bool:
+        """Return True if we should bypass metadata cache during a directory scan."""
+        if song is None:
+            return False
+
+        if not getattr(self._data, "is_loading_songs", False):
+            return False
+
+        # Only force reload when we genuinely need fresh data (no waveforms on disk yet)
+        return not WaveformPathService.waveforms_exists(song, self._data.tmp_path)
+
+    def _ensure_waveform_generation(self, song: Song, overwrite: bool = False):
+        if not song:
+            return
+        if self._waveform_manager:
+            self._waveform_manager.ensure_waveforms(
+                song,
+                overwrite=overwrite,
+                use_queue=True,
+                emit_on_finish=False,
+                requester="media-player",
+            )
+            return
+
+        from actions.audio_actions import AudioActions
+
+        def _fallback():
+            audio_actions = AudioActions(self._data)
+            audio_actions._create_waveforms(
+                song,
+                overwrite=overwrite,
+                use_queue=True,
+                emit_on_finish=False,
+                finished_callback=lambda _: self._handle_waveform_ready(song),
+            )
+
+        QTimer.singleShot(0, _fallback)
+
+    def _handle_waveform_ready(self, song: Song | None):
+        if not song or not self._song:
+            return
+        if song.path != self._song.path:
+            logger.debug(
+                "Waveform ready for %s but current selection is %s",
+                song.path,
+                getattr(self._song, "path", None),
+            )
+            return
+        if not WaveformPathService.waveforms_exists(song, self._data.tmp_path):
+            return
+        logger.debug("Waveform ready for active song; refreshing media player")
+        self.waveform_widget.clear_placeholder()
+        self.update_player_files()
+
+    def _handle_waveform_failed(self, song: Song | None, message: str):
+        if not song or not self._song or song.path != self._song.path:
+            return
+        logger.warning("Waveform generation failed for %s: %s", song.title, message)
+        self.waveform_widget.set_placeholder("Waveform unavailable")
+
     def _load_audio_mode(self, song: Song, paths: dict):
         """Load audio file and waveform"""
         logger.debug(f"Loading audio file: {paths['audio_file']}")
@@ -550,6 +653,7 @@ class MediaPlayerComponent(QWidget):
         if os.path.exists(paths["audio_waveform_file"]):
             self._load_audio_waveform(paths)
         else:
+            logger.debug("Audio waveform missing at %s; showing placeholder", paths["audio_waveform_file"])
             self._show_waveform_placeholder(song)
 
         self.vocals_btn.setToolTip("")
@@ -599,6 +703,7 @@ class MediaPlayerComponent(QWidget):
         if os.path.exists(paths["vocals_waveform_file"]):
             self._load_vocals_waveform(paths)
         else:
+            logger.debug("Vocals waveform missing at %s; showing placeholder", paths["vocals_waveform_file"])
             self.waveform_widget.load_waveform(None)
             self.waveform_widget.set_placeholder("Loading waveform…")
 
@@ -639,6 +744,9 @@ class MediaPlayerComponent(QWidget):
             logger.debug("Multiple songs selected, stopping player")
             self.player.stop()
             self.waveform_widget.load_waveform(None)
+            self._pinned_path = None
+        elif self.isEnabled() and self._song:
+            self._pinned_path = getattr(self._song, "path", None)
 
     # Gap modification handlers
     def on_save_current_play_position_clicked(self):

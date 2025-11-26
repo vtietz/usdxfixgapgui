@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from common.config import Config
 from model.song import Song
 from managers.worker_queue_manager import IWorker, IWorkerSignals
@@ -28,12 +29,19 @@ class CreateWaveform(IWorker):
 
     async def run(self):
         try:
-            self._create_waveform()
-            self.signals.finished.emit()  # This matches the base IWorkerSignals.finished
+            await self._run_async()
+            self.signals.finished.emit()
         except Exception as e:
-            logger.error(f"Error creating waveform for: {self.song.audio_file}")
+            logger.error("Error creating waveform for: %s", self.song.audio_file)
             self.save_error_to_song(self.song, e)
             self.signals.error.emit(e)
+
+    async def _run_async(self):
+        try:
+            await asyncio.to_thread(self._create_waveform)
+        except AttributeError:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self._create_waveform)
 
     def cancel(self):
         logger.debug("Cancelling waveform creation...")

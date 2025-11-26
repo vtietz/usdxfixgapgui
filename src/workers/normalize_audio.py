@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class NormalizeAudioWorker(IWorker):
     def __init__(self, song: Song):
-        super().__init__()
+        super().__init__(is_instant=True)
         self.song = song
         self._isCancelled = False
         self.description = f"Normalizing {song.audio_file}."

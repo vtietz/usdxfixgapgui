@@ -53,6 +53,12 @@
   - Manages worker tasks (e.g., queuing, running, canceling).
   - Emits signals to notify the UI about task progress or completion.
   - Encapsulates worker-related logic to keep it separate from the UI.
+  - **Refactor goals (WQ-2025):**
+    - Long-running standard-lane workers (directory scan, heavy cache rebuilds) must cooperatively yield whenever a user-triggered instant task starts or a lane hold is requested by an action.
+    - Provide a minimal API surface: `pause_standard_lane(ms)` for short deferrals, `hold_standard_lane(reason)` / `release_standard_lane(reason)` for scoped critical sections, and `should_yield()` for workers to poll without importing queue internals.
+    - Actions wrap reload/delete/detect/normalize/waveform requests in helper contexts that acquire the hold before scheduling work and release automatically via worker signals, avoiding ad-hoc queue access throughout the UI layer.
+    - Standard workers (especially `LoadUsdxFilesWorker`) introduce checkpoints (`await worker.yield_if_needed()`) after batched filesystem operations so the scan pauses quickly yet resumes from the same iterator.
+    - Acceptance: user-visible tasks (waveform creation, reload, delete, detect, normalize) start within 100 ms even while a directory scan is running, and scans recover automatically once high-priority work completes.
 
 - **`WatchModeController`**:
   - Manages file system watching for automatic song reloading.
@@ -88,6 +94,10 @@
 
 - **`WaveformPathService`**:
   - Manages file paths for waveform generation.
+- **`WaveformManager`**:
+  - Deduplicates waveform generation requests, coordinates worker-queue scheduling, and emits ready/failure signals for the UI.
+  - Always waits for audio metadata *and* notes before creating a waveform. When either field is missing it spins up a prioritized metadata fetch (independent of the directory scan) and keeps the UI in a "Loading" state until both are available. Each metadata request briefly pauses the standard worker lane so directory scans cannot starve the fetch, and once a waveform job is enqueued the standard lane is held until the overlays are rendered.
+  - Metadata fetches have a watchdog timeout (defaults to ~4s). On timeout we render the waveform without overlays so the user is never stuck; once metadata finally arrives the manager automatically regenerates the waveform with overlays.
   - Provides utility methods for creating or validating paths.
 
 #### **Application State**

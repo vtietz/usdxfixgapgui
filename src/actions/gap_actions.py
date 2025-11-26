@@ -47,6 +47,7 @@ class GapActions(BaseActions):
         worker.signals.started.connect(lambda s=song: self._on_song_worker_started(s))
         worker.signals.error.connect(lambda e, s=song: self._on_song_worker_error(s, e))
         worker.signals.finished.connect(lambda result, s=song: self._on_detect_gap_finished(s, result))
+        self._hold_lane_for_worker(worker, f"detect:{song.path}")
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
@@ -57,7 +58,7 @@ class GapActions(BaseActions):
             logger.error("No songs selected for gap detection.")
             return
 
-        logger.info(f"Queueing gap detection for {len(selected_songs)} songs.")
+        logger.info("Queueing gap detection for %s songs.", len(selected_songs))
 
         # Save overwrite parameter for the callback
         self._overwrite_gap = overwrite
@@ -99,13 +100,17 @@ class GapActions(BaseActions):
             start_now = is_first and not self.worker_queue.running_tasks
             self._detect_gap(song, self._overwrite_gap, start_now)
         else:
-            logger.warning(f"Skipping gap detection for '{song.title}': No audio file found.")
+            logger.warning("Skipping gap detection for %s: No audio file found.", song.title)
 
     def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
-        logger.debug(f"Gap detection finished for: {song.txt_file}")
+        logger.debug("Gap detection finished for: %s", song.txt_file)
         # Validate that the result matches the song
         if song.txt_file != result.song_file_path:
-            logger.error(f"Gap detection result mismatch: {song.txt_file} vs {result.song_file_path}")
+            logger.error(
+                "Gap detection result mismatch: %s vs %s",
+                song.txt_file,
+                result.song_file_path,
+            )
             return
 
         # Ensure gap_info exists and then update with detection results
@@ -134,9 +139,17 @@ class GapActions(BaseActions):
             self._clear_selection_if_filtered(song, result.status.name)
 
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
-        logger.debug(f"Setting gap_info.status: result.status={result.status}, song.status before={song.status}")
+        logger.debug(
+            "Setting gap_info.status: result.status=%s, song.status before=%s",
+            result.status,
+            song.status,
+        )
         song.gap_info.status = result.status or song.gap_info.status
-        logger.debug(f"After setting gap_info.status: song.status={song.status}, gap_info.status={song.gap_info.status}")
+        logger.debug(
+            "After setting gap_info.status: song.status=%s, gap_info.status=%s",
+            song.status,
+            song.gap_info.status,
+        )
 
         # Save gap info and update cache
         async def save_gap_and_cache():

@@ -57,13 +57,6 @@ class Config(QObject):
         # Initialize properties from config values (using fallbacks for missing keys)
         self._initialize_properties()
 
-    def ensure_config_file_exists(self):
-        """
-        DEPRECATED: Config file existence is now handled in __init__.
-        This method remains for backward compatibility but does nothing.
-        """
-        return self.config_path
-
     def _get_defaults(self):
         """Get default configuration values as a dictionary structure."""
         # Lazy import: Defer MdxConfig import to avoid importing torch at Config instantiation.
