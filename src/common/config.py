@@ -17,6 +17,7 @@ class Config(QObject):
                                If None, uses system config location.
         """
         super().__init__()
+        self._config_mtime: float = 0.0
 
         # Determine config path
         if custom_config_path:
@@ -56,6 +57,7 @@ class Config(QObject):
 
         # Initialize properties from config values (using fallbacks for missing keys)
         self._initialize_properties()
+        self._config_mtime = self._current_config_mtime()
 
     def _get_defaults(self):
         """Get default configuration values as a dictionary structure."""
@@ -88,8 +90,8 @@ class Config(QObject):
                 "models_directory": models_directory,
             },
             "Detection": {
-                "default_detection_time": 30,
-                "gap_tolerance": 500,
+                "default_detection_time": 20,
+                "gap_tolerance": 400,
                 "vocal_start_window_sec": int(mdx_defaults.start_window_ms / 1000),
                 "vocal_window_increment_sec": int(mdx_defaults.start_window_increment_ms / 1000),
                 "vocal_window_max_sec": int(mdx_defaults.start_window_max_ms / 1000),
@@ -492,6 +494,45 @@ class Config(QObject):
         """
         return self.gpu_pack_path or ""
 
+    def refresh_if_changed(self) -> bool:
+        """Reload configuration from disk if the underlying file was modified.
+
+        Returns:
+            bool: True if a reload occurred, False otherwise.
+        """
+        current_mtime = self._current_config_mtime()
+        if current_mtime <= 0:
+            return False
+        if self._config_mtime and current_mtime <= self._config_mtime:
+            return False
+
+        logger.info("External config change detected, reloading from disk")
+        return self._reload_from_disk()
+
+    def _reload_from_disk(self) -> bool:
+        parser = configparser.ConfigParser()
+        try:
+            read_files = parser.read(self.config_path, encoding="utf-8-sig")
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("Failed to reload config from %s: %s", self.config_path, exc)
+            return False
+
+        if not read_files:
+            logger.warning("Config reload skipped: %s missing or unreadable", self.config_path)
+            return False
+
+        self._config = parser
+        self._initialize_properties()
+        self._config_mtime = self._current_config_mtime()
+        logger.info("Configuration reloaded from %s", self.config_path)
+        return True
+
+    def _current_config_mtime(self) -> float:
+        try:
+            return os.path.getmtime(self.config_path)
+        except OSError:
+            return 0.0
+
     def _get_log_level(self, level_str):
         """Convert string log level to logging level constant"""
         levels = {
@@ -608,6 +649,7 @@ class Config(QObject):
             with open(self.config_path, "w", encoding="utf-8") as configfile:
                 current.write(configfile)
             logger.debug(f"Configuration saved to {self.config_path}")
+            self._config_mtime = self._current_config_mtime()
         except Exception as e:
             logger.error(f"Failed to save config: {e}")
             raise

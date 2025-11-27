@@ -319,6 +319,36 @@ def mdx_config_loose():
 
 
 @pytest.fixture
+def mdx_config_sensitive():
+    """Legacy high-sensitivity MDX configuration for regression coverage."""
+
+    return MdxConfig(
+        chunk_duration_ms=12000,
+        chunk_overlap_ms=6000,
+        frame_duration_ms=25,
+        hop_duration_ms=20,
+        noise_floor_duration_ms=300,
+        onset_snr_threshold=2.5,
+        onset_abs_threshold=0.008,
+        min_voiced_duration_ms=100,
+        hysteresis_ms=200,
+        initial_radius_ms=7500,
+        radius_increment_ms=7500,
+        max_expansions=3,
+        start_window_ms=30000,
+        start_window_increment_ms=15000,
+        start_window_max_ms=90000,
+        use_fp16=False,
+        resample_hz=0,
+        early_stop_tolerance_ms=500,
+        tf32=True,
+        confidence_threshold=0.55,
+        preview_pre_ms=3000,
+        preview_post_ms=9000,
+    )
+
+
+@pytest.fixture
 def model_placeholder():
     """
     Mock Demucs model for scanner tests.

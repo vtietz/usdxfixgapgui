@@ -82,7 +82,9 @@ def write_tier2_preview_if_enabled(
 # ============================================================================
 
 
-def test_06_vocals_at_zero_expected_far(tmp_path, patch_separator, mdx_config_tight, model_placeholder):
+def test_06_vocals_at_zero_expected_far(
+    tmp_path, patch_separator, mdx_config_sensitive, model_placeholder
+):
     """
     Scenario 6: Very early vocals with expected gap much later.
 
@@ -105,7 +107,7 @@ def test_06_vocals_at_zero_expected_far(tmp_path, patch_separator, mdx_config_ti
         expected_gap_ms=expected_gap_ms,
         model=model_placeholder,
         device="cpu",
-        config=mdx_config_tight,  # initial_radius_ms=7500
+        config=mdx_config_sensitive,  # legacy profile keeps wider early radius
         vocals_cache=VocalsCache(),
         total_duration_ms=audio_result.duration_ms,
     )

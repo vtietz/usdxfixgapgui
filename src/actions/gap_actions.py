@@ -22,6 +22,7 @@ class GapActions(BaseActions):
     """Gap detection and management actions"""
 
     def _detect_gap(self, song: Song, overwrite=False, start_now=False):
+        self.config.refresh_if_changed()
         if not song:
             raise Exception("No song given")
 

@@ -9,7 +9,7 @@ from typing import Optional
 
 # Import MdxConfig to use its defaults as single source of truth
 import sys
-import os
+
 SRC_ROOT = Path(__file__).parent.parent.parent / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
@@ -71,78 +71,76 @@ class ConfigStub:
         self.default_detection_time = default_detection_time
         self.gap_tolerance = gap_tolerance
 
-        # Vocal window settings: use provided or fall back to MdxConfig defaults
-        self.vocal_start_window_sec = (
-            vocal_start_window_sec if vocal_start_window_sec is not None
-            else int(_MDX_DEFAULTS.start_window_ms / 1000)
-        )
-        self.vocal_window_increment_sec = (
-            vocal_window_increment_sec if vocal_window_increment_sec is not None
-            else int(_MDX_DEFAULTS.start_window_increment_ms / 1000)
-        )
-        self.vocal_window_max_sec = (
-            vocal_window_max_sec if vocal_window_max_sec is not None
-            else int(_MDX_DEFAULTS.start_window_max_ms / 1000)
+        (
+            self.vocal_start_window_sec,
+            self.vocal_window_increment_sec,
+            self.vocal_window_max_sec,
+        ) = self._resolve_vocal_windows(
+            vocal_start_window_sec,
+            vocal_window_increment_sec,
+            vocal_window_max_sec,
         )
 
-        # MDX settings: use provided or fall back to MdxConfig defaults
-        self.mdx_chunk_duration_ms = (
-            mdx_chunk_duration_ms if mdx_chunk_duration_ms is not None
-            else _MDX_DEFAULTS.chunk_duration_ms
+        mdx_settings = self._build_mdx_settings(
+            mdx_chunk_duration_ms=mdx_chunk_duration_ms,
+            mdx_chunk_overlap_ms=mdx_chunk_overlap_ms,
+            mdx_frame_duration_ms=mdx_frame_duration_ms,
+            mdx_hop_duration_ms=mdx_hop_duration_ms,
+            mdx_noise_floor_duration_ms=mdx_noise_floor_duration_ms,
+            mdx_onset_snr_threshold=mdx_onset_snr_threshold,
+            mdx_onset_abs_threshold=mdx_onset_abs_threshold,
+            mdx_min_voiced_duration_ms=mdx_min_voiced_duration_ms,
+            mdx_hysteresis_ms=mdx_hysteresis_ms,
+            mdx_initial_radius_ms=mdx_initial_radius_ms,
+            mdx_radius_increment_ms=mdx_radius_increment_ms,
+            mdx_max_expansions=mdx_max_expansions,
+            mdx_early_stop_tolerance_ms=mdx_early_stop_tolerance_ms,
+            mdx_confidence_threshold=mdx_confidence_threshold,
         )
-        self.mdx_chunk_overlap_ms = (
-            mdx_chunk_overlap_ms if mdx_chunk_overlap_ms is not None
-            else _MDX_DEFAULTS.chunk_overlap_ms
-        )
-        self.mdx_frame_duration_ms = (
-            mdx_frame_duration_ms if mdx_frame_duration_ms is not None
-            else _MDX_DEFAULTS.frame_duration_ms
-        )
-        self.mdx_hop_duration_ms = (
-            mdx_hop_duration_ms if mdx_hop_duration_ms is not None
-            else _MDX_DEFAULTS.hop_duration_ms
-        )
-        self.mdx_noise_floor_duration_ms = (
-            mdx_noise_floor_duration_ms if mdx_noise_floor_duration_ms is not None
-            else _MDX_DEFAULTS.noise_floor_duration_ms
-        )
-        self.mdx_onset_snr_threshold = (
-            mdx_onset_snr_threshold if mdx_onset_snr_threshold is not None
-            else _MDX_DEFAULTS.onset_snr_threshold
-        )
-        self.mdx_onset_abs_threshold = (
-            mdx_onset_abs_threshold if mdx_onset_abs_threshold is not None
-            else _MDX_DEFAULTS.onset_abs_threshold
-        )
-        self.mdx_min_voiced_duration_ms = (
-            mdx_min_voiced_duration_ms if mdx_min_voiced_duration_ms is not None
-            else _MDX_DEFAULTS.min_voiced_duration_ms
-        )
-        self.mdx_hysteresis_ms = (
-            mdx_hysteresis_ms if mdx_hysteresis_ms is not None
-            else _MDX_DEFAULTS.hysteresis_ms
-        )
-        self.mdx_initial_radius_ms = (
-            mdx_initial_radius_ms if mdx_initial_radius_ms is not None
-            else _MDX_DEFAULTS.initial_radius_ms
-        )
-        self.mdx_radius_increment_ms = (
-            mdx_radius_increment_ms if mdx_radius_increment_ms is not None
-            else _MDX_DEFAULTS.radius_increment_ms
-        )
-        self.mdx_max_expansions = (
-            mdx_max_expansions if mdx_max_expansions is not None
-            else _MDX_DEFAULTS.max_expansions
-        )
-        self.mdx_early_stop_tolerance_ms = (
-            mdx_early_stop_tolerance_ms if mdx_early_stop_tolerance_ms is not None
-            else _MDX_DEFAULTS.early_stop_tolerance_ms
-        )
-        self.mdx_confidence_threshold = (
-            mdx_confidence_threshold if mdx_confidence_threshold is not None
-            else _MDX_DEFAULTS.confidence_threshold
-        )
+        for attr, value in mdx_settings.items():
+            setattr(self, attr, value)
 
         # Additional fields that might be accessed
         self.tf32 = _MDX_DEFAULTS.tf32
         self.use_gpu = False
+
+    def refresh_if_changed(self) -> bool:
+        """Tests do not watch disk-backed configs."""
+        return False
+
+    def _resolve_vocal_windows(
+        self,
+        start_override: Optional[int],
+        increment_override: Optional[int],
+        max_override: Optional[int],
+    ) -> tuple[int, int, int]:
+        return (
+            self._fallback_seconds(start_override, _MDX_DEFAULTS.start_window_ms),
+            self._fallback_seconds(increment_override, _MDX_DEFAULTS.start_window_increment_ms),
+            self._fallback_seconds(max_override, _MDX_DEFAULTS.start_window_max_ms),
+        )
+
+    @staticmethod
+    def _fallback_seconds(value: Optional[int], default_ms: int) -> int:
+        return value if value is not None else int(default_ms / 1000)
+
+    def _build_mdx_settings(self, **overrides):
+        defaults = {
+            "mdx_chunk_duration_ms": _MDX_DEFAULTS.chunk_duration_ms,
+            "mdx_chunk_overlap_ms": _MDX_DEFAULTS.chunk_overlap_ms,
+            "mdx_frame_duration_ms": _MDX_DEFAULTS.frame_duration_ms,
+            "mdx_hop_duration_ms": _MDX_DEFAULTS.hop_duration_ms,
+            "mdx_noise_floor_duration_ms": _MDX_DEFAULTS.noise_floor_duration_ms,
+            "mdx_onset_snr_threshold": _MDX_DEFAULTS.onset_snr_threshold,
+            "mdx_onset_abs_threshold": _MDX_DEFAULTS.onset_abs_threshold,
+            "mdx_min_voiced_duration_ms": _MDX_DEFAULTS.min_voiced_duration_ms,
+            "mdx_hysteresis_ms": _MDX_DEFAULTS.hysteresis_ms,
+            "mdx_initial_radius_ms": _MDX_DEFAULTS.initial_radius_ms,
+            "mdx_radius_increment_ms": _MDX_DEFAULTS.radius_increment_ms,
+            "mdx_max_expansions": _MDX_DEFAULTS.max_expansions,
+            "mdx_early_stop_tolerance_ms": _MDX_DEFAULTS.early_stop_tolerance_ms,
+            "mdx_confidence_threshold": _MDX_DEFAULTS.confidence_threshold,
+        }
+        return {
+            key: overrides.get(key) if overrides.get(key) is not None else default for key, default in defaults.items()
+        }

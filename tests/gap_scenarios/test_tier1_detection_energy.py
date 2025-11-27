@@ -32,6 +32,11 @@ def mdx_cfg_default():
     """Default MdxConfig for testing."""
     return MdxConfig()
 
+@pytest.fixture
+def mdx_cfg_sensitive(mdx_config_sensitive):
+    """Legacy high-sensitivity profile used for regression scenarios."""
+    return mdx_config_sensitive
+
 
 @pytest.fixture
 def artifact_dir(tmp_path):
@@ -241,7 +246,7 @@ def test_04_quiet_vocals_near_threshold(mdx_cfg_default, artifact_dir):
     assert_onset(detected, onset_ms, tol_ms=250, scenario="04-quiet-vocals")
 
 
-def test_04b_very_quiet_vocals_early_start(mdx_cfg_default, artifact_dir):
+def test_04b_very_quiet_vocals_early_start(mdx_cfg_sensitive, artifact_dir):
     """
     Scenario 4b: Normal vocals with early onset, later getting louder (Britney Spears scenario).
 
@@ -294,7 +299,7 @@ def test_04b_very_quiet_vocals_early_start(mdx_cfg_default, artifact_dir):
     wave = synth.normalize_peak(wave, peak=0.9)
 
     detected = detect_onset_in_vocal_chunk(
-        vocal_audio=wave, sample_rate=44100, chunk_start_ms=0.0, config=mdx_cfg_default
+        vocal_audio=wave, sample_rate=44100, chunk_start_ms=0.0, config=mdx_cfg_sensitive
     )
 
     write_preview_if_enabled(wave, 44100, early_onset_ms, detected, "04b-normal-early-vocals", artifact_dir)
@@ -306,6 +311,48 @@ def test_04b_very_quiet_vocals_early_start(mdx_cfg_default, artifact_dir):
         f"04b-normal-early-vocals: Should detect normal early onset at ~{early_onset_ms}ms, "
         f"not louder late onset at ~{loud_onset_ms}ms. Detected: {detected:.1f}ms"
     )
+
+
+def test_04b_default_profile_skips_very_quiet(mdx_cfg_default, artifact_dir):
+    """New default profile intentionally ignores barely audible pre-roll."""
+
+    early_onset_ms = 500
+    loud_onset_ms = 7000
+
+    silence = synth.pad_silence(early_onset_ms, sr=44100)
+    normal_vocals, _ = synth.build_vocal_onset(
+        duration_ms=loud_onset_ms - early_onset_ms,
+        onset_ms=0,
+        fade_in_ms=200,
+        breath_ms=0,
+        noise_floor_db=-60.0,
+        f0_hz=200.0,
+        harmonics=4,
+        sr=44100,
+    )
+    normal_vocals = normal_vocals * 0.55
+    loud_vocals, _ = synth.build_vocal_onset(
+        duration_ms=3000,
+        onset_ms=0,
+        fade_in_ms=100,
+        breath_ms=0,
+        noise_floor_db=-60.0,
+        f0_hz=220.0,
+        harmonics=4,
+        sr=44100,
+    )
+    loud_vocals = loud_vocals * 0.7
+
+    wave = synth.mix_signals([silence, normal_vocals, loud_vocals])
+    wave = synth.add_noise_floor(wave, level_db=-60.0, sr=44100)
+    wave = synth.normalize_peak(wave, peak=0.9)
+
+    detected = detect_onset_in_vocal_chunk(
+        vocal_audio=wave, sample_rate=44100, chunk_start_ms=0.0, config=mdx_cfg_default
+    )
+
+    write_preview_if_enabled(wave, 44100, early_onset_ms, detected, "04b-default-skips-quiet", artifact_dir)
+    assert detected is None, "Default profile should skip barely audible pre-roll"
 
 
 def test_05_high_noise_floor(mdx_cfg_default, artifact_dir):

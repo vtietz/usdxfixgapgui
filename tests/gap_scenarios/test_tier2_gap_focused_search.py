@@ -253,7 +253,7 @@ def test_12_multiple_false_positives_detect_correct_gap(
 
 
 def test_13_early_vocals_outside_initial_window_requires_expansion(
-    tmp_path, artifact_dir, patch_separator, mdx_config_tight, model_placeholder
+    tmp_path, artifact_dir, patch_separator, mdx_config_sensitive, model_placeholder
 ):
     """
     Scenario 13: Vocals at 1000ms, expected gap at 10000ms.
@@ -284,7 +284,7 @@ def test_13_early_vocals_outside_initial_window_requires_expansion(
         expected_gap_ms=expected_gap_ms,
         model=model_placeholder,
         device="cpu",
-        config=mdx_config_tight,  # Will expand to catch early vocals
+        config=mdx_config_sensitive,  # Legacy sensitive profile expands farther and listens for quiet hints
         vocals_cache=VocalsCache(),
         total_duration_ms=audio_result.duration_ms,
     )

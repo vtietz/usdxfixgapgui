@@ -25,9 +25,9 @@ class TestConfigWindowSettings:
         """Config should have default vocal window settings."""
         config = Config()
 
-        assert config.vocal_start_window_sec == 30  # MdxConfig default: 30000ms
-        assert config.vocal_window_increment_sec == 15  # MdxConfig default: 15000ms
-        assert config.vocal_window_max_sec == 90  # MdxConfig default: 90000ms
+        assert config.vocal_start_window_sec == 12  # default search radius 12s
+        assert config.vocal_window_increment_sec == 6  # expands by 6s per pass
+        assert config.vocal_window_max_sec == 36  # clamps at 36s total
 
     def test_window_settings_persist(self):
         """Window settings should persist across save/load."""
@@ -117,10 +117,10 @@ class TestMDXConfigWindowing:
         # MDXConfig.from_config uses getattr with defaults
         mdx_config = MdxConfig.from_config(mock_config)
 
-        # Should use dataclass defaults (30s, 15s, 90s converted to ms)
-        assert mdx_config.start_window_ms == 30000
-        assert mdx_config.start_window_increment_ms == 15000
-        assert mdx_config.start_window_max_ms == 90000
+        # Should use dataclass defaults (12s, 6s, 36s converted to ms)
+        assert mdx_config.start_window_ms == 12000
+        assert mdx_config.start_window_increment_ms == 6000
+        assert mdx_config.start_window_max_ms == 36000
 
 
 class TestPreviewDurationCap:

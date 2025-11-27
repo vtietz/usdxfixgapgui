@@ -26,13 +26,13 @@ class MdxConfig:
     # Energy analysis parameters
     frame_duration_ms: float = 25
     hop_duration_ms: float = 20
-    noise_floor_duration_ms: float = 300  # Reduced to avoid including early vocals
+    noise_floor_duration_ms: float = 1200
 
     # Onset detection thresholds
-    onset_snr_threshold: float = 2.5  # SNR above noise floor (prefer early onsets)
-    onset_abs_threshold: float = 0.008  # Minimum absolute RMS energy
-    min_voiced_duration_ms: float = 100  # Minimum duration for valid onset (reduced to catch earlier onsets)
-    hysteresis_ms: float = 200
+    onset_snr_threshold: float = 5.5
+    onset_abs_threshold: float = 0.025
+    min_voiced_duration_ms: float = 100
+    hysteresis_ms: float = 350
 
     # Expanding search parameters
     initial_radius_ms: float = 7500
@@ -40,9 +40,9 @@ class MdxConfig:
     max_expansions: int = 3
 
     # Vocal start window parameters (iterative expansion)
-    start_window_ms: int = 30000
-    start_window_increment_ms: int = 15000
-    start_window_max_ms: int = 90000
+    start_window_ms: int = 12000
+    start_window_increment_ms: int = 6000
+    start_window_max_ms: int = 36000
 
     # Performance optimizations
     use_fp16: bool = DEFAULT_FP16
@@ -89,9 +89,9 @@ class MdxConfig:
             initial_radius_ms=getattr(config, "mdx_initial_radius_ms", cls.initial_radius_ms),
             radius_increment_ms=getattr(config, "mdx_radius_increment_ms", cls.radius_increment_ms),
             max_expansions=getattr(config, "mdx_max_expansions", cls.max_expansions),
-            start_window_ms=int(getattr(config, "vocal_start_window_sec", 30) or 30) * 1000,
-            start_window_increment_ms=int(getattr(config, "vocal_window_increment_sec", 15) or 15) * 1000,
-            start_window_max_ms=int(getattr(config, "vocal_window_max_sec", 90) or 90) * 1000,
+            start_window_ms=int(getattr(config, "vocal_start_window_sec", 12) or 12) * 1000,
+            start_window_increment_ms=int(getattr(config, "vocal_window_increment_sec", 6) or 6) * 1000,
+            start_window_max_ms=int(getattr(config, "vocal_window_max_sec", 36) or 36) * 1000,
             use_fp16=getattr(config, "mdx_use_fp16", cls.use_fp16),
             resample_hz=getattr(config, "mdx_resample_hz", cls.resample_hz),
             early_stop_tolerance_ms=getattr(config, "mdx_early_stop_tolerance_ms", cls.early_stop_tolerance_ms),
