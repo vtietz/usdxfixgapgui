@@ -274,7 +274,7 @@ class SongActions(BaseActions):
                 from actions.audio_actions import AudioActions
 
                 audio_actions = AudioActions(self.data)
-                audio_actions._create_waveforms(song, overwrite=True, use_queue=True, emit_on_finish=False)
+                audio_actions._create_waveforms(song, overwrite=False, use_queue=True, emit_on_finish=False)
                 logger.info(f"Queued waveform regeneration after reload for {song.title}")
 
                 # Notify update after successful reload

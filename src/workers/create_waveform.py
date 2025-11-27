@@ -1,5 +1,6 @@
-import logging
 import asyncio
+import logging
+import os
 from common.config import Config
 from model.song import Song
 from managers.worker_queue_manager import IWorker, IWorkerSignals
@@ -17,6 +18,7 @@ class CreateWaveform(IWorker):
         audio_file,
         waveform_file,
         is_instant: bool = True,  # Default to instant - waveform creation is user-triggered
+        target_label: str = "audio",
     ):
         super().__init__(is_instant=is_instant)
         self.signals = IWorkerSignals()
@@ -25,7 +27,9 @@ class CreateWaveform(IWorker):
         self.audio_file = audio_file
         self.waveform_file = waveform_file
         self._isCancelled = False
-        self.description = f"Creating waveform for {song.audio_file}."
+        base_name = os.path.basename(audio_file) if audio_file else song.audio_file
+        label = target_label or "audio"
+        self.description = f"Creating {label} waveform for {base_name}."
 
     async def run(self):
         try:

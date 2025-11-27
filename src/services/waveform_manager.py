@@ -31,6 +31,13 @@ class _WaveformJobState:
     requesters: Set[str] = field(default_factory=set)
     waiting_for_notes: bool = False
     lane_hold: bool = False
+    target_fingerprints: Dict[str, "_WaveformFingerprint"] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class _WaveformFingerprint:
+    audio_mtime: float
+    audio_size: int
 
 
 class WaveformManager(QObject):
@@ -50,6 +57,7 @@ class WaveformManager(QObject):
         self._metadata_waiting: Set[str] = set()
         self._metadata_timeouts: Dict[str, QTimer] = {}
         self._song_service = SongService()
+        self._fingerprints: Dict[str, Dict[str, _WaveformFingerprint]] = {}
 
         songs = getattr(self._data, "songs", None)
         if songs is not None and hasattr(songs, "updated"):
@@ -118,6 +126,51 @@ class WaveformManager(QObject):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _get_cached_fingerprint(self, job_key: str, target_key: str) -> Optional[_WaveformFingerprint]:
+        return self._fingerprints.get(job_key, {}).get(target_key)
+
+    def _remember_fingerprint(
+        self,
+        job_key: str,
+        target_key: str,
+        fingerprint: Optional[_WaveformFingerprint],
+    ) -> None:
+        if not fingerprint:
+            return
+        self._fingerprints.setdefault(job_key, {})[target_key] = fingerprint
+
+    def _compute_audio_fingerprint(self, audio_file: str) -> Optional[_WaveformFingerprint]:
+        try:
+            stat_result = os.stat(audio_file)
+        except OSError:
+            return None
+        return _WaveformFingerprint(audio_mtime=stat_result.st_mtime, audio_size=stat_result.st_size)
+
+    def _waveform_is_stale(
+        self,
+        job_key: str,
+        target_key: str,
+        fingerprint: Optional[_WaveformFingerprint],
+        waveform_file: Optional[str],
+    ) -> bool:
+        if not fingerprint:
+            return True
+
+        cached = self._get_cached_fingerprint(job_key, target_key)
+        if cached and cached == fingerprint:
+            return False
+
+        if not waveform_file or not os.path.exists(waveform_file):
+            return True
+
+        try:
+            waveform_mtime = os.path.getmtime(waveform_file)
+        except OSError:
+            return True
+
+        # Regenerate when audio is newer than the current waveform snapshot
+        return waveform_mtime < fingerprint.audio_mtime
 
     def _resolve_song_key(self, song: Song) -> Optional[str]:
         path = getattr(song, "path", None)
@@ -305,14 +358,39 @@ class WaveformManager(QObject):
         if not os.path.exists(audio_file):
             logger.debug("Skipping %s waveform, audio missing: %s", target_key, audio_file)
             return 0
-        if os.path.exists(waveform_file) and not job.overwrite:
-            logger.debug("Skipping %s waveform, file exists and overwrite=False", target_key)
-            return 0
+
+        fingerprint = self._compute_audio_fingerprint(audio_file)
+        waveform_exists = os.path.exists(waveform_file)
+
+        if not job.overwrite and waveform_exists and fingerprint:
+            if not self._waveform_is_stale(job.song_path, target_key, fingerprint, waveform_file):
+                logger.debug("Skipping %s waveform, fingerprint unchanged", target_key)
+                self._remember_fingerprint(job.song_path, target_key, fingerprint)
+                return 0
+
+        if not job.overwrite and waveform_exists and not fingerprint:
+            logger.debug(
+                "Regenerating %s waveform due to missing fingerprint metadata for %s",
+                target_key,
+                audio_file,
+            )
+
+        if not waveform_exists:
+            logger.debug("Scheduling %s waveform, file missing: %s", target_key, waveform_file)
 
         job.pending_targets.add(target_key)
+        if fingerprint:
+            job.target_fingerprints[target_key] = fingerprint
 
         if job.use_queue:
-            worker = CreateWaveform(song, self._data.config, audio_file, waveform_file, is_instant=True)
+            worker = CreateWaveform(
+                song,
+                self._data.config,
+                audio_file,
+                waveform_file,
+                is_instant=True,
+                target_label=target_key,
+            )
             worker.signals.finished.connect(
                 lambda *args, key=job.song_path, tk=target_key, s=song: self._handle_worker_finished(key, tk, s)
             )
@@ -406,6 +484,10 @@ class WaveformManager(QObject):
 
         if not already_ready:
             logger.debug("Waveform ready for %s", job.song_path)
+
+        for target_key, fingerprint in job.target_fingerprints.items():
+            self._remember_fingerprint(job.song_path, target_key, fingerprint)
+
         self.waveformReady.emit(song)
 
     def _fail_job(self, job: _WaveformJobState, message: str):
