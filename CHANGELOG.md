@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Changed
+- Change: Song cache entries now use per-entry schema envelopes and migrate lazily instead of forcing full rescans
 
 ---
 

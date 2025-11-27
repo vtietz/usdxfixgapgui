@@ -1,13 +1,30 @@
+"""SQLite-backed song cache management.
+
+This module centralizes cache responsibilities:
+
+- Handles per-entry schema envelopes/migrations so cached songs survive refactors
+- Provides CRUD helpers used by services/workers (get/set/stream/remove)
+- Manages the cache database initialization and metadata versioning
+
+Callers should import the public helpers only; internal migration helpers remain private.
+"""
+
 import sqlite3
 import os
-import pickle
 import logging
 import datetime
+import time
 from typing import overload, Literal, Any
 
 from utils.files import get_localappdata_dir
+from common.cache_schema import CacheEnvelope, serialize_payload, deserialize_payload
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Configuration & constants
+# ---------------------------------------------------------------------------
 
 
 def normalize_cache_key(file_path: str) -> str:
@@ -33,6 +50,56 @@ _db_initialized = False
 _cache_was_cleared = False  # Track if cache was cleared due to version mismatch
 
 
+def _ensure_initialized() -> None:
+    """Initialize the cache database on first use."""
+
+    if not _db_initialized:
+        init_database()
+
+
+def _persist_cache_payload(
+    key: str,
+    payload: Any,
+    timestamp_override: str | None = None,
+    *,
+    key_is_normalized: bool = False,
+) -> None:
+    """Write the provided payload into the cache using the envelope wrapper."""
+
+    normalized_key = key if key_is_normalized else normalize_cache_key(key).lower()
+    data_blob = serialize_payload(payload)
+    timestamp_value = timestamp_override or datetime.datetime.now().isoformat()
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT OR REPLACE INTO song_cache (file_path, song_data, timestamp) VALUES (?, ?, ?)",
+        (normalized_key, data_blob, timestamp_value),
+    )
+    conn.commit()
+    conn.close()
+
+
+def deserialize_cache_blob(
+    file_path: str,
+    data_blob: bytes,
+    timestamp_str: str | None = None,
+    *,
+    key_is_normalized: bool = False,
+):
+    """Public helper for callers that need to deserialize cache rows on the fly."""
+
+    normalized_key = file_path if key_is_normalized else normalize_cache_key(file_path).lower()
+    payload, migrated = deserialize_payload(normalized_key, data_blob)
+    if payload is None:
+        return None
+
+    if migrated:
+        _persist_cache_payload(normalized_key, payload, timestamp_override=timestamp_str, key_is_normalized=True)
+
+    return payload
+
+
 def _get_db_path() -> str:
     """Get database path, initializing it on first access."""
     global _DB_PATH
@@ -45,6 +112,8 @@ def _get_db_path() -> str:
 # Version 1: Original cache (pre-multi-txt support)
 # Version 2: Multi-txt support (txt_file path is primary key)
 CACHE_VERSION = 2
+# Versions that absolutely require a destructive reset (reserved for structural DB changes)
+CACHE_VERSIONS_REQUIRING_CLEAR: set[int] = set()
 
 
 def get_connection():
@@ -57,6 +126,11 @@ def get_connection():
     cursor.execute("PRAGMA temp_store=MEMORY")  # Use memory for temp tables
     cursor.execute("PRAGMA cache_size=-32768")  # ~32 MB page cache
     return conn
+
+
+# ---------------------------------------------------------------------------
+# Maintenance & migrations
+# ---------------------------------------------------------------------------
 
 
 def migrate_cache_paths():
@@ -100,7 +174,10 @@ def migrate_cache_paths():
                 normalized_map[normalized_path] = (song_data, timestamp, file_path)
 
         if duplicates_removed > 0:
-            logger.info(f"Found {duplicates_removed} duplicate cache entries with different path separators")
+            logger.info(
+                "Found %s duplicate cache entries with different path separators",
+                duplicates_removed,
+            )
 
             # Clear the entire cache table
             cursor.execute("DELETE FROM song_cache")
@@ -113,13 +190,22 @@ def migrate_cache_paths():
                 )
 
             conn.commit()
-            logger.info(f"Cache normalized: removed {duplicates_removed} duplicates, kept {len(normalized_map)} unique songs")
+            logger.info(
+                "Cache normalized: removed %s duplicates, kept %s unique songs",
+                duplicates_removed,
+                len(normalized_map),
+            )
 
         conn.close()
         return duplicates_removed
     except Exception as e:
-        logger.error(f"Error migrating cache paths: {str(e)}")
+        logger.error("Error migrating cache paths: %s", str(e))
         return 0
+
+
+    # ---------------------------------------------------------------------------
+    # Initialization
+    # ---------------------------------------------------------------------------
 
 
 def init_database():
@@ -172,16 +258,27 @@ def init_database():
 
     # Only clear cache if upgrading from old version (not on fresh install)
     if current_version is not None and current_version < CACHE_VERSION:
-        # Explicit version mismatch - needs migration
-        logger.warning(f"Cache version mismatch detected (current: {current_version}, required: {CACHE_VERSION}).")
-        logger.warning("A complete re-scan of all songs is required due to application upgrade.")
-        logger.info("Clearing outdated cache...")
-        cursor.execute("DELETE FROM song_cache")
+        logger.warning(
+            "Cache version mismatch detected (current: %s, required: %s).",
+            current_version,
+            CACHE_VERSION,
+        )
+        if current_version in CACHE_VERSIONS_REQUIRING_CLEAR:
+            logger.warning("This upgrade requires clearing the cache due to structural changes.")
+            cursor.execute("DELETE FROM song_cache")
+            _cache_was_cleared = True
+            logger.info("Cache cleared as part of version upgrade")
+        else:
+            logger.info("Preserving existing cache entries for lazy envelope migration")
+            _cache_was_cleared = False
+
         cursor.execute(
             "INSERT OR REPLACE INTO cache_metadata (key, value) VALUES (?, ?)", ("version", str(CACHE_VERSION))
         )
-        logger.info(f"Cache cleared and version updated to v{CACHE_VERSION}")
-        _cache_was_cleared = True
+        if _cache_was_cleared:
+            logger.info("Cache version updated to v%s (entries cleared)", CACHE_VERSION)
+        else:
+            logger.info("Cache version metadata updated to v%s (entries preserved)", CACHE_VERSION)
     elif current_version is None:
         # No version metadata - could be fresh or legacy
         # Check if there are any cache entries to determine if legacy
@@ -189,20 +286,21 @@ def init_database():
         cache_entry_count = cursor.fetchone()[0]
 
         if cache_entry_count > 0:
-            # Legacy database with cache entries - needs migration
-            logger.warning(f"Legacy cache detected (no version metadata, {cache_entry_count} entries).")
-            logger.warning("A complete re-scan of all songs is required due to application upgrade.")
-            logger.info("Clearing legacy cache...")
-            cursor.execute("DELETE FROM song_cache")
-            logger.info("Legacy cache cleared")
-            _cache_was_cleared = True
+            logger.warning(
+                "Legacy cache detected (no version metadata, %s entries).",
+                cache_entry_count,
+            )
+            logger.info("Preserving legacy cache entries and marking them for lazy migration")
+            _cache_was_cleared = False
         else:
             # Fresh database - just set version, no need to clear
             logger.debug("Fresh database detected, initializing with current version")
             _cache_was_cleared = False
 
         # Set version for both cases
-        cursor.execute("INSERT INTO cache_metadata (key, value) VALUES (?, ?)", ("version", str(CACHE_VERSION)))
+        cursor.execute(
+            "INSERT OR REPLACE INTO cache_metadata (key, value) VALUES (?, ?)", ("version", str(CACHE_VERSION))
+        )
 
     conn.commit()
     conn.close()
@@ -217,8 +315,9 @@ def init_database():
     return _cache_was_cleared
 
 
-# Initialize the database when the module is loaded
-init_database()
+# ---------------------------------------------------------------------------
+# Public API (CRUD helpers)
+# ---------------------------------------------------------------------------
 
 
 def initialize_song_cache():
@@ -245,6 +344,7 @@ def get_cache_entry(key, modified_time=None):
     Returns:
         object or None: The cached object if found and valid, None otherwise.
     """
+    _ensure_initialized()
     key = normalize_cache_key(key).lower()  # Normalize path separators and lowercase
     try:
         conn = get_connection()
@@ -264,14 +364,10 @@ def get_cache_entry(key, modified_time=None):
         if modified_time and modified_time > cached_timestamp:
             return None
 
-        try:
-            obj = pickle.loads(data_blob)
-            return obj
-        except Exception as e:
-            logger.error(f"Failed to deserialize cache for key {key}: {e}")
-            return None
+        payload = deserialize_cache_blob(key, data_blob, timestamp_str, key_is_normalized=True)
+        return payload
     except Exception as e:
-        logger.error(f"Error retrieving from cache for key {key}: {e}")
+        logger.error("Error retrieving from cache for key %s: %s", key, e)
         return None
 
 
@@ -283,31 +379,18 @@ def set_cache_entry(key, obj):
         key (str): The cache key (filepath)
         obj (object): The object to cache
     """
+    _ensure_initialized()
     key = normalize_cache_key(key).lower()  # Normalize path separators and lowercase for indexing
-    import time
-
     start_time = time.perf_counter()
 
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
-
-        data_blob = pickle.dumps(obj)
-        timestamp = datetime.datetime.now().isoformat()
-
-        # This will update existing entries or insert new ones
-        cursor.execute(
-            "INSERT OR REPLACE INTO song_cache (file_path, song_data, timestamp) VALUES (?, ?, ?)",
-            (key, data_blob, timestamp),
-        )
-        conn.commit()
-        conn.close()
+        _persist_cache_payload(key, obj)
 
         duration_ms = (time.perf_counter() - start_time) * 1000
         if duration_ms > 100:
-            logger.warning(f"SLOW cache operation: {duration_ms:.1f}ms for {key}")
+            logger.warning("SLOW cache operation: %.1fms for %s", duration_ms, key)
     except Exception as e:
-        logger.error(f"Failed to cache data for key {key}: {e}")
+        logger.error("Failed to cache data for key %s: %s", key, e)
 
 
 def clear_cache(key=None):
@@ -318,6 +401,7 @@ def clear_cache(key=None):
         key (str, optional): If provided, only clear this specific key.
                             If None, clear the entire cache.
     """
+    _ensure_initialized()
     if key:
         key = normalize_cache_key(key)  # Normalize path separators
     try:
@@ -333,9 +417,9 @@ def clear_cache(key=None):
         conn.commit()
         conn.close()
         if rows_affected > 0:
-            logger.info(f"Cleared {rows_affected} cache entries")
+            logger.info("Cleared %s cache entries", rows_affected)
     except Exception as e:
-        logger.error(f"Failed to clear cache: {e}")
+        logger.error("Failed to clear cache: %s", e)
 
 
 @overload
@@ -357,6 +441,7 @@ def get_all_cache_entries(deserialize=False):
         If deserialize=False: List of tuples containing (file_path, serialized_song_data)
         If deserialize=True: Dictionary mapping file_path to deserialized song objects
     """
+    _ensure_initialized()
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -375,11 +460,9 @@ def get_all_cache_entries(deserialize=False):
         # The existence check will happen during directory scan anyway
         deserialized = {}
         for file_path, song_data, timestamp_str in results:
-            try:
-                song_obj = pickle.loads(song_data)
+            song_obj = deserialize_cache_blob(file_path, song_data, timestamp_str)
+            if song_obj is not None:
                 deserialized[file_path] = song_obj
-            except Exception as e:
-                logger.error("Failed to deserialize cache for %s: %s", file_path, e)
 
         return deserialized
     except Exception as e:
@@ -399,6 +482,7 @@ def stream_cache_entries(page_size=500, directory_filter=None):
     Yields:
         tuple: (file_path, song_data, timestamp) for each cache entry
     """
+    _ensure_initialized()
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -456,6 +540,7 @@ def remove_cache_entry(file_path):
     Args:
         file_path (str): Path of the file to remove from cache
     """
+    _ensure_initialized()
     file_path = normalize_cache_key(file_path)  # Normalize path separators
     try:
         conn = get_connection()
@@ -465,7 +550,7 @@ def remove_cache_entry(file_path):
         conn.commit()
         conn.close()
     except Exception as e:
-        logger.error(f"Error removing cache entry for {file_path}: {str(e)}")
+        logger.error("Error removing cache entry for %s: %s", file_path, str(e))
 
 
 def cleanup_stale_entries(valid_paths):
@@ -478,6 +563,7 @@ def cleanup_stale_entries(valid_paths):
     Returns:
         int: Number of stale entries removed
     """
+    _ensure_initialized()
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -497,9 +583,9 @@ def cleanup_stale_entries(valid_paths):
         conn.close()
 
         if stale_paths:
-            logger.info(f"Removed {len(stale_paths)} stale cache entries")
+            logger.info("Removed %s stale cache entries", len(stale_paths))
 
         return len(stale_paths)
     except Exception as e:
-        logger.error(f"Error cleaning up stale cache entries: {str(e)}")
+        logger.error("Error cleaning up stale cache entries: %s", str(e))
         return 0

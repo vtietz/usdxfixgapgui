@@ -126,6 +126,8 @@ class GapInfoService:
         try:
             # Update processed time
             gap_info.processed_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if gap_info.owner:
+                gap_info.owner.set_status_timestamp_from_string(gap_info.processed_time)
 
             # Prepare entry data for this song
             # Ensure status is an enum (defensive coding)

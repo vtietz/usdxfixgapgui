@@ -92,6 +92,12 @@
   - Handles gap detection logic for songs.
   - Stateless and reusable across the application.
 
+- **Song Cache Database**:
+  - SQLite file (`cache.db`) stores serialized `Song` objects for fast reloads.
+  - Every row now stores a `CacheEnvelope` with a `schema_version` so entries can be migrated lazily without clearing the table.
+  - On startup / directory scans, cache rows are deserialized via `deserialize_cache_blob()`. If the entry uses an older schema it is rewritten in-place, preserving timestamps and existing gap results.
+  - Schema bumps therefore avoid forcing a full gap re-detection run. Only entries that cannot be migrated (corrupted or future schema) are dropped and reprocessed.
+
 - **`WaveformPathService`**:
   - Manages file paths for waveform generation.
 - **`WaveformManager`**:

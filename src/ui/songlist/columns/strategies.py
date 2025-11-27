@@ -166,14 +166,10 @@ class ProcessedTimeColumn:
         return 9
 
     def format_display(self, song: Song, cache_entry: Optional[dict]) -> str:
-        if song.gap_info:
-            return song.gap_info.processed_time
-        return ""
+        return song.status_time_display
 
     def get_sort_key(self, song: Song, cache_entry: Optional[dict]) -> Any:
-        if song.gap_info and song.gap_info.processed_time:
-            return song.gap_info.processed_time
-        return ""
+        return song.status_time_sort_key
 
 
 class NormalizedColumn:

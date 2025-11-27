@@ -2,7 +2,6 @@ import os
 import logging
 import time
 import datetime
-import pickle
 import asyncio
 import threading
 from typing import AsyncGenerator, Optional, Tuple
@@ -16,6 +15,7 @@ from common.database import (
     normalize_cache_key,
     get_cache_entry,
     get_all_cache_entries,  # noqa: F401 - Backward compatibility for tests that patch symbol
+    deserialize_cache_blob,
 )
 
 logger = logging.getLogger(__name__)
@@ -147,11 +147,8 @@ class LoadUsdxFilesWorker(IWorker):
             # Yield to allow UI/instant tasks to progress between cache rows
             await self._maybe_yield()
 
-            # Deserialize song (only directory-relevant entries thanks to SQL filter)
-            try:
-                song = pickle.loads(song_data)
-            except Exception as e:
-                logger.error("Failed to deserialize cache for %s: %s", file_path, e)
+            song = deserialize_cache_blob(file_path, song_data, timestamp_str, key_is_normalized=True)
+            if song is None:
                 continue
 
             # Ensure song is valid
