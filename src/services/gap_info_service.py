@@ -99,6 +99,8 @@ class GapInfoService:
         gap_info.first_note_ms = data.get("first_note_ms", None)
         gap_info.tolerance_band_ms = data.get("tolerance_band_ms", None)
         gap_info.error_message = data.get("error_message", None)
+        gap_info.processed_txt_signature = data.get("processed_txt_signature")
+        gap_info.processed_audio_signature = data.get("processed_audio_signature")
 
     @staticmethod
     async def save(gap_info: GapInfo) -> bool:
@@ -159,6 +161,8 @@ class GapInfoService:
                 "detected_gap_ms": gap_info.detected_gap_ms,
                 "first_note_ms": gap_info.first_note_ms,
                 "tolerance_band_ms": gap_info.tolerance_band_ms,
+                "processed_txt_signature": gap_info.processed_txt_signature,
+                "processed_audio_signature": gap_info.processed_audio_signature,
             }
 
             # Read existing file (if any) to preserve other entries

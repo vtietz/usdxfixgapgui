@@ -206,7 +206,13 @@ class WatchModeController(QObject):
             # Auto-trigger gap detection for newly added songs with NOT_PROCESSED status
             if song.status == SongStatus.NOT_PROCESSED:
                 logger.info(f"Newly added song has NOT_PROCESSED status, triggering gap detection: {song.artist} - {song.title}")
-                self._start_gap_detection(song)
+                started = self._gap_scheduler.start_detection_immediately(song)
+                if not started:
+                    logger.debug(
+                        "Skipped immediate gap detection for %s - %s because a task is already pending or in-flight",
+                        song.artist,
+                        song.title,
+                    )
 
         except Exception as e:
             logger.error(f"Error adding scanned song: {e}", exc_info=True)

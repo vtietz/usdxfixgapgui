@@ -2,6 +2,7 @@ import hashlib
 import os
 import sys
 import logging
+from typing import Any, Dict, Optional
 
 from common.constants import APP_IGNORE_FILENAME, APP_INFO_FILENAME
 
@@ -353,3 +354,70 @@ def get_file_checksum(file_path, algorithm="sha256", buffer_size=65536):
     except AttributeError:
         logger.error(f"Hash algorithm not available: {algorithm}")
         return None
+
+
+def build_file_signature(
+    file_path: str,
+    include_hash: bool = False,
+    hash_algorithm: str = "sha256",
+) -> Optional[Dict[str, Any]]:
+    """Construct a signature describing the on-disk state of a file.
+
+    Args:
+        file_path: File to inspect.
+        include_hash: Whether to include a content hash (useful for txt files).
+        hash_algorithm: Hash algorithm to use when include_hash is True.
+
+    Returns:
+        Dict containing size/mtime (and optional hash) or None if unavailable.
+    """
+
+    if not file_path:
+        return None
+
+    try:
+        stat_result = os.stat(file_path)
+    except (FileNotFoundError, OSError) as exc:
+        logger.debug("Unable to stat %s for signature: %s", file_path, exc)
+        return None
+
+    mtime_ns = getattr(stat_result, "st_mtime_ns", None)
+    if mtime_ns is None:
+        mtime_ns = int(stat_result.st_mtime * 1_000_000_000)
+
+    signature: Dict[str, Any] = {
+        "size": stat_result.st_size,
+        "mtime_ns": mtime_ns,
+    }
+
+    if include_hash:
+        digest = get_file_checksum(file_path, algorithm=hash_algorithm)
+        if digest:
+            signature["hash"] = digest
+
+    return signature
+
+
+def signatures_match(first: Optional[Dict[str, Any]], second: Optional[Dict[str, Any]]) -> bool:
+    """Compare two file signatures for equality.
+
+    Returns:
+        True if both signatures are present and describe the same file state.
+    """
+
+    if not first or not second:
+        return False
+
+    if first.get("size") != second.get("size"):
+        return False
+
+    if first.get("mtime_ns") != second.get("mtime_ns"):
+        return False
+
+    # If either signature captured a hash, require equality for extra safety
+    hash_a = first.get("hash")
+    hash_b = second.get("hash")
+    if hash_a is not None or hash_b is not None:
+        return hash_a == hash_b
+
+    return True

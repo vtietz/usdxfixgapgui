@@ -13,7 +13,10 @@ from datetime import datetime
 
 from PySide6.QtCore import QObject, QTimer, Signal
 from services.directory_watcher import WatchEvent, WatchEventType
-from model.song import Song
+from services.file_mutation_guard import FileMutationGuard
+from services.song_signature_service import SongSignatureService
+from model.gap_info import GapInfoStatus
+from model.song import Song, SongStatus
 from model.songs import normalize_path
 
 logger = logging.getLogger(__name__)
@@ -27,6 +30,7 @@ class _PendingDetection:
     txt_file: str
     last_event_time: datetime
     timer: QTimer
+    original_path: str
     retry_count: int = 0  # Track reschedule attempts
 
 
@@ -86,6 +90,10 @@ class GapDetectionScheduler(QObject):
         # Maximum retry attempts when files aren't ready
         self._max_retries = 5
 
+    @staticmethod
+    def _normalize_song_path(song_path: str) -> str:
+        return normalize_path(song_path) if song_path else ""
+
     def handle_event(self, event: WatchEvent):
         """
         Handle a filesystem event and schedule gap detection or reload if appropriate.
@@ -133,7 +141,10 @@ class GapDetectionScheduler(QObject):
 
     def _handle_file_modified(self, event: WatchEvent):
         """Handle txt/audio file modification → reload song + conditionally schedule gap detection."""
-        from model.song import SongStatus
+        # Ignore events triggered by in-app mutations (normalization, gap writes, etc.)
+        if FileMutationGuard.is_guarded(event.path):
+            logger.debug("Skipping guarded modification event for %s", event.path)
+            return
 
         # Determine song folder and txt file
         song_path = os.path.dirname(event.path)
@@ -154,7 +165,11 @@ class GapDetectionScheduler(QObject):
             logger.debug(f"Skipping MODIFIED event for recently created .txt file (normalized match): {txt_file_normalized}")
             return
 
-        logger.info(f"Text/audio file modified, reloading song at {song_path} (event: {os.path.basename(event.path)})")
+        logger.info(
+            "Text/audio file modified, reloading song at %s (event: %s)",
+            song_path,
+            os.path.basename(event.path),
+        )
 
         # Emit reload signal to update song metadata from disk
         self.reload_requested.emit(song_path)
@@ -171,13 +186,48 @@ class GapDetectionScheduler(QObject):
             self._schedule_detection(song_path, txt_file)
             return
 
-        # Only schedule gap detection if status is NOT_PROCESSED
-        # This implements "auto processing" behavior: watch mode detects gaps for unprocessed songs
+        # Always honor existing NOT_PROCESSED state (legacy behavior)
         if song.status == SongStatus.NOT_PROCESSED:
-            logger.info(f"Song status is NOT_PROCESSED, scheduling gap detection for {song.artist} - {song.title}")
+            logger.info(
+                "Song already marked NOT_PROCESSED, scheduling gap detection for %s - %s",
+                song.artist,
+                song.title,
+            )
+            self._schedule_detection(song_path, txt_file)
+            return
+
+        # For processed songs, compare signatures to detect real content changes
+        if SongSignatureService.has_meaningful_change(song, event.path):
+            logger.info(
+                "Detected content change for %s - %s (%s), resetting status",
+                song.artist,
+                song.title,
+                os.path.basename(event.path),
+            )
+            self._mark_song_as_stale(song)
             self._schedule_detection(song_path, txt_file)
         else:
-            logger.debug(f"Song status is {song.status.name}, skipping gap detection for {song.artist} - {song.title}")
+            logger.debug(
+                "Skipped gap detection for %s - %s: signature unchanged",
+                song.artist,
+                song.title,
+            )
+
+    def _mark_song_as_stale(self, song: Song):
+        """Reset song + gap info status to NOT_PROCESSED when content changed."""
+        if not song:
+            return
+
+        try:
+            if song.gap_info and song.gap_info.status != GapInfoStatus.NOT_PROCESSED:
+                song.gap_info.error_message = None
+                song.gap_info.status = GapInfoStatus.NOT_PROCESSED
+            elif not song.gap_info:
+                song.status = SongStatus.NOT_PROCESSED
+
+            song.error_message = None
+        except Exception as exc:
+            logger.debug("Failed to mark %s as stale: %s", song.path, exc)
 
     def _handle_gap_info_change(self, event: WatchEvent):
         """Handle usdxfixgap.info modification/deletion → trigger song reload."""
@@ -234,18 +284,27 @@ class GapDetectionScheduler(QObject):
         except (OSError, IOError) as e:
             return False, f"audio file not ready: {e}"
 
+    def _cancel_pending_detection(self, song_path: str):
+        """Cancel any pending detection timers for the given song path."""
+        normalized_path = self._normalize_song_path(song_path)
+        pending = self._pending.pop(normalized_path, None)
+        if pending:
+            pending.timer.stop()
+            logger.debug("Cancelled pending gap detection for %s", song_path)
+
     def _schedule_detection(self, song_path: str, txt_file: str):
         """Schedule detection with debouncing."""
         now = datetime.now()
+        normalized_path = self._normalize_song_path(song_path)
 
         # Check if already in-flight
-        if song_path in self._in_flight:
+        if normalized_path in self._in_flight:
             logger.debug(f"Gap detection already in-flight for {song_path}, skipping")
             return
 
         # Check if already pending
-        if song_path in self._pending:
-            pending = self._pending[song_path]
+        if normalized_path in self._pending:
+            pending = self._pending[normalized_path]
 
             # Update last event time
             pending.last_event_time = now
@@ -260,44 +319,74 @@ class GapDetectionScheduler(QObject):
             # Create new pending detection
             timer = QTimer()
             timer.setSingleShot(True)
-            timer.timeout.connect(lambda: self._execute_detection(song_path))
+            timer.timeout.connect(lambda path=normalized_path: self._execute_detection(path))
 
-            pending = _PendingDetection(song_path=song_path, txt_file=txt_file, last_event_time=now, timer=timer)
+            pending = _PendingDetection(
+                song_path=normalized_path,
+                txt_file=txt_file,
+                last_event_time=now,
+                timer=timer,
+                original_path=song_path,
+            )
 
-            self._pending[song_path] = pending
+            self._pending[normalized_path] = pending
             timer.start(self._debounce_ms)
 
             logger.debug(f"Scheduled gap detection for {song_path} (debounce {self._debounce_ms}ms)")
 
     def _schedule_detection_with_retry(self, song_path: str, txt_file: str, retry_count: int):
         """Schedule detection with specific retry count (used for rescheduling)."""
+        normalized_path = self._normalize_song_path(song_path)
         # Check if already in-flight
-        if song_path in self._in_flight:
+        if normalized_path in self._in_flight:
             logger.debug(f"Gap detection already in-flight for {song_path}, skipping reschedule")
             return
 
         # Cancel existing pending if any
-        if song_path in self._pending:
-            self._pending[song_path].timer.stop()
-            del self._pending[song_path]
+        self._cancel_pending_detection(song_path)
 
         # Create new pending detection with retry count
         timer = QTimer()
         timer.setSingleShot(True)
-        timer.timeout.connect(lambda: self._execute_detection(song_path))
+        timer.timeout.connect(lambda path=normalized_path: self._execute_detection(path))
 
         pending = _PendingDetection(
-            song_path=song_path,
+            song_path=normalized_path,
             txt_file=txt_file,
             last_event_time=datetime.now(),
             timer=timer,
+            original_path=song_path,
             retry_count=retry_count,
         )
 
-        self._pending[song_path] = pending
+        self._pending[normalized_path] = pending
         timer.start(self._debounce_ms)
 
         logger.debug(f"Rescheduled gap detection for {song_path} (retry {retry_count}, debounce {self._debounce_ms}ms)")
+
+    def start_detection_immediately(self, song: Song) -> bool:
+        """Start gap detection immediately for the provided song."""
+        if not song or not song.path:
+            logger.debug("Cannot start immediate detection: invalid song reference")
+            return False
+
+        song_path = song.path
+        normalized_path = self._normalize_song_path(song_path)
+        self._cancel_pending_detection(song_path)
+
+        if normalized_path in self._in_flight:
+            logger.debug("Gap detection already in-flight for %s, skipping immediate start", song_path)
+            return False
+
+        self._in_flight.add(normalized_path)
+
+        try:
+            self._start_gap_detection(song)
+            self.detection_scheduled.emit(song)
+            return True
+        except Exception:
+            self._in_flight.discard(normalized_path)
+            raise
 
     def _execute_detection(self, song_path: str):
         """Execute gap detection after debounce period."""
@@ -305,11 +394,16 @@ class GapDetectionScheduler(QObject):
             return
 
         pending = self._pending[song_path]
+        actual_song_path = pending.original_path or pending.song_path
 
         # Remove from pending
         del self._pending[song_path]
 
         # Mark as in-flight
+        if song_path in self._in_flight:
+            logger.debug("Gap detection already in-flight for %s, skipping queued execution", actual_song_path)
+            return
+
         self._in_flight.add(song_path)
 
         try:
@@ -318,16 +412,31 @@ class GapDetectionScheduler(QObject):
 
             if not song:
                 # Try by path
-                song = self._songs_get_by_path(song_path)
+                song = self._songs_get_by_path(actual_song_path)
 
             if not song:
-                logger.warning(f"Song not found for gap detection: {song_path}")
+                if pending.retry_count >= self._max_retries:
+                    logger.warning(
+                        "Song not found for gap detection after %s retries: %s",
+                        pending.retry_count,
+                        actual_song_path,
+                    )
+                    self._in_flight.discard(song_path)
+                    return
+
+                logger.info(
+                    "Song not ready in collection for %s, rescheduling gap detection (retry %s/%s)",
+                    actual_song_path,
+                    pending.retry_count + 1,
+                    self._max_retries,
+                )
                 self._in_flight.discard(song_path)
+                self._schedule_detection_with_retry(actual_song_path, pending.txt_file, pending.retry_count + 1)
                 return
 
             # Skip songs with ERROR status (failed to load)
             if song.status and song.status.name == "ERROR":
-                logger.warning(f"Skipping gap detection for song with ERROR status: {song_path}")
+                logger.warning(f"Skipping gap detection for song with ERROR status: {actual_song_path}")
                 self._in_flight.discard(song_path)
                 return
 
@@ -351,17 +460,7 @@ class GapDetectionScheduler(QObject):
 
                 # Reschedule with incremented retry count
                 # This handles the race condition where txt is detected before audio is fully written
-                self._schedule_detection_with_retry(song_path, pending.txt_file, pending.retry_count + 1)
-                return
-
-            # Skip if song already has valid gap detection (watch mode auto-update)
-            # Only re-detect if explicitly requested via UI
-            if song.gap_info and song.gap_info.status and song.gap_info.status.name in ["MATCH", "SOLVED"]:
-                logger.info(
-                    f"Skipping gap detection for {song.artist} - {song.title} "
-                    f"(already detected: {song.gap_info.status.name})"
-                )
-                self._in_flight.discard(song_path)
+                self._schedule_detection_with_retry(actual_song_path, pending.txt_file, pending.retry_count + 1)
                 return
 
             logger.info(f"Starting gap detection for {song.artist} - {song.title}")
@@ -373,7 +472,7 @@ class GapDetectionScheduler(QObject):
             self.detection_scheduled.emit(song)
 
         except Exception as e:
-            logger.error(f"Error executing gap detection for {song_path}: {e}", exc_info=True)
+            logger.error(f"Error executing gap detection for {actual_song_path}: {e}", exc_info=True)
             self._in_flight.discard(song_path)
 
     def mark_detection_complete(self, song: Song):
@@ -386,7 +485,8 @@ class GapDetectionScheduler(QObject):
             song: The song that finished detection
         """
         if song and song.path:
-            self._in_flight.discard(song.path)
+            normalized_path = self._normalize_song_path(song.path)
+            self._in_flight.discard(normalized_path)
             logger.debug(f"Gap detection completed for {song.path}")
 
     def clear_pending(self):

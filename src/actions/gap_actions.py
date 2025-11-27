@@ -5,11 +5,13 @@ from model.song import Song, SongStatus
 from model.gap_info import GapInfoStatus
 from model.usdx_file import USDXFile
 from services.gap_info_service import GapInfoService
+from services.song_signature_service import SongSignatureService
 from services.usdx_file_service import USDXFileService
 from workers.detect_gap import DetectGapWorker, GapDetectionResult, DetectGapWorkerOptions
 from utils.run_async import run_async
 import utils.usdx as usdx
 from typing import Optional, cast
+from services.file_mutation_guard import FileMutationGuard
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +154,9 @@ class GapActions(BaseActions):
             song.gap_info.status,
         )
 
+        # Persist the signatures that this detection processed successfully
+        SongSignatureService.capture_processed_signatures(song)
+
         # Save gap info and update cache
         async def save_gap_and_cache():
             if song.gap_info:
@@ -245,8 +250,12 @@ class GapActions(BaseActions):
             # Update gap tag in .txt file
             usdx_file = USDXFile(song_to_process.txt_file)
             await USDXFileServiceRef.load(usdx_file)
-            await USDXFileServiceRef.write_gap_tag(usdx_file, gap)
+            with FileMutationGuard.guard(song_to_process.txt_file):
+                await USDXFileServiceRef.write_gap_tag(usdx_file, gap)
             logger.debug(f"Gap tag written to {song_to_process.txt_file}")
+
+            # Signature baseline now includes the edited txt file
+            SongSignatureService.capture_processed_signatures(song_to_process, include_audio=False)
 
             # Save gap_info to .info file
             if song_to_process.gap_info:
@@ -293,8 +302,11 @@ class GapActions(BaseActions):
             # Revert gap tag in .txt file
             usdx_file = USDXFile(song_to_process.txt_file)
             await USDXFileServiceRef.load(usdx_file)
-            await USDXFileServiceRef.write_gap_tag(usdx_file, song_to_process.gap)
+            with FileMutationGuard.guard(song_to_process.txt_file):
+                await USDXFileServiceRef.write_gap_tag(usdx_file, song_to_process.gap)
             logger.debug(f"Gap tag reverted in {song_to_process.txt_file}")
+
+            SongSignatureService.capture_processed_signatures(song_to_process, include_audio=False)
 
             # Save gap_info to .info file
             if song_to_process.gap_info:

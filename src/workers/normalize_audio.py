@@ -3,6 +3,8 @@ from managers.worker_queue_manager import IWorker
 import utils.audio as audio
 from app.app_data import AppData
 from services.gap_info_service import GapInfoService  # Add this import
+from services.song_signature_service import SongSignatureService
+from services.file_mutation_guard import FileMutationGuard
 
 import logging
 
@@ -22,9 +24,11 @@ class NormalizeAudioWorker(IWorker):
         try:
             # Use the normalization level from config
             normalization_level = self.config.normalization_level
-            audio.normalize_audio(
-                self.song.audio_file, target_level=normalization_level, check_cancellation=self.is_cancelled
-            )
+            with FileMutationGuard.guard(self.song.audio_file):
+                audio.normalize_audio(
+                    self.song.audio_file, target_level=normalization_level, check_cancellation=self.is_cancelled
+                )
+                SongSignatureService.capture_processed_signatures(self.song, include_txt=False)
 
             # Update normalization info using service
             GapInfoService.set_normalized(self.song.gap_info, normalization_level)

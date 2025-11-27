@@ -56,6 +56,10 @@ class GapInfo:
         self.first_note_ms: Optional[float] = None
         self.tolerance_band_ms: Optional[int] = None
 
+        # Processed file signatures (persist last processed txt/audio state)
+        self.processed_txt_signature = None
+        self.processed_audio_signature = None
+
         # Error information
         self.error_message: Optional[str] = None
 

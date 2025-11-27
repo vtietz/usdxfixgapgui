@@ -82,7 +82,6 @@ class LoadUsdxFilesWorker(IWorker):
             elapsed_ms = (time.time() - self._ttfb_start) * 1000
         else:
             elapsed_ms = 0
-        logger.debug("Worker emitted batch (%s songs) at %.1f ms", batch_size, elapsed_ms)
 
         self.signals.progress.emit()
 
@@ -90,8 +89,6 @@ class LoadUsdxFilesWorker(IWorker):
         await asyncio.sleep(0)
         # Cooperative yield if higher-priority work is pending
         await self._maybe_yield()
-
-        logger.debug("Emitted batch of %s songs", batch_size)
 
     async def _append_scan_song(self, song: Song | None):
         if not song:

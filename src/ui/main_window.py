@@ -440,7 +440,10 @@ def _restore_filter_state(config, data, menuBar):
     # Restore text filter
     if config.filter_text:
         data.songs.filter_text = config.filter_text
-        menuBar.searchBar.setText(config.filter_text)
+        # MenuBar renamed search input to searchBox (backward compatibility shim)
+        search_widget = getattr(menuBar, "searchBox", None)
+        if search_widget:
+            search_widget.setText(config.filter_text)
         logger.debug("Restored text filter: '%s'", config.filter_text)
 
     # Restore status filters (as strings, not enums)

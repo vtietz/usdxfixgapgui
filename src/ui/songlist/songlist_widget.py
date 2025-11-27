@@ -498,7 +498,6 @@ class SongListWidget(QWidget):
         self.countLabel.setText(label_text)
         if label_text != self._last_count_label:
             self._last_count_label = label_text
-            logger.debug("Song count updated: %s", label_text)
 
     def start_chunked_load(self, songs: List[Song]):
         """Start chunked loading for large song lists."""

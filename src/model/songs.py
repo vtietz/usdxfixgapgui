@@ -86,7 +86,6 @@ class Songs(QObject):
             added_count += 1
 
         if added_count > 0 or updated_count > 0:
-            logger.debug("Batch operation: added %s, updated %s songs", added_count, updated_count)
             # Don't emit individual 'added' signals in batch mode - only emit once at the end
             # This prevents N UI updates for N songs (massive performance win)
             # Only emit list changed once at the end

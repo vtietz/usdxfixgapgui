@@ -11,7 +11,8 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from services.directory_watcher import DirectoryWatcher, WatchEvent, WatchEventType
-from services.gap_detection_scheduler import GapDetectionScheduler
+from services.gap_detection_scheduler import GapDetectionScheduler, _PendingDetection
+from model.songs import normalize_path
 from model.song import Song
 
 
@@ -253,8 +254,8 @@ class TestGapDetectionScheduler:
             assert len(scheduler._pending) == 0
             assert len(detection_calls) == 0
 
-    def test_txt_modification_skips_detection_for_processed_songs(self, qtbot):
-        """Test that txt file modifications skip gap detection if song status is not NOT_PROCESSED"""
+    def test_txt_modification_triggers_detection_for_processed_songs(self, qtbot):
+        """Processed songs should reset to NOT_PROCESSED when content actually changes."""
         from model.song import SongStatus
 
         reload_calls = []
@@ -293,9 +294,149 @@ class TestGapDetectionScheduler:
             assert len(reload_calls) == 1
             assert reload_calls[0] == tmpdir
 
-            # Should NOT schedule gap detection since status is MATCH
-            assert len(scheduler._pending) == 0  # Should NOT schedule gap detection
+            # Should schedule gap detection now that content change is detected
+            assert len(scheduler._pending) == 1
             mock_start_detection.assert_not_called()
+
+    def test_scheduler_runs_for_solved_songs(self, qtbot):
+        """Scheduler should re-run detection even when current status is SOLVED."""
+        from datetime import datetime
+        from PySide6.QtCore import QTimer
+        from model.song import SongStatus
+        from model.gap_info import GapInfo, GapInfoStatus
+
+        detection_calls = []
+
+        def mock_start_detection(song):
+            detection_calls.append(song)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            txt_path = os.path.join(tmpdir, "song.txt")
+            audio_path = os.path.join(tmpdir, "song.mp3")
+            Path(txt_path).write_text("#TITLE:Test\n")
+            Path(audio_path).write_text("fake audio")
+
+            song = Song(txt_file=txt_path)
+            song.audio_file = audio_path
+            gap_info = GapInfo(file_path=os.path.join(tmpdir, "usdxfixgap.info"), txt_basename="song.txt")
+            gap_info.status = GapInfoStatus.SOLVED
+            song.gap_info = gap_info
+            song.status = SongStatus.SOLVED
+
+            scheduler = GapDetectionScheduler(
+                debounce_ms=50,
+                start_gap_detection=mock_start_detection,
+                songs_get_by_txt_file=lambda _: song,
+                songs_get_by_path=lambda _: song,
+            )
+
+            pending_timer = QTimer()
+            pending_detection = _PendingDetection(
+                song_path=normalize_path(song.path),
+                txt_file=txt_path,
+                last_event_time=datetime.now(),
+                timer=pending_timer,
+                original_path=song.path,
+            )
+            normalized_path = normalize_path(song.path)
+            scheduler._pending[normalized_path] = pending_detection
+
+            scheduler._execute_detection(normalized_path)
+
+            assert len(detection_calls) == 1
+            assert detection_calls[0] is song
+
+    def test_immediate_start_cancels_pending_detection(self, qtbot):
+        """Immediate detection start should clear pending timers and avoid duplicates."""
+        from datetime import datetime
+        from PySide6.QtCore import QTimer
+
+        detection_calls = []
+
+        def mock_start_detection(song):
+            detection_calls.append(song)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            txt_path = os.path.join(tmpdir, "song.txt")
+            audio_path = os.path.join(tmpdir, "song.mp3")
+            Path(txt_path).write_text("#TITLE:Test\n")
+            Path(audio_path).write_text("fake audio")
+
+            song = Song(txt_file=txt_path)
+            song.audio_file = audio_path
+
+            scheduler = GapDetectionScheduler(
+                debounce_ms=50,
+                start_gap_detection=mock_start_detection,
+                songs_get_by_txt_file=lambda _: song,
+                songs_get_by_path=lambda _: song,
+            )
+
+            pending_timer = QTimer()
+            pending_detection = _PendingDetection(
+                song_path=normalize_path(song.path),
+                txt_file=txt_path,
+                last_event_time=datetime.now(),
+                timer=pending_timer,
+                original_path=song.path,
+            )
+            normalized_path = normalize_path(song.path)
+            scheduler._pending[normalized_path] = pending_detection
+
+            started = scheduler.start_detection_immediately(song)
+
+            assert started
+            assert len(detection_calls) == 1
+            assert normalized_path not in scheduler._pending
+            assert normalized_path in scheduler._in_flight
+
+            # Simulate completion to release in-flight lock
+            scheduler.mark_detection_complete(song)
+            assert normalized_path not in scheduler._in_flight
+
+    def test_reschedules_when_song_missing_during_detection(self, qtbot):
+        """Gap detection should retry when the song is not yet back in the collection."""
+        from model.song import SongStatus
+
+        start_calls = []
+
+        def mock_start_detection(song):
+            start_calls.append(song)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            txt_path = os.path.join(tmpdir, "song.txt")
+            audio_path = os.path.join(tmpdir, "song.mp3")
+            Path(txt_path).touch()
+            Path(audio_path).touch()
+
+            song = Song(txt_file=txt_path)
+            song.audio_file = audio_path
+            song.status = SongStatus.NOT_PROCESSED
+            song.artist = "Wise Guys"
+            song.title = "Nur für dich"
+
+            lookup_calls = {"count": 0}
+
+            def mock_get_by_txt_file(path):
+                lookup_calls["count"] += 1
+                if lookup_calls["count"] < 3:
+                    return None
+                return song
+
+            scheduler = GapDetectionScheduler(
+                debounce_ms=50,
+                start_gap_detection=mock_start_detection,
+                songs_get_by_txt_file=mock_get_by_txt_file,
+                songs_get_by_path=lambda _: None,
+            )
+
+            event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
+            scheduler.handle_event(event)
+
+            qtbot.waitUntil(lambda: len(start_calls) == 1, timeout=1000)
+
+            assert start_calls[0] is song
+            assert lookup_calls["count"] >= 3
 
 
 class TestWatchModeIntegration:
