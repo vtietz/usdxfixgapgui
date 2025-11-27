@@ -8,5 +8,5 @@
 -r requirements-base.txt
 
 # ===== PyTorch - CPU-only builds (MUST be pinned with +cpu suffix) =====
-torch==2.4.1+cpu
-torchaudio==2.4.1+cpu
+torch==2.2.2+cpu
+torchaudio==2.2.2+cpu

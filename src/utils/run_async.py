@@ -1,4 +1,5 @@
 import asyncio
+from concurrent.futures import CancelledError
 from PySide6.QtCore import QThread
 import logging
 
@@ -53,7 +54,22 @@ def run_async(coro, callback=None):
 
     future = asyncio.run_coroutine_threadsafe(task_wrapper(), _loop)
     if callback:
-        future.add_done_callback(lambda f: callback(f.result()))
+        def _safe_callback(f):
+            try:
+                result = f.result()
+            except CancelledError:
+                logger.debug("run_async future was cancelled before completion; skipping callback")
+                return
+            except Exception:
+                logger.exception("run_async future raised before callback execution")
+                return
+
+            try:
+                callback(result)
+            except Exception:
+                logger.exception("run_async callback raised an exception")
+
+        future.add_done_callback(_safe_callback)
 
 
 def run_sync(coro):
@@ -70,22 +86,45 @@ def run_sync(coro):
 
 def shutdown_asyncio():
     """Properly shutdown the asyncio event loop and thread (idempotent)."""
-    global _started
+    global _started, _loop, _thread
     if not _started:
         logger.debug("Asyncio runtime not started, skipping shutdown")
         return
 
     logger.info("Shutting down asyncio loop")
 
+    # Cancel any pending tasks in the loop
+    def cancel_all_tasks():
+        """Cancel all pending tasks in the event loop."""
+        try:
+            pending = asyncio.all_tasks(_loop)
+            for task in pending:
+                task.cancel()
+            logger.debug("Cancelled %s pending asyncio tasks", len(pending))
+        except Exception as e:
+            logger.debug("Error cancelling tasks (non-critical): %s", e)
+
+    # Call cancel_all_tasks on the asyncio thread
+    _loop.call_soon_threadsafe(cancel_all_tasks)
+
+    # Give a brief moment for cancellations to process
+    import time
+
+    time.sleep(0.1)
+
     # Stop the event loop (will exit run_forever())
     _loop.call_soon_threadsafe(_loop.stop)
 
     # Wait for thread to finish (with timeout)
-    if _thread.isRunning():
-        _thread.quit()
+    if _thread and _thread.isRunning():
         if not _thread.wait(2000):  # 2 second timeout
-            logger.warning("Asyncio thread did not stop within timeout")
+            logger.warning("Asyncio thread did not stop within timeout, forcing termination")
+            # Force terminate as last resort
+            _thread.terminate()
+            if not _thread.wait(1000):  # Wait 1 more second after termination
+                logger.error("Asyncio thread could not be terminated")
         else:
             logger.info("Asyncio thread stopped cleanly")
 
     _started = False
+    logger.debug("Asyncio shutdown complete")

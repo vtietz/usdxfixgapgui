@@ -21,8 +21,10 @@ from services.gap_info_service import GapInfoService  # noqa: E402
 class TestGapInfoMultiEntry:
     """Test multi-entry gap info functionality"""
 
-    def test_load_legacy_single_entry_for_single_txt(self, tmp_path):
+    def test_load_legacy_single_entry_for_single_txt(self, tmp_path, fake_run_async):
         """Legacy JSON without 'entries' should load correctly"""
+        from unittest.mock import patch
+
         # Create legacy gap info file
         info_file = tmp_path / "usdxfixgap.info"
         legacy_data = {
@@ -44,9 +46,11 @@ class TestGapInfoMultiEntry:
 
         info_file.write_text(json.dumps(legacy_data, indent=4), encoding="utf-8")
 
-        # Load gap info
-        gap_info = GapInfo(str(info_file), "Song.txt")
-        asyncio.run(GapInfoService.load(gap_info))
+        # Load gap info with patched run_async to prevent warnings
+        with patch("actions.gap_actions.run_async") as mock_run_async:
+            mock_run_async.side_effect = fake_run_async
+            gap_info = GapInfo(str(info_file), "Song.txt")
+            asyncio.run(GapInfoService.load(gap_info))
 
         # Verify fields loaded correctly
         assert gap_info.status == GapInfoStatus.MATCH

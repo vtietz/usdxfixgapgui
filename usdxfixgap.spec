@@ -22,6 +22,7 @@
 block_cipher = None
 
 import os
+import sys
 from pathlib import Path
 
 # Project paths
@@ -53,6 +54,9 @@ a = Analysis(
         'PySide6.QtWidgets',
         'PySide6.QtMultimedia',
         'PySide6.QtMultimediaWidgets',
+
+        # VLC backend (optional but recommended)
+        'vlc',
 
         # Audio processing
         'soundfile',

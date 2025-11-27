@@ -115,7 +115,6 @@ def test_set_is_playing_updates_button(action_bar):
     """Test setting playing state updates play/pause button."""
     action_bar.set_is_playing(True)
 
-    assert action_bar.play_pause_btn.isChecked()
     assert action_bar.play_pause_btn.text() == "Pause"
 
 
@@ -124,7 +123,6 @@ def test_set_is_playing_false_updates_button(action_bar):
     action_bar.set_is_playing(True)
     action_bar.set_is_playing(False)
 
-    assert not action_bar.play_pause_btn.isChecked()
     assert action_bar.play_pause_btn.text() == "Play"
 
 

@@ -91,18 +91,24 @@ def test_empty_selection_clears_gap_state(song_actions, app_data, song_with_gap)
     assert app_data.gap_state is None
 
 
-def test_switching_songs_replaces_gap_state(song_actions, app_data, song_with_gap, song_without_detection):
+def test_switching_songs_replaces_gap_state(song_actions, app_data, song_with_gap, song_without_detection, fake_run_async):
     """Test switching between songs replaces GapState."""
-    # Select first song
-    song_actions.set_selected_songs([song_with_gap])
-    first_state = app_data.gap_state
-    assert first_state.current_gap_ms == 8125
+    from unittest.mock import patch
 
-    # Select second song
-    song_actions.set_selected_songs([song_without_detection])
-    second_state = app_data.gap_state
-    assert second_state is not first_state  # Different instance
-    assert second_state.current_gap_ms == 5000
+    with patch("actions.gap_actions.run_async") as mock_run_async:
+        # Use centralized async executor fixture to prevent unawaited coroutines
+        mock_run_async.side_effect = fake_run_async
+
+        # Select first song
+        song_actions.set_selected_songs([song_with_gap])
+        first_state = app_data.gap_state
+        assert first_state.current_gap_ms == 8125
+
+        # Select second song
+        song_actions.set_selected_songs([song_without_detection])
+        second_state = app_data.gap_state
+        assert second_state is not first_state  # Different instance
+        assert second_state.current_gap_ms == 5000
 
 
 def test_song_without_gap_info(song_actions, app_data):

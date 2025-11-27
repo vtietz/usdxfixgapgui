@@ -230,7 +230,7 @@ def test_04_quiet_vocals_near_threshold(mdx_cfg_default, artifact_dir):
     )
 
     # Reduce overall amplitude to make vocals quieter (just above threshold)
-    # Target: RMS slightly above onset_abs_threshold (0.01) and SNR threshold
+    # Target: RMS slightly above onset_abs_threshold (0.008) and SNR threshold
     wave = wave * 0.15
 
     detected = detect_onset_in_vocal_chunk(
@@ -239,6 +239,73 @@ def test_04_quiet_vocals_near_threshold(mdx_cfg_default, artifact_dir):
 
     write_preview_if_enabled(wave, meta["sr"], onset_ms, detected, "04-quiet-vocals", artifact_dir)
     assert_onset(detected, onset_ms, tol_ms=250, scenario="04-quiet-vocals")
+
+
+def test_04b_very_quiet_vocals_early_start(mdx_cfg_default, artifact_dir):
+    """
+    Scenario 4b: Normal vocals with early onset, later getting louder (Britney Spears scenario).
+
+    Real-world case: vocals start at normal volume at expected gap (~500ms),
+    but get significantly louder later (~7000ms). With conservative settings,
+    detector might skip the normal early onset and find the louder later one.
+
+    Simulates: silence → normal vocals at 500ms → much louder vocals at 7000ms
+    """
+    early_onset_ms = 500
+    loud_onset_ms = 7000
+
+    # Build silence + normal early vocals + louder late vocals
+    silence_duration_ms = early_onset_ms
+    normal_segment_ms = loud_onset_ms - early_onset_ms
+    loud_segment_ms = 3000
+
+    # Build components
+    silence = synth.pad_silence(silence_duration_ms, sr=44100)
+
+    # Normal volume vocals (amplitude 0.55) with 200ms fade-in
+    normal_vocals, _ = synth.build_vocal_onset(
+        duration_ms=normal_segment_ms,
+        onset_ms=0,  # Relative to this segment
+        fade_in_ms=200,
+        breath_ms=0,
+        noise_floor_db=-60.0,
+        f0_hz=200.0,
+        harmonics=4,
+        sr=44100,
+    )
+    normal_vocals = normal_vocals * 0.55  # Normal volume - not much quieter than later vocals
+
+    # Much louder vocals (amplitude 0.7 - only ~27% louder)
+    loud_vocals, _ = synth.build_vocal_onset(
+        duration_ms=loud_segment_ms,
+        onset_ms=0,
+        fade_in_ms=100,
+        breath_ms=0,
+        noise_floor_db=-60.0,
+        f0_hz=220.0,
+        harmonics=4,
+        sr=44100,
+    )
+    loud_vocals = loud_vocals * 0.7  # Louder but not dramatically so
+
+    # Mix all segments
+    wave = synth.mix_signals([silence, normal_vocals, loud_vocals])
+    wave = synth.add_noise_floor(wave, level_db=-60.0, sr=44100)
+    wave = synth.normalize_peak(wave, peak=0.9)
+
+    detected = detect_onset_in_vocal_chunk(
+        vocal_audio=wave, sample_rate=44100, chunk_start_ms=0.0, config=mdx_cfg_default
+    )
+
+    write_preview_if_enabled(wave, 44100, early_onset_ms, detected, "04b-normal-early-vocals", artifact_dir)
+
+    # Should detect the early normal onset, NOT the later louder one
+    # Allow tolerance for fade-in detection
+    assert detected is not None, "04b-normal-early-vocals: No onset detected"
+    assert early_onset_ms - 200 <= detected <= early_onset_ms + 500, (
+        f"04b-normal-early-vocals: Should detect normal early onset at ~{early_onset_ms}ms, "
+        f"not louder late onset at ~{loud_onset_ms}ms. Detected: {detected:.1f}ms"
+    )
 
 
 def test_05_high_noise_floor(mdx_cfg_default, artifact_dir):
@@ -314,11 +381,11 @@ def test_07_too_short_energy(mdx_cfg_default, artifact_dir):
     """
     Scenario 7: Too short energy (below min_voiced_duration).
 
-    100ms voiced burst at onset, then silence.
-    With min_voiced_duration_ms=300, should not detect.
+    60ms voiced burst at onset, then silence.
+    With min_voiced_duration_ms=100, should not detect (60ms < 100ms).
     """
     onset_ms = 1500
-    burst_duration_ms = 100
+    burst_duration_ms = 60  # Well below min_voiced_duration (100ms)
 
     # Build short burst
     silence_before = synth.pad_silence(onset_ms, sr=44100)

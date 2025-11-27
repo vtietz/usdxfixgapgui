@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QLabel, QWidget, QSizePolicy
 from PySide6.QtGui import QPainter, QPen, QPixmap, QColor
 from PySide6.QtCore import Qt, Signal, QEvent
 from ui.mediaplayer.gap_marker_colors import PLAYHEAD_COLOR, DETECTED_GAP_COLOR, REVERT_GAP_COLOR
+from utils.time_position import time_to_pixel, time_to_normalized_position
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,9 @@ class WaveformWidget(QLabel):
         self.placeholder_text = ""
         self.placeholder_visible = False
 
+        # Markers visibility state
+        self.markers_visible = True  # Hide markers when player disabled or no media
+
         # Overlay for showing the current play position
         self.overlay = QWidget(self)
         self.overlay.setFixedSize(self.size())
@@ -33,7 +37,8 @@ class WaveformWidget(QLabel):
         self.currentPosition = 0
 
         # Track B: Gap markers
-        self.duration_ms = 0  # Total duration for gap position calculation
+        self.duration_ms = 0  # Current media duration (vocals or audio)
+        self.original_audio_duration_ms = 0  # Original audio duration (for gap markers and position mapping)
         self.original_gap_ms = None  # Original gap marker (orange)
         self.current_gap_ms = None  # Current gap marker (blue)
         self.detected_gap_ms = None  # Detected gap marker (green)
@@ -42,6 +47,9 @@ class WaveformWidget(QLabel):
 
     def paint_overlay(self, event):
         """Draw playhead and gap markers on waveform."""
+        if not self.markers_visible:
+            return  # Skip drawing markers when disabled
+
         painter = QPainter(self.overlay)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         overlay_width = self.overlay.width()
@@ -54,17 +62,22 @@ class WaveformWidget(QLabel):
         painter.drawLine(playhead_x, 0, playhead_x, overlay_height)
 
         # 2. Draw gap markers if duration is known
+        # Gap markers represent absolute time positions (milliseconds) that should appear
+        # at the same time position on both audio and vocals waveforms.
+        # Use current waveform duration for positioning (not original_audio_duration).
         if self.duration_ms > 0:
             # Draw revert/original gap marker (gray, dashed)
             if self.original_gap_ms is not None:
-                original_x = int((self.original_gap_ms / self.duration_ms) * overlay_width)
+                # Map absolute time (ms) to pixel position on current waveform
+                original_x = time_to_pixel(self.original_gap_ms, self.duration_ms, overlay_width)
                 pen = QPen(REVERT_GAP_COLOR, 2, Qt.PenStyle.DashLine)
                 painter.setPen(pen)
                 painter.drawLine(original_x, 0, original_x, overlay_height)
 
-            # Draw detected gap marker (blue, solid, thicker)
+            # Draw detected gap marker (green, solid, thicker)
             if self.detected_gap_ms is not None:
-                detected_x = int((self.detected_gap_ms / self.duration_ms) * overlay_width)
+                # Map absolute time (ms) to pixel position on current waveform
+                detected_x = time_to_pixel(self.detected_gap_ms, self.duration_ms, overlay_width)
                 pen = QPen(DETECTED_GAP_COLOR, 3)
                 painter.setPen(pen)
                 painter.drawLine(detected_x, 0, detected_x, overlay_height)
@@ -82,6 +95,11 @@ class WaveformWidget(QLabel):
         self.placeholder_text = ""
         self.placeholder_visible = False
         self.update()  # Trigger repaint
+
+    def set_markers_visible(self, visible: bool):
+        """Control marker visibility (hide when player disabled or no media)"""
+        self.markers_visible = visible
+        self.overlay.update()  # Trigger marker overlay repaint
 
     def paintEvent(self, arg__1):
         """Custom paint event to draw placeholder text when visible"""
@@ -118,11 +136,8 @@ class WaveformWidget(QLabel):
             position: Current playback position in milliseconds
             duration: Current media duration in milliseconds (for playhead normalization only)
         """
-        if duration > 0:
-            self.currentPosition = position / duration
-            self.overlay.update()  # Trigger a repaint
-        else:
-            self.currentPosition = 0
+        self.currentPosition = time_to_normalized_position(position, duration)
+        self.overlay.update()  # Trigger a repaint
 
     def set_gap_markers(self, original_gap_ms=None, detected_gap_ms=None):
         """
@@ -141,12 +156,23 @@ class WaveformWidget(QLabel):
         self.overlay.update()  # Trigger repaint to show markers
         self.update()  # Also update the main widget to ensure proper sync
 
+    def set_original_audio_duration(self, duration_ms: int):
+        """Set the original audio duration for correct timeline mapping in vocals mode.
+
+        Args:
+            duration_ms: Duration of the original audio file in milliseconds
+        """
+        self.original_audio_duration_ms = duration_ms
+        logger.debug(f"Original audio duration set to {duration_ms}ms for timeline mapping")
+
     def load_waveform(self, file: str | None):
         if file and os.path.exists(file):
             self.setPixmap(QPixmap(file))
             self.clear_placeholder()  # Clear placeholder when waveform loads
+            self.set_markers_visible(True)  # Restore markers when media loaded
         else:
             self.setPixmap(QPixmap())
+            self.set_markers_visible(False)  # Hide markers when no media
             # Don't clear placeholder here - let caller set appropriate message
 
     def mousePressEvent(self, ev):
@@ -161,7 +187,9 @@ class WaveformWidget(QLabel):
 
         # Safeguard against division by zero
         if widget_width > 0:
-            relative_position = max(0.0, min(1.0, click_position / widget_width))  # Ensure float division
+            # Click position is relative to the current waveform (0.0 to 1.0)
+            # This directly maps to the current media file (audio or vocals)
+            relative_position = max(0.0, min(1.0, click_position / widget_width))
             self.position_clicked.emit(relative_position)
 
         # Let the event continue processing

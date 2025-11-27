@@ -7,6 +7,7 @@ from typing import Optional, Tuple, Any
 
 # Import only the minimal constants needed for early execution
 from common.constants import APP_NAME, APP_DESCRIPTION, APP_LOG_FILENAME
+from utils.version import get_version
 
 # Defer other imports until after health check / version check
 # from app.app_data import Config  # Moved to main()
@@ -104,22 +105,6 @@ def parse_arguments():
     parser.add_argument("--gpu-diagnostics", action="store_true", help="Show GPU status and write diagnostics to file")
 
     return parser.parse_args()
-
-
-def get_version():
-    """Read version from VERSION file"""
-    try:
-        from utils.files import resource_path
-
-        version_file = resource_path("VERSION")
-        if os.path.exists(version_file):
-            with open(version_file, "r") as f:
-                return f.read().strip()
-    except Exception:
-        pass
-    return "unknown"
-
-
 def print_version_info():
     """Print version and dependency information"""
     version = get_version()
@@ -230,6 +215,10 @@ def _setup_logging_early(config: Any) -> Tuple[str, logging.Logger]:
         max_bytes=10 * 1024 * 1024,
         backup_count=3,
     )
+
+    # NOTE: Do NOT suppress torio logger here - it imports torch!
+    # Suppression moved to after GPU bootstrap in _bootstrap_gpu_and_models()
+
     logger = logging.getLogger(__name__)
     logger.info(f"Application started with log level: {config.log_level_str}")
     # Log configuration file location now that logging is ready
@@ -244,6 +233,12 @@ def _bootstrap_gpu_and_models(config: Any, logger: logging.Logger) -> Tuple[bool
 
     gpu_status = bootstrap_gpu(config)
     logger.info(f"GPU bootstrap completed: enabled={gpu_status.enabled}")
+
+    # Suppress noisy third-party loggers AFTER GPU bootstrap (avoids importing before bootstrap)
+    logging.getLogger("torio._extension.utils").setLevel(logging.WARNING)
+    logging.getLogger("PIL").setLevel(logging.WARNING)
+    logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+
     # Note: setup_model_paths may import torch — perform after GPU bootstrap
     setup_model_paths(config)
     return gpu_status.enabled, gpu_status
@@ -269,6 +264,11 @@ def _init_qt_and_capabilities(config: Any, logger: logging.Logger) -> Any:
     from utils.enable_darkmode import enable_dark_mode
     from ui.startup_dialog import StartupDialog
     from services.system_capabilities import check_system_capabilities
+
+    # Force Qt to use FFmpeg backend instead of WMF to avoid deadlocks during media state transitions
+    # MUST be set BEFORE QApplication is created
+    os.environ["QT_MEDIA_BACKEND"] = "ffmpeg"
+    logger.info("Set QT_MEDIA_BACKEND=ffmpeg to avoid Windows Media Foundation deadlocks")
 
     app = QApplication.instance() or QApplication(sys.argv)
     enable_dark_mode(app)
@@ -326,36 +326,53 @@ def main():
         gpu_enabled, gpu_status = _bootstrap_gpu_and_models(config, logger)
 
         # Check if GPU Pack was expected but failed validation
+        # Show error ONLY on first failure (don't spam on every startup)
         if (
             not gpu_enabled
             and gpu_status.error
             and hasattr(config, "gpu_last_health")
             and config.gpu_last_health == "failed"
+            and not getattr(config, "gpu_error_shown", False)
         ):
-            # GPU Pack was activated but validation failed - show error to user
-            from PySide6.QtWidgets import QApplication, QMessageBox
+            # GPU Pack was activated but validation failed
+            # Distinguish between "CUDA unavailable" (RDP, no GPU) vs actual corruption
+            error_is_cuda_unavailable = "torch.cuda.is_available() returned False" in gpu_status.error
 
-            app = QApplication.instance() or QApplication(sys.argv)
+            if not error_is_cuda_unavailable:
+                # Actual corruption/problem - show error dialog ONCE
+                from PySide6.QtWidgets import QApplication, QMessageBox
 
-            error_msg = (
-                "GPU Pack Validation Failed\n\n"
-                "The GPU Pack was activated but failed to load properly. "
-                "The application will run in CPU mode.\n\n"
-                f"Error: {gpu_status.error}\n\n"
-                "Solutions:\n"
-                "• Check that your NVIDIA drivers are up to date (version 531+ for CUDA 12.1)\n"
-                "• Try deleting the GPU Pack folder and downloading it again\n"
-                "• Use the About dialog (Help menu) to manage GPU Pack settings"
-            )
+                _ = QApplication.instance() or QApplication(sys.argv)
 
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Icon.Warning)
-            msg_box.setWindowTitle("GPU Pack Validation Failed")
-            msg_box.setText(error_msg)
-            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-            msg_box.exec()
+                error_msg = (
+                    "GPU Pack Validation Failed\n\n"
+                    "The GPU Pack was activated but failed to load properly. "
+                    "The application will run in CPU mode.\n\n"
+                    f"Error: {gpu_status.error}\n\n"
+                    "Solutions:\n"
+                    "• Check that your NVIDIA drivers are up to date (version 531+ for CUDA 12.1)\n"
+                    "• Try deleting the GPU Pack folder and downloading it again\n"
+                    "• Use the About dialog (Help menu) to manage GPU Pack settings"
+                )
 
-            logger.warning("Showed GPU Pack validation failure dialog to user")
+                msg_box = QMessageBox()
+                msg_box.setIcon(QMessageBox.Icon.Warning)
+                msg_box.setWindowTitle("GPU Pack Validation Failed")
+                msg_box.setText(error_msg)
+                msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+                msg_box.exec()
+
+                # Mark error as shown - don't spam on every startup
+                config.gpu_error_shown = True
+                config.save_config()
+
+                logger.warning("Showed GPU Pack validation failure dialog to user (first time only)")
+            else:
+                # CUDA unavailable (likely RDP or no GPU) - just log it, no scary dialog
+                logger.info(
+                    "GPU Pack activated but CUDA unavailable "
+                    "(Remote Desktop, no GPU, or driver issue). Running in CPU mode."
+                )
 
         # Optional GPU CLI flow (may exit)
         maybe_exit = _maybe_handle_gpu_cli(args, config)

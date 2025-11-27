@@ -112,10 +112,21 @@ watch_debounce_ms = 500            # Wait time after changes before processing
    - [**Windows**](https://github.com/vtietz/usdxfixgapgui/releases) - Fully tested and supported
    - [Linux/macOS](https://github.com/vtietz/usdxfixgapgui/releases) - Experimental builds
 
-2. **Install FFmpeg** (required for audio processing):
+2. **Install system dependencies**:
+
+   **FFmpeg** (required for audio processing):
    - **Windows**: Download from [ffmpeg.org](https://www.ffmpeg.org/download.html) and add to PATH
    - **Linux**: `sudo apt install ffmpeg` or `sudo pacman -S ffmpeg`
    - **macOS**: `brew install ffmpeg`
+
+   **Linux/WSL only** - Qt/OpenGL libraries (required for GUI):
+   ```bash
+   sudo apt install libegl1-mesa libgl1-mesa-glx libxkbcommon-x11-0 \
+     libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+     libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 libxcb-shape0
+   ```
+
+   > **Note**: VLC runtime is automatically included in Windows builds for better audio stability
 
 3. **Run the application**:
    - Windows: Extract and run `usdxfixgap.exe`
@@ -189,6 +200,7 @@ git clone https://github.com/vtietz/usdxfixgapgui.git
 cd usdxfixgapgui
 .\run.bat install     # Windows
 ./run.sh install      # Linux/macOS
+.\run.bat setup-vlc   # Windows only: setup VLC for development (optional, recommended)
 .\run.bat test        # Run tests
 .\run.bat start       # Start development
 ```

@@ -1,14 +1,11 @@
 import logging
-import os
-import threading
+from typing import Callable, Optional
+
 from actions.base_actions import BaseActions
 from actions.song_actions import SongActions
 from model.song import Song, SongStatus
-from services.waveform_path_service import WaveformPathService
 from workers.detect_audio_length import DetectAudioLengthWorker
 from workers.normalize_audio import NormalizeAudioWorker
-from workers.create_waveform import CreateWaveform
-from utils.waveform import create_waveform_image, draw_silence_periods, draw_notes
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +49,10 @@ class AudioActions(BaseActions):
 
     def _normalize_song(self, song: Song, start_now=False):
         worker = NormalizeAudioWorker(song)
-        worker.signals.started.connect(lambda: self._on_song_worker_started(song))
-        worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
-        worker.signals.finished.connect(lambda: self._on_song_worker_finished(song))
+        # Early-bind song using default args to avoid late-binding closure bugs
+        worker.signals.started.connect(lambda s=song: self._on_song_worker_started(s))
+        worker.signals.error.connect(lambda e, s=song: self._on_song_worker_error(s, e))
+        worker.signals.finished.connect(lambda s=song: self._on_song_worker_finished(s))
 
         # Defer reload only on success; skip when status is ERROR to preserve the error display
         def _reload_if_success():
@@ -68,6 +66,8 @@ class AudioActions(BaseActions):
                 logger.debug(f"Exception in reload guard for {song}: {e}", exc_info=True)
 
         worker.signals.finished.connect(_reload_if_success)
+
+        self._hold_lane_for_worker(worker, f"normalize:{song.path}")
 
         # Lock audio file to prevent UI from reloading it or instant tasks from accessing it during normalization
         try:
@@ -100,7 +100,8 @@ class AudioActions(BaseActions):
 
             # Increase delay to 800 ms to ensure QMediaPlayer has released file handles
             # on all systems including network drives
-            QTimer.singleShot(800, lambda: self.worker_queue.add_task(worker, start_now))
+            # Use priority=True for auto-normalization to ensure it runs immediately after current task
+            QTimer.singleShot(800, lambda: self.worker_queue.add_task(worker, start_now, priority=start_now))
         except Exception:
             # If QTimer unavailable, fallback to immediate add
             self.worker_queue.add_task(worker, start_now)
@@ -113,113 +114,25 @@ class AudioActions(BaseActions):
         # This prevents cascading reloads from blocking the UI
         QTimer.singleShot(100, lambda: self.song_actions.reload_song(specific_song=song))
 
-    def _create_waveforms(self, song: Song, overwrite: bool = False, use_queue: bool = True):
-        """Create waveforms for both audio and vocals tracks.
-
-        Args:
-            song: The song object
-            overwrite: Whether to overwrite existing waveforms
-            use_queue: If True, uses WorkerQueueManager (for batch operations).
-                      If False, runs in background threads without queueing (for single-song selection).
-        """
-        if not song:
-            raise Exception("No song given")
-
-        # Check if audio file exists
-        if not hasattr(song, "audio_file") or not song.audio_file:
-            title = song.title if hasattr(song, "title") else "Unknown"
-            logger.warning(
-                f"Cannot create waveforms for '{title}': Missing audio file"
-            )
-            # Don't trigger reload - missing audio file is a data issue, not a loading issue
-            return
-
-        # Notes will be loaded asynchronously by reload_song_light if needed.
-        # Don't block waveform creation waiting for notes - waveforms can be drawn without note overlays.
-        # If notes are missing, they'll be added later after async reload completes.
-
-        # Use the WaveformPathService to get all paths
-        paths = WaveformPathService.get_paths(song, self.data.tmp_path)
-        if not paths:
-            logger.error(
-                f"Could not get waveform paths for song: {song.title if hasattr(song, 'title') else 'Unknown'}"
-            )
-            return
-
-        self._create_waveform(song, paths["audio_file"], paths["audio_waveform_file"], overwrite, use_queue)
-        self._create_waveform(song, paths["vocals_file"], paths["vocals_waveform_file"], overwrite, use_queue)
-
-    def _create_waveform(
-        self, song: Song, audio_file: str, waveform_file: str, overwrite: bool = False, use_queue: bool = True
+    def _create_waveforms(
+        self,
+        song: Song,
+        overwrite: bool = False,
+        use_queue: bool = True,
+        emit_on_finish: bool = True,
+        finished_callback: Optional[Callable[[Song], None]] = None,
     ):
-        """Create a waveform image for the given audio file.
-
-        Args:
-            song: The song object
-            audio_file: Path to the audio file
-            waveform_file: Path where the waveform image will be saved
-            overwrite: Whether to overwrite existing waveform
-            use_queue: If True, uses WorkerQueueManager (for batch operations).
-                      If False, runs in background thread without queueing (for single-song selection).
-        """
-        if not os.path.exists(audio_file):
-            logger.warning(f"Audio file does not exist: {audio_file}")
+        if song is None:
+            raise Exception("No song given")
+        manager = getattr(self.data, "waveform_manager", None)
+        if not manager:
+            logger.warning("WaveformManager is not initialized; skipping waveform queue request")
             return
-
-        if os.path.exists(waveform_file) and not overwrite:
-            logger.info(f"Waveform file already exists and overwrite is False: {waveform_file}")
-            return
-
-        if use_queue:
-            # Original behavior: queue worker for batch operations
-            logger.debug(f"Creating waveform creation task (queued) for {song}")
-            worker = CreateWaveform(
-                song,
-                self.config,
-                audio_file,
-                waveform_file,
-                is_instant=True,  # Mark as instant task - runs in parallel with standard tasks
-            )
-            worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
-            worker.signals.finished.connect(lambda song=song: self.data.songs.updated.emit(song))
-            self.worker_queue.add_task(worker, True)  # start_now=True for instant tasks
-        else:
-            # New behavior: run in background thread without queueing (for selected song only)
-            logger.debug(f"Creating waveform directly (non-queued) for {song}")
-
-            def create_waveform_direct():
-                """Background thread function to create waveform without WorkerQueueManager."""
-                try:
-                    # Generate the waveform image directly
-                    waveform_color = self.config.waveform_color if hasattr(self.config, "waveform_color") else "gray"
-                    create_waveform_image(audio_file, waveform_file, waveform_color)
-
-                    # Apply overlays if gap_info is available
-                    if hasattr(song, "gap_info") and song.gap_info:
-                        # Draw silence periods
-                        if hasattr(song.gap_info, "silence_periods") and song.gap_info.silence_periods:
-                            silence_color = (
-                                self.config.silence_periods_color
-                                if hasattr(self.config, "silence_periods_color")
-                                else (105, 105, 105, 128)
-                            )
-                            draw_silence_periods(
-                                waveform_file, song.gap_info.silence_periods, song.duration_ms, silence_color
-                            )
-
-                    # Draw notes overlay
-                    if hasattr(song, "notes") and song.notes:
-                        note_color = "white"  # Standard note color
-                        draw_notes(waveform_file, song.notes, song.duration_ms, note_color)
-
-                    logger.debug(f"Waveform created successfully (non-queued): {waveform_file}")
-
-                    # Emit update signal (thread-safe)
-                    self.data.songs.updated.emit(song)
-
-                except Exception as e:
-                    logger.error(f"Error creating waveform (non-queued) for {song}: {e}", exc_info=True)
-
-            # Start background thread
-            thread = threading.Thread(target=create_waveform_direct, daemon=True)
-            thread.start()
+        manager.ensure_waveforms(
+            song,
+            overwrite=overwrite,
+            use_queue=use_queue,
+            emit_on_finish=emit_on_finish,
+            finished_callback=finished_callback,
+            requester="audio-actions",
+        )

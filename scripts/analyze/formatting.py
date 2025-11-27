@@ -71,8 +71,10 @@ def analyze_formatting(files: Optional[List[str]] = None) -> Tuple[int, str]:
         cmd.extend(PYTHON_DIRS)
 
     try:
-        result = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True, timeout=300)
-        output = result.stdout + result.stderr
+        result = subprocess.run(
+            cmd, cwd=PROJECT_ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=300
+        )
+        output = (result.stdout or "") + (result.stderr or "")
 
         if result.returncode == 0:
             print(f"{SYMBOL_SUCCESS} All files properly formatted!")
@@ -84,6 +86,9 @@ def analyze_formatting(files: Optional[List[str]] = None) -> Tuple[int, str]:
 
     except subprocess.TimeoutExpired:
         print(f"{SYMBOL_WARNING} Black formatting check timed out after 300 seconds")
+        return 1, ""
+    except Exception as e:
+        print(f"{SYMBOL_WARNING} Black formatting check failed: {e}")
         return 1, ""
 
 

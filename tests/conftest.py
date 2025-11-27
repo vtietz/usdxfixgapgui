@@ -125,6 +125,7 @@ def app_data(tmp_path):
     data.songs = Mock()
     data.songs.updated = Mock()
     data.songs.updated.emit = Mock()
+    data.songs.filter = None  # No filter active by default (supports 'in' operator)
 
     # Worker queue mock
     data.worker_queue = Mock()
@@ -137,6 +138,10 @@ def app_data(tmp_path):
 
     # Filesystem access
     data.tmp_path = tmp_path
+
+    # Waveform manager mock (allows tests to inspect delegation)
+    data.waveform_manager = Mock()
+    data.waveform_manager.ensure_waveforms = Mock()
 
     return data
 

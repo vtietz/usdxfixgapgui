@@ -132,7 +132,9 @@ class LogViewerWidget(QWidget):
         # Remember current scroll positions (both vertical and horizontal)
         v_scrollbar = self.text_edit.verticalScrollBar()
         h_scrollbar = self.text_edit.horizontalScrollBar()
-        was_at_bottom = v_scrollbar.value() >= v_scrollbar.maximum() - 10
+        # Check if scrollbar is at bottom BEFORE updating content
+        # Use tolerance of 2 pixels to account for rounding issues
+        was_at_bottom = v_scrollbar.value() >= (v_scrollbar.maximum() - 2)
         # Always preserve horizontal scroll position (user controls horizontal scrolling)
         h_scroll_pos = h_scrollbar.value()
 
@@ -167,25 +169,30 @@ class LogViewerWidget(QWidget):
         )
         self.text_edit.setHtml(html_content)
 
-        # Auto-scroll to bottom only if we were already at bottom
-        # OR if the scrollbar maximum was 0 (empty/first load)
+        # Auto-scroll to bottom if we were already at bottom OR if this is first content
         # This preserves manual scroll position for reviewing history
-        if was_at_bottom or v_scrollbar.maximum() == 0:
-            # Use QTimer to ensure scroll happens AFTER HTML is rendered
-            QTimer.singleShot(0, lambda: self._scroll_to_bottom())
+        if was_at_bottom:
+            # Scroll to bottom after HTML rendering completes
+            self._scroll_to_bottom()
 
         # ALWAYS restore horizontal scroll position to prevent jumping
         # (user controls horizontal scrolling, we only auto-scroll vertically)
-        QTimer.singleShot(0, lambda: h_scrollbar.setValue(h_scroll_pos))
+        h_scrollbar.setValue(h_scroll_pos)
 
     def _scroll_to_bottom(self):
         """Scroll to the bottom of the log display."""
+        # Move cursor to end first
         cursor = self.text_edit.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         self.text_edit.setTextCursor(cursor)
-        # Also explicitly set scrollbar to maximum
-        scrollbar = self.text_edit.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+
+        # Explicitly set vertical scrollbar to maximum
+        # This ensures we scroll even if cursor move didn't trigger it
+        v_scrollbar = self.text_edit.verticalScrollBar()
+        v_scrollbar.setValue(v_scrollbar.maximum())
+
+        # Ensure the cursor is visible (alternative scroll method)
+        self.text_edit.ensureCursorVisible()
 
     @staticmethod
     def _html_escape(text: str) -> str:

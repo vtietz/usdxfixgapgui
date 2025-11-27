@@ -178,7 +178,7 @@ class MdxProvider(IDetectionProvider):
                     waveform = waveform.to(self._device)
                     # Use FP16 mixed precision on CUDA if enabled
                     use_autocast = self._device == "cuda" and self.mdx_config.use_fp16
-                    with torch.cuda.amp.autocast(enabled=use_autocast, dtype=torch.float16):
+                    with torch.amp.autocast('cuda', enabled=use_autocast, dtype=torch.float16):
                         # Use apply_model for Demucs inference (not direct call)
                         sources = apply_model(model, waveform.unsqueeze(0), device=self._device)
 
@@ -192,10 +192,37 @@ class MdxProvider(IDetectionProvider):
                 if check_cancellation and check_cancellation():
                     raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
 
-                # Save vocals
+                # Save vocals with CBR MP3 for accurate seeking (320kbps = ~2.4MB/min)
+                # VBR MP3 has seeking issues; CBR ensures accurate position calculation
                 logger.info(f"Saving vocals to: {destination_vocals_filepath}")
                 os.makedirs(os.path.dirname(destination_vocals_filepath), exist_ok=True)
-                torchaudio.save(destination_vocals_filepath, vocals, sample_rate)
+
+                if destination_vocals_filepath.endswith('.mp3'):
+                    # Convert to CBR MP3 using ffmpeg
+                    # torchaudio doesn't expose CBR directly, so we save as WAV then convert
+                    temp_wav = destination_vocals_filepath.replace('.mp3', '_temp.wav')
+                    torchaudio.save(temp_wav, vocals, sample_rate)
+
+                    import subprocess
+                    cmd = [
+                        'ffmpeg', '-y', '-i', temp_wav,
+                        '-b:a', '320k',  # CBR 320kbps
+                        '-write_xing', '0',  # Disable VBR tag
+                        destination_vocals_filepath
+                    ]
+                    result = subprocess.run(cmd, capture_output=True)
+
+                    # Log ffmpeg output if there was an error
+                    if result.returncode != 0:
+                        logger.error(f"FFmpeg conversion failed: {result.stderr.decode('utf-8', errors='ignore')}")
+                        raise RuntimeError(f"FFmpeg MP3 conversion failed with exit code {result.returncode}")
+
+                    # Cleanup temp WAV
+                    if os.path.exists(temp_wav):
+                        os.remove(temp_wav)
+                else:
+                    # Save directly as WAV (for tests or explicit WAV requests)
+                    torchaudio.save(destination_vocals_filepath, vocals, sample_rate)
 
                 logger.info(f"Vocals prepared successfully at {destination_vocals_filepath}")
 

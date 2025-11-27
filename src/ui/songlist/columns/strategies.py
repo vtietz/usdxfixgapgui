@@ -57,7 +57,9 @@ class TitleColumn:
         return song.title
 
     def get_sort_key(self, song: Song, cache_entry: Optional[dict]) -> Any:
-        return song.title.lower()
+        if cache_entry and "title_sort_key" in cache_entry:
+            return cache_entry["title_sort_key"]
+        return song.title_sort_key
 
 
 class DurationColumn:
@@ -198,8 +200,6 @@ class StatusColumn:
         return 11
 
     def format_display(self, song: Song, cache_entry: Optional[dict]) -> str:
-        if song.status == SongStatus.ERROR:
-            return f"ERROR: {song.error_message}"
         return song.status.name
 
     def get_sort_key(self, song: Song, cache_entry: Optional[dict]) -> Any:

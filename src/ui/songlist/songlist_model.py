@@ -1,5 +1,7 @@
+import time
 from typing import List
-from PySide6.QtCore import QAbstractTableModel, Qt, QModelIndex, QTimer
+from PySide6.QtCore import QAbstractTableModel, Qt, QModelIndex, QTimer, Signal
+from PySide6.QtGui import QColor
 import logging
 
 from app.app_data import AppData
@@ -12,12 +14,17 @@ logger = logging.getLogger(__name__)
 
 
 class SongTableModel(QAbstractTableModel):
+    # Custom signals for bulk loading optimization
+    bulk_load_started = Signal()
+    bulk_load_ended = Signal()
     def __init__(self, songs_model: Songs, data: AppData, parent=None):
         super().__init__(parent)
         self.app_data = data
         self.songs_model = songs_model
         self.songs: List[Song] = list(self.songs_model.songs)
         self.pending_songs = []
+        self._bulk_loading = False  # Track whether we are inserting streaming batches
+        self._bulk_started_at = 0.0
 
         # Column strategy registry
         base_dir = self.app_data.directory or self.app_data.config.default_directory or ""
@@ -54,25 +61,44 @@ class SongTableModel(QAbstractTableModel):
             self.timer.start()
 
     def list_changed(self):
-        """Handle list structure changes (e.g., batch additions, bulk operations)."""
-        # Check if new songs were added (batch operation that didn't emit individual 'added' signals)
+        """Handle list structure changes (batch operations and clears only)."""
+        # Guard: Skip if pending_songs timer active (avoid race with song_added)
+        if self.pending_songs or self.timer.isActive():
+            logger.debug("list_changed skipped - pending_songs active, avoiding double-insert")
+            return
+
         current_count = len(self.songs)
         model_count = len(self.songs_model.songs)
+        delta = model_count - current_count
 
-        if model_count > current_count:
-            # Songs were added in batch - add them all at once
-            new_songs = self.songs_model.songs[current_count:]
+        if delta >= 1:  # Batch addition (1+ songs) - include single-row time-budgeted flushes
+            # Signal bulk load start on first batch
+            if not self._bulk_loading:
+                self._bulk_loading = True
+                self._bulk_started_at = time.perf_counter()
+                self.bulk_load_started.emit()
+                logger.info("SongTableModel bulk load started at %.1f ms", 0.0)
+
+            new_songs = self.songs_model.songs[current_count:model_count]
             self.beginInsertRows(QModelIndex(), current_count, model_count - 1)
             self.songs.extend(new_songs)
-            # Populate cache for newly added songs
             for song in new_songs:
                 self._add_to_cache(song)
             self.endInsertRows()
-            logger.debug(f"Batch added {len(new_songs)} songs via listChanged")
-        elif model_count < current_count:
-            # Songs were removed - full rebuild needed
+            elapsed = 0.0
+            if self._bulk_started_at:
+                elapsed = (time.perf_counter() - self._bulk_started_at) * 1000
+            logger.debug(
+                "SongTableModel inserted %s songs via listChanged at %.1f ms (delta=%s)",
+                len(new_songs),
+                elapsed,
+                delta,
+            )
+        elif model_count < current_count:  # Removal or clear
             self.songs_cleared()
-        # If equal, just a metadata update, no action needed
+            logger.debug("list_changed triggered songs_cleared (removal detected)")
+
+        self._remap_selection_to_current_instances()
 
     def add_pending_songs(self):
         if self.pending_songs:
@@ -86,6 +112,18 @@ class SongTableModel(QAbstractTableModel):
         if not self.pending_songs:
             self.timer.stop()
 
+    def end_bulk_loading(self):
+        """Explicitly end bulk loading mode (called when loading finishes)."""
+        if self._bulk_loading:
+            self._bulk_loading = False
+            self.bulk_load_ended.emit()
+            elapsed = 0.0
+            if self._bulk_started_at:
+                elapsed = (time.perf_counter() - self._bulk_started_at) * 1000
+            logger.info("SongTableModel bulk load ended at %.1f ms", elapsed)
+            self._bulk_started_at = 0.0
+            logger.debug("Bulk loading ended - dynamic filtering re-enabled")
+
     def _rebuild_cache(self):
         """Rebuild the entire cache from current songs list."""
         self._row_cache.clear()
@@ -94,17 +132,24 @@ class SongTableModel(QAbstractTableModel):
 
     def _add_to_cache(self, song: Song):
         """Add a single song to the cache."""
+        relative_path = files.get_relative_path(self.app_data.directory, song.path)
         self._row_cache[song.path] = {
-            "relative_path": files.get_relative_path(self.app_data.directory, song.path),
+            "relative_path": relative_path,
+            "relative_path_lower": relative_path.lower(),
             "artist_lower": song.artist.lower(),
             "title_lower": song.title.lower(),
+            "title_sort_key": song.title_sort_key,
         }
 
     def _update_cache(self, song: Song):
         """Update cache entry for a song."""
         if song.path in self._row_cache:
+            relative_path = files.get_relative_path(self.app_data.directory, song.path)
+            self._row_cache[song.path]["relative_path"] = relative_path
+            self._row_cache[song.path]["relative_path_lower"] = relative_path.lower()
             self._row_cache[song.path]["artist_lower"] = song.artist.lower()
             self._row_cache[song.path]["title_lower"] = song.title.lower()
+            self._row_cache[song.path]["title_sort_key"] = song.title_sort_key
 
     def _remove_from_cache(self, song: Song):
         """Remove a song from the cache."""
@@ -182,10 +227,16 @@ class SongTableModel(QAbstractTableModel):
             logger.error(f"Attempted to delete a song not in the list: {song}")
 
     def songs_cleared(self):
+        # End bulk loading if active
+        if self._bulk_loading:
+            self._bulk_loading = False
+            self.bulk_load_ended.emit()
+
         self.beginResetModel()
         self.songs.clear()
         self._row_cache.clear()
         self.endResetModel()
+        self._remap_selection_to_current_instances()
 
     def rowCount(self, parent=QModelIndex()):
         return len(self.songs)
@@ -214,8 +265,8 @@ class SongTableModel(QAbstractTableModel):
                 return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         elif role == Qt.ItemDataRole.BackgroundRole:
-            if song.status == SongStatus.ERROR:
-                return Qt.GlobalColor.red
+            if song.status == SongStatus.ERROR or song.status == SongStatus.MISSING_AUDIO:
+                return QColor(180, 50, 50)  # Dark red for errors and missing audio
         return None
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
@@ -282,3 +333,31 @@ class SongTableModel(QAbstractTableModel):
         """Complete async data loading."""
         self._is_streaming = False
         logger.info(f"Completed async loading, total songs: {len(self.songs)}")
+        self._remap_selection_to_current_instances()
+
+    def _remap_selection_to_current_instances(self):
+        """Ensure AppData.selected_songs references current Song instances after batch operations."""
+        selected = list(getattr(self.app_data, "selected_songs", []) or [])
+        if not selected:
+            return
+
+        path_map = {}
+        for song in self.songs:
+            path = getattr(song, "path", None)
+            if path:
+                path_map[path] = song
+
+        remapped = []
+        changed = False
+        for song in selected:
+            path = getattr(song, "path", None)
+            replacement = path_map.get(path)
+            if replacement is None:
+                return  # Missing selection in current list; keep existing selection untouched
+            remapped.append(replacement)
+            if replacement is not song:
+                changed = True
+
+        if changed:
+            logger.debug("Selection remapped to new instances: %s entries", len(remapped))
+            self.app_data.selected_songs = remapped

@@ -9,10 +9,37 @@ from utils.files import get_localappdata_dir
 
 logger = logging.getLogger(__name__)
 
-# Define the database path
-DB_PATH = os.path.join(get_localappdata_dir(), "cache.db")
+
+def normalize_cache_key(file_path: str) -> str:
+    """
+    Normalize a file path for use as a cache key.
+    Converts all backslashes to forward slashes for consistent comparison.
+
+    Args:
+        file_path: Raw file path with potentially mixed separators
+
+    Returns:
+        Normalized path with forward slashes only
+
+    Example:
+        'Z:/Songs\\ABBA\\song.txt' -> 'Z:/Songs/ABBA/song.txt'
+    """
+    return file_path.replace('\\', '/')
+
+
+# Define the database path (lazy initialization to avoid import-time side effects)
+_DB_PATH: str | None = None
 _db_initialized = False
 _cache_was_cleared = False  # Track if cache was cleared due to version mismatch
+
+
+def _get_db_path() -> str:
+    """Get database path, initializing it on first access."""
+    global _DB_PATH
+    if _DB_PATH is None:
+        _DB_PATH = os.path.join(get_localappdata_dir(), "cache.db")
+    return _DB_PATH
+
 
 # Cache schema version - increment when cache structure changes
 # Version 1: Original cache (pre-multi-txt support)
@@ -21,8 +48,78 @@ CACHE_VERSION = 2
 
 
 def get_connection():
-    """Get a connection to the database."""
-    return sqlite3.connect(DB_PATH)
+    """Get a connection to the database with optimized settings."""
+    conn = sqlite3.connect(_get_db_path())
+    cursor = conn.cursor()
+    # Performance optimizations for read-heavy workloads
+    cursor.execute("PRAGMA journal_mode=WAL")  # Write-ahead logging for better concurrency
+    cursor.execute("PRAGMA synchronous=NORMAL")  # Balance safety and speed
+    cursor.execute("PRAGMA temp_store=MEMORY")  # Use memory for temp tables
+    cursor.execute("PRAGMA cache_size=-32768")  # ~32 MB page cache
+    return conn
+
+
+def migrate_cache_paths():
+    """
+    One-time migration to normalize all file_path entries in the cache.
+    Converts backslashes to forward slashes and removes duplicates.
+
+    This fixes the issue where the same song was cached with both
+    Z:/Songs/Artist/song.txt and Z:/Songs\\Artist\\song.txt paths.
+
+    Returns:
+        int: Number of duplicate entries removed
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Get all cache entries
+        cursor.execute("SELECT file_path, song_data, timestamp FROM song_cache")
+        all_entries = cursor.fetchall()
+
+        if not all_entries:
+            conn.close()
+            return 0
+
+        # Track normalized paths to detect duplicates
+        normalized_map = {}  # normalized_path -> (song_data, timestamp, original_path)
+        duplicates_removed = 0
+
+        for file_path, song_data, timestamp in all_entries:
+            normalized_path = normalize_cache_key(file_path).lower()
+
+            # If normalized path already exists, keep the newer entry
+            if normalized_path in normalized_map:
+                duplicates_removed += 1
+                existing_timestamp = normalized_map[normalized_path][1]
+                # Keep the newer timestamp
+                if timestamp > existing_timestamp:
+                    normalized_map[normalized_path] = (song_data, timestamp, file_path)
+            else:
+                normalized_map[normalized_path] = (song_data, timestamp, file_path)
+
+        if duplicates_removed > 0:
+            logger.info(f"Found {duplicates_removed} duplicate cache entries with different path separators")
+
+            # Clear the entire cache table
+            cursor.execute("DELETE FROM song_cache")
+
+            # Re-insert with normalized paths
+            for normalized_path, (song_data, timestamp, _) in normalized_map.items():
+                cursor.execute(
+                    "INSERT INTO song_cache (file_path, song_data, timestamp) VALUES (?, ?, ?)",
+                    (normalized_path, song_data, timestamp)
+                )
+
+            conn.commit()
+            logger.info(f"Cache normalized: removed {duplicates_removed} duplicates, kept {len(normalized_map)} unique songs")
+
+        conn.close()
+        return duplicates_removed
+    except Exception as e:
+        logger.error(f"Error migrating cache paths: {str(e)}")
+        return 0
 
 
 def init_database():
@@ -37,7 +134,7 @@ def init_database():
     if _db_initialized:
         return _cache_was_cleared
 
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(_get_db_path()), exist_ok=True)
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -51,6 +148,11 @@ def init_database():
         timestamp DATETIME
     )
     """
+    )
+
+    # Create index on file_path for fast prefix filtering
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_song_cache_file_path ON song_cache(file_path)"
     )
 
     # Create metadata table for cache versioning
@@ -107,6 +209,11 @@ def init_database():
     _db_initialized = True
     logger.debug("Database initialized")
 
+    # Run path normalization migration (one-time cleanup of duplicates)
+    # This is safe to run multiple times - only processes duplicates
+    if not _cache_was_cleared:  # Only migrate if we didn't just clear the cache
+        migrate_cache_paths()
+
     return _cache_was_cleared
 
 
@@ -123,7 +230,7 @@ def initialize_song_cache():
                if a re-scan is required due to version upgrade
     """
     cache_cleared = init_database()
-    return DB_PATH, cache_cleared
+    return _get_db_path(), cache_cleared
 
 
 def get_cache_entry(key, modified_time=None):
@@ -138,6 +245,7 @@ def get_cache_entry(key, modified_time=None):
     Returns:
         object or None: The cached object if found and valid, None otherwise.
     """
+    key = normalize_cache_key(key).lower()  # Normalize path separators and lowercase
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -147,7 +255,6 @@ def get_cache_entry(key, modified_time=None):
         conn.close()
 
         if result is None:
-            logger.debug(f"Cache miss: {key}")
             return None
 
         data_blob, timestamp_str = result
@@ -155,12 +262,10 @@ def get_cache_entry(key, modified_time=None):
 
         # Check if cache is stale
         if modified_time and modified_time > cached_timestamp:
-            logger.debug(f"Cache stale: {key}, file mod: {modified_time}, cache: {cached_timestamp}")
             return None
 
         try:
             obj = pickle.loads(data_blob)
-            logger.debug(f"Cache hit: {key}")
             return obj
         except Exception as e:
             logger.error(f"Failed to deserialize cache for key {key}: {e}")
@@ -178,13 +283,14 @@ def set_cache_entry(key, obj):
         key (str): The cache key (filepath)
         obj (object): The object to cache
     """
+    key = normalize_cache_key(key).lower()  # Normalize path separators and lowercase for indexing
+    import time
+
+    start_time = time.perf_counter()
+
     try:
         conn = get_connection()
         cursor = conn.cursor()
-
-        # Check if entry already exists to provide better logging
-        cursor.execute("SELECT 1 FROM song_cache WHERE file_path=?", (key,))
-        exists = cursor.fetchone() is not None
 
         data_blob = pickle.dumps(obj)
         timestamp = datetime.datetime.now().isoformat()
@@ -197,10 +303,9 @@ def set_cache_entry(key, obj):
         conn.commit()
         conn.close()
 
-        if exists:
-            logger.debug(f"Cache updated: {key}")
-        else:
-            logger.debug(f"New cache entry created: {key}")
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        if duration_ms > 100:
+            logger.warning(f"SLOW cache operation: {duration_ms:.1f}ms for {key}")
     except Exception as e:
         logger.error(f"Failed to cache data for key {key}: {e}")
 
@@ -213,6 +318,8 @@ def clear_cache(key=None):
         key (str, optional): If provided, only clear this specific key.
                             If None, clear the entire cache.
     """
+    if key:
+        key = normalize_cache_key(key)  # Normalize path separators
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -225,19 +332,18 @@ def clear_cache(key=None):
         rows_affected = cursor.rowcount
         conn.commit()
         conn.close()
-        logger.debug(f"Cleared {rows_affected} cache entries")
+        if rows_affected > 0:
+            logger.info(f"Cleared {rows_affected} cache entries")
     except Exception as e:
         logger.error(f"Failed to clear cache: {e}")
 
 
 @overload
-def get_all_cache_entries(deserialize: Literal[False] = False) -> list[tuple[str, bytes]]:
-    ...
+def get_all_cache_entries(deserialize: Literal[False] = False) -> list[tuple[str, bytes]]: ...
 
 
 @overload
-def get_all_cache_entries(deserialize: Literal[True]) -> dict[str, Any]:
-    ...
+def get_all_cache_entries(deserialize: Literal[True]) -> dict[str, Any]: ...
 
 
 def get_all_cache_entries(deserialize=False):
@@ -264,21 +370,83 @@ def get_all_cache_entries(deserialize=False):
             return [(row[0], row[1]) for row in results]
 
         # Deserialize the song objects
+        # NOTE: os.path.exists() check removed for performance - defer to caller
+        # For 5000 songs, checking file existence for each adds 2-5 seconds delay
+        # The existence check will happen during directory scan anyway
         deserialized = {}
         for file_path, song_data, timestamp_str in results:
-            if not os.path.exists(file_path):
-                continue  # Skip files that no longer exist
-
             try:
                 song_obj = pickle.loads(song_data)
                 deserialized[file_path] = song_obj
             except Exception as e:
-                logger.error(f"Failed to deserialize cache for {file_path}: {e}")
+                logger.error("Failed to deserialize cache for %s: %s", file_path, e)
 
         return deserialized
     except Exception as e:
-        logger.error(f"Error getting all cache entries: {str(e)}")
+        logger.error("Error getting all cache entries: %s", str(e))
         return [] if not deserialize else {}
+
+
+def stream_cache_entries(page_size=500, directory_filter=None):
+    """
+    Stream cache entries in pages for progressive loading.
+    Yields tuples of (file_path, song_data, timestamp) for memory efficiency.
+
+    Args:
+        page_size: Number of rows to fetch per iteration (default 500)
+        directory_filter: Optional directory path to filter by (uses rowid-based pagination)
+
+    Yields:
+        tuple: (file_path, song_data, timestamp) for each cache entry
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        if directory_filter:
+            # Optimized rowid-based pagination with directory pre-filtering
+            # Normalize and prepare LIKE pattern (stored lowercase for index usage)
+            dir_prefix = normalize_cache_key(directory_filter).lower().rstrip("/\\") + "/"
+            like_pattern = dir_prefix + "%"
+
+            last_rowid = 0
+            while True:
+                cursor.execute(
+                    """SELECT rowid, file_path, song_data, timestamp
+                       FROM song_cache
+                       WHERE file_path LIKE ? ESCAPE '\\' AND rowid > ?
+                       ORDER BY rowid
+                       LIMIT ?""",
+                    (like_pattern, last_rowid, page_size)
+                )
+                rows = cursor.fetchall()
+
+                if not rows:
+                    break
+
+                for row in rows:
+                    last_rowid = row[0]
+                    yield (row[1], row[2], row[3])  # file_path, song_data, timestamp
+        else:
+            # Legacy OFFSET/LIMIT for backward compatibility (no filter)
+            offset = 0
+            while True:
+                cursor.execute(
+                    "SELECT file_path, song_data, timestamp FROM song_cache LIMIT ? OFFSET ?", (page_size, offset)
+                )
+                rows = cursor.fetchall()
+
+                if not rows:
+                    break
+
+                for row in rows:
+                    yield row
+
+                offset += page_size
+
+        conn.close()
+    except Exception as e:
+        logger.error("Error streaming cache entries: %s", str(e))
 
 
 def remove_cache_entry(file_path):
@@ -288,6 +456,7 @@ def remove_cache_entry(file_path):
     Args:
         file_path (str): Path of the file to remove from cache
     """
+    file_path = normalize_cache_key(file_path)  # Normalize path separators
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -295,7 +464,6 @@ def remove_cache_entry(file_path):
         cursor.execute("DELETE FROM song_cache WHERE file_path = ?", (file_path,))
         conn.commit()
         conn.close()
-        logger.debug(f"Removed cache entry for {file_path}")
     except Exception as e:
         logger.error(f"Error removing cache entry for {file_path}: {str(e)}")
 

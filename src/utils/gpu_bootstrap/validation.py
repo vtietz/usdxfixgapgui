@@ -5,6 +5,7 @@ Provide small, focused functions to validate torch CUDA availability and
 torchaudio importability without pulling in other bootstrap code.
 """
 
+import sys
 from typing import Tuple
 
 
@@ -21,10 +22,38 @@ def validate_cuda_torch(expected_cuda: str = "12") -> Tuple[bool, str]:
     try:
         import torch  # type: ignore
     except (ImportError, OSError) as e:
-        return False, f"PyTorch not importable: {e}"
+        error_msg = f"PyTorch not importable: {e}"
+
+        # Add Linux-specific guidance if libcublas error detected
+        if sys.platform.startswith("linux") and "libcublas" in str(e).lower():
+            error_msg += (
+                "\n\nLinux GPU Pack requires system CUDA libraries."
+                "\nInstall CUDA Toolkit 12.1+:"
+                "\n  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb"  # noqa: E501
+                "\n  sudo dpkg -i cuda-keyring_1.1-1_all.deb"
+                "\n  sudo apt-get update"
+                "\n  sudo apt-get install cuda-toolkit-12-1"
+                "\n\nOr use CPU mode (no CUDA toolkit needed)."
+            )
+
+        return False, error_msg
     except Exception as e:
-        # Catch-all for unusual import environments
-        return False, f"PyTorch import error: {e}"
+        # Catch-all for unusual import environments (including missing CUDA libraries)
+        error_msg = f"PyTorch import error: {e}"
+
+        # Add Linux-specific guidance if libcublas error detected
+        if sys.platform.startswith("linux") and "libcublas" in str(e).lower():
+            error_msg += (
+                "\n\nLinux GPU Pack requires system CUDA libraries."
+                "\nInstall CUDA Toolkit 12.1+:"
+                "\n  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb"  # noqa: E501
+                "\n  sudo dpkg -i cuda-keyring_1.1-1_all.deb"
+                "\n  sudo apt-get update"
+                "\n  sudo apt-get install cuda-toolkit-12-1"
+                "\n\nOr use CPU mode (no CUDA toolkit needed)."
+            )
+
+        return False, error_msg
 
     try:
         if not torch.cuda.is_available():

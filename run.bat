@@ -54,7 +54,7 @@ if not exist "%VENV_PYTHON%" (
     )
 
     echo Installing requirements...
-    "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt"
+    "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements\requirements.txt"
     if !errorlevel! neq 0 (
         echo ERROR: Failed to install requirements
         exit /b 1
@@ -71,6 +71,8 @@ if "%1"=="" (
     echo   start       - Start the USDX FixGap application
     echo   test        - Run all tests with pytest
     echo   test --docs - Run tests and generate Tier-1/Tier-3 visual artifacts
+    echo   test-backend [file] - Test media backend with audio file ^(default: ABBA sample^)
+    echo   setup-vlc   - Download and setup VLC runtime for development
     echo   install     - Install/update requirements ^(auto-detects GPU^)
     echo   install --gpu   - Force GPU/CUDA PyTorch installation
     echo   install --cpu   - Force CPU-only PyTorch installation
@@ -132,6 +134,27 @@ if /i "%1"=="test" (
     goto :end
 )
 
+if /i "%1"=="test-backend" (
+    echo Testing media backend...
+    cd /d "%SCRIPT_DIR%"
+
+    :: Use default sample if no file provided
+    set TEST_FILE=samples\ABBA - Dancing Queen\ABBA - Dancing Queen.mp3
+    if not "%2"=="" set TEST_FILE=%2
+
+    echo Testing with: !TEST_FILE!
+    "%VENV_PYTHON%" temp\test_vlc_backend.py "!TEST_FILE!"
+    goto :end
+)
+
+if /i "%1"=="setup-vlc" (
+    echo.
+    echo Setting up VLC runtime for development...
+    echo.
+    "%VENV_PYTHON%" scripts\setup_vlc_runtime.py
+    goto :end
+)
+
 if /i "%1"=="install" (
     echo Installing/updating requirements...
 
@@ -147,7 +170,7 @@ if /i "%1"=="install" (
 
     if "!INSTALL_MODE!"=="cpu" (
         echo [Manual Override] Installing CPU-only version as requested
-        "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt" --upgrade
+        "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements\requirements.txt" --upgrade
         echo.
         echo Installation complete!
         goto :end
@@ -168,7 +191,7 @@ if /i "%1"=="install" (
     ) else (
         echo [CPU Mode] No NVIDIA GPU detected - installing CPU-only PyTorch
         echo Tip: If you have an NVIDIA GPU, use 'run.bat install --gpu' to force GPU installation
-        "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt" --upgrade
+        "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements\requirements.txt" --upgrade
         echo.
         echo Installation complete!
         goto :end
@@ -212,7 +235,7 @@ if /i "%1"=="install-dev" (
     echo Installing development dependencies...
     echo.
     echo Step 1: Installing base requirements...
-    "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt" --upgrade
+    "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements\requirements.txt" --upgrade
     if !errorlevel! neq 0 (
         echo ERROR: Failed to install base requirements
         exit /b 1
@@ -220,7 +243,7 @@ if /i "%1"=="install-dev" (
 
     echo.
     echo Step 2: Installing development tools...
-    "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements-dev.txt" --upgrade
+    "%VENV_PIP%" install -r "%SCRIPT_DIR%requirements\requirements-dev.txt" --upgrade
     if !errorlevel! neq 0 (
         echo ERROR: Failed to install development dependencies
         exit /b 1
@@ -312,13 +335,13 @@ if /i "%1"=="build" (
     echo.
     cd /d "%SCRIPT_DIR%"
 
-    :: Detect platform-specific requirements file (Windows uses standard requirements-build.txt)
-    set REQUIREMENTS_FILE=requirements-build.txt
-    if exist "%SCRIPT_DIR%requirements-build.txt" (
-        echo Using build requirements: requirements-build.txt
+    :: Detect platform-specific requirements file (Windows uses standard requirements\requirements-build.txt)
+    set REQUIREMENTS_FILE=requirements\requirements-build.txt
+    if exist "%SCRIPT_DIR%requirements\requirements-build.txt" (
+        echo Using build requirements: requirements\requirements-build.txt
     ) else (
-        echo WARNING: requirements-build.txt not found, using requirements.txt
-        set REQUIREMENTS_FILE=requirements.txt
+        echo WARNING: requirements\requirements-build.txt not found, using requirements\requirements.txt
+        set REQUIREMENTS_FILE=requirements\requirements.txt
     )
 
     :: Check if PyInstaller is installed
@@ -417,6 +440,7 @@ if /i "%1"=="set-version" (
     echo [2/5] Staged VERSION file
 
     :: Check if there are changes to commit
+    set COMMIT_MADE=0
     git diff --cached --quiet
     if !errorlevel! equ 0 (
         echo [3/5] VERSION file already committed with this version, skipping commit
@@ -426,21 +450,35 @@ if /i "%1"=="set-version" (
             echo ERROR: Failed to commit VERSION file
             exit /b 1
         )
+        set COMMIT_MADE=1
         echo [3/5] Committed VERSION file
     )
 
     :: Push commit before creating tag (only if there were changes)
-    git diff @{upstream}.. --quiet >nul 2>nul
-    if !errorlevel! neq 0 (
-        echo Pushing commit to remote...
-        git push
+    if !COMMIT_MADE! equ 1 (
+        :: First check if upstream is set
+        git rev-parse --abbrev-ref --symbolic-full-name @{u} >nul 2>nul
         if !errorlevel! neq 0 (
-            echo ERROR: Failed to push commit
-            exit /b 1
+            echo WARNING: No upstream branch set
+            echo Setting upstream: git push --set-upstream origin %CURRENT_BRANCH%
+            for /f "delims=" %%i in ('git branch --show-current') do set CURRENT_BRANCH=%%i
+            git push --set-upstream origin !CURRENT_BRANCH!
+            if !errorlevel! neq 0 (
+                echo ERROR: Failed to set upstream and push
+                exit /b 1
+            )
+            echo [4/5] Pushed commit and set upstream
+        ) else (
+            echo Pushing commit to remote...
+            git push
+            if !errorlevel! neq 0 (
+                echo ERROR: Failed to push commit
+                exit /b 1
+            )
+            echo [4/5] Pushed commit to remote
         )
-        echo [4/5] Pushed commit to remote
     ) else (
-        echo [4/5] No new commits to push
+        echo [4/5] No new commit, skipping push
     )
 
     :: Create or overwrite tag (force)
@@ -485,7 +523,7 @@ exit /b %errorlevel%
 echo This will enable GPU acceleration for faster processing
 
 :: Install base requirements first (without PyTorch)
-"%VENV_PIP%" install -r "%SCRIPT_DIR%requirements.txt" --upgrade
+"%VENV_PIP%" install -r "%SCRIPT_DIR%requirements\requirements.txt" --upgrade
 
 :: Uninstall any existing PyTorch (CPU or CUDA)
 echo.

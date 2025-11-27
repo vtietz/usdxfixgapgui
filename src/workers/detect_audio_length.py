@@ -32,8 +32,8 @@ class DetectAudioLengthWorker(IWorker):
             if not self.is_cancelled():
                 self.signals.lengthDetected.emit(self.song)
         except Exception as e:
-            logger.error(f"Error detecting audio length song '{self.song.audio_file}'")
-            self.song.error_message = str(e)
+            logger.error(f"Error detecting audio length: {self.song.audio_file}")
+            self.save_error_to_song(self.song, e)
             self.signals.error.emit(e)
 
         # Always emit finished signal, even if cancelled

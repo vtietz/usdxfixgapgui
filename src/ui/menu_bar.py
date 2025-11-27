@@ -41,7 +41,7 @@ class MenuBar(QWidget):
         # Re-Scan Button - Re-scans the current directory
         self.rescan_button = QPushButton("Re-Scan")
         self.rescan_button.clicked.connect(self.onRescanButtonClicked)
-        self.rescan_button.setToolTip("Re-scan the current directory to reload all songs")
+        self.rescan_button.setToolTip("Re-scan the current directory (clears cache and reloads all songs from disk)")
         self.rescan_button.setEnabled(False)  # Disabled until a directory is loaded
         self._layout.addWidget(self.rescan_button)
 
@@ -77,6 +77,7 @@ class MenuBar(QWidget):
         self.filterDropdown = MultiSelectComboBox(items=status_values)
         self.filterDropdown.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.filterDropdown.setMinimumWidth(200)
+        # Initial sync: songs.filter is List[str] of status names
         self.filterDropdown.setSelectedItems(self._actions.data.songs.filter)
         self.filterDropdown.selectionChanged.connect(self.onFilterChanged)
         self._layout.addWidget(self.filterDropdown)
@@ -175,12 +176,11 @@ class MenuBar(QWidget):
             )
 
     def show_about_dialog(self):
-        """Show About dialog (reuses startup dialog in about mode)."""
+        """Show the About dialog (reuses startup dialog)."""
         from ui.startup_dialog import StartupDialog
 
-        # Store reference to prevent garbage collection (dialog is non-modal)
-        self._about_dialog = StartupDialog.show_about(parent=self, config=self.config)
-        logger.info("Showed About dialog")
+        # Use the static factory method for About mode
+        StartupDialog.show_about(parent=self.parent(), config=self.data.config)
 
     def choose_directory(self):
         # Use the last directory from config if available, otherwise use the current directory
@@ -206,16 +206,17 @@ class MenuBar(QWidget):
         msgBox = QMessageBox()
         msgBox.setIcon(QMessageBox.Icon.Question)
         msgBox.setText(f"Re-scan the current directory?\r\n{self.data.directory}")
-        msgBox.setInformativeText("This will reload all songs from the directory.")
+        msgBox.setInformativeText("This will clear the cache and reload all songs fresh from disk.")
         msgBox.setWindowTitle("Re-Scan Directory")
         msgBox.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
 
         returnValue = msgBox.exec()
         if returnValue == QMessageBox.StandardButton.Ok:
             logger.info(f"User initiated re-scan of directory: {self.data.directory}")
-            self._actions.set_directory(self.data.directory)
+            self._actions.rescan_directory()
 
-    def onFilterChanged(self, selectedStatuses):
+    def onFilterChanged(self, selectedStatuses: list[str]):
+        """Handle filter dropdown changes. Receives list of status names (strings)."""
         self._actions.data.songs.filter = selectedStatuses
 
     def onWatchModeToggled(self, checked: bool):

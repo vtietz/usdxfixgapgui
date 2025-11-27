@@ -1,0 +1,84 @@
+[Paths]
+tmp_root = ./.tmp
+default_directory = ./samples
+last_directory = Z:/UltraStarDeluxe/Songs
+models_directory = 
+
+[Detection]
+default_detection_time = 30
+gap_tolerance = 500
+vocal_start_window_sec = 20
+vocal_window_increment_sec = 10
+vocal_window_max_sec = 60
+
+[Colors]
+detected_gap_color = blue
+playback_position_color = red
+waveform_color = gray
+silence_periods_color = 105,105,105,128
+
+[Player]
+adjust_player_position_step_audio = 100
+adjust_player_position_step_vocals = 10
+
+[Processing]
+method = mdx
+normalization_level = -20
+auto_normalize = true
+
+[mdx]
+chunk_duration_ms = 12000
+chunk_overlap_ms = 6000
+frame_duration_ms = 25
+hop_duration_ms = 20
+noise_floor_duration_ms = 1200
+initial_radius_ms = 7500
+radius_increment_ms = 7500
+max_expansions = 3
+use_fp16 = false
+resample_hz = 0
+early_stop_tolerance_ms = 500
+tf32 = true
+confidence_threshold = 0.55
+preview_pre_ms = 3000
+preview_post_ms = 9000
+onset_snr_threshold = 2.5
+onset_abs_threshold = 0.008
+min_voiced_duration_ms = 200
+hysteresis_ms = 200
+
+[General]
+log_level = DEBUG
+gpu_opt_in = true
+gpu_flavor = cu121
+gpu_pack_installed_version = 
+gpu_pack_path = ./gpu_runtime\torch-2.4.1-cu121
+gpu_last_health = healthy
+gpu_last_error = 
+gpu_pack_dialog_dont_show = false
+gpu_pack_dont_ask = false
+splash_dont_show_health = true
+prefer_system_pytorch = false
+song_list_batch_size = 25
+
+[Audio]
+default_volume = 0.5
+auto_play = false
+
+[Window]
+width = 1153
+height = 787
+x = 403
+y = 222
+maximized = false
+main_splitter_pos = 334,416
+second_splitter_pos = 170,202
+
+[WatchMode]
+watch_mode_default = false
+watch_debounce_ms = 500
+watch_ignore_patterns = .tmp,~,.crdownload,.part
+
+[Debug]
+show_debug_menu = true
+

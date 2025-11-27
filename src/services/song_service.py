@@ -4,6 +4,7 @@ import datetime
 from typing import Callable, Optional
 
 from model.song import Song, SongStatus
+from model.gap_info import GapInfoStatus
 from model.usdx_file import USDXFile
 from utils import audio
 import utils.files as files
@@ -24,13 +25,6 @@ class SongService:
         self, txt_file: str, force_reload: bool = False, cancel_check: Optional[Callable] = None
     ) -> Song:
         """Load a song from a text file, using cache if available."""
-        logger.debug(
-            "Loading %s, force_reload=%s, cancel_check=%s",
-            txt_file,
-            force_reload,
-            "provided" if cancel_check else "None",
-        )
-
         song = Song(txt_file)
 
         if not os.path.exists(txt_file):
@@ -39,15 +33,12 @@ class SongService:
             return song
 
         if not force_reload:
-            logger.debug("Checking cache for %s", txt_file)
             mod_time = datetime.datetime.fromtimestamp(os.path.getmtime(txt_file))
             cached_song = get_cache_entry(txt_file, mod_time)
             if cached_song:
-                logger.debug("Cache hit for %s", txt_file)
                 return cached_song
-            logger.debug("Cache miss for %s, loading from disk", txt_file)
 
-        logger.info("Loading new/changed song from disk: %s", txt_file)
+        logger.info("Loading song from disk: %s", txt_file)
 
         try:
             usdx_file = USDXFile(txt_file)
@@ -62,15 +53,25 @@ class SongService:
 
         # Load gap_info (multi-entry support uses txt basename)
         txt_basename = os.path.basename(txt_file)
-        song.gap_info = GapInfoService.create_for_song_path(song.path, txt_basename)
-        song.gap_info.owner = song
+        gap_info = GapInfoService.create_for_song_path(song.path, txt_basename)
         try:
-            logger.debug("Loading gap_info for %s", txt_file)
-            if song.gap_info:
-                await GapInfoService.load(song.gap_info)
-                logger.debug("Gap_info loaded for %s", txt_file)
+            if gap_info:
+                await GapInfoService.load(gap_info)
+                # Assign gap_info AFTER loading - triggers _gap_info_updated() with correct status
+                song.gap_info = gap_info
+
+                # If force_reload and gap_info has ERROR status, clear it
+                # This allows fresh detection after fixing issues
+                # If force_reload and gap_info has ERROR status, clear it before assigning
+                # This allows fresh detection after fixing issues
+                if force_reload and gap_info.status == GapInfoStatus.ERROR:
+                    logger.info("Clearing historical ERROR status on reload for %s", txt_file)
+                    gap_info.status = GapInfoStatus.NOT_PROCESSED
+                    song.status = SongStatus.NOT_PROCESSED
+                    song.error_message = None
             else:
                 logger.warning("gap_info not available for %s, duration_ms set to 0", song.txt_file)
+                song.gap_info = None  # Set to None if no gap_info available
         except Exception as e:  # pragma: no cover - unexpected errors
             logger.error("Failed to load gap_info for %s: %s", txt_file, e, exc_info=True)
             song.set_error(str(e))
@@ -99,16 +100,18 @@ class SongService:
         song.start = usdx_file.tags.START
         song.is_relative = usdx_file.tags.RELATIVE
         song.notes = usdx_file.notes
-        song.audio_file = os.path.join(song.path, song.audio)
 
-        if not os.path.exists(song.audio_file):
-            logger.warning("Audio file not found for %s: %s", song.txt_file, song.audio_file)
+        # Handle missing or invalid audio file
+        if not song.audio:
+            logger.warning("AUDIO tag is missing for %s", song.txt_file)
+            song.status = SongStatus.MISSING_AUDIO
+        else:
+            song.audio_file = os.path.join(song.path, song.audio)
+            if not os.path.exists(song.audio_file):
+                logger.warning("Audio file not found for %s: %s", song.txt_file, song.audio_file)
+                song.status = SongStatus.MISSING_AUDIO
 
-        logger.debug("Updating status from gap_info for %s", song.txt_file)
-
-    async def load_song_metadata_only(
-        self, txt_file: str, cancel_check: Optional[Callable] = None
-    ) -> Song:
+    async def load_song_metadata_only(self, txt_file: str, cancel_check: Optional[Callable] = None) -> Song:
         """Load only metadata (tags + notes) without gap_info or status mutation."""
         logger.debug("Loading metadata only for %s", txt_file)
         song = Song(txt_file)
@@ -174,7 +177,6 @@ class SongService:
         try:
             if os.path.exists(song.txt_file):
                 set_cache_entry(song.txt_file, song)
-                logger.debug("Song cache updated: %s", song.txt_file)
         except Exception as e:  # pragma: no cover - unexpected errors
             logger.error("Error updating cache for %s: %s", song.txt_file, e, exc_info=True)
 

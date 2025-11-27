@@ -1,0 +1,5 @@
+# Windows-specific build requirements
+# Install with: pip install -r requirements-build-windows.txt
+
+# VLC backend (avoids WMF deadlocks)
+python-vlc>=3.0.20123

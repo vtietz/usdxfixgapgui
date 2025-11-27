@@ -62,11 +62,11 @@ class TestDetectGapFinished:
             mock_run_async.assert_called_once()
             mock_gap_service_save.assert_called_once_with(song.gap_info)
 
-            # Assert: _create_waveforms was invoked with overwrite=True
-            mock_audio_actions._create_waveforms.assert_called_once_with(song, True)
+            # Assert: _create_waveforms was invoked with overwrite=True and emit_on_finish=False
+            mock_audio_actions._create_waveforms.assert_called_once_with(song, overwrite=True, emit_on_finish=False)
 
-            # Assert: _normalize_song was scheduled (auto_normalize=True)
-            mock_audio_actions._normalize_song.assert_called_once_with(song, start_now=False)
+            # Assert: _normalize_song was scheduled with priority (auto_normalize=True, start_now=True)
+            mock_audio_actions._normalize_song.assert_called_once_with(song, start_now=True)
 
             # Assert: songs.updated.emit was called
             app_data.songs.updated.emit.assert_called_once_with(song)
@@ -139,11 +139,17 @@ class TestDetectGapFinished:
         with (
             patch("actions.gap_actions.run_async") as mock_run_async,
             patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock),
+            patch("services.song_service.SongService") as mock_song_service_class,
             patch("actions.gap_actions.AudioActions") as mock_audio_class,
         ):
 
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
+
+            # Mock SongService to prevent unawaited coroutine
+            mock_song_service = Mock()
+            mock_song_service.update_cache = Mock()
+            mock_song_service_class.return_value = mock_song_service
 
             mock_audio = Mock()
             mock_audio_class.return_value = mock_audio
@@ -196,8 +202,10 @@ class TestDetectGapFinished:
             # Use centralized async executor fixture
             mock_run_async.side_effect = fake_run_async
 
-            # Mock SongService instance
+            # Mock SongService instance with AsyncMock for async methods
             mock_song_service = Mock()
+            mock_song_service.update_cache = Mock()
+            mock_song_service.save_gap_info = AsyncMock()
             mock_song_service_class.return_value = mock_song_service
 
             gap_actions = GapActions(app_data)

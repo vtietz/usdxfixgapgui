@@ -20,6 +20,7 @@ def mock_app_data(tmp_path):
     # Config mock
     data.config = Mock()
     data.config.last_directory = ""
+    data.config.default_directory = ""  # Add default_directory
     data.config.save = Mock()
 
     # Songs model mock

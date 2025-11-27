@@ -20,6 +20,7 @@ def mock_app_data():
     data.songs = Mock()
     data.songs.updated = Mock()
     data.songs.updated.emit = Mock()
+    data.songs.filter = None  # No filter active by default (supports 'in' operator)
     data.first_selected_song = None
     data.config = Mock()
     data.config.auto_normalize = False
@@ -75,8 +76,10 @@ class TestUpdateGapValue:
     @patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock)
     @patch("actions.gap_actions.AudioActions")
     @patch("actions.gap_actions.run_async")
+    @patch("PySide6.QtCore.QTimer")
     def test_update_gap_value_uses_services_not_property(
         self,
+        mock_qtimer,
         mock_run_async,
         mock_audio_actions,
         mock_save,
@@ -92,6 +95,12 @@ class TestUpdateGapValue:
 
         # Mock load to return a mock USDXFile
         mock_load.return_value = Mock()
+
+        # Mock QTimer.singleShot to immediately invoke the callback
+        def immediate_callback(delay, callback):
+            callback()
+
+        mock_qtimer.singleShot.side_effect = immediate_callback
 
         # Setup
         gap_actions = GapActions(mock_app_data)
@@ -172,8 +181,10 @@ class TestRevertGapValue:
     @patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock)
     @patch("actions.gap_actions.AudioActions")
     @patch("actions.gap_actions.run_async")
+    @patch("PySide6.QtCore.QTimer")
     def test_revert_gap_value_uses_services_not_property(
         self,
+        mock_qtimer,
         mock_run_async,
         mock_audio_actions,
         mock_save,
@@ -189,6 +200,12 @@ class TestRevertGapValue:
 
         # Mock load to return a mock USDXFile
         mock_load.return_value = Mock()
+
+        # Mock QTimer.singleShot to immediately invoke the callback
+        def immediate_callback(delay, callback):
+            callback()
+
+        mock_qtimer.singleShot.side_effect = immediate_callback
 
         # Setup
         gap_actions = GapActions(mock_app_data)

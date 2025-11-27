@@ -44,10 +44,10 @@ class TestMdxConfigValidation:
         assert len(fp16_errors) == 0
 
     def test_snr_threshold_too_low_warning(self):
-        """SNR threshold < 3.0 should trigger warning."""
+        """SNR threshold < 1.5 should trigger warning."""
         config = Mock()
         config.mdx_use_fp16 = False
-        config.mdx_onset_snr_threshold = 2.0  # Too low
+        config.mdx_onset_snr_threshold = 1.0  # Too low (< 1.5)
         config.mdx_onset_abs_threshold = 0.020
         config.mdx_min_voiced_duration_ms = 200
 
@@ -130,7 +130,7 @@ class TestConfigAutoFix:
         """Warnings should not be auto-fixed, only reported."""
         config = Mock()
         config.mdx_use_fp16 = False
-        config.mdx_onset_snr_threshold = 2.0  # Warning: too low
+        config.mdx_onset_snr_threshold = 1.0  # Warning: too low (< 1.5)
         config.mdx_onset_abs_threshold = 0.020
         config.mdx_min_voiced_duration_ms = 200
         config._config = Mock()
@@ -146,7 +146,7 @@ class TestConfigAutoFix:
         assert len(warnings) > 0
 
         # Should NOT have changed config
-        assert config.mdx_onset_snr_threshold == 2.0
+        assert config.mdx_onset_snr_threshold == 1.0
 
         # Should NOT have saved (no fixes applied)
         config.save.assert_not_called()

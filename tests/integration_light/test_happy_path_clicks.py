@@ -45,6 +45,7 @@ def mock_app_data(tmp_path):
     data.tmp_path = tmp_path
     data.config = Mock()
     data.config.last_directory = ""
+    data.config.default_directory = ""  # Add default_directory
     data.config.config_path = str(tmp_path / "config.ini")
     data.songs = Mock()
     data.selected_songs_changed = Mock()

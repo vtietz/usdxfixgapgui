@@ -57,15 +57,17 @@ class Config(QObject):
         # Initialize properties from config values (using fallbacks for missing keys)
         self._initialize_properties()
 
-    def ensure_config_file_exists(self):
-        """
-        DEPRECATED: Config file existence is now handled in __init__.
-        This method remains for backward compatibility but does nothing.
-        """
-        return self.config_path
-
     def _get_defaults(self):
         """Get default configuration values as a dictionary structure."""
+        # Lazy import: Defer MdxConfig import to avoid importing torch at Config instantiation.
+        # CRITICAL: This import must happen after GPU bootstrap to ensure torch comes from GPU Pack.
+        # The mdx package __init__.py now uses lazy imports via __getattr__ to avoid
+        # importing torch-dependent modules (separator.py, model_loader.py) at package load time.
+        from utils.providers.mdx.config import MdxConfig
+
+        # Create default instance to extract values
+        mdx_defaults = MdxConfig()
+
         localappdata = get_localappdata_dir()
 
         # In portable mode, use relative paths for app-internal directories
@@ -88,9 +90,9 @@ class Config(QObject):
             "Detection": {
                 "default_detection_time": 30,
                 "gap_tolerance": 500,
-                "vocal_start_window_sec": 20,
-                "vocal_window_increment_sec": 10,
-                "vocal_window_max_sec": 60,
+                "vocal_start_window_sec": int(mdx_defaults.start_window_ms / 1000),
+                "vocal_window_increment_sec": int(mdx_defaults.start_window_increment_ms / 1000),
+                "vocal_window_max_sec": int(mdx_defaults.start_window_max_ms / 1000),
             },
             "Colors": {
                 "detected_gap_color": "blue",
@@ -101,25 +103,25 @@ class Config(QObject):
             "Player": {"adjust_player_position_step_audio": 100, "adjust_player_position_step_vocals": 10},
             "Processing": {"method": "mdx", "normalization_level": -20, "auto_normalize": False},
             "mdx": {
-                "chunk_duration_ms": 12000,
-                "chunk_overlap_ms": 6000,
-                "frame_duration_ms": 25,
-                "hop_duration_ms": 20,
-                "noise_floor_duration_ms": 1200,
-                "onset_snr_threshold": 4.5,
-                "onset_abs_threshold": 0.012,
-                "min_voiced_duration_ms": 150,
-                "hysteresis_ms": 350,
-                "initial_radius_ms": 7500,
-                "radius_increment_ms": 7500,
-                "max_expansions": 3,
-                "use_fp16": False,
-                "resample_hz": 0,
-                "early_stop_tolerance_ms": 500,
-                "tf32": True,
-                "confidence_threshold": 0.55,
-                "preview_pre_ms": 3000,
-                "preview_post_ms": 9000,
+                "chunk_duration_ms": mdx_defaults.chunk_duration_ms,
+                "chunk_overlap_ms": mdx_defaults.chunk_overlap_ms,
+                "frame_duration_ms": mdx_defaults.frame_duration_ms,
+                "hop_duration_ms": mdx_defaults.hop_duration_ms,
+                "noise_floor_duration_ms": mdx_defaults.noise_floor_duration_ms,
+                "onset_snr_threshold": mdx_defaults.onset_snr_threshold,
+                "onset_abs_threshold": mdx_defaults.onset_abs_threshold,
+                "min_voiced_duration_ms": mdx_defaults.min_voiced_duration_ms,
+                "hysteresis_ms": mdx_defaults.hysteresis_ms,
+                "initial_radius_ms": mdx_defaults.initial_radius_ms,
+                "radius_increment_ms": mdx_defaults.radius_increment_ms,
+                "max_expansions": mdx_defaults.max_expansions,
+                "use_fp16": mdx_defaults.use_fp16,
+                "resample_hz": mdx_defaults.resample_hz,
+                "early_stop_tolerance_ms": mdx_defaults.early_stop_tolerance_ms,
+                "tf32": mdx_defaults.tf32,
+                "confidence_threshold": mdx_defaults.confidence_threshold,
+                "preview_pre_ms": mdx_defaults.preview_pre_ms,
+                "preview_post_ms": mdx_defaults.preview_post_ms,
             },
             "General": {
                 "log_level": "INFO",
@@ -144,11 +146,13 @@ class Config(QObject):
                 "maximized": False,
                 "main_splitter_pos": "2,1",
                 "second_splitter_pos": "1,1",
+                "filter_text": "",
+                "filter_statuses": "",
             },
             "WatchMode": {
                 "watch_mode_default": False,
                 "watch_debounce_ms": 500,
-                "watch_ignore_patterns": ".tmp,~,.crdownload,.part",
+                "watch_ignore_patterns": ".tmp,~,.crdownload,.part,tmp,_processed.",
             },
         }
 
@@ -391,6 +395,10 @@ class Config(QObject):
         self.main_splitter_pos = [int(x.strip()) for x in splitter_pos_str.split(",")]
         second_splitter_pos_str = self._config.get("Window", "second_splitter_pos", fallback=w["second_splitter_pos"])
         self.second_splitter_pos = [int(x.strip()) for x in second_splitter_pos_str.split(",")]
+        # Filter state
+        self.filter_text = self._config.get("Window", "filter_text", fallback=w["filter_text"])
+        filter_statuses_str = self._config.get("Window", "filter_statuses", fallback=w["filter_statuses"])
+        self.filter_statuses = [s.strip() for s in filter_statuses_str.split(",") if s.strip()]
 
     def _init_watch_mode(self, defaults: dict):
         """Initialize WatchMode section properties."""
@@ -539,6 +547,8 @@ class Config(QObject):
         config["Window"]["maximized"] = "true" if self.window_maximized else "false"
         config["Window"]["main_splitter_pos"] = ",".join(str(x) for x in self.main_splitter_pos)
         config["Window"]["second_splitter_pos"] = ",".join(str(x) for x in self.second_splitter_pos)
+        config["Window"]["filter_text"] = self.filter_text
+        config["Window"]["filter_statuses"] = ",".join(self.filter_statuses)
 
     def _create_backup(self):
         """Create backup of config file before modifying."""
@@ -562,17 +572,33 @@ class Config(QObject):
 
         # Create a fresh ConfigParser to read the current file state
         current = configparser.ConfigParser()
+        config_loaded = False
+
         if os.path.exists(self.config_path):
             try:
                 current.read(self.config_path, encoding="utf-8-sig")
                 logger.debug(f"Re-read existing config from {self.config_path}")
+                config_loaded = True
             except Exception as e:
                 logger.warning(f"Failed to re-read config file: {e}. Will create fresh config.")
+
+        # If config doesn't exist or failed to load, populate with defaults
+        if not config_loaded:
+            logger.debug("Populating config with defaults before save")
+            defaults = self._get_defaults()
+            for section, values in defaults.items():
+                current[section] = {}
+                for key, value in values.items():
+                    # Convert all values to strings for ConfigParser
+                    if isinstance(value, bool):
+                        current[section][key] = "true" if value else "false"
+                    else:
+                        current[section][key] = str(value)
 
         # Create backup before modifying
         self._create_backup()
 
-        # Update managed sections
+        # Update managed sections (these override defaults/existing values)
         self._update_paths_section(current)
         self._update_general_section(current)
         self._update_window_section(current)

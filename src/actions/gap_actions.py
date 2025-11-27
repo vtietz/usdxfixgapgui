@@ -43,9 +43,11 @@ class GapActions(BaseActions):
 
         worker = DetectGapWorker(options)
 
-        worker.signals.started.connect(lambda: self._on_song_worker_started(song))
-        worker.signals.error.connect(lambda e: self._on_song_worker_error(song, e))
-        worker.signals.finished.connect(lambda result: self._on_detect_gap_finished(song, result))
+        # Early-bind song using default args to avoid late-binding closure bugs
+        worker.signals.started.connect(lambda s=song: self._on_song_worker_started(s))
+        worker.signals.error.connect(lambda e, s=song: self._on_song_worker_error(s, e))
+        worker.signals.finished.connect(lambda result, s=song: self._on_detect_gap_finished(s, result))
+        self._hold_lane_for_worker(worker, f"detect:{song.path}")
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
         self.worker_queue.add_task(worker, start_now)
@@ -56,7 +58,7 @@ class GapActions(BaseActions):
             logger.error("No songs selected for gap detection.")
             return
 
-        logger.info(f"Queueing gap detection for {len(selected_songs)} songs.")
+        logger.info("Queueing gap detection for %s songs.", len(selected_songs))
 
         # Save overwrite parameter for the callback
         self._overwrite_gap = overwrite
@@ -76,6 +78,21 @@ class GapActions(BaseActions):
                 return None
         return cast(Optional[Song], candidate)
 
+    def _clear_selection_if_filtered(self, song: Song, new_status_name: str):
+        """No longer clears selection - selected songs are always visible in filter.
+
+        This method is kept for backward compatibility but no longer clears selection.
+        The filter now shows selected songs regardless of their status.
+
+        Args:
+            song: The song whose status is changing
+            new_status_name: Name of the new status (e.g., 'SOLVED', 'UPDATED')
+        """
+        # Note: Selected songs are now always visible in the song list,
+        # even if their status doesn't match the active filter.
+        # The CustomSortFilterProxyModel handles this automatically.
+        pass
+
     def _detect_gap_if_valid(self, song, is_first):
         if song.audio_file:
             # Only start immediately if this is the first item AND no task is currently running.
@@ -83,12 +100,17 @@ class GapActions(BaseActions):
             start_now = is_first and not self.worker_queue.running_tasks
             self._detect_gap(song, self._overwrite_gap, start_now)
         else:
-            logger.warning(f"Skipping gap detection for '{song.title}': No audio file found.")
+            logger.warning("Skipping gap detection for %s: No audio file found.", song.title)
 
     def _on_detect_gap_finished(self, song: Song, result: GapDetectionResult):
+        logger.debug("Gap detection finished for: %s", song.txt_file)
         # Validate that the result matches the song
         if song.txt_file != result.song_file_path:
-            logger.error(f"Gap detection result mismatch: {song.txt_file} vs {result.song_file_path}")
+            logger.error(
+                "Gap detection result mismatch: %s vs %s",
+                song.txt_file,
+                result.song_file_path,
+            )
             return
 
         # Ensure gap_info exists and then update with detection results
@@ -110,9 +132,24 @@ class GapActions(BaseActions):
         song.gap_info.waveform_json_path = result.waveform_json_path
         song.gap_info.detected_gap_ms = result.detected_gap_ms
         song.gap_info.tolerance_band_ms = self.config.gap_tolerance
+        song.gap_info.error_message = result.error  # Store error message if present
+
+        # Clear selection before status change if song will be filtered out
+        if result.status:
+            self._clear_selection_if_filtered(song, result.status.name)
 
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
+        logger.debug(
+            "Setting gap_info.status: result.status=%s, song.status before=%s",
+            result.status,
+            song.status,
+        )
         song.gap_info.status = result.status or song.gap_info.status
+        logger.debug(
+            "After setting gap_info.status: song.status=%s, gap_info.status=%s",
+            song.status,
+            song.gap_info.status,
+        )
 
         # Save gap info and update cache
         async def save_gap_and_cache():
@@ -126,17 +163,26 @@ class GapActions(BaseActions):
 
         run_async(save_gap_and_cache())
 
-        # Create waveforms first
+        # Create waveforms first (don't emit per-waveform updates, we'll emit once at end)
         audio_actions = AudioActions(self.data)
-        audio_actions._create_waveforms(song, True)
+        audio_actions._create_waveforms(song, overwrite=True, emit_on_finish=False)
 
         # Queue auto-normalization as separate worker task (non-blocking)
         if self.config.auto_normalize and song.audio_file:
-            logger.info(f"Queueing auto-normalization for {song} after gap detection")
-            # Use start_now=False to let queue manager schedule it after current tasks
-            audio_actions._normalize_song(song, start_now=False)
+            # Check if already normalized to avoid unnecessary re-processing
+            if song.gap_info and song.gap_info.is_normalized:
+                logger.debug(
+                    f"Skipping auto-normalization for {song} - "
+                    f"already normalized on {song.gap_info.normalized_date}"
+                )
+            else:
+                logger.debug(f"Queueing auto-normalization with priority after gap detection for {song}")
+                # Use start_now=True to trigger priority queuing (front of queue)
+                # This ensures normalization runs immediately after gap detection completes,
+                # not at the end of the queue behind other pending tasks
+                audio_actions._normalize_song(song, start_now=True)
 
-        # Notify that the song has been updated
+        # Emit signal once to update UI with new status
         self.data.songs.updated.emit(song)
 
     def get_notes_overlap(self, song: Optional[Song], silence_periods, detection_time):
@@ -173,11 +219,23 @@ class GapActions(BaseActions):
 
         logger.info(f"Updating gap value for '{song_to_process.txt_file}' to {gap}")
 
+        # Suspend media loads briefly to avoid unload→reload races during status/filter transitions
+        if hasattr(self.data, "media_suspend_requested"):
+            self.data.media_suspend_requested.emit(250)
+        # Unload media player before status change to prevent freeze (especially in vocals mode)
+        if hasattr(self.data, "media_unload_requested"):
+            logger.debug("Unloading media player before status change")
+            self.data.media_unload_requested.emit()
+
         # Update gap value and gap_info - status mapping happens via owner hook
         song_to_process.gap = gap
         if not song_to_process.gap_info:
             song_to_process.gap_info = GapInfoServiceRef.create_for_song_path(song_to_process.path)
         song_to_process.gap_info.updated_gap = gap
+
+        # Clear selection before status change if song will be filtered out
+        self._clear_selection_if_filtered(song_to_process, "UPDATED")
+
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
         song_to_process.gap_info.status = GapInfoStatus.UPDATED
 
@@ -205,8 +263,15 @@ class GapActions(BaseActions):
         self._recalculate_note_times(song_to_process)
 
         audio_actions = AudioActions(self.data)
-        audio_actions._create_waveforms(song_to_process, True)
-        self.data.songs.updated.emit(song_to_process)
+        audio_actions._create_waveforms(song_to_process, overwrite=True, emit_on_finish=False)
+
+        # Defer signal emission to prevent cascade
+        from PySide6.QtCore import QTimer
+
+        # Extend the suspension window slightly to cover the deferred emission
+        if hasattr(self.data, "media_suspend_requested"):
+            self.data.media_suspend_requested.emit(250)
+        QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
 
     def revert_gap_value(self, song: Optional[Song]):
         song_to_process = self._resolve_song(song)
@@ -246,19 +311,47 @@ class GapActions(BaseActions):
         self._recalculate_note_times(song_to_process)
 
         audio_actions = AudioActions(self.data)
-        audio_actions._create_waveforms(song_to_process, True)
-        self.data.songs.updated.emit(song_to_process)
+        audio_actions._create_waveforms(song_to_process, overwrite=True, emit_on_finish=False)
+
+        # Defer signal emission to prevent cascade
+        from PySide6.QtCore import QTimer
+
+        # Extend the suspension window slightly to cover the deferred emission
+        if hasattr(self.data, "media_suspend_requested"):
+            self.data.media_suspend_requested.emit(250)
+        QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
 
     def keep_gap_value(self, song: Optional[Song]):
+        import time
+        import threading
+        from PySide6.QtCore import QTimer
+
+        start_time = time.perf_counter()
+        logger.debug(f"[Thread: {threading.current_thread().name}] keep_gap_value started")
+
         song_to_process = self._resolve_song(song)
         if not song_to_process:
             logger.error("No song selected for keeping gap value.")
             return
 
+        logger.info(f"Keeping gap value for {song_to_process.artist} - {song_to_process.title}")
+
+        # Suspend media loads briefly to avoid unload→reload races during status/filter transitions
+        if hasattr(self.data, "media_suspend_requested"):
+            self.data.media_suspend_requested.emit(250)
+        # Unload media player before status change to prevent freeze (especially in vocals mode)
+        if hasattr(self.data, "media_unload_requested"):
+            logger.debug("Unloading media player before status change")
+            self.data.media_unload_requested.emit()
+
         # Mark as solved - status mapping happens via owner hook
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
         if not song_to_process.gap_info:
             song_to_process.gap_info = GapInfoServiceRef.create_for_song_path(song_to_process.path)
+
+        # Clear selection BEFORE status change if song will be filtered out (prevents UI freeze)
+        self._clear_selection_if_filtered(song_to_process, "SOLVED")
+
         song_to_process.gap_info.status = GapInfoStatus.SOLVED
 
         # Save gap info and update cache
@@ -272,7 +365,21 @@ class GapActions(BaseActions):
             logger.debug(f"Updated song cache after keeping gap for {song_to_process.txt_file}")
 
         run_async(save_gap_and_cache())
-        self.data.songs.updated.emit(song_to_process)
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        logger.debug(f"keep_gap_value completed in {duration_ms:.1f}ms, deferring signal emission")
+
+        # Defer signal emission to prevent cascade during event processing
+        # This allows the current event handler to complete before triggering updates
+        def emit_deferred():
+            logger.debug("Emitting deferred songs.updated signal")
+            self.data.songs.updated.emit(song_to_process)
+
+        # Extend the suspension window slightly to cover the deferred emission
+        if hasattr(self.data, "media_suspend_requested"):
+            self.data.media_suspend_requested.emit(250)
+        QTimer.singleShot(50, emit_deferred)  # 50ms delay to let UI settle
+        logger.debug("keep_gap_value completed, signal emission deferred")
 
     def _recalculate_note_times(self, song: Song):
         """Recalculate note times based on current gap, bpm, and is_relative settings"""

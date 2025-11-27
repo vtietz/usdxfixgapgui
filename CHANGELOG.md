@@ -7,11 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- New: WaveformManager dedupes waveform queueing and emits ready signals so media player updates during scans
+
+### Fixed
+
+### Changed
+
+---
+
+## [1.3.0] - 2025-01-XX
+
+### Added
+- New: VLC-based audio backend for Windows (eliminates Windows Media Foundation freezes on gap button clicks)
+- New: Unified media backend abstraction with OS-specific adapters (VLC/Qt/AVFoundation/GStreamer)
+- New: VLC runtime bundling in releases (automatic detection, fallback to Qt backends on other platforms)
+- New: Developer VLC setup command (`run.bat setup-vlc` downloads VLC 3.0.21 portable for development)
+- New: VLC instance configured for audio-only mode (no video subsystem, lower memory)
+- New: Millisecond-precise seeking using VLC's set_time() (faster, more accurate than ratio-based positioning)
+- New: Smart polling timers only run when media loaded (reduced CPU usage when idle)
+- New: Adaptive position interpolation (auto-disables if backend provides ≥20 FPS, measures actual update frequency)
+- New: Smart cursor snapping to nearest position (forward or backward, not always backward)
+- New: Position display shows milliseconds (MM:SS:mmm format) for precise gap editing
+- New: Requirements files organized in requirements/ subdirectory for cleaner project root
+- New: VLC setup helper script (scripts/setup_vlc_runtime.py) automates portable VLC download
+
+### Fixed
+- Fix: UI freezes eliminated when clicking gap buttons in vocals mode (VLC backend avoids WMF deadlocks)
+- Fix: "Loading waveform..." placeholder now updates after waveform creation completes
+- Fix: Startup dialog respects "Don't show again" checkbox (no longer forces GPU Pack prompt)
+- Fix: VLC console spam suppressed (quiet logging mode, no ES_OUT_SET_PCR warnings)
+- Fix: 10 test failures resolved (Mock.filter attribute added to fixtures)
+
+### Changed
+- Chore: Requirements files moved to requirements/ subdirectory for cleaner project structure
+- Chore: VLC backend uses millisecond-precise seeking (set_time() instead of ratio-based positioning)
+- Chore: VLC polling timers only run when media loaded (reduced CPU usage when idle)
+
+---
+
+## [1.2.0] - 2025-11-13
+
 ### Fixed
 - Fix: Task queue viewer crashes when canceling tasks (complete rewrite with simple rebuild pattern)
 - Fix: Waveform missing notes overlay on song selection (async race condition resolved)
 
-### Removed
+### Changed
 - Chore: Removed orphaned Debug config section after cleanup
 
 ---

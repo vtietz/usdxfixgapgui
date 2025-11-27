@@ -35,18 +35,21 @@ class UIManager:
         self.save_current_play_position_btn.setEnabled(is_enabled and self._play_position > 0)
         # Check if detected_gap exists and is greater than 0
         has_detected_gap = (
-            is_enabled and song.gap_info.detected_gap is not None and song.gap_info.detected_gap > 0 if song else False
+            is_enabled and song.gap_info and song.gap_info.detected_gap is not None and song.gap_info.detected_gap > 0
+            if song
+            else False
         )
         self.save_detected_gap_btn.setEnabled(has_detected_gap)
         self.keep_original_gap_btn.setEnabled(is_enabled)
-        self.play_btn.setEnabled(is_enabled and (is_media_loaded or is_playing))
+        # Play button enabled when song selected and media file exists (not just when backend reports loaded)
+        self.play_btn.setEnabled(is_enabled)
         self.vocals_btn.setEnabled(is_enabled)
         self.audio_btn.setEnabled(is_enabled)
-        # Check if gap differs from original (with None safety)
-        has_changed_gap = is_enabled and song.gap != song.gap_info.original_gap if song else False
+        # Check if gap differs from original (with None safety for gap_info)
+        has_changed_gap = is_enabled and song.gap_info and song.gap != song.gap_info.original_gap if song else False
         self.revert_btn.setEnabled(has_changed_gap)
 
-        if song:
+        if song and song.gap_info:
             detected_gap_text = f"{song.gap_info.detected_gap} ms" if song.gap_info.detected_gap is not None else "0 ms"
             self.save_detected_gap_btn.setText(f"  Save detected gap ({detected_gap_text})")
             self.keep_original_gap_btn.setText(f"  Keep current gap ({song.gap} ms)")
@@ -63,21 +66,20 @@ class UIManager:
 
     def set_playback_state(self, is_playing):
         """Update UI for play/pause state"""
-        self.play_btn.setChecked(is_playing)
-        # Update button text based on playback state
+        # Button is not checkable - only update text
         self.play_btn.setText("Stop" if is_playing else "Play")
 
     def update_position_label(self, position, is_media_loaded, is_playing):
         """Update the position label with the current playback position"""
         self._play_position = position
 
-        if not is_media_loaded and not is_playing:
+        # Show position if media is loaded, even if not playing (show 00:00:00.000 for new songs)
+        if is_media_loaded or is_playing:
+            playposition_text = audio.milliseconds_to_str(position, with_milliseconds=True)
+            self.position_label.setText(playposition_text)
+            self.save_current_play_position_btn.setText(f"  Save play position ({position} ms)")
+        else:
             self.position_label.setText("")
-            return
-
-        playposition_text = audio.milliseconds_to_str(position)
-        self.position_label.setText(playposition_text)
-        self.save_current_play_position_btn.setText(f"  Save play position ({position} ms)")
 
     def update_syllable_label(self, position, song):
         """Update the syllable label with the current lyric"""
@@ -98,5 +100,7 @@ class UIManager:
         if is_multiple:
             self.position_label.setText("Player disabled (multiple songs selected)")
             self.syllable_label.setText("")
+            self.waveform_widget.set_markers_visible(False)  # Hide markers when disabled
         else:
             self.position_label.setText("")
+            self.waveform_widget.set_markers_visible(True)  # Restore markers

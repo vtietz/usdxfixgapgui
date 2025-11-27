@@ -2,25 +2,49 @@
 
 ## Quick Start
 
+### System Dependencies
+
+**Linux/WSL only** - Install Qt/OpenGL system libraries before setup:
+```bash
+sudo apt install libegl1-mesa libgl1-mesa-glx libxkbcommon-x11-0 \
+  libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+  libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 libxcb-shape0
+```
+
+**All platforms** - FFmpeg required for audio processing:
+- **Windows**: Add ffmpeg.exe to PATH
+- **Linux**: `sudo apt install ffmpeg`
+- **macOS**: `brew install ffmpeg`
+
 ### Initial Setup
 
 ```bash
 # Windows
-run.bat install-dev
+run.bat install-dev    # Install dependencies
+run.bat setup-vlc      # Setup VLC runtime (recommended for media backend development)
 
 # Linux/macOS
-./run.sh install-dev
+./run.sh install-dev   # Install dependencies
+# VLC setup not needed - uses system VLC or Qt backends
 ```
 
 This installs:
-- Runtime dependencies (from `requirements.txt`)
-- Development dependencies (from `requirements-dev.txt`)
+- Runtime dependencies (from `requirements/requirements.txt`)
+- Development dependencies (from `requirements/requirements-dev.txt`)
   - pytest, pytest-qt, pytest-mock (testing)
   - lizard (complexity analysis)
   - flake8 (style checking)
   - mypy (type checking)
   - autoflake (unused import removal)
   - black (code formatting)
+
+**VLC Runtime** (Windows development only):
+- **Development**: `run.bat setup-vlc` downloads VLC portable (~100MB to `vlc_runtime/`)
+- **Production**: System VLC detected automatically (not bundled)
+- **Linux/macOS**: Use system VLC or Qt backends
+- **Development**: Run `run.bat setup-vlc` to download VLC portable (~100MB)
+- **Optional but recommended**: Provides better audio backend stability
+- **Fallback**: App uses Qt/WMF backend if VLC unavailable (may freeze on gap buttons)
 
 ## Development Workflow
 

@@ -9,9 +9,10 @@ Architecture:
 """
 
 import logging
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QHeaderView
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QPushButton
 from PySide6.QtCore import Qt
 from managers.worker_queue_manager import WorkerQueueManager
+from ui.common.column_layout import ColumnDefaults, ColumnLayoutController
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,8 @@ class TaskQueueViewer(QWidget):
     def __init__(self, workerQueueManager: WorkerQueueManager, parent=None):
         super().__init__(parent)
         self.workerQueueManager = workerQueueManager
+        self._last_tasks = []  # Cache for skipping unnecessary rebuilds
+        self._last_task_summary = None  # Prevents duplicate debug logs
 
         # UI setup
         self.initUI()
@@ -48,17 +51,27 @@ class TaskQueueViewer(QWidget):
         self.tableWidget = QTableWidget(0, 3)
         self.tableWidget.setHorizontalHeaderLabels(["Task", "Status", ""])
         self.tableWidget.horizontalHeader().setStretchLastSection(False)
-        self.tableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.tableWidget.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-        self.tableWidget.setColumnWidth(1, 100)  # Fixed width for Status column
-        self.tableWidget.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-        self.tableWidget.setColumnWidth(2, 80)  # Fixed width for button column
+        self.tableWidget.horizontalHeader().setSectionsMovable(True)
         self.tableWidget.verticalHeader().setVisible(False)
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tableWidget.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.tableWidget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 
+        column_defaults = ColumnDefaults(
+            numeric_widths={1: 100, 2: 80},
+            primary_ratios=(1.0,),
+            primary_min_width=200,
+            primary_columns=(0,),
+        )
+        self._table_layout = ColumnLayoutController(self.tableWidget, column_defaults)
+        self._table_layout.apply_policy()
+
         self.layout.addWidget(self.tableWidget)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "_table_layout"):
+            self._table_layout.rebalance_viewport()
 
     def _gather_tasks(self):
         """
@@ -78,31 +91,57 @@ class TaskQueueViewer(QWidget):
         # 1. Running instant task
         if self.workerQueueManager.running_instant_task:
             worker = self.workerQueueManager.running_instant_task
-            description = getattr(worker, 'description', worker.__class__.__name__)
-            status_name = getattr(worker.status, 'name', str(worker.status)) if hasattr(worker, 'status') else 'RUNNING'
-            can_cancel = status_name not in ('CANCELLING', 'FINISHED', 'ERROR')
+            description = getattr(worker, "description", worker.__class__.__name__)
+            status_name = (
+                getattr(worker.status, "name", str(worker.status))
+                if hasattr(worker, "status")
+                else "RUNNING"
+            )
+            can_cancel = status_name not in ("CANCELLING", "FINISHED", "ERROR")
             tasks.append((worker.id, description, status_name, can_cancel))
 
         # 2. Running standard tasks
         for worker_id, worker in self.workerQueueManager.running_tasks.items():
-            description = getattr(worker, 'description', worker.__class__.__name__)
-            status_name = getattr(worker.status, 'name', str(worker.status)) if hasattr(worker, 'status') else 'RUNNING'
-            can_cancel = status_name not in ('CANCELLING', 'FINISHED', 'ERROR')
+            description = getattr(worker, "description", worker.__class__.__name__)
+            status_name = (
+                getattr(worker.status, "name", str(worker.status))
+                if hasattr(worker, "status")
+                else "RUNNING"
+            )
+            can_cancel = status_name not in ("CANCELLING", "FINISHED", "ERROR")
             tasks.append((worker_id, description, status_name, can_cancel))
 
         # 3. Queued instant tasks
         for worker in self.workerQueueManager.queued_instant_tasks:
-            description = getattr(worker, 'description', worker.__class__.__name__)
-            status_name = 'QUEUED'
+            description = getattr(worker, "description", worker.__class__.__name__)
+            status_name = "QUEUED"
             can_cancel = True
             tasks.append((worker.id, description, status_name, can_cancel))
 
         # 4. Queued standard tasks
         for worker in self.workerQueueManager.queued_tasks:
-            description = getattr(worker, 'description', worker.__class__.__name__)
-            status_name = 'QUEUED'
+            description = getattr(worker, "description", worker.__class__.__name__)
+            status_name = "QUEUED"
             can_cancel = True
             tasks.append((worker.id, description, status_name, can_cancel))
+
+        summary = (
+            len(tasks),
+            1 if self.workerQueueManager.running_instant_task else 0,
+            len(self.workerQueueManager.running_tasks),
+            len(self.workerQueueManager.queued_instant_tasks),
+            len(self.workerQueueManager.queued_tasks),
+        )
+        if summary != self._last_task_summary:
+            logger.debug(
+                "[TASK QUEUE] Gathered %s tasks (instant_running=%s, standard_running=%s, instant_queued=%s, standard_queued=%s)",
+                summary[0],
+                summary[1],
+                summary[2],
+                summary[3],
+                summary[4],
+            )
+            self._last_task_summary = summary
 
         return tasks
 
@@ -114,6 +153,14 @@ class TaskQueueViewer(QWidget):
         Simple, predictable, no edge cases.
         """
         try:
+            # Gather current tasks first
+            tasks = self._gather_tasks()
+
+            # Skip rebuild if task count and content haven't changed
+            if hasattr(self, '_last_tasks') and self._last_tasks == tasks:
+                return
+            self._last_tasks = tasks
+
             # Save scroll position
             vscroll = self.tableWidget.verticalScrollBar()
             scroll_pos = vscroll.value() if vscroll else 0
@@ -123,9 +170,6 @@ class TaskQueueViewer(QWidget):
 
             # Clear all rows (Qt automatically destroys child widgets)
             self.tableWidget.setRowCount(0)
-
-            # Gather current tasks
-            tasks = self._gather_tasks()
 
             # Rebuild rows
             for row_idx, (task_id, description, status_string, can_cancel) in enumerate(tasks):
@@ -147,7 +191,7 @@ class TaskQueueViewer(QWidget):
                 btn.setProperty("task_id", task_id)
                 btn.setEnabled(can_cancel)
                 if not can_cancel:
-                    btn.setText("Cancelling..." if status_string == 'CANCELLING' else "Done")
+                    btn.setText("Cancelling..." if status_string == "CANCELLING" else "Done")
                 # Connect clicked signal
                 btn.clicked.connect(lambda checked=False, tid=task_id: self._on_cancel_clicked(tid))
                 # Parent to table (Qt will auto-cleanup on row removal)

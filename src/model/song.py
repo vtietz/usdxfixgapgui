@@ -1,5 +1,6 @@
 from enum import Enum
 import os
+import re
 from model.gap_info import GapInfo, GapInfoStatus
 import utils.audio as audio
 import logging
@@ -13,12 +14,32 @@ class SongStatus(Enum):
     NOT_PROCESSED = "NOT_PROCESSED"
     QUEUED = "QUEUED"
     PROCESSING = "PROCESSING"
-    GAP_DETECTED = "GAP_DETECTED"
     SOLVED = "SOLVED"
     UPDATED = "UPDATED"
     MATCH = "MATCH"
     MISMATCH = "MISMATCH"
+    MISSING_AUDIO = "MISSING_AUDIO"
     ERROR = "ERROR"
+
+
+ARTICLE_PREFIXES = ("the ", "a ", "an ")
+NUMBER_PADDING = 6
+
+
+def _title_sort_substr(value: str) -> str:
+    """Normalize title for sorting (drop articles, pad numbers, collapse whitespace)."""
+    if not value:
+        return ""
+
+    normalized = value.casefold().strip()
+    for prefix in ARTICLE_PREFIXES:
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix):]
+            break
+
+    normalized = re.sub(r"\s+", " ", normalized)
+    normalized = re.sub(r"\d+", lambda match: match.group(0).zfill(NUMBER_PADDING), normalized)
+    return normalized
 
 
 class Song:
@@ -49,6 +70,7 @@ class Song:
         self._gap_info: Optional[GapInfo] = None
         self.status: SongStatus = SongStatus.NOT_PROCESSED
         self.error_message: Optional[str] = ""
+        self._title_sort_key: str = ""
 
     @property
     def path(self):
@@ -72,6 +94,17 @@ class Song:
         return "NO"
 
     @property
+    def title_sort_key(self) -> str:
+        """Normalized title used for consistent UI sorting."""
+        if not self._title_sort_key:
+            self._title_sort_key = _title_sort_substr(self.title)
+        return self._title_sort_key
+
+    def update_title_sort_key(self):
+        """Recompute the cached title sort key after metadata changes."""
+        self._title_sort_key = _title_sort_substr(self.title)
+
+    @property
     def status_text(self):
         """Human-readable status text - returns error message if status is ERROR"""
         if self.status == SongStatus.ERROR and self.error_message:
@@ -93,6 +126,10 @@ class Song:
 
     def _gap_info_updated(self):
         """Private method to update song status based on current state"""
+        # Preserve MISSING_AUDIO status - don't overwrite it
+        if self.status == SongStatus.MISSING_AUDIO:
+            return
+
         if not self._gap_info:
             self.status = SongStatus.NOT_PROCESSED
             return
@@ -104,6 +141,11 @@ class Song:
             self.status = SongStatus.MISMATCH
         elif info.status == GapInfoStatus.ERROR:
             self.status = SongStatus.ERROR
+            # Copy error message from gap_info to song, with fallback for legacy data
+            if info.error_message:
+                self.error_message = info.error_message
+            else:
+                self.error_message = "Historical error (no details available)"
         elif info.status == GapInfoStatus.UPDATED:
             self.status = SongStatus.UPDATED
         elif info.status == GapInfoStatus.SOLVED:
@@ -149,3 +191,5 @@ class Song:
         # Restore the state during deserialization
         self.__dict__.update(state)
         self.notes = None
+        if not getattr(self, "_title_sort_key", ""):
+            self.update_title_sort_key()

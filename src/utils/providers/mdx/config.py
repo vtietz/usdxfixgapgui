@@ -26,12 +26,12 @@ class MdxConfig:
     # Energy analysis parameters
     frame_duration_ms: float = 25
     hop_duration_ms: float = 20
-    noise_floor_duration_ms: float = 1000
+    noise_floor_duration_ms: float = 300  # Reduced to avoid including early vocals
 
     # Onset detection thresholds
-    onset_snr_threshold: float = 4.0
-    onset_abs_threshold: float = 0.01
-    min_voiced_duration_ms: float = 300
+    onset_snr_threshold: float = 2.5  # SNR above noise floor (prefer early onsets)
+    onset_abs_threshold: float = 0.008  # Minimum absolute RMS energy
+    min_voiced_duration_ms: float = 100  # Minimum duration for valid onset (reduced to catch earlier onsets)
     hysteresis_ms: float = 200
 
     # Expanding search parameters

@@ -14,7 +14,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_relative_path(root, path):
-    return os.path.relpath(path, root)
+    """
+    Get relative path from root to path.
+    If on different drives (Windows), returns absolute path instead.
+    """
+    try:
+        return os.path.relpath(path, root)
+    except ValueError:
+        # Different drives on Windows - return absolute path
+        return path
 
 
 def find_txt_file(path):
@@ -153,7 +161,7 @@ def get_app_dir():
 
 def get_models_dir(config=None):
     """
-    Get the directory for AI models (Demucs, Spleeter, etc.).
+    Get the directory for AI models (Demucs).
 
     Can be configured via Config.models_directory or defaults to LOCALAPPDATA.
 
@@ -182,11 +190,6 @@ def get_demucs_models_dir(config=None):
     return os.path.join(get_models_dir(config), "demucs")
 
 
-def get_spleeter_models_dir(config=None):
-    """Get directory for Spleeter models."""
-    return os.path.join(get_models_dir(config), "spleeter")
-
-
 def resource_path(relative_path):
     """Get the absolute path to a resource, works for dev and PyInstaller."""
     meipass = getattr(sys, "_MEIPASS", None)
@@ -213,6 +216,7 @@ def get_tmp_path(tmp_dir, audio_file):
 
 
 def get_vocals_path(tmp_path, max_detection_time=None):
+    # MP3 format with CBR encoding for accurate seeking
     if max_detection_time is None:
         return os.path.join(tmp_path, "vocals.mp3")
     return os.path.join(tmp_path, f"vocals_{max_detection_time}.mp3")

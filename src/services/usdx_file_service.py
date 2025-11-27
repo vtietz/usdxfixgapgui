@@ -15,8 +15,6 @@ class USDXFileService:
     @staticmethod
     async def load(usdx_file: USDXFile) -> USDXFile:
         """Load and parse a USDX file"""
-        logger.debug(f"Loading USDX file: {usdx_file.filepath}")
-
         if not usdx_file.filepath:
             raise ValueError("No filepath provided")
 
@@ -47,7 +45,6 @@ class USDXFileService:
 
         # Mark as loaded
         usdx_file._loaded = True
-        logger.debug(f"Successfully loaded USDX file: {usdx_file.filepath}")
 
         return usdx_file
 
@@ -56,6 +53,10 @@ class USDXFileService:
         """Determine the encoding of the USDX file"""
         async with aiofiles.open(usdx_file.filepath, "rb") as file:
             raw = await file.read()
+
+        # Check if file is empty or too small (likely still being written)
+        if not raw or len(raw) < 10:
+            raise Exception(f"File is empty or too small: {usdx_file.filepath}")
 
         encodings = [
             "utf-8",
@@ -72,14 +73,12 @@ class USDXFileService:
 
         for encoding in encodings:
             try:
-                logger.debug(f"Trying encoding {encoding} for {usdx_file.filepath}")
                 content = raw.decode(encoding)
                 if re.search(r"#TITLE:.+", content, re.MULTILINE):
                     usdx_file.encoding = encoding
-                    logger.debug(f"Encoding determined as {encoding} for {usdx_file.filepath}")
                     return
-            except Exception as e:
-                logger.debug(f"Failed to decode '{usdx_file.filepath}' with {encoding}: {e}")
+            except Exception:
+                pass
 
         raise Exception(f"Failed to determine encoding for {usdx_file.filepath}")
 
@@ -107,7 +106,7 @@ class USDXFileService:
         if usdx_file.tags.GAP is None:
             raise ValidationError("GAP tag is missing")
         if usdx_file.tags.AUDIO is None:
-            raise ValidationError("AUDIO tag is missing")
+            logger.warning(f"AUDIO tag is missing in '{usdx_file.filepath}' - song will have MISSING_AUDIO status")
         if usdx_file.tags.BPM is None:
             raise ValidationError("BPM tag is missing")
         if not usdx_file.notes:

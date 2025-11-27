@@ -1,8 +1,10 @@
 import logging
 import os
+import time
 from actions.base_actions import BaseActions
 from model.song import Song, SongStatus
 from workers.load_usdx_files import LoadUsdxFilesWorker
+from common.database import clear_cache
 
 logger = logging.getLogger(__name__)
 
@@ -12,22 +14,29 @@ class CoreActions(BaseActions):
 
     def auto_load_last_directory(self):
         """Check and auto-load songs from the last directory if available"""
+        dir_to_load = None
         if self.config.last_directory and os.path.isdir(self.config.last_directory):
-            logger.info(f"Auto-loading songs from last directory: {self.config.last_directory}")
-            # Set the directory in the data model first
-            self.data.directory = self.config.last_directory
-            # Then load songs from it
-            self._clear_songs()
-            self._load_songs()
-            return True
+            dir_to_load = self.config.last_directory
+            logger.info("Auto-loading songs from last directory: %s", dir_to_load)
+        elif self.config.default_directory and os.path.isdir(self.config.default_directory):
+            dir_to_load = self.config.default_directory
+            logger.info("Auto-loading songs from default directory: %s", dir_to_load)
         else:
             if self.config.last_directory:
                 logger.warning(
-                    f"Last directory in config is invalid or no longer exists: '{self.config.last_directory}'"
+                    "Last directory in config is invalid or no longer exists: '%s'", self.config.last_directory
                 )
-            else:
-                logger.info("No previous directory found in configuration")
+            if self.config.default_directory:
+                logger.warning(
+                    "Default directory in config is invalid or no longer exists: '%s'", self.config.default_directory
+                )
+            logger.info("No valid directory found in configuration")
             return False
+
+        self.data.directory = dir_to_load
+        self._clear_songs()
+        self._load_songs()
+        return True
 
     def set_directory(self, directory: str):
         if not directory or not os.path.isdir(directory):
@@ -44,6 +53,28 @@ class CoreActions(BaseActions):
         self.config.save()
         logger.info(f"Saved last directory to config: {directory}")
 
+        # Clear songs and reload from new directory
+        self._clear_songs()
+        self._load_songs()
+
+    def rescan_directory(self):
+        """
+        Re-scan the current directory with full cache invalidation.
+
+        This clears all cached data and reloads songs fresh from disk,
+        useful when files have been modified externally.
+        """
+        if not self.data.directory or not os.path.isdir(self.data.directory):
+            logger.error("Cannot re-scan: no valid directory loaded")
+            return
+
+        logger.info(f"Re-scanning directory with cache invalidation: {self.data.directory}")
+
+        # Clear the entire cache to force fresh parsing
+        clear_cache()
+        logger.info("Cache cleared for re-scan")
+
+        # Clear songs and reload
         self._clear_songs()
         self._load_songs()
 
@@ -54,6 +85,7 @@ class CoreActions(BaseActions):
     def _load_songs(self):
         logger.info(f"Loading songs from directory: {self.data.directory}")
         self.data.is_loading_songs = True  # Set loading flag immediately
+        self._load_started_at = time.perf_counter()
         worker = LoadUsdxFilesWorker(self.data.directory, self.data.tmp_path, self.data.config)
         worker.signals.songLoaded.connect(self._on_song_loaded)
         worker.signals.songsLoadedBatch.connect(self._on_songs_batch_loaded)  # Connect batch handler
@@ -63,8 +95,12 @@ class CoreActions(BaseActions):
 
     def _on_songs_batch_loaded(self, songs: list):
         """Handle batch of songs loaded - much faster than one-by-one."""
-        logger.debug(f"Batch loading {len(songs)} songs")
-        # Set original gap for all songs
+        elapsed_ms = 0.0
+        if hasattr(self, "_load_started_at") and self._load_started_at:
+            elapsed_ms = (time.perf_counter() - self._load_started_at) * 1000
+        logger.debug("CoreActions received batch (%s songs) at %.1f ms", len(songs), elapsed_ms)
+
+        # Set original gap for new songs
         for song in songs:
             if song.status == SongStatus.NOT_PROCESSED and song.gap_info:
                 if hasattr(song.gap_info, "original_gap"):  # Type guard
@@ -90,3 +126,6 @@ class CoreActions(BaseActions):
 
     def _on_loading_songs_finished(self):
         self.data.is_loading_songs = False
+        logger.debug("Song loading finished")
+        # Signal UI to end bulk loading mode (re-enable dynamic filtering)
+        self.data.songs.loadingFinished.emit()

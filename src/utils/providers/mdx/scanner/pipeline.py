@@ -227,17 +227,48 @@ def scan_for_onset(
                 if not expansion_strategy.should_continue(window.expansion_num, found_onset=False):
                     break
 
-            # If onsets found, return closest to expected gap
+            # If onsets found, use hybrid strategy: respect expected gap when reasonable
             if all_onsets:
-                logger.info("Onset(s) detected! Finding closest to expected position...")
-                closest_onset = _find_closest_onset(all_onsets, expected_gap_ms)
+                logger.info("Onset(s) detected! Selecting best onset using hybrid strategy...")
+                # Filter out negative onsets
+                valid_onsets = [o for o in all_onsets if o >= 0.0]
+                if not valid_onsets:
+                    logger.warning("All onsets were negative, falling back to 0ms")
+                    return 0.0
 
-                logger.info(
-                    f"Returning closest onset: {closest_onset:.0f}ms "
-                    f"(expected: {expected_gap_ms:.0f}ms, "
-                    f"diff: {abs(closest_onset - expected_gap_ms):.0f}ms)"
-                )
-                return closest_onset
+                # Hybrid strategy:
+                # 1. If expected gap is reasonable (not wildly wrong)
+                # 2. Look for onsets within tolerance of expected
+                # 3. Return earliest onset within tolerance
+                # 4. Otherwise return absolute earliest
+
+                TOLERANCE_MS = 5000.0  # 5 seconds tolerance
+                earliest_onset = min(valid_onsets)
+
+                # Find onsets near expected position
+                onsets_near_expected = [
+                    o for o in valid_onsets
+                    if abs(o - expected_gap_ms) <= TOLERANCE_MS
+                ]
+
+                if onsets_near_expected:
+                    # Found onsets near expected - return earliest of those
+                    selected_onset = min(onsets_near_expected)
+                    logger.info(
+                        f"Returning earliest onset within tolerance of expected: {selected_onset:.0f}ms "
+                        f"(expected: {expected_gap_ms:.0f}ms, diff: {abs(selected_onset - expected_gap_ms):.0f}ms)"
+                    )
+                else:
+                    # No onsets near expected - expected gap is likely wrong
+                    # Return absolute earliest (first vocal start)
+                    selected_onset = earliest_onset
+                    logger.info(
+                        f"No onsets within {TOLERANCE_MS:.0f}ms of expected gap - "
+                        f"returning earliest onset: {selected_onset:.0f}ms "
+                        f"(expected: {expected_gap_ms:.0f}ms, diff: {abs(selected_onset - expected_gap_ms):.0f}ms)"
+                    )
+
+                return selected_onset
 
             # No onset found in current window, expand search
             if search_limit_ms >= config.start_window_max_ms:

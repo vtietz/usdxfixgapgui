@@ -78,9 +78,9 @@ class SongActions(BaseActions):
 
             logger.info(f"Reloading song {song.path}")
             try:
-                # Reset ERROR or PROCESSING states before reloading
-                # This allows users to retry after errors or stuck processing states
-                if song.status in (SongStatus.ERROR, SongStatus.PROCESSING):
+                # Reset ERROR, PROCESSING, or MISSING_AUDIO states before reloading
+                # This allows users to retry after errors, stuck processing states, or if audio file was added
+                if song.status in (SongStatus.ERROR, SongStatus.PROCESSING, SongStatus.MISSING_AUDIO):
                     logger.info(f"Resetting status from {song.status} to NOT_PROCESSED for reload")
                     song.clear_error()  # Clears error message and resets to NOT_PROCESSED
 
@@ -117,6 +117,7 @@ class SongActions(BaseActions):
                 worker.signals.canceled.connect(lambda p=song.path: self._mark_reload_finished(p))
                 worker.signals.finished.connect(lambda p=song.path: self._mark_reload_finished(p))
 
+                self._hold_lane_for_worker(worker, f"reload:{song.path}")
                 # Add the task to the worker queue (start immediately)
                 self.worker_queue.add_task(worker, True)
 
@@ -127,7 +128,7 @@ class SongActions(BaseActions):
                 logger.exception(f"Error setting up song reload: {e}")
                 self.data.songs.updated.emit(song)
 
-    def reload_song_light(self, specific_song=None):
+    def reload_song_light(self, specific_song=None, force: bool = False):
         """
         Light reload: loads only metadata (USDX tags and notes) without gap_info.
         Does NOT change song.status, does NOT queue workers, does NOT create waveforms.
@@ -137,6 +138,11 @@ class SongActions(BaseActions):
 
         If specific_song is provided, only loads that song.
         Otherwise loads all selected songs.
+
+        Args:
+            specific_song: Optional Song to reload; defaults to selected songs.
+            force: When True, reload even if metadata/notes already exist. Useful when a
+                   background scan is still running and we want the freshest data ASAP.
         """
         # Resolve target songs
         songs_to_load = [specific_song] if specific_song else self.data.selected_songs
@@ -149,7 +155,7 @@ class SongActions(BaseActions):
 
         for song in songs_to_load:
             # Skip if already has data loaded (title, artist, notes)
-            if song.title and song.artist and song.notes:
+            if not force and song.title and song.artist and song.notes:
                 logger.debug(f"Skip light-reload for already loaded song: {song.title}")
                 continue
 
@@ -268,7 +274,7 @@ class SongActions(BaseActions):
                 from actions.audio_actions import AudioActions
 
                 audio_actions = AudioActions(self.data)
-                audio_actions._create_waveforms(song, overwrite=True, use_queue=True)
+                audio_actions._create_waveforms(song, overwrite=True, use_queue=True, emit_on_finish=False)
                 logger.info(f"Queued waveform regeneration after reload for {song.title}")
 
                 # Notify update after successful reload
@@ -384,32 +390,33 @@ class SongActions(BaseActions):
         # Use service for deletion logic
         song_service = SongService()
 
-        for song in songs_to_remove:
-            logger.info(f"Deleting song {song.path}")
-            try:
-                if song_service.delete_song(song):  # Service handles the deletion
-                    successfully_deleted.append(song)
-                    logger.info(f"Successfully deleted song {song.path}")
-                else:
-                    # Delete returned False - let model handle its state
-                    song.set_error("Failed to delete song files")
+        with self._lane_hold("delete-batch"):
+            for song in songs_to_remove:
+                logger.info(f"Deleting song {song.path}")
+                try:
+                    if song_service.delete_song(song):  # Service handles the deletion
+                        successfully_deleted.append(song)
+                        logger.info(f"Successfully deleted song {song.path}")
+                    else:
+                        # Delete returned False - let model handle its state
+                        song.set_error("Failed to delete song files")
+                        self.data.songs.updated.emit(song)  # Signal via data model
+                        logger.error(f"Failed to delete song {song.path}")
+                except Exception as e:
+                    # Exception occurred - let model handle its state
+                    song.set_error(f"Delete error: {str(e)}")
                     self.data.songs.updated.emit(song)  # Signal via data model
-                    logger.error(f"Failed to delete song {song.path}")
-            except Exception as e:
-                # Exception occurred - let model handle its state
-                song.set_error(f"Delete error: {str(e)}")
-                self.data.songs.updated.emit(song)  # Signal via data model
-                logger.error(f"Exception deleting song {song.path}: {e}")
+                    logger.error(f"Exception deleting song {song.path}: {e}")
 
-        # Only remove successfully deleted songs from the list
-        for song in successfully_deleted:
-            try:
-                self.data.songs.remove(song)
-            except ValueError:
-                # Song was already removed somehow
-                pass
+            # Only remove successfully deleted songs from the list
+            for song in successfully_deleted:
+                try:
+                    self.data.songs.remove(song)
+                except ValueError:
+                    # Song was already removed somehow
+                    pass
 
-        # After attempting deletion, clear the selection
-        self.set_selected_songs([])
-        # Explicitly trigger a list change signal
-        self.data.songs.list_changed()
+            # After attempting deletion, clear the selection
+            self.set_selected_songs([])
+            # Explicitly trigger a list change signal
+            self.data.songs.list_changed()

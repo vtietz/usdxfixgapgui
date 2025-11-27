@@ -10,7 +10,9 @@ No wizard, no pagination - just one simple dialog.
 """
 
 import os
+import sys
 import logging
+from pathlib import Path
 from typing import Optional
 from PySide6.QtWidgets import (
     QDialog,
@@ -29,6 +31,7 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QFont
 
 from common.constants import APP_NAME
+from utils.version import get_version
 from services.system_capabilities import SystemCapabilities, check_system_capabilities
 from utils.gpu_bootstrap import capability_probe, detect_existing_gpu_pack, activate_existing_gpu_pack
 from utils.gpu.download_cleanup import cleanup_download_files
@@ -54,7 +57,7 @@ class StartupDialog(QDialog):
 
     def __init__(self, parent=None, config=None, startup_mode=True):
         """
-        Initialize startup dialog.
+        Initialize dialog.
 
         Args:
             parent: Parent widget (None for startup, main window for About)
@@ -94,27 +97,8 @@ class StartupDialog(QDialog):
             self.setWindowFlags(Qt.WindowType.Dialog)
         self._drag_position = None
 
-    def _read_version(self) -> str:
-        from utils.files import resource_path
-
-        version_paths = [
-            resource_path("VERSION"),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "VERSION"),
-            "VERSION",
-        ]
-        for version_file in version_paths:
-            try:
-                if os.path.exists(version_file):
-                    with open(version_file, "r", encoding="utf-8") as f:
-                        content = f.read().strip()
-                        if content:
-                            return content
-            except Exception as e:  # Non-critical
-                logger.debug("Failed reading VERSION at %s: %s", version_file, e)
-        return "unknown"
-
     def _build_header(self, layout: QVBoxLayout) -> None:
-        version = self._read_version()
+        version = get_version()
         title_label = QLabel(f"{APP_NAME} {version}")
         title_font = QFont()
         title_font.setPointSize(16)
@@ -252,11 +236,22 @@ class StartupDialog(QDialog):
     def _render_cpu_mode(self) -> None:
         # GPU hardware present but CUDA not enabled?
         if self.capabilities.gpu_name and not self.capabilities.has_cuda:
-            existing_pack = detect_existing_gpu_pack(self.config)
-            if existing_pack:
-                self._render_activation_flow(existing_pack)
+            # Check if GPU Pack is already activated (gpu_opt_in=true)
+            if getattr(self.config, "gpu_opt_in", False):
+                # Pack is activated, get the path directly from config
+                pack_path = getattr(self.config, "gpu_pack_path", "")
+                if pack_path and isinstance(pack_path, (str, Path)) and Path(pack_path).exists():
+                    self._render_activation_flow(Path(pack_path))
+                else:
+                    # gpu_opt_in=true but pack missing - show download
+                    self._render_download_flow()
             else:
-                self._render_download_flow()
+                # Pack not activated yet, check if it exists
+                existing_pack = detect_existing_gpu_pack(self.config)
+                if existing_pack:
+                    self._render_activation_flow(existing_pack)
+                else:
+                    self._render_download_flow()
             self._select_default_flavor()
         else:
             self.log("✅ System ready (CPU mode)")
@@ -268,31 +263,108 @@ class StartupDialog(QDialog):
         self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
 
     def _render_activation_flow(self, existing_pack):
-        self.log("⚡ GPU Pack Detected (Not Activated)")
-        self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
-        self.log(f"  • GPU Pack found at: {existing_pack}")
-        self.log("  • Current mode: CPU")
+        self.log("✅ System ready (CPU mode)")
         self.log("")
-        self.log("A GPU Pack is already installed but not activated.")
+        self._log_system_details()
         self.log("")
-        self.log("Benefits of activating:")
-        self.log("  • 5-10x faster gap detection")
-        self.log("  • Process songs in 10-30 seconds (vs 2-3 minutes)")
-        self.log("  • No download required - activation is instant")
-        self.log("")
-        self.log("→ Click 'Activate GPU Pack' button below to enable GPU acceleration")
-        self.status_label.setText("✅ System Ready (CPU Mode - GPU Pack Available)")
-        self.download_btn.setText("Activate GPU Pack")
-        self.download_btn.setVisible(True)
-        self.flavor_combo.setVisible(False)
-        self._existing_pack_path = existing_pack
-        try:
-            self.download_btn.clicked.disconnect()
-        except Exception:
-            pass
-        self.download_btn.clicked.connect(self._on_activate_gpu_pack)
+
+        # Check if GPU Pack is already activated but just needs restart
+        if getattr(self.config, "gpu_opt_in", False):
+            # GPU Pack already activated - likely torch was pre-imported (rare)
+            self.log("⚡ GPU Pack Already Activated")
+            self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
+            self.log(f"  • GPU Pack location: {existing_pack}")
+            self.log("  • Status: Ready for use")
+            self.log("")
+            self.log("Your GPU Pack is configured and will be used automatically.")
+            self.log("")
+            self.log("If processing still uses CPU:")
+            self.log("  • Try restarting the application")
+            self.log("  • Check logs for torch import messages")
+            self.log("")
+            self.log("→ System ready - GPU acceleration should be active")
+            self.status_label.setText("✅ System Ready (GPU Pack Activated)")
+            self.download_btn.setVisible(False)
+            self.flavor_combo.setVisible(False)
+            if hasattr(self, "dont_show_checkbox"):
+                self.dont_show_checkbox.setChecked(True)
+            return
+
+        # Validate GPU Pack before offering activation
+        pack_valid = self._validate_gpu_pack(existing_pack)
+
+        # If pack validates successfully NOW, offer activation
+        if pack_valid:
+            self.log("⚡ GPU Pack Detected (Not Activated)")
+            self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
+            self.log(f"  • GPU Pack found at: {existing_pack}")
+            self.log("  • Current mode: CPU")
+            self.log("")
+            self.log("A GPU Pack is already installed but not activated.")
+            self.log("")
+            self.log("Benefits of activating:")
+            self.log("  • 5-10x faster gap detection")
+            self.log("  • Process songs in 10-30 seconds (vs 2-3 minutes)")
+            self.log("  • No download required - activation is instant")
+            self.log("")
+            self.log("→ Click 'Activate GPU Pack' button below to enable GPU acceleration")
+            self.status_label.setText("✅ System Ready (CPU Mode - GPU Pack Available)")
+            self.download_btn.setText("Activate GPU Pack")
+            self.download_btn.setVisible(True)
+            self.flavor_combo.setVisible(False)
+            self._existing_pack_path = existing_pack
+            try:
+                self.download_btn.clicked.disconnect()
+            except Exception:
+                pass
+            self.download_btn.clicked.connect(self._on_activate_gpu_pack)
+            return
+
+        # Pack validation failed - check if it's unavailability vs corruption
+        # Check the detailed error to distinguish corruption from unavailability
+        gpu_error = getattr(self.config, "gpu_last_error", "")
+        # Handle Mock objects in tests (str() converts them safely)
+        gpu_error_str = str(gpu_error) if gpu_error else ""
+        is_cuda_unavailable = "torch.cuda.is_available() returned False" in gpu_error_str
+
+        if is_cuda_unavailable:
+            # Files are OK but CUDA not accessible - this is informational, not actionable
+            self.log("⚠️ GPU Pack installed but GPU acceleration unavailable")
+            self.log(f"  • Pack location: {existing_pack}")
+            self.log("")
+            self.log("Possible reasons:")
+            self.log("  • Remote Desktop connection (RDP blocks GPU access)")
+            self.log("  • No NVIDIA GPU detected in current session")
+            self.log("  • GPU driver not installed or needs update")
+            self.log("")
+            self.log("💡 Solution:")
+            self.log("  • Access this machine locally (not via Remote Desktop)")
+            self.log("  • GPU acceleration will work automatically when GPU is accessible")
+            self.log("")
+            self.log("→ Running in CPU mode for now (fully functional)")
+
+            # Set status and hide download controls (GPU not available, so can't download)
+            self.status_label.setText("✅ System Ready (CPU Mode - GPU Unavailable)")
+            self.download_btn.setVisible(False)
+            self.flavor_combo.setVisible(False)
+            if hasattr(self, "dont_show_checkbox"):
+                self.dont_show_checkbox.setChecked(True)
+            return
+        else:
+            # Pack files actually missing or corrupted
+            self.log("⚠️ GPU Pack found but appears corrupted or incomplete")
+            self.log(f"  • Location: {existing_pack}")
+            self.log("")
+            self.log("→ Download a fresh GPU Pack below")
+
+        self._render_download_flow()
+        return
 
     def _render_download_flow(self):
+        self.log("✅ System ready (CPU mode)")
+        self.log("")
+        self._log_system_details()
+        self.log("")
         self.log("⚡ GPU Pack Available for Download")
         self.log(f"  • Hardware detected: {self.capabilities.gpu_name}")
         self.log("  • Current mode: CPU (GPU Pack not installed)")
@@ -343,6 +415,7 @@ class StartupDialog(QDialog):
     def _log_system_details(self):
         """Log comprehensive system information (for About dialog and detailed startup info)."""
         self._log_app_version()
+        self._log_media_backend()
         self._log_system_components()
         self._log_audio_processing()
         self._log_python_libraries()
@@ -350,7 +423,7 @@ class StartupDialog(QDialog):
 
     def _log_app_version(self):
         """Log application version."""
-        app_version = self._read_version()
+        app_version = get_version()
         # Get Qt version
         try:
             from PySide6 import __version__ as pyside_version
@@ -360,6 +433,59 @@ class StartupDialog(QDialog):
         self.log("System Components:")
         self.log(f"  • Application: {app_version}")
         self.log(f"  • Qt Framework: {pyside_version}")
+
+    def _log_media_backend(self):
+        """Log media backend information with helpful notes."""
+        try:
+            from services.media.backend_factory import _is_vlc_available
+            import sys
+
+            # Try to get actual running backend from parent window's media player component (About dialog)
+            actual_backend_name = None
+            if self.parent() and hasattr(self.parent(), "findChild"):
+                try:
+                    from ui.mediaplayer import MediaPlayerComponent
+
+                    media_player = self.parent().findChild(MediaPlayerComponent)
+                    if (
+                        media_player
+                        and hasattr(media_player, "player")
+                        and hasattr(media_player.player, "audio_backend")
+                    ):
+                        backend = media_player.player.audio_backend
+                        actual_backend_name = backend.get_backend_name()
+                except Exception:
+                    pass
+
+            # If we have actual backend, show it
+            if actual_backend_name:
+                self.log(f"  • Media Backend: {actual_backend_name}")
+                # Add hints for non-optimal backends
+                if actual_backend_name == "Qt/WMF":
+                    self.log("    💡 Install VLC for better playback: videolan.org/vlc")
+                elif actual_backend_name.startswith("Qt/") and sys.platform.startswith("linux"):
+                    # On Linux, any Qt backend (GStreamer, ffmpeg, etc.) can benefit from VLC
+                    self.log("    💡 Optional: Install VLC for better playback: sudo apt install vlc")
+            else:
+                # Fallback: show what would be selected (startup mode before backend created)
+                vlc_available = _is_vlc_available()
+
+                if sys.platform == "win32":
+                    if vlc_available:
+                        self.log("  • Media Backend: VLC (recommended)")
+                    else:
+                        self.log("  • Media Backend: Qt/WMF (may cause UI freezes)")
+                        self.log("    💡 Install VLC for better playback: videolan.org/vlc")
+                elif sys.platform == "darwin":
+                    self.log("  • Media Backend: Qt/AVFoundation (native)")
+                else:  # Linux
+                    if vlc_available:
+                        self.log("  • Media Backend: VLC (recommended)")
+                    else:
+                        self.log("  • Media Backend: Qt/GStreamer")
+                        self.log("    💡 Optional: Install VLC for better playback: sudo apt install vlc")
+        except Exception as e:
+            logger.debug("Could not determine media backend: %s", e)
 
     def _log_system_components(self):
         """Log PyTorch and GPU information."""
@@ -417,6 +543,41 @@ class StartupDialog(QDialog):
 
         self.log("")
 
+    def _validate_gpu_pack(self, pack_path) -> bool:
+        """Validate GPU Pack has required files and GPU hardware is accessible.
+
+        Returns True if:
+        1. Torch package with CUDA libraries exists
+        2. GPU hardware is detected
+
+        This allows offering activation when GPU is present, even if current
+        torch is CPU-only.
+        """
+        from pathlib import Path
+
+        pack = Path(pack_path)
+
+        # Check torch directory exists
+        if not (pack / "torch").exists():
+            logger.warning(f"GPU Pack validation failed: missing torch directory")
+            return False
+
+        # Check torch has essential CUDA libraries
+        torch_lib = pack / "torch" / "lib"
+        if not torch_lib.exists() or not list(torch_lib.glob("*cuda*")):
+            logger.warning("GPU Pack validation failed: missing CUDA libraries in torch/lib")
+            return False
+
+        # Files are intact - check if GPU hardware is accessible
+        # If we have GPU hardware, we can offer to activate the pack
+        # (CUDA availability will be tested when pack is actually activated)
+        if self.capabilities and self.capabilities.gpu_name:
+            logger.info(f"GPU Pack validation succeeded - GPU hardware detected: {self.capabilities.gpu_name}")
+            return True
+        else:
+            logger.warning("GPU Pack validation failed - no GPU hardware detected")
+            return False
+
     def _on_activate_gpu_pack(self):
         """Handle Activate GPU Pack button click."""
         if not hasattr(self, "_existing_pack_path"):
@@ -443,11 +604,14 @@ class StartupDialog(QDialog):
             self.status_label.setText("✅ GPU Pack Activated (Restart Required)")
             self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
 
-            # Change button to close app
-            self.download_btn.setText("Close App")
-            self.download_btn.setEnabled(True)
-            self.download_btn.clicked.disconnect()
-            self.download_btn.clicked.connect(self._on_restart_for_gpu)
+            # Hide activate button and flavor combo
+            self.download_btn.setVisible(False)
+            self.flavor_combo.setVisible(False)
+
+            # In startup mode, keep "Start App" and "Close App" buttons as-is
+            # User can close and manually restart, or proceed with CPU mode
+            if self.startup_mode and hasattr(self, "start_btn"):
+                self.start_btn.setEnabled(True)  # Keep Start App enabled
         else:
             self.log("❌ Failed to activate GPU Pack")
             self.log("")
@@ -476,6 +640,7 @@ class StartupDialog(QDialog):
         if self.startup_mode:
             self.reject()
             import sys
+
             sys.exit(0)
         else:
             self.accept()
@@ -627,16 +792,39 @@ class StartupDialog(QDialog):
 
             capabilities = check_system_capabilities()
 
+            # Check if GPU health changed from healthy to failed
+            # If user had working GPU and it's now failed, show dialog again
+            gpu_health_degraded = False
+            if config and hasattr(config, "gpu_last_health"):
+                current_health = config.gpu_last_health
+
+                # Check if GPU was previously healthy but is now failed
+                # AND user has gpu_opt_in=True (meaning they activated GPU Pack)
+                gpu_was_enabled = getattr(config, "gpu_opt_in", False)
+                if gpu_was_enabled and current_health == "failed":
+                    # GPU was activated but now failed - show dialog to explain
+                    gpu_health_degraded = True
+                    logger.info(
+                        "GPU was enabled but now failed - showing startup dialog "
+                        "despite splash_dont_show_health=True"
+                    )
+
             # Check if there's an existing GPU Pack that needs activation
-            # (this takes precedence over health check - user should be prompted)
+            # Respect user's "don't show again" choice - if they checked it, don't prompt
             if capabilities and capabilities.can_detect:
                 existing_pack = detect_existing_gpu_pack(config)
-                if existing_pack:
+
+                # Show dialog if GPU health degraded (even if splash_dont_show_health=True)
+                if gpu_health_degraded:
+                    # Health degraded - show dialog to inform user
+                    pass  # Fall through to show dialog
+                elif existing_pack:
                     logger.info(
                         f"GPU Pack detected at {existing_pack} but not enabled - "
-                        "showing startup dialog to prompt activation"
+                        "skipping prompt because splash_dont_show_health=True"
                     )
-                    # Fall through to show dialog
+                    # Respect user's choice - they already checked "don't show again"
+                    return capabilities
                 else:
                     logger.info("Health check passed - skipping startup dialog (splash_dont_show_health=True)")
                     return capabilities

@@ -69,7 +69,7 @@ if [[ ! -f "$VENV_PYTHON" ]]; then
     fi
 
     print_info "Installing requirements..."
-    "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt"
+    "$VENV_PIP" install -r "$SCRIPT_DIR/requirements/requirements.txt"
     if [[ $? -ne 0 ]]; then
         print_error "Failed to install requirements"
         exit 1
@@ -123,7 +123,8 @@ case "$1" in
         TEST_DOCS=""
         PYTEST_ARGS=""
 
-        # Parse arguments looking for --docs or --artifacts
+        # Parse arguments looking for --docs or --artifacts (skip first arg which is "test")
+        shift  # Remove "test" from arguments
         for arg in "$@"; do
             if [[ "$arg" == "--docs" ]] || [[ "$arg" == "--artifacts" ]]; then
                 TEST_DOCS=1
@@ -157,7 +158,7 @@ case "$1" in
 
         if [[ "$INSTALL_MODE" == "cpu" ]]; then
             print_warning "Manual Override: Installing CPU-only version as requested"
-            "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+            "$VENV_PIP" install -r "$SCRIPT_DIR/requirements/requirements.txt" --upgrade
             echo ""
             print_success "Installation complete!"
             exit 0
@@ -172,7 +173,7 @@ case "$1" in
             else
                 print_info "CPU Mode: No NVIDIA GPU detected - installing CPU-only PyTorch"
                 print_info "Tip: If you have an NVIDIA GPU, use './run.sh install --gpu' to force GPU installation"
-                "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+                "$VENV_PIP" install -r "$SCRIPT_DIR/requirements/requirements.txt" --upgrade
                 echo ""
                 print_success "Installation complete!"
                 exit 0
@@ -183,7 +184,7 @@ case "$1" in
         print_info "This will enable GPU acceleration for faster processing"
 
         # Install base requirements first (without PyTorch)
-        "$VENV_PIP" install -r "$SCRIPT_DIR/requirements.txt" --upgrade
+        "$VENV_PIP" install -r "$SCRIPT_DIR/requirements/requirements.txt" --upgrade
 
         # Uninstall any existing PyTorch (CPU or CUDA)
         echo ""
@@ -238,7 +239,7 @@ case "$1" in
         ;;
     "install-dev")
         print_info "Installing development dependencies..."
-        "$VENV_PIP" install -r "$SCRIPT_DIR/requirements-dev.txt" --upgrade
+        "$VENV_PIP" install -r "$SCRIPT_DIR/requirements/requirements-dev.txt" --upgrade
         echo ""
         print_success "Development dependencies installed!"
         echo "You can now use:"
@@ -314,8 +315,8 @@ case "$1" in
         if [[ -f "$SCRIPT_DIR/$REQUIREMENTS_FILE" ]]; then
             print_info "Using platform-specific requirements: $REQUIREMENTS_FILE"
         else
-            print_warning "Platform-specific requirements not found, using requirements-build.txt"
-            REQUIREMENTS_FILE="requirements-build.txt"
+            print_warning "Platform-specific requirements not found, using requirements/requirements-build.txt"
+            REQUIREMENTS_FILE="requirements/requirements-build.txt"
         fi
 
         # Check if PyInstaller is installed
@@ -432,6 +433,7 @@ case "$1" in
         print_success "[2/6] Staged VERSION file"
 
         # Check if there are changes to commit
+        COMMIT_MADE=0
         if git diff --cached --quiet; then
             echo "[3/6] VERSION file already committed with this version, skipping commit"
         else
@@ -440,20 +442,33 @@ case "$1" in
                 print_error "Failed to commit VERSION file"
                 exit 1
             fi
+            COMMIT_MADE=1
             print_success "[3/6] Committed VERSION file"
         fi
 
-        # Push commit before creating tag (only if there are unpushed commits)
-        if ! git diff @{upstream}.. --quiet 2>/dev/null; then
-            print_info "Pushing commit to remote..."
-            git push
-            if [[ $? -ne 0 ]]; then
-                print_error "Failed to push commit"
-                exit 1
+        # Check if upstream is set before pushing (only if new commit was made)
+        if [[ $COMMIT_MADE -eq 1 ]]; then
+            if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} &> /dev/null; then
+                print_warning "No upstream branch set"
+                CURRENT_BRANCH=$(git branch --show-current)
+                print_info "Setting upstream: git push --set-upstream origin $CURRENT_BRANCH"
+                git push --set-upstream origin "$CURRENT_BRANCH"
+                if [[ $? -ne 0 ]]; then
+                    print_error "Failed to set upstream branch"
+                    exit 1
+                fi
+                print_success "[4/6] Pushed commit and set upstream"
+            else
+                print_info "Pushing commit to remote..."
+                git push
+                if [[ $? -ne 0 ]]; then
+                    print_error "Failed to push commit"
+                    exit 1
+                fi
+                print_success "[4/6] Pushed commit to remote"
             fi
-            print_success "[4/6] Pushed commit to remote"
         else
-            echo "[4/6] No new commits to push"
+            echo "[4/6] No new commit, skipping push"
         fi
 
         # Create or overwrite tag (force)

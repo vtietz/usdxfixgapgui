@@ -33,6 +33,9 @@ class Actions(BaseActions):
     def set_directory(self, directory: str):
         self._core_actions.set_directory(directory)
 
+    def rescan_directory(self):
+        self._core_actions.rescan_directory()
+
     # Song Actions
     def set_selected_songs(self, songs):
         self._song_actions.set_selected_songs(songs)
@@ -40,8 +43,8 @@ class Actions(BaseActions):
     def reload_song(self, specific_song=None):
         self._song_actions.reload_song(specific_song)
 
-    def reload_song_light(self, specific_song=None):
-        self._song_actions.reload_song_light(specific_song)
+    def reload_song_light(self, specific_song=None, force: bool = False):
+        self._song_actions.reload_song_light(specific_song, force=force)
 
     def delete_selected_song(self):
         self._song_actions.delete_selected_song()

@@ -125,7 +125,7 @@ class BottomActionBar(QWidget):
 
         # Play/Pause button
         self.play_pause_btn = QPushButton("Play")
-        self.play_pause_btn.setCheckable(True)
+        # Don't make checkable - we manage state via text to avoid Qt checkable button issues
         self.play_pause_btn.setToolTip("Play/Pause (Space)")
         self.play_pause_btn.clicked.connect(self.play_pause_clicked)
 
@@ -283,5 +283,5 @@ class BottomActionBar(QWidget):
             is_playing: True if audio is playing
         """
         self._is_playing = is_playing
-        self.play_pause_btn.setChecked(is_playing)
+        # Button is not checkable - only update text
         self.play_pause_btn.setText("Pause" if is_playing else "Play")

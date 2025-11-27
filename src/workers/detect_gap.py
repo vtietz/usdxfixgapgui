@@ -71,7 +71,7 @@ class WorkerSignals(IWorkerSignals):
 
 class DetectGapWorker(IWorker):
     def __init__(self, options: DetectGapWorkerOptions):
-        super().__init__()
+        super().__init__(is_instant=True)
         self.signals = WorkerSignals()
         self.options = options
         self._isCancelled = False
@@ -142,7 +142,9 @@ class DetectGapWorker(IWorker):
             else:
                 result.duration_ms = audio.get_audio_duration(self.options.audio_file, self.is_cancelled)
 
+            logger.debug(f"Emitting finished signal for gap detection: {self.options.txt_file}")
             self.signals.finished.emit(result)
+            logger.debug(f"Finished signal emitted successfully for: {self.options.txt_file}")
 
         except Exception as e:
             logger.exception(f"Error detecting gap for '{self.options.audio_file}'")

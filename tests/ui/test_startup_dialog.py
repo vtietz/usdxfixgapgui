@@ -437,25 +437,25 @@ class TestStaticMethods:
         self, mock_check, mock_detect, qtbot, mock_config, healthy_capabilities
     ):
         """
-        show_startup() should show dialog when GPU Pack exists but isn't enabled,
-        even if splash_dont_show_health=True.
+        show_startup() should NOT show dialog when splash_dont_show_health=True,
+        even if GPU Pack exists but isn't enabled (user already chose "don't show again").
         """
         from pathlib import Path
 
         # System is healthy
         mock_check.return_value = healthy_capabilities
-        # But GPU Pack exists and isn't enabled
+        # GPU Pack exists but user checked "don't show again"
         mock_detect.return_value = Path("C:/fake/gpu_runtime/torch-2.4.1-cu121")
         mock_config.splash_dont_show_health = True
         mock_config.gpu_pack_path = ""
         mock_config.gpu_opt_in = False
 
-        # Should show dialog to prompt activation
-        with patch.object(StartupDialog, "exec", return_value=QDialog.DialogCode.Accepted) as mock_exec:
-            StartupDialog.show_startup(parent=None, config=mock_config)
+        # Should respect user's choice and NOT show dialog
+        result = StartupDialog.show_startup(parent=None, config=mock_config)
 
-        # Dialog should have been shown despite splash_dont_show_health=True
-        mock_exec.assert_called_once()
+        # Should return capabilities without showing dialog
+        assert result is not None
+        assert result.can_detect is True
 
     @patch("services.system_capabilities.check_system_capabilities")
     def test_show_startup_always_shows_when_config_disabled(self, mock_check, mock_config, healthy_capabilities):
