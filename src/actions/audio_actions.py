@@ -47,7 +47,7 @@ class AudioActions(BaseActions):
         else:
             logger.warning(f"Skipping normalization for {song}: No audio file.")
 
-    def _normalize_song(self, song: Song, start_now=False):
+    def _normalize_song(self, song: Song, start_now=False, auto_normalize_chain=False):
         worker = NormalizeAudioWorker(song)
         # Early-bind song using default args to avoid late-binding closure bugs
         worker.signals.started.connect(lambda s=song: self._on_song_worker_started(s))
@@ -94,17 +94,25 @@ class AudioActions(BaseActions):
         song.status = SongStatus.QUEUED
         self.data.songs.updated.emit(song)
 
-        # Defer adding the task to allow QMediaPlayer to fully release file handles on Windows
-        try:
-            from PySide6.QtCore import QTimer
+        # Auto-normalize chains (called from gap detection finish) should start immediately
+        # without delay to ensure per-song chaining, not batch processing
+        if auto_normalize_chain:
+            # Skip the 800ms delay for auto-normalize chains - media is already unloaded
+            # from gap detection, and we want immediate chaining per song
+            self.worker_queue.add_task(worker, start_now=True, priority=True)
+            logger.debug(f"Auto-normalize chained immediately (no delay) for {song.path}")
+        else:
+            # Manual normalization needs delay to allow QMediaPlayer to fully release file handles
+            try:
+                from PySide6.QtCore import QTimer
 
-            # Increase delay to 800 ms to ensure QMediaPlayer has released file handles
-            # on all systems including network drives
-            # Use priority=True for auto-normalization to ensure it runs immediately after current task
-            QTimer.singleShot(800, lambda: self.worker_queue.add_task(worker, start_now, priority=start_now))
-        except Exception:
-            # If QTimer unavailable, fallback to immediate add
-            self.worker_queue.add_task(worker, start_now)
+                # Increase delay to 800 ms to ensure QMediaPlayer has released file handles
+                # on all systems including network drives
+                # Use priority=True when start_now is True to ensure it runs after current task
+                QTimer.singleShot(800, lambda: self.worker_queue.add_task(worker, start_now, priority=start_now))
+            except Exception:
+                # If QTimer unavailable, fallback to immediate add
+                self.worker_queue.add_task(worker, start_now)
 
     def _schedule_deferred_reload(self, song: Song):
         """Schedule a deferred reload to prevent UI thread blocking."""
