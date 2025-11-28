@@ -156,3 +156,37 @@ class TestInitialState:
         """New Song should have empty error message."""
         song = Song()
         assert song.error_message == ""
+
+
+class TestSongStatusTimestamp:
+    """Test that status timestamps are driven by gap_info, not transient status changes."""
+
+    def test_gap_info_timestamp_takes_precedence(self):
+        """When gap_info has processed_time, it should always be used for display/sorting."""
+        from model.gap_info import GapInfo, GapInfoStatus
+
+        song = Song()
+        # Set a status change timestamp
+        song.set_status_timestamp_from_string("2024-01-01 00:00:00")
+        assert song.status_time_display == "2024-01-01 00:00:00"
+
+        # Now assign gap_info with a different processed_time
+        gap_info = GapInfo()
+        gap_info.status = GapInfoStatus.MATCH
+        gap_info.processed_time = "2025-05-05 05:05:05"
+        song.gap_info = gap_info
+
+        # Gap info timestamp should take precedence
+        assert song.status_time_display == "2025-05-05 05:05:05"
+
+        # Even if we change status (triggering _status_changed_str update), gap_info wins
+        song.status = SongStatus.QUEUED
+        assert song.status_time_display == "2025-05-05 05:05:05"
+
+    def test_fallback_to_status_timestamp_when_no_gap_info(self):
+        """When no gap_info exists, fall back to status change timestamp."""
+        song = Song()
+        song.set_status_timestamp_from_string("2024-01-01 00:00:00")
+
+        assert song.status_time_display == "2024-01-01 00:00:00"
+        assert song.status_time_sort_key == "2024-01-01 00:00:00"

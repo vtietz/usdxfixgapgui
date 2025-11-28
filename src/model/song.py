@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Optional
 
 import logging
+import _strptime  # noqa: F401  # Ensure datetime.strptime dependencies bundled/available
 import utils.audio as audio
 
 from model.gap_info import GapInfo, GapInfoStatus
@@ -125,15 +126,16 @@ class Song:
 
     @property
     def status_time_display(self) -> str:
-        if self._status_changed_str:
-            return self._status_changed_str
         if self._gap_info and self._gap_info.processed_time:
             return self._gap_info.processed_time
+        if self._status_changed_str:
+            return self._status_changed_str
         return ""
 
     @property
     def status_time_sort_key(self) -> str:
         return self.status_time_display
+
     @property
     def path(self):
         """Get the directory path of the song"""

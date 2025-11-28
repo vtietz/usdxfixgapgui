@@ -68,20 +68,20 @@ class SongActions(BaseActions):
             logger.error("No songs selected to reload.")
             return
 
-        logger.info(f"Reloading {len(songs_to_load)} songs.")
+        logger.info("Reloading %s songs.", len(songs_to_load))
 
         for song in songs_to_load:
             # Skip if already scheduled/running to avoid duplicate tasks (global guard)
             if song.path in _GLOBAL_INFLIGHT_RELOADS:
-                logger.debug(f"Skip duplicate reload for already in-flight song: {song.path}")
+                logger.debug("Skip duplicate reload for already in-flight song: %s", song.path)
                 continue
 
-            logger.info(f"Reloading song {song.path}")
+            logger.info("Reloading song %s", song.path)
             try:
                 # Reset ERROR, PROCESSING, or MISSING_AUDIO states before reloading
                 # This allows users to retry after errors, stuck processing states, or if audio file was added
                 if song.status in (SongStatus.ERROR, SongStatus.PROCESSING, SongStatus.MISSING_AUDIO):
-                    logger.info(f"Resetting status from {song.status} to NOT_PROCESSED for reload")
+                    logger.info("Resetting status from %s to NOT_PROCESSED for reload", song.status)
                     song.clear_error()  # Clears error message and resets to NOT_PROCESSED
 
                 # Mark as queued so viewport lazy loader does not re-queue it
@@ -125,7 +125,7 @@ class SongActions(BaseActions):
                 # Ensure we clear inflight in case of immediate exception
                 self._mark_reload_finished(song.path)
                 song.set_error(str(e))
-                logger.exception(f"Error setting up song reload: {e}")
+                logger.exception("Error setting up song reload: %s", e)
                 self.data.songs.updated.emit(song)
 
     def reload_song_light(self, specific_song=None, force: bool = False):
