@@ -12,6 +12,7 @@ def create_gap_detection_result(
     silence_periods: list = None,
     duration_ms: int = 180000,
     status: GapInfoStatus = GapInfoStatus.MATCH,
+    original_gap: int = 1000,
 ) -> Mock:
     """
     Create a mock GapDetectionResult object.
@@ -24,6 +25,7 @@ def create_gap_detection_result(
         silence_periods: List of silence period tuples (start, end)
         duration_ms: Total duration in milliseconds
         status: GapInfoStatus enum value
+        original_gap: Original gap value from the song file
 
     Returns:
         A Mock object with GapDetectionResult attributes
@@ -33,6 +35,7 @@ def create_gap_detection_result(
 
     result = Mock()
     result.song_file_path = song_file_path
+    result.original_gap = original_gap
     result.detected_gap = detected_gap
     result.gap_diff = gap_diff
     result.notes_overlap = notes_overlap

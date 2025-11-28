@@ -122,6 +122,7 @@ class GapActions(BaseActions):
 
         # Update gap_info with detection results - status mapping happens via owner hook
         # Assign with safe defaults to satisfy type checker and runtime robustness
+        song.gap_info.original_gap = int(result.original_gap or song.gap_info.original_gap)
         song.gap_info.detected_gap = int(result.detected_gap or song.gap_info.detected_gap)
         song.gap_info.diff = int(result.gap_diff or song.gap_info.diff)
         song.gap_info.notes_overlap = float(result.notes_overlap or song.gap_info.notes_overlap)
