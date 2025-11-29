@@ -48,7 +48,7 @@ class LibPathManager:
         try:
             os.add_dll_directory(str(path))
             self.added_dll_dirs.append(str(path))
-            logger.info(f"Added DLL directory: {path}")
+            logger.debug(f"Added DLL directory: {path}")
             return True
         except Exception as e:
             self.messages.append(f"Failed to add DLL directory {path}: {e}")
@@ -66,7 +66,7 @@ class LibPathManager:
         if path_str not in sys.path:
             sys.path.insert(0, path_str)
             self.added_sys_paths.append(path_str)
-            logger.info(f"Added to sys.path: {path_str}")
+            logger.debug(f"Added to sys.path: {path_str}")
 
     def update_ld_library_path(self, path: Path) -> None:
         """

@@ -41,9 +41,13 @@ class TestGapInfoFileChanges:
             event = WatchEvent(event_type=WatchEventType.MODIFIED, path=gap_info_path, is_directory=False)
             scheduler.handle_event(event)
 
+            # Wait for debounced reload signal
+            qtbot.wait(100)  # Wait longer than debounce_ms=50
+
             # Should have emitted reload signal
             assert len(reload_calls) == 1
-            assert reload_calls[0] == tmpdir
+            from model.songs import normalize_path
+            assert reload_calls[0] == normalize_path(tmpdir)
 
             # Should NOT have scheduled gap detection
             assert len(scheduler._pending) == 0
@@ -77,9 +81,13 @@ class TestGapInfoFileChanges:
             event = WatchEvent(event_type=WatchEventType.DELETED, path=gap_info_path, is_directory=False)
             scheduler.handle_event(event)
 
+            # Wait for debounced reload signal
+            qtbot.wait(100)  # Wait longer than debounce_ms=50
+
             # Should have emitted reload signal
             assert len(reload_calls) == 1
-            assert reload_calls[0] == tmpdir
+            from model.songs import normalize_path
+            assert reload_calls[0] == normalize_path(tmpdir)
 
             # Should NOT have scheduled gap detection
             assert len(scheduler._pending) == 0
@@ -122,9 +130,13 @@ class TestGapInfoFileChanges:
             event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
             scheduler.handle_event(event)
 
+            # Wait for debounced reload signal
+            qtbot.wait(100)  # Wait longer than debounce_ms=50
+
             # Should emit reload signal
             assert len(reload_calls) == 1
-            assert reload_calls[0] == tmpdir
+            from model.songs import normalize_path
+            assert reload_calls[0] == normalize_path(tmpdir)
 
             # Should schedule gap detection since status is NOT_PROCESSED
             assert len(scheduler._pending) == 1
@@ -157,7 +169,12 @@ class TestGapInfoFileChanges:
             for i in range(3):
                 event = WatchEvent(event_type=WatchEventType.MODIFIED, path=gap_info_path, is_directory=False)
                 scheduler.handle_event(event)
+                # Wait for each debounced reload
+                qtbot.wait(100)  # Wait longer than debounce_ms=50
 
-            # Should have emitted reload signal for each change
+            # Should have emitted reload signal for each change (debounced)
+            # NOTE: Due to debouncing, multiple rapid events may coalesce into fewer signals
+            # In this case, we expect 3 signals since we wait between each
             assert len(reload_calls) == 3
-            assert all(path == tmpdir for path in reload_calls)
+            from model.songs import normalize_path
+            assert all(path == normalize_path(tmpdir) for path in reload_calls)

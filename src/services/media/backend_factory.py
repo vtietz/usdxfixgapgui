@@ -73,7 +73,7 @@ def _setup_local_vlc_runtime():
         os.environ["VLC_PLUGIN_PATH"] = str(plugins_dir)
         logger.debug(f"Set VLC_PLUGIN_PATH: {plugins_dir}")
 
-    logger.info(f"Using local VLC runtime: {vlc_dir}")
+    logger.debug(f"Using local VLC runtime: {vlc_dir}")
     return True
 
 
@@ -130,7 +130,7 @@ def create_backend(warn_on_wmf_fallback: bool = True) -> MediaBackend:
     platform = sys.platform
     vlc_available = _is_vlc_available()
 
-    logger.info(f"Selecting media backend for platform: {platform}")
+    logger.debug(f"Selecting media backend for platform: {platform}")
     logger.debug(f"VLC available: {vlc_available}")
 
     # Windows: prefer VLC to avoid WMF deadlocks
@@ -151,13 +151,13 @@ def create_backend(warn_on_wmf_fallback: bool = True) -> MediaBackend:
                 _warn_wmf_fallback()
 
             backend = QtBackendAdapter()
-            logger.info(f"Selected Qt backend (WMF) - {backend.get_backend_name()}")
+            logger.debug(f"Selected Qt backend (WMF) - {backend.get_backend_name()}")
             return backend
 
     # macOS: use Qt/AVFoundation (native, stable)
     elif platform == "darwin":
         backend = QtBackendAdapter()
-        logger.info(f"Selected Qt backend (AVFoundation) - {backend.get_backend_name()}")
+        logger.debug(f"Selected Qt backend (AVFoundation) - {backend.get_backend_name()}")
         return backend
 
     # Linux: prefer Qt/GStreamer, fallback to VLC
@@ -168,29 +168,29 @@ def create_backend(warn_on_wmf_fallback: bool = True) -> MediaBackend:
 
         # Check if it's GStreamer
         if "GStreamer" in backend_name:
-            logger.info(f"Selected Qt backend (GStreamer) - {backend_name}")
+            logger.debug(f"Selected Qt backend (GStreamer) - {backend_name}")
             return backend
 
         # If VLC available, prefer it over Qt/unknown
         if vlc_available:
-            logger.info("Qt backend not using GStreamer, switching to VLC")
+            logger.debug("Qt backend not using GStreamer, switching to VLC")
             from services.media.vlc_backend import VlcBackendAdapter
 
             backend = VlcBackendAdapter()
             version = backend.get_backend_version() or "unknown"
-            logger.info(f"Selected VLC backend (version: {version})")
+            logger.debug(f"Selected VLC backend (version: {version})")
             return backend
 
         # Fallback to Qt anyway
         logger.warning(f"Using Qt backend without GStreamer: {backend_name}")
-        logger.info(f"Selected Qt backend - {backend_name}")
+        logger.debug(f"Selected Qt backend - {backend_name}")
         return backend
 
     # Unknown platform: try Qt
     else:
         logger.warning(f"Unknown platform '{platform}' - using Qt backend")
         backend = QtBackendAdapter()
-        logger.info(f"Selected Qt backend - {backend.get_backend_name()}")
+        logger.debug(f"Selected Qt backend - {backend.get_backend_name()}")
         return backend
 
 

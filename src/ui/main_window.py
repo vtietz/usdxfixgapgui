@@ -137,7 +137,7 @@ def create_and_run_gui(config, gpu_enabled, log_file_path, capabilities):
 def _initialize_cache_and_confirm_rescan() -> bool:
     """Initialize song cache and confirm rescan if needed. Returns False if user cancels."""
     db_path, cache_was_cleared = initialize_song_cache()
-    logger.info("Song cache database initialized at: %s", db_path)
+    logger.debug("Song cache database initialized at: %s", db_path)
 
     if not cache_was_cleared:
         return True
@@ -174,7 +174,7 @@ def _set_application_icon(app):
     icon_path = resource_path("assets/usdxfixgap-icon.ico")
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
-        logger.info("Loaded icon from: %s", icon_path)
+        logger.debug("Loaded icon from: %s", icon_path)
     else:
         logger.error("Icon file not found at expected path: %s", icon_path)
 

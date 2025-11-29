@@ -34,6 +34,15 @@ class _PendingDetection:
     retry_count: int = 0  # Track reschedule attempts
 
 
+@dataclass
+class _PendingReload:
+    """Track a pending reload request"""
+
+    song_path: str
+    last_event_time: datetime
+    timer: QTimer
+
+
 class GapDetectionScheduler(QObject):
     """
     Schedules gap detection tasks with debouncing and coalescing.
@@ -78,6 +87,9 @@ class GapDetectionScheduler(QObject):
 
         # Track pending detections by song folder path
         self._pending: Dict[str, _PendingDetection] = {}
+
+        # Track pending reloads by song folder path (debounce reload spam)
+        self._pending_reloads: Dict[str, _PendingReload] = {}
 
         # Track in-flight detection tasks by song folder path
         self._in_flight: Set[str] = set()
@@ -171,8 +183,8 @@ class GapDetectionScheduler(QObject):
             os.path.basename(event.path),
         )
 
-        # Emit reload signal to update song metadata from disk
-        self.reload_requested.emit(song_path)
+        # Schedule debounced reload to prevent spam from progressive file writes
+        self._schedule_reload(song_path)
 
         # After reload signal is emitted, check if we should schedule gap detection
         # Get the song to check its status
@@ -235,8 +247,8 @@ class GapDetectionScheduler(QObject):
 
         logger.info(f"Gap info file changed: {event.path}, requesting reload for {song_path}")
 
-        # Emit signal to trigger song reload
-        self.reload_requested.emit(song_path)
+        # Schedule debounced reload
+        self._schedule_reload(song_path)
 
     def _find_txt_file(self, folder: str) -> Optional[str]:
         """Find .txt file in folder."""
@@ -283,6 +295,48 @@ class GapDetectionScheduler(QObject):
 
         except (OSError, IOError) as e:
             return False, f"audio file not ready: {e}"
+
+    def _schedule_reload(self, song_path: str):
+        """Schedule debounced reload to prevent spam from progressive file writes."""
+        now = datetime.now()
+        normalized_path = self._normalize_song_path(song_path)
+
+        # Check if already pending
+        if normalized_path in self._pending_reloads:
+            pending = self._pending_reloads[normalized_path]
+
+            # Update last event time
+            pending.last_event_time = now
+
+            # Restart timer
+            pending.timer.stop()
+            pending.timer.start(self._debounce_ms)
+
+            logger.debug(f"Debouncing reload for {song_path}")
+        else:
+            # Create new pending reload
+            timer = QTimer()
+            timer.setSingleShot(True)
+            timer.timeout.connect(lambda path=normalized_path: self._execute_reload(path))
+
+            pending = _PendingReload(song_path=normalized_path, last_event_time=now, timer=timer)
+
+            self._pending_reloads[normalized_path] = pending
+            timer.start(self._debounce_ms)
+
+            logger.debug(f"Scheduled reload for {song_path} (debounce {self._debounce_ms}ms)")
+
+    def _execute_reload(self, song_path: str):
+        """Execute reload after debounce period."""
+        if song_path not in self._pending_reloads:
+            return
+
+        # Remove from pending
+        del self._pending_reloads[song_path]
+
+        # Emit reload signal
+        logger.debug(f"Executing debounced reload for {song_path}")
+        self.reload_requested.emit(song_path)
 
     def _cancel_pending_detection(self, song_path: str):
         """Cancel any pending detection timers for the given song path."""
@@ -490,12 +544,16 @@ class GapDetectionScheduler(QObject):
             logger.debug(f"Gap detection completed for {song.path}")
 
     def clear_pending(self):
-        """Clear all pending detections (used when stopping watch mode)."""
+        """Clear all pending detections and reloads (used when stopping watch mode)."""
         for pending in self._pending.values():
             pending.timer.stop()
-
         self._pending.clear()
-        logger.info("Cleared all pending gap detections")
+
+        for pending in self._pending_reloads.values():
+            pending.timer.stop()
+        self._pending_reloads.clear()
+
+        logger.info("Cleared all pending gap detections and reloads")
 
     def clear_in_flight(self):
         """Clear in-flight tracking (use with caution)."""

@@ -52,7 +52,7 @@ class PathInstaller:
             entry_str = str(entry)
             if entry_str not in sys.path:
                 sys.path.insert(0, entry_str)
-                logger.info(f"Added to sys.path: {entry_str}")
+                logger.debug(f"Added to sys.path: {entry_str}")
 
         # Windows: Add DLL directories
         if sys.platform == "win32":
@@ -62,7 +62,7 @@ class PathInstaller:
                         try:
                             os.add_dll_directory(str(dll_dir))
                             added_dll_dirs.append(str(dll_dir))
-                            logger.info(f"Added DLL directory: {dll_dir}")
+                            logger.debug(f"Added DLL directory: {dll_dir}")
                         except Exception as e:
                             logger.warning(f"Failed to add DLL directory {dll_dir}: {e}")
                     else:

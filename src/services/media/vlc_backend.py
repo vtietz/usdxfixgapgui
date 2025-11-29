@@ -88,10 +88,10 @@ class VlcBackendAdapter(QObject):
         # Get VLC version
         try:
             version = vlc.libvlc_get_version().decode("utf-8")
-            logger.info(f"VlcBackendAdapter initialized with libVLC {version}")
+            logger.debug(f"VlcBackendAdapter initialized with libVLC {version}")
         except Exception as e:
             logger.warning(f"Could not get VLC version: {e}")
-            logger.info("VlcBackendAdapter initialized")
+            logger.debug("VlcBackendAdapter initialized")
 
     # Lifecycle
 

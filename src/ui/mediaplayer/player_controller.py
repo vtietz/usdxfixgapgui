@@ -28,7 +28,7 @@ class PlayerController(QObject):
 
         # Create separate backends for audio and vocals
         # This allows instant mode switching without reloading media
-        logger.info("Creating dual media backends (audio + vocals)")
+        logger.debug("Creating dual media backends (audio + vocals)")
 
         # Audio backend (VLC on Windows, Qt elsewhere)
         self.audio_backend = create_backend()
@@ -40,7 +40,7 @@ class PlayerController(QObject):
 
         # Log the active backend type
         backend_type = type(self.audio_backend).__name__
-        logger.info(f"Media backend: {backend_type}")
+        logger.debug(f"Media backend: {backend_type}")
 
         # Connect signals for both backends (sender-anchored)
         self.audio_backend.playback_state_changed.connect(
@@ -71,7 +71,7 @@ class PlayerController(QObject):
         self._is_loaded_map = {self.audio_backend: False, self.vocals_backend: False}
         self._is_playing_map = {self.audio_backend: False, self.vocals_backend: False}
 
-        logger.info("Dual media backends created successfully")
+        logger.debug("Dual media backends created successfully")
 
     @property
     def media_backend(self):

@@ -62,7 +62,7 @@ class QtBackendAdapter(QObject):
 
         # Detect which Qt multimedia backend is active
         backend_name = self._detect_qt_backend()
-        logger.info(f"QtBackendAdapter initialized with {backend_name}")
+        logger.debug(f"QtBackendAdapter initialized with {backend_name}")
 
     def _detect_qt_backend(self) -> str:
         """

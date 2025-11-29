@@ -303,12 +303,12 @@ def bootstrap_gpu(config) -> GPUStatus:
         # If torch is not yet imported, validation would import it from venv instead of GPU Pack
         # In that case, skip validation and trust that GPU Pack will work when app imports torch
         if "torch" not in sys.modules:
-            logger.info(
+            logger.debug(
                 "GPU Pack configured and in sys.path; skipping validation to avoid importing torch "
                 "(torch will be imported from GPU Pack when app needs it)"
             )
             status = _to_gpu_status_from_context("pack", pack_dir)
-            logger.info(status.as_structured_log())
+            logger.debug(status.as_structured_log())
             return status
 
 
@@ -318,13 +318,13 @@ def bootstrap_gpu(config) -> GPUStatus:
             status = _to_gpu_status_from_context("pack", pack_dir)
         else:
             status = _to_gpu_status_from_context("cpu", pack_dir, error=getattr(config, "gpu_last_error", None))
-        logger.info(status.as_structured_log())
+        logger.debug(status.as_structured_log())
         return status
 
     except Exception as e:
         logger.error(f"GPU bootstrap error: {e}", exc_info=True)
         status = _to_gpu_status_from_context("cpu", None, error=str(e))
-        logger.info(status.as_structured_log())
+        logger.debug(status.as_structured_log())
         return status
 
 

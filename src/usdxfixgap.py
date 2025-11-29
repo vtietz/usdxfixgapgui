@@ -268,7 +268,7 @@ def _init_qt_and_capabilities(config: Any, logger: logging.Logger) -> Any:
     # Force Qt to use FFmpeg backend instead of WMF to avoid deadlocks during media state transitions
     # MUST be set BEFORE QApplication is created
     os.environ["QT_MEDIA_BACKEND"] = "ffmpeg"
-    logger.info("Set QT_MEDIA_BACKEND=ffmpeg to avoid Windows Media Foundation deadlocks")
+    logger.debug("Set QT_MEDIA_BACKEND=ffmpeg to avoid Windows Media Foundation deadlocks")
 
     app = QApplication.instance() or QApplication(sys.argv)
     enable_dark_mode(app)

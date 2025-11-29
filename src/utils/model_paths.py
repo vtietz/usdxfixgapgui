@@ -58,7 +58,7 @@ def setup_model_paths(config=None):
     # Configure PyTorch Hub (used by Demucs)
     # This overrides the default ~/.cache/torch/hub/checkpoints/
     os.environ["TORCH_HOME"] = demucs_dir
-    logger.info(f"Set TORCH_HOME={demucs_dir}")
+    logger.debug(f"Set TORCH_HOME={demucs_dir}")
 
     # Set XDG_CACHE_HOME as fallback for other libraries
     # This is a standard Unix/Linux environment variable
@@ -69,7 +69,7 @@ def setup_model_paths(config=None):
 
     paths = {"demucs_dir": demucs_dir, "torch_home": os.environ["TORCH_HOME"]}
 
-    logger.info("Model paths configured successfully")
+    logger.debug("Model paths configured successfully")
     logger.debug(f"Model paths: {paths}")
 
     return paths

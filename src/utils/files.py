@@ -101,7 +101,7 @@ def get_localappdata_dir():
     # Portable mode: Store data alongside executable
     if is_portable_mode():
         app_dir = get_app_dir()
-        logger.info(f"Portable mode detected, using app directory: {app_dir}")
+        logger.debug(f"Portable mode detected, using app directory: {app_dir}")
         return app_dir
 
     from common.constants import APP_FOLDER_NAME

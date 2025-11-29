@@ -265,7 +265,7 @@ class SongListWidget(QWidget):
         self.proxyModel.setDynamicSortFilter(False)
         self.tableView.setSortingEnabled(False)
         self.tableView.setUpdatesEnabled(False)
-        logger.info("SongListWidget bulk freeze engaged")
+        logger.debug("SongListWidget bulk freeze engaged")
 
     def _on_bulk_load_ended(self):
         """Re-enable dynamic filtering and invalidate once bulk loading completes."""

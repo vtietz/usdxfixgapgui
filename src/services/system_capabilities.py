@@ -56,6 +56,7 @@ class SystemCapabilities:
         has_ffprobe: FFprobe executable found in PATH
         ffmpeg_version: FFmpeg version string if available
         can_detect: At least one detection method available (requires torch + ffmpeg)
+        media_backend: Media backend type and version
     """
 
     # PyTorch
@@ -75,6 +76,9 @@ class SystemCapabilities:
 
     # Detection availability
     can_detect: bool
+    
+    # Media backend
+    media_backend: Optional[str] = None
 
     def get_status_summary(self) -> str:
         """Get human-readable status summary for logging."""
@@ -87,6 +91,8 @@ class SystemCapabilities:
                 lines.append(f"  GPU: {self.gpu_name}")
         lines.append(f"  FFmpeg: {'✓' if self.has_ffmpeg else '✗'} {self.ffmpeg_version or 'N/A'}")
         lines.append(f"  FFprobe: {'✓' if self.has_ffprobe else '✗'}")
+        if self.media_backend:
+            lines.append(f"  Media backend: {self.media_backend}")
         lines.append(f"  Can detect gaps: {'✓' if self.can_detect else '✗'}")
         return "\n".join(lines)
 
@@ -234,6 +240,9 @@ class SystemCapabilitiesService(QObject):
         # Determine if detection is possible
         can_detect = has_torch and has_ffmpeg
 
+        # Check media backend
+        media_backend = self._check_media_backend()
+
         self._capabilities = SystemCapabilities(
             has_torch=has_torch,
             torch_version=torch_version,
@@ -245,6 +254,7 @@ class SystemCapabilitiesService(QObject):
             has_ffprobe=has_ffprobe,
             ffmpeg_version=ffmpeg_version,
             can_detect=can_detect,
+            media_backend=media_backend,
         )
 
         logger.info(f"\n{self._capabilities.get_status_summary()}")
@@ -401,6 +411,46 @@ class SystemCapabilitiesService(QObject):
         except Exception as e:
             logger.warning(f"FFprobe check failed: {e}")
             return False
+
+    def _check_media_backend(self) -> Optional[str]:
+        """
+        Check media backend type and version.
+
+        Returns:
+            Backend description string (e.g., "VLC 3.0.21") or None if unavailable
+        """
+        try:
+            from services.media import get_backend_info
+
+            info = get_backend_info()
+            platform = info.get("platform", "unknown")
+            vlc_available = info.get("vlc_available", "False") == "True"
+
+            # Determine backend based on platform and availability
+            if platform == "win32" and vlc_available:
+                try:
+                    import vlc
+                    version = vlc.libvlc_get_version().decode("utf-8")
+                    backend_str = f"VLC {version}"
+                    logger.debug(f"Media backend: {backend_str}")
+                    return backend_str
+                except Exception as e:
+                    logger.debug(f"Could not get VLC version: {e}")
+                    return "VLC (version unknown)"
+            elif platform == "win32":
+                return "Qt/WMF"
+            elif platform == "darwin":
+                return "Qt/AVFoundation"
+            elif platform.startswith("linux"):
+                if vlc_available:
+                    return "VLC or Qt/GStreamer"
+                else:
+                    return "Qt/GStreamer"
+            else:
+                return f"Qt (platform: {platform})"
+        except Exception as e:
+            logger.debug(f"Media backend check failed: {e}")
+            return None
 
 
 # Singleton instance for easy access

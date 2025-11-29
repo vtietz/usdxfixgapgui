@@ -77,7 +77,7 @@ class SongTableModel(QAbstractTableModel):
                 self._bulk_loading = True
                 self._bulk_started_at = time.perf_counter()
                 self.bulk_load_started.emit()
-                logger.info("SongTableModel bulk load started at %.1f ms", 0.0)
+                logger.debug("SongTableModel bulk load started at %.1f ms", 0.0)
 
             new_songs = self.songs_model.songs[current_count:model_count]
             self.beginInsertRows(QModelIndex(), current_count, model_count - 1)

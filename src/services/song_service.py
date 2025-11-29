@@ -57,11 +57,11 @@ class SongService:
         try:
             if gap_info:
                 await GapInfoService.load(gap_info)
-                
+
                 # Initialize original_gap from song.gap if not set (backward compat with old cache files)
                 if gap_info.original_gap == 0 and song.gap != 0:
                     gap_info.original_gap = song.gap
-                
+
                 # Assign gap_info AFTER loading - triggers _gap_info_updated() with correct status
                 song.gap_info = gap_info
 

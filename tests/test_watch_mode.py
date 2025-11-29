@@ -90,9 +90,13 @@ class TestGapDetectionScheduler:
             event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
             scheduler.handle_event(event)
 
+            # Wait for debounced reload signal
+            qtbot.wait(150)  # Wait longer than debounce_ms=100
+
             # Should emit reload signal
             assert len(reload_calls) == 1
-            assert reload_calls[0] == tmpdir
+            from model.songs import normalize_path
+            assert reload_calls[0] == normalize_path(tmpdir)
 
             # Should schedule gap detection since status is NOT_PROCESSED
             assert len(scheduler._pending) == 1
@@ -290,9 +294,13 @@ class TestGapDetectionScheduler:
             event = WatchEvent(event_type=WatchEventType.MODIFIED, path=txt_path, is_directory=False)
             scheduler.handle_event(event)
 
+            # Wait for debounced reload signal
+            qtbot.wait(100)  # Wait longer than debounce_ms=50
+
             # Should emit reload signal
             assert len(reload_calls) == 1
-            assert reload_calls[0] == tmpdir
+            from model.songs import normalize_path
+            assert reload_calls[0] == normalize_path(tmpdir)
 
             # Should schedule gap detection now that content change is detected
             assert len(scheduler._pending) == 1
