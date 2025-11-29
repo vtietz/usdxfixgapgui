@@ -136,13 +136,13 @@ class GapDetectionScheduler(QObject):
 
             # Handle .info files (MODIFIED or DELETED) → reload only
             if ext.lower() == ".info":
-                logger.info(f"Detected gap_info file change: {event.event_type.name} {event.path}")
+                logger.debug(f"Detected gap_info file change: {event.event_type.name} {event.path}")
                 self._handle_gap_info_change(event)
                 return
 
             # Handle txt/audio files (MODIFIED only) → reload + conditional gap detection
             if event.event_type == WatchEventType.MODIFIED:
-                logger.info(f"Detected song file modification: {event.path}")
+                logger.debug(f"Detected song file modification: {event.path}")
                 self._handle_file_modified(event)
                 return
 
@@ -177,8 +177,8 @@ class GapDetectionScheduler(QObject):
             logger.debug(f"Skipping MODIFIED event for recently created .txt file (normalized match): {txt_file_normalized}")
             return
 
-        logger.info(
-            "Text/audio file modified, reloading song at %s (event: %s)",
+        logger.debug(
+            "Text/audio file modified, scheduling reload at %s (event: %s)",
             song_path,
             os.path.basename(event.path),
         )
@@ -245,7 +245,7 @@ class GapDetectionScheduler(QObject):
         """Handle usdxfixgap.info modification/deletion → trigger song reload."""
         song_path = os.path.dirname(event.path)
 
-        logger.info(f"Gap info file changed: {event.path}, requesting reload for {song_path}")
+        logger.debug(f"Gap info file changed: {event.path}, requesting reload for {song_path}")
 
         # Schedule debounced reload
         self._schedule_reload(song_path)

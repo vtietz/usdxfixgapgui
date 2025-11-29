@@ -76,7 +76,7 @@ class SystemCapabilities:
 
     # Detection availability
     can_detect: bool
-    
+
     # Media backend
     media_backend: Optional[str] = None
 

@@ -232,7 +232,7 @@ class WatchModeController(QObject):
     def _on_reload_requested(self, song_path: str):
         """Handle reload request when gap_info file changes."""
         try:
-            logger.info(f"Reload requested for song path: {song_path}")
+            logger.debug(f"Reload requested for song path: {song_path}")
 
             # Find song by path
             song = self._songs_get_by_path(song_path)
@@ -241,7 +241,7 @@ class WatchModeController(QObject):
                 logger.warning(f"Song not found for reload: {song_path}")
                 return
 
-            logger.info(f"Reloading song due to gap_info change: {song.artist} - {song.title}")
+            logger.debug(f"Reloading song due to gap_info change: {song.artist} - {song.title}")
             self._reload_song(song)
 
         except Exception as e:

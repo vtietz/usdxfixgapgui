@@ -68,7 +68,14 @@ class SongActions(BaseActions):
             logger.error("No songs selected to reload.")
             return
 
-        logger.info("Reloading %s songs.", len(songs_to_load))
+        song_count = len(songs_to_load)
+        if song_count == 1:
+            target = songs_to_load[0]
+            artist = target.artist or "Unknown artist"
+            title = target.title or os.path.basename(target.path)
+            logger.info("Reloading song: %s - %s", artist, title)
+        else:
+            logger.info("Reloading %s songs.", song_count)
 
         for song in songs_to_load:
             # Skip if already scheduled/running to avoid duplicate tasks (global guard)
@@ -76,7 +83,7 @@ class SongActions(BaseActions):
                 logger.debug("Skip duplicate reload for already in-flight song: %s", song.path)
                 continue
 
-            logger.info("Reloading song %s", song.path)
+            logger.debug("Reloading song %s", song.path)
             try:
                 # Reset ERROR, PROCESSING, or MISSING_AUDIO states before reloading
                 # This allows users to retry after errors, stuck processing states, or if audio file was added
