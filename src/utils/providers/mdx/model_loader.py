@@ -62,7 +62,7 @@ class ModelLoader:
         with self._lock:
             # Check if we can reuse cached model
             if self._cache["model"] is not None and self._cache["device"] == device:
-                logger.info(f"Reusing cached Demucs model (device={device})")
+                logger.debug(f"Reusing cached Demucs model (device={device})")
                 flush_logs()
                 return self._cache["model"]
 
@@ -75,7 +75,7 @@ class ModelLoader:
                 from utils.providers.exceptions import DetectionFailedError
 
                 device_name = "GPU (CUDA)" if device == "cuda" else "CPU"
-                logger.info(f"Loading Demucs model on {device_name}...")
+                logger.debug(f"Loading Demucs model on {device_name}...")
                 flush_logs()
 
                 # Enable device-specific optimizations
@@ -109,11 +109,10 @@ class ModelLoader:
                 self._cache["model"] = model
                 self._cache["device"] = device
 
-                logger.info("Demucs model loaded successfully")
-                flush_logs()
+                logger.debug("Demucs model loaded successfully")
 
                 # Warm up model with dummy input to trigger JIT compilation
-                logger.info("Warming up model (JIT compilation, memory allocation)...")
+                logger.debug("Warming up model (JIT compilation, memory allocation)...")
                 flush_logs()
                 try:
                     dummy_input = torch.zeros(1, 2, 44100, device=device)  # 1 second stereo (already [1, 2, 44100])
@@ -122,7 +121,7 @@ class ModelLoader:
                             dummy_input = dummy_input.half()
                         # Use apply_model for Demucs inference (no additional unsqueeze needed)
                         _ = apply_model(model, dummy_input, device=device)
-                    logger.info("Model warm-up complete, ready for detection")
+                    logger.debug("Model warm-up complete, ready for detection")
                     flush_logs()
                 except Exception as e:
                     logger.warning(f"Model warm-up failed (non-critical): {e}")

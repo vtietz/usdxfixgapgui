@@ -359,7 +359,7 @@ def perform(
         FileNotFoundError: If audio file not found
         Exception: If detection fails
     """
-    logger.info(f"Detecting gap for {audio_file}")
+    logger.debug(f"Detecting gap for {audio_file}")
 
     # Step 1: Normalize inputs into context
     ctx = normalize_context(

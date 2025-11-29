@@ -111,7 +111,7 @@ def perform(options: DetectGapOptions, check_cancellation=None) -> DetectGapResu
     if not options.config:
         raise ValueError("Config is required for gap detection")
 
-    logger.info("Using gap detection pipeline")
+    logger.debug("Using gap detection pipeline")
     return perform(
         audio_file=options.audio_file,
         tmp_root=options.tmp_root,

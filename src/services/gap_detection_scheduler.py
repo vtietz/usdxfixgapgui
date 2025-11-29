@@ -470,7 +470,7 @@ class GapDetectionScheduler(QObject):
 
             if not song:
                 if pending.retry_count >= self._max_retries:
-                    logger.warning(
+                    logger.debug(
                         "Song not found for gap detection after %s retries: %s",
                         pending.retry_count,
                         actual_song_path,
@@ -478,7 +478,7 @@ class GapDetectionScheduler(QObject):
                     self._in_flight.discard(song_path)
                     return
 
-                logger.info(
+                logger.debug(
                     "Song not ready in collection for %s, rescheduling gap detection (retry %s/%s)",
                     actual_song_path,
                     pending.retry_count + 1,

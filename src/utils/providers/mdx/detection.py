@@ -167,7 +167,7 @@ def detect_onset_in_vocal_chunk(
                     if np.all(above_threshold[j : j + min_sound_frames]):
                         # Found silence→sound transition!
                         onset_frame = j  # Onset is where sound begins
-                        logger.info(
+                        logger.debug(
                             f"Found silence→sound transition: silence at frames {i}-{silence_end}, "
                             f"sound starts at frame {onset_frame}"
                         )
@@ -182,16 +182,16 @@ def detect_onset_in_vocal_chunk(
                 i += 1
 
         if onset_frame is None:
-            logger.info("No silence→sound transition found, falling back to first sustained sound")
+            logger.debug("No silence→sound transition found, falling back to first sustained sound")
             # Fallback: find first sustained sound (original vocal-centric approach)
             for i in range(search_start, len(above_threshold) - min_sound_frames):
                 if np.all(above_threshold[i : i + min_sound_frames]):
                     onset_frame = i
-                    logger.info(f"Fallback: first sustained sound at frame {onset_frame}")
+                    logger.debug(f"Fallback: first sustained sound at frame {onset_frame}")
                     break
 
         if onset_frame is None:
-            logger.info("No onset found")
+            logger.debug("No onset found")
             return None
 
         # Refine onset by looking for energy rise pattern
@@ -229,7 +229,7 @@ def detect_onset_in_vocal_chunk(
         # Convert frame to absolute timestamp
         onset_offset_ms = (onset_frame * hop_samples / sample_rate) * 1000.0
         onset_abs_ms = chunk_start_ms + onset_offset_ms
-        logger.info(
+        logger.debug(
             f"Onset detected at {onset_abs_ms:.1f}ms "
             f"(frame {onset_frame}, RMS={rms_values[min(onset_frame, len(rms_values)-1)]:.4f})"
         )

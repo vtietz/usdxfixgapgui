@@ -114,7 +114,7 @@ def scan_for_onset(
         DetectionFailedError: If scanning fails or is cancelled
     """
     try:
-        logger.info(f"Starting onset scan (expected gap: {expected_gap_ms:.0f}ms)")
+        logger.info("Starting onset scan (expected gap: %.0fms)", expected_gap_ms)
         _flush_logs()
 
         # Initialize modules
@@ -144,9 +144,11 @@ def scan_for_onset(
 
         while search_limit_ms <= config.start_window_max_ms:
             search_iteration += 1
-            logger.info(
-                f"Search iteration #{search_iteration}: "
-                f"limit={search_limit_ms / 1000:.1f}s (max={config.start_window_max_ms / 1000:.1f}s)"
+            logger.debug(
+                "Search iteration #%d: limit=%.1fs (max=%.1fs)",
+                search_iteration,
+                search_limit_ms / 1000,
+                config.start_window_max_ms / 1000,
             )
             _flush_logs()
 
@@ -155,10 +157,12 @@ def scan_for_onset(
 
             # Process each window (only chunks within search_limit_ms)
             for window in windows:
-                logger.info(
-                    f"Expansion #{window.expansion_num}: "
-                    f"radius=±{window.radius_ms / 1000:.1f}s, "
-                    f"window {window.start_ms / 1000:.1f}s - {window.end_ms / 1000:.1f}s"
+                logger.debug(
+                    "Expansion #%d: radius=±%.1fs, window %.1fs - %.1fs",
+                    window.expansion_num,
+                    window.radius_ms / 1000,
+                    window.start_ms / 1000,
+                    window.end_ms / 1000,
                 )
                 _flush_logs()
 
@@ -166,9 +170,12 @@ def scan_for_onset(
                 # This ensures we analyze the region around expected_gap, not just early audio
                 band_start = max(0.0, expected_gap_ms - search_limit_ms)
                 band_end = min(total_duration_ms, expected_gap_ms + search_limit_ms)
-                logger.info(
-                    f"Distance-gated search band=[{band_start / 1000:.1f}s, {band_end / 1000:.1f}s] "
-                    f"for limit={search_limit_ms / 1000:.1f}s around expected={expected_gap_ms / 1000:.1f}s"
+                logger.debug(
+                    "Distance-gated search band=[%.1fs, %.1fs] for limit=%.1fs around expected=%.1fs",
+                    band_start / 1000,
+                    band_end / 1000,
+                    search_limit_ms / 1000,
+                    expected_gap_ms / 1000,
                 )
                 _flush_logs()
 
@@ -178,8 +185,11 @@ def scan_for_onset(
                     # Skip chunks outside the distance band
                     if chunk.end_ms < band_start or chunk.start_ms > band_end:
                         logger.debug(
-                            f"Distance gating: chunk [{chunk.start_ms / 1000:.1f}s-{chunk.end_ms / 1000:.1f}s] "
-                            f"outside band [{band_start / 1000:.1f}s-{band_end / 1000:.1f}s] → skipped"
+                            "Distance gating: chunk [%.1fs-%.1fs] outside band [%.1fs-%.1fs] → skipped",
+                            chunk.start_ms / 1000,
+                            chunk.end_ms / 1000,
+                            band_start / 1000,
+                            band_end / 1000,
                         )
                         continue
 
@@ -188,9 +198,12 @@ def scan_for_onset(
                         raise DetectionFailedError("Search cancelled by user", provider_name="mdx")
 
                     chunks_processed += 1
-                    logger.info(
-                        f"Loading chunk at {chunk.start_s:.1f}s-{chunk.end_s:.1f}s "
-                        f"(expansion #{window.expansion_num}, chunk {chunks_processed})"
+                    logger.debug(
+                        "Loading chunk at %.1fs-%.1fs (expansion #%d, chunk %d)",
+                        chunk.start_s,
+                        chunk.end_s,
+                        window.expansion_num,
+                        chunks_processed,
                     )
                     _flush_logs()
 
@@ -201,26 +214,30 @@ def scan_for_onset(
                         # Check for duplicates (within 1 second)
                         if not _is_duplicate_onset(onset_ms, all_onsets):
                             all_onsets.append(onset_ms)
-                            logger.info(
-                                f"Found vocal onset at {onset_ms:.0f}ms "
-                                f"(distance from expected: {abs(onset_ms - expected_gap_ms):.0f}ms)"
+                            logger.debug(
+                                "Found vocal onset at %.0fms (distance from expected: %.0fms)",
+                                onset_ms,
+                                abs(onset_ms - expected_gap_ms),
                             )
 
                             # Early-stop if onset is within tolerance
                             diff = abs(onset_ms - expected_gap_ms)
                             early_stop_threshold = max(config.hysteresis_ms, config.early_stop_tolerance_ms)
                             if diff <= early_stop_threshold:
-                                logger.info(
-                                    f"Early-stop triggered: onset within {early_stop_threshold}ms tolerance "
-                                    f"(diff={diff:.0f}ms). Returning {onset_ms:.0f}ms immediately."
+                                logger.debug(
+                                    "Early-stop triggered: onset within %.0fms tolerance (diff=%.0fms). Returning %.0fms",
+                                    early_stop_threshold,
+                                    diff,
+                                    onset_ms,
                                 )
                                 _flush_logs()
                                 return onset_ms
 
-                logger.info(
-                    f"Expansion #{window.expansion_num} complete: "
-                    f"processed {chunks_processed} new chunks, "
-                    f"found {len(all_onsets)} total onset(s) so far"
+                logger.debug(
+                    "Expansion #%d complete: processed %d new chunks, found %d total onset(s)",
+                    window.expansion_num,
+                    chunks_processed,
+                    len(all_onsets),
                 )
 
                 # Check if should continue to next expansion
@@ -229,7 +246,7 @@ def scan_for_onset(
 
             # If onsets found, use hybrid strategy: respect expected gap when reasonable
             if all_onsets:
-                logger.info("Onset(s) detected! Selecting best onset using hybrid strategy...")
+                logger.debug("Onset(s) detected, applying hybrid selection strategy")
                 # Filter out negative onsets
                 valid_onsets = [o for o in all_onsets if o >= 0.0]
                 if not valid_onsets:
@@ -254,18 +271,22 @@ def scan_for_onset(
                 if onsets_near_expected:
                     # Found onsets near expected - return earliest of those
                     selected_onset = min(onsets_near_expected)
-                    logger.info(
-                        f"Returning earliest onset within tolerance of expected: {selected_onset:.0f}ms "
-                        f"(expected: {expected_gap_ms:.0f}ms, diff: {abs(selected_onset - expected_gap_ms):.0f}ms)"
+                    logger.debug(
+                        "Returning earliest onset within tolerance: %.0fms (expected %.0fms, diff %.0fms)",
+                        selected_onset,
+                        expected_gap_ms,
+                        abs(selected_onset - expected_gap_ms),
                     )
                 else:
                     # No onsets near expected - expected gap is likely wrong
                     # Return absolute earliest (first vocal start)
                     selected_onset = earliest_onset
-                    logger.info(
-                        f"No onsets within {TOLERANCE_MS:.0f}ms of expected gap - "
-                        f"returning earliest onset: {selected_onset:.0f}ms "
-                        f"(expected: {expected_gap_ms:.0f}ms, diff: {abs(selected_onset - expected_gap_ms):.0f}ms)"
+                    logger.debug(
+                        "No onsets within %.0fms of expected gap; returning earliest onset %.0fms (expected %.0fms, diff %.0fms)",
+                        TOLERANCE_MS,
+                        selected_onset,
+                        expected_gap_ms,
+                        abs(selected_onset - expected_gap_ms),
                     )
 
                 return selected_onset
@@ -275,15 +296,15 @@ def scan_for_onset(
                 break
 
             search_limit_ms = min(search_limit_ms + config.start_window_increment_ms, config.start_window_max_ms)
-            logger.info(f"No onset in current window, expanding to {search_limit_ms / 1000:.1f}s")
+            logger.debug("No onset in current window, expanding to %.1fs", search_limit_ms / 1000)
             _flush_logs()
 
         # No onset found after all expansions
-        logger.warning(f"No onset detected after {search_iteration} search iteration(s)")
+        logger.warning("No onset detected after %d search iteration(s)", search_iteration)
         return None
 
     except Exception as e:
         if "cancelled" in str(e).lower():
             raise
-        logger.error(f"MDX scan failed: {e}")
+        logger.error("MDX scan failed: %s", e)
         raise DetectionFailedError(f"MDX scanning failed: {e}", provider_name="mdx", cause=e)

@@ -56,7 +56,7 @@ def separate_vocals_chunk(
 
     # Log separation start
     duration_s = waveform.shape[1] / sample_rate
-    logger.info(f"Running Demucs separation on {duration_s:.1f}s audio chunk...")
+    logger.debug(f"Running Demucs separation on {duration_s:.1f}s audio chunk...")
     flush_logs()
 
     with torch.no_grad():
@@ -75,7 +75,7 @@ def separate_vocals_chunk(
         # Extract vocals using VOCALS_INDEX (htdemucs: drums=0, bass=1, other=2, vocals=3)
         vocals = sources[0, VOCALS_INDEX].cpu().numpy()
 
-        logger.info(f"Separation complete in {elapsed:.1f}s ({duration_s / elapsed:.1f}x realtime)")
+        logger.debug(f"Separation complete in {elapsed:.1f}s ({duration_s / elapsed:.1f}x realtime)")
         flush_logs()
 
     return vocals

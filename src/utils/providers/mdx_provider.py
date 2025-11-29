@@ -130,7 +130,7 @@ class MdxProvider(IDetectionProvider):
         Raises:
             DetectionFailedError: If Demucs separation fails
         """
-        logger.info(f"Preparing vocals from {audio_file}")
+        logger.debug(f"Preparing vocals from {audio_file}")
 
         if not os.path.exists(destination_vocals_filepath) or overwrite:
             try:
@@ -139,7 +139,7 @@ class MdxProvider(IDetectionProvider):
                     raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
 
                 # Load audio
-                logger.info("Loading audio file...")
+                logger.debug("Loading audio file...")
                 import warnings
 
                 with warnings.catch_warnings():
@@ -155,9 +155,9 @@ class MdxProvider(IDetectionProvider):
                 if duration > 0 and duration < track_duration_sec:
                     num_samples = int(duration * sample_rate)
                     waveform = waveform[:, :num_samples]
-                    logger.info(f"Capping preview vocals to first {duration}s (track is {track_duration_sec:.1f}s)")
+                    logger.debug(f"Capping preview vocals to first {duration}s (track is {track_duration_sec:.1f}s)")
                 else:
-                    logger.info(f"Separating full track ({track_duration_sec:.1f}s)")
+                    logger.debug(f"Separating full track ({track_duration_sec:.1f}s)")
 
                 # Check cancellation
                 if check_cancellation and check_cancellation():
@@ -167,7 +167,7 @@ class MdxProvider(IDetectionProvider):
                 separation_desc = (
                     f"{duration}s preview" if duration > 0 and duration < track_duration_sec else "full-track"
                 )
-                logger.info(f"Running {separation_desc} Demucs separation (this may take a while)...")
+                logger.debug(f"Running {separation_desc} Demucs separation (this may take a while)...")
                 model = self._get_demucs_model()
 
                 import time
@@ -186,7 +186,7 @@ class MdxProvider(IDetectionProvider):
                     vocals = sources[0, 3].cpu()  # Remove batch dimension, get vocals
 
                 elapsed = time.time() - start_time
-                logger.info(f"Separation complete in {elapsed:.1f}s")
+                logger.debug(f"Separation complete in {elapsed:.1f}s")
 
                 # Check cancellation
                 if check_cancellation and check_cancellation():
@@ -194,7 +194,7 @@ class MdxProvider(IDetectionProvider):
 
                 # Save vocals with CBR MP3 for accurate seeking (320kbps = ~2.4MB/min)
                 # VBR MP3 has seeking issues; CBR ensures accurate position calculation
-                logger.info(f"Saving vocals to: {destination_vocals_filepath}")
+                logger.debug(f"Saving vocals to: {destination_vocals_filepath}")
                 os.makedirs(os.path.dirname(destination_vocals_filepath), exist_ok=True)
 
                 if destination_vocals_filepath.endswith('.mp3'):
@@ -224,7 +224,7 @@ class MdxProvider(IDetectionProvider):
                     # Save directly as WAV (for tests or explicit WAV requests)
                     torchaudio.save(destination_vocals_filepath, vocals, sample_rate)
 
-                logger.info(f"Vocals prepared successfully at {destination_vocals_filepath}")
+                logger.debug(f"Vocals prepared successfully at {destination_vocals_filepath}")
 
             except Exception as e:
                 if "cancelled" in str(e).lower():
@@ -292,7 +292,7 @@ class MdxProvider(IDetectionProvider):
         device_name = "GPU (CUDA)" if self._device == "cuda" else "CPU"
         logger.info(f"Starting MDX vocal onset detection on {device_name} (expected gap: {expected_gap:.0f}ms)")
         _flush_logs()
-        logger.info(f"Analyzing audio file: {audio_file}")
+        logger.debug(f"Analyzing audio file: {audio_file}")
         _flush_logs()
 
         try:
