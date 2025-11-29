@@ -48,16 +48,13 @@ class CustomSortFilterProxyModel(QSortFilterProxyModel):
         start = time.perf_counter()
         super().invalidate()
         duration = (time.perf_counter() - start) * 1000
-        if duration > 50:
-            logger.warning("Proxy invalidate took %.1f ms", duration)
-        else:
-            logger.debug("Proxy invalidate completed in %.1f ms", duration)
+        logger.debug("Proxy invalidate completed in %.1f ms", duration)
 
     def invalidateFilter(self):
         self._filter_eval_started_at = time.perf_counter()
         self._filter_eval_count = 0
         self._pending_filter_summary = True
-        logger.info(
+        logger.debug(
             "Proxy filter invalidation requested (statuses=%s, text_len=%s)",
             len(self.selectedStatuses),
             len(self.textFilter),
@@ -69,10 +66,7 @@ class CustomSortFilterProxyModel(QSortFilterProxyModel):
         start = time.perf_counter()
         super().sort(column, order)
         duration = (time.perf_counter() - start) * 1000
-        if duration > 50:
-            logger.warning("Proxy sort on column %s took %.1f ms", column, duration)
-        else:
-            logger.debug("Proxy sort on column %s completed in %.1f ms", column, duration)
+        logger.debug("Proxy sort on column %s completed in %.1f ms", column, duration)
 
     def _log_filter_eval_summary(self):
         if not self._pending_filter_summary:
@@ -281,7 +275,7 @@ class SongListWidget(QWidget):
         self.tableView.setSortingEnabled(True)
         self.tableView.setUpdatesEnabled(True)
         self.tableView.reset_viewport_loading()
-        logger.info("SongListWidget bulk freeze released (%s)", reason)
+        logger.debug("SongListWidget bulk freeze released (%s)", reason)
 
     def _on_loading_finished(self):
         """Handle when song loading is complete - ensure bulk loading mode ends."""

@@ -204,9 +204,9 @@ class TestGapDetectionScheduler:
             txt_path = os.path.join(tmpdir, "song.txt")
             Path(txt_path).write_text("#ARTIST:Test\n#TITLE:Song\n")
 
-            # Schedule creation scan twice rapidly (simulates dir + file CREATED)
-            scheduler._schedule_creation_scan(txt_path)
-            scheduler._schedule_creation_scan(txt_path)
+            # Schedule creation check twice rapidly (simulates dir + file CREATED)
+            scheduler._schedule_creation_check(txt_path)
+            scheduler._schedule_creation_check(txt_path)
 
             # Only one pending creation should exist (coalesced)
             assert len(scheduler._pending_creations) == 1
@@ -225,7 +225,7 @@ class TestGapDetectionScheduler:
             assert txt_path not in scheduler._creation_enqueued
 
             # Can schedule again after clearing
-            scheduler._schedule_creation_scan(txt_path)
+            scheduler._schedule_creation_check(txt_path)
             qtbot.wait(200)
             assert len(enqueue_calls) == 2
 

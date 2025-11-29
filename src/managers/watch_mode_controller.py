@@ -11,7 +11,7 @@ from PySide6.QtCore import QObject, Signal
 from services.directory_watcher import DirectoryWatcher, WatchEvent, WatchEventType
 from services.cache_update_scheduler import CacheUpdateScheduler
 from services.gap_detection_scheduler import GapDetectionScheduler
-from workers.rescan_single_song import RescanSingleSongWorker
+from workers.check_single_song import CheckSingleSongWorker
 from model.song import Song
 
 logger = logging.getLogger(__name__)
@@ -172,19 +172,19 @@ class WatchModeController(QObject):
             logger.error(f"Error handling file event: {e}", exc_info=True)
             self.error_occurred.emit(f"Error handling file event: {e}")
 
-    def _on_song_added_worker(self, worker: RescanSingleSongWorker):
-        """Handle song scan worker being added."""
+    def _on_song_added_worker(self, worker: CheckSingleSongWorker):
+        """Handle song check worker being added."""
         # Connect to get results
-        worker.signals.songScanned.connect(self._on_song_scanned)
+        worker.signals.songChecked.connect(self._on_song_checked)
 
-    def _on_song_scanned(self, song: Song):
-        """Handle newly scanned song."""
+    def _on_song_checked(self, song: Song):
+        """Handle newly checked song."""
         from model.song import SongStatus
 
         try:
             # Skip songs that failed to load
             if song.status and song.status.name == "ERROR":
-                logger.warning(f"Skipping failed song scan: {song.txt_file} - Error: {song.error_message or 'unknown'}")
+                logger.warning(f"Skipping failed song check: {song.txt_file} - Error: {song.error_message or 'unknown'}")
                 # Clear creation guard even on error to allow retry
                 self._cache_scheduler.clear_creation_guard(song.txt_file)
                 return
@@ -197,7 +197,7 @@ class WatchModeController(QObject):
                 self._cache_scheduler.clear_creation_guard(song.txt_file)
                 return
 
-            logger.info(f"Adding scanned song to collection: {song.artist} - {song.title}")
+            logger.info(f"Adding checked song to collection: {song.artist} - {song.title}")
             self._songs_add(song)
 
             # Clear creation guard after successful add
@@ -215,7 +215,7 @@ class WatchModeController(QObject):
                     )
 
         except Exception as e:
-            logger.error(f"Error adding scanned song: {e}", exc_info=True)
+            logger.error(f"Error adding checked song: {e}", exc_info=True)
             # Clear creation guard on exception to allow retry
             if song and song.txt_file:
                 self._cache_scheduler.clear_creation_guard(song.txt_file)

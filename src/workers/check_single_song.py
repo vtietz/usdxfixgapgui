@@ -1,7 +1,7 @@
 """
-RescanSingleSongWorker: Targeted song rescanning without full directory scan.
+CheckSingleSongWorker: Targeted song checks without a full directory rescan.
 
-Used by watch mode to efficiently add newly created songs to the cache.
+Used by watch mode to efficiently validate newly created or modified songs.
 """
 
 import os
@@ -16,17 +16,17 @@ logger = logging.getLogger(__name__)
 
 
 class WorkerSignals(IWorkerSignals):
-    """Signals emitted by RescanSingleSongWorker"""
+    """Signals emitted by CheckSingleSongWorker"""
 
-    songScanned = Signal(Song)
+    songChecked = Signal(Song)
 
 
-class RescanSingleSongWorker(IWorker):
-    """Worker for scanning/rescanning a single song folder."""
+class CheckSingleSongWorker(IWorker):
+    """Worker for checking a single song folder for updates."""
 
     def __init__(self, song_path: str, usdb_id: Optional[int] = None):
         """
-        Initialize RescanSingleSongWorker.
+        Initialize CheckSingleSongWorker.
 
         Args:
             song_path: Path to the song folder or .txt file
@@ -36,11 +36,11 @@ class RescanSingleSongWorker(IWorker):
         self.signals = WorkerSignals()
         self.song_path = song_path
         self.usdb_id = usdb_id
-        self.description = f"Scanning song {os.path.basename(song_path)}"
+        self.description = f"Checking song {os.path.basename(song_path)}"
         self.song_service = SongService()
 
     async def load(self) -> Song:
-        """Load/scan the song from file."""
+        """Load the song from disk for checking."""
         try:
             # Determine txt file path
             if os.path.isfile(self.song_path) and self.song_path.endswith(".txt"):
@@ -61,7 +61,7 @@ class RescanSingleSongWorker(IWorker):
             return song
 
         except Exception as e:
-            logger.error(f"Error scanning song '{self.song_path}': {e}", exc_info=True)
+            logger.error("Error checking song '%s': %s", self.song_path, e, exc_info=True)
 
             # Create minimal song with error status
             txt_path = self.song_path if self.song_path.endswith(".txt") else ""
@@ -71,16 +71,16 @@ class RescanSingleSongWorker(IWorker):
             return song
 
     async def run(self):
-        """Execute the scan."""
-        logger.info(f"Scanning single song: {self.song_path}")
+        """Execute the check."""
+        logger.info("Checking single song: %s", self.song_path)
 
         song = await self.load()
 
         if not self.is_cancelled():
-            self.signals.songScanned.emit(song)
-            logger.debug(f"Finished scanning song: {self.song_path}")
+            self.signals.songChecked.emit(song)
+            logger.debug("Finished checking song: %s", self.song_path)
         else:
-            logger.debug(f"Cancelled scanning song: {self.song_path}")
+            logger.debug("Cancelled checking song: %s", self.song_path)
 
         # Always emit finished
         self.signals.finished.emit()
