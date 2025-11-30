@@ -52,7 +52,6 @@ class GapDetectionResult:
         self.original_gap: Optional[int] = None
         self.silence_periods: Optional[List[Tuple[float, float]]] = None
         self.gap_diff: Optional[int] = None
-        self.notes_overlap: Optional[float] = None
         self.duration_ms: Optional[float] = None
         self.status: Optional[GapInfoStatus] = None
         self.error: Optional[str] = None
@@ -116,17 +115,10 @@ class DetectGapWorker(IWorker):
                 GapInfoStatus.MISMATCH if gap_diff > self.options.config.gap_tolerance else GapInfoStatus.MATCH
             )
 
-            # Get vocals duration for notes overlap calculation
-            vocals_duration_ms = audio.get_audio_duration(detection_result.vocals_file, self.is_cancelled)
-            notes_overlap = usdx.get_notes_overlap(
-                self.options.notes or [], detection_result.silence_periods, vocals_duration_ms
-            )
-
             # Populate the result with basic fields
             result.detected_gap = detected_gap
             result.silence_periods = detection_result.silence_periods
             result.gap_diff = gap_diff
-            result.notes_overlap = notes_overlap
             result.status = info_status
 
             # Populate extended detection metadata

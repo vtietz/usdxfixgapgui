@@ -242,7 +242,7 @@ class SongTableModel(QAbstractTableModel):
         return len(self.songs)
 
     def columnCount(self, parent=QModelIndex()):
-        return 12
+        return 11
 
     def _format_column_display(self, song: Song, column: int, cache_entry) -> str:
         """Format display text for a specific column via strategy pattern."""
@@ -261,7 +261,7 @@ class SongTableModel(QAbstractTableModel):
             cache_entry = self._row_cache.get(song.path)
             return self._format_column_display(song, column, cache_entry)
         elif role == Qt.ItemDataRole.TextAlignmentRole:
-            if 3 <= column <= 8 or column == 10:
+            if 3 <= column <= 7 or column == 9:
                 return Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         elif role == Qt.ItemDataRole.BackgroundRole:
@@ -280,7 +280,6 @@ class SongTableModel(QAbstractTableModel):
                 "Gap",
                 "Detected",
                 "Diff",
-                "Notes",
                 "Time",
                 "Normalized",
                 "Status",

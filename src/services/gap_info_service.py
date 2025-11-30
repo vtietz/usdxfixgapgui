@@ -95,7 +95,6 @@ class GapInfoService:
         gap_info.updated_gap = data.get("updated_gap", 0)
         gap_info.diff = data.get("diff", 0)
         gap_info.duration = data.get("duration", 0)
-        gap_info.notes_overlap = data.get("notes_overlap", 0)
         gap_info.processed_time = data.get("processed_time", "")
         gap_info.silence_periods = data.get("silence_periods", [])
         gap_info.is_normalized = data.get("is_normalized", False)
@@ -159,7 +158,6 @@ class GapInfoService:
                 "updated_gap": gap_info.updated_gap,
                 "diff": gap_info.diff,
                 "duration": gap_info.duration,
-                "notes_overlap": gap_info.notes_overlap,
                 "processed_time": gap_info.processed_time,
                 "silence_periods": gap_info.silence_periods,
                 "is_normalized": gap_info.is_normalized,

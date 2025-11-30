@@ -38,7 +38,6 @@ def test_status_remains_match_after_gap_detection_with_waveform_creation(app_dat
     result = GapDetectionResult(song.txt_file)
     result.detected_gap = 1100
     result.gap_diff = 100
-    result.notes_overlap = 0.0
     result.silence_periods = [(0.0, 1100.0)]
     result.duration_ms = 180000
     result.status = GapInfoStatus.MATCH

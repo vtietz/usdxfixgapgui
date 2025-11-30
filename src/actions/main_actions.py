@@ -53,9 +53,6 @@ class Actions(BaseActions):
     def detect_gap(self, overwrite=False):
         self._gap_actions.detect_gap(overwrite)
 
-    def get_notes_overlap(self, song, silence_periods, detection_time):
-        self._gap_actions.get_notes_overlap(song, silence_periods, detection_time)
-
     def update_gap_value(self, song, gap):
         self._gap_actions.update_gap_value(song, gap)
 

@@ -21,7 +21,6 @@ class TestDetectGapFinished:
 
         # Create detection result with MATCH status
         result = create_match_result(song_file_path=song.txt_file, detected_gap=1000)
-        result.notes_overlap = 50
         result.silence_periods = [(0, 500), (1000, 1500)]
         result.duration_ms = 180000
 
@@ -50,7 +49,6 @@ class TestDetectGapFinished:
             # Assert: gap_info fields were updated
             assert song.gap_info.detected_gap == 1000
             assert song.gap_info.diff == 0
-            assert song.gap_info.notes_overlap == 50
             assert song.gap_info.silence_periods == [(0, 500), (1000, 1500)]
             assert song.gap_info.duration == 180000
             assert song.gap_info.status == GapInfoStatus.MATCH
@@ -120,7 +118,6 @@ class TestDetectGapFinished:
 
         # Create mismatch result
         result = create_mismatch_result(song_file_path=song.txt_file, detected_gap=1200, gap_diff=200)
-        result.notes_overlap = 100
         result.silence_periods = []
         result.duration_ms = 150000
 
@@ -231,7 +228,6 @@ class TestDetectGapFinished:
 
         # Create detection result with MATCH status
         result = create_match_result(song_file_path=song.txt_file, detected_gap=1000)
-        result.notes_overlap = 50
         result.silence_periods = []
         result.duration_ms = 150000
 
@@ -370,39 +366,6 @@ class TestDetectGapFinished:
             # Assert: Status was updated to SOLVED
             assert song.gap_info.status == GapInfoStatus.SOLVED
             assert song.status == SongStatus.SOLVED
-
-            # Assert: SongService.update_cache was called with the song
-            mock_song_service.update_cache.assert_called_once_with(song)
-
-    def test_song_cache_updated_after_notes_overlap_calculation(self, app_data, song_factory, fake_run_async):
-        """Test: Song cache is updated after notes overlap is calculated"""
-        from model.gap_info import GapInfo
-
-        song = song_factory(title="Overlap Test", gap=1000, with_notes=True)
-        song.gap_info = GapInfo(song.path)
-
-        silence_periods = [(0, 500), (1000, 1500)]
-        detection_time = 30000
-
-        with (
-            patch("actions.gap_actions.run_async") as mock_run_async,
-            patch("services.gap_info_service.GapInfoService.save", new_callable=AsyncMock),
-            patch("services.song_service.SongService") as mock_song_service_class,
-            patch("actions.gap_actions.usdx.get_notes_overlap", return_value=75.5),
-        ):
-
-            # Use centralized async executor fixture
-            mock_run_async.side_effect = fake_run_async
-
-            # Mock SongService instance
-            mock_song_service = Mock()
-            mock_song_service_class.return_value = mock_song_service
-
-            gap_actions = GapActions(app_data)
-            gap_actions.get_notes_overlap(song, silence_periods, detection_time)
-
-            # Assert: Notes overlap was set
-            assert song.gap_info.notes_overlap == 75.5
 
             # Assert: SongService.update_cache was called with the song
             mock_song_service.update_cache.assert_called_once_with(song)

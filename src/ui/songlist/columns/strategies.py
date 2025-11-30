@@ -140,30 +140,12 @@ class DiffColumn:
         return 0
 
 
-class NotesOverlapColumn:
-    """Column 8: Notes overlap amount."""
+class ProcessedTimeColumn:
+    """Column 8: Processing timestamp."""
 
     @property
     def column_index(self) -> int:
         return 8
-
-    def format_display(self, song: Song, cache_entry: Optional[dict]) -> str:
-        if song.gap_info:
-            return str(song.gap_info.notes_overlap)
-        return ""
-
-    def get_sort_key(self, song: Song, cache_entry: Optional[dict]) -> Any:
-        if song.gap_info and song.gap_info.notes_overlap:
-            return song.gap_info.notes_overlap
-        return 0
-
-
-class ProcessedTimeColumn:
-    """Column 9: Processing timestamp."""
-
-    @property
-    def column_index(self) -> int:
-        return 9
 
     def format_display(self, song: Song, cache_entry: Optional[dict]) -> str:
         return song.status_time_display
@@ -173,11 +155,11 @@ class ProcessedTimeColumn:
 
 
 class NormalizedColumn:
-    """Column 10: Normalization status."""
+    """Column 9: Normalization status."""
 
     @property
     def column_index(self) -> int:
-        return 10
+        return 9
 
     def format_display(self, song: Song, cache_entry: Optional[dict]) -> str:
         return song.normalized_str
@@ -189,11 +171,11 @@ class NormalizedColumn:
 
 
 class StatusColumn:
-    """Column 11: Processing status."""
+    """Column 10: Processing status."""
 
     @property
     def column_index(self) -> int:
-        return 11
+        return 10
 
     def format_display(self, song: Song, cache_entry: Optional[dict]) -> str:
         return song.status.name

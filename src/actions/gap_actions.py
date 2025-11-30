@@ -14,7 +14,6 @@ from services.song_signature_service import SongSignatureService
 from services.usdx_file_service import USDXFileService
 from workers.detect_gap import DetectGapWorker, GapDetectionResult, DetectGapWorkerOptions
 from utils.run_async import run_async
-import utils.usdx as usdx
 from typing import Optional, cast
 from services.file_mutation_guard import FileMutationGuard
 
@@ -130,7 +129,6 @@ class GapActions(BaseActions):
         song.gap_info.original_gap = int(result.original_gap or song.gap_info.original_gap)
         song.gap_info.detected_gap = int(result.detected_gap or song.gap_info.detected_gap)
         song.gap_info.diff = int(result.gap_diff or song.gap_info.diff)
-        song.gap_info.notes_overlap = float(result.notes_overlap or song.gap_info.notes_overlap)
         song.gap_info.silence_periods = result.silence_periods or []
         song.gap_info.duration = int(result.duration_ms) if result.duration_ms else song.gap_info.duration
 
@@ -197,30 +195,6 @@ class GapActions(BaseActions):
 
         # Emit signal once to update UI with new status
         self.data.songs.updated.emit(song)
-
-    def get_notes_overlap(self, song: Optional[Song], silence_periods, detection_time):
-        song_to_process = self._resolve_song(song)
-        if not song_to_process:
-            return
-
-        notes = song_to_process.notes or []
-        notes_overlap = usdx.get_notes_overlap(notes, silence_periods, detection_time)
-
-        if not song_to_process.gap_info:
-            song_to_process.gap_info = GapInfoServiceRef.create_for_song_path(song_to_process.path)
-
-        song_to_process.gap_info.notes_overlap = notes_overlap
-
-        # Save gap info and update cache
-        async def save_gap_and_cache():
-            if song_to_process.gap_info:
-                await GapInfoServiceRef.save(song_to_process.gap_info)
-            # Update song_cache.db so status persists
-            song_service.SongService().update_cache(song_to_process)
-            logger.debug(f"Updated song cache after notes overlap for {song_to_process.txt_file}")
-
-        run_async(save_gap_and_cache())
-        self.data.songs.updated.emit(song_to_process)
 
     def _recalculate_note_times(self, song: Optional[Song]) -> None:
         """Helper kept for backward compatibility with tests; delegates to NoteTimingService."""

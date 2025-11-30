@@ -8,7 +8,6 @@ def create_gap_detection_result(
     song_file_path: str,
     detected_gap: int = 1000,
     gap_diff: int = 0,
-    notes_overlap: int = 0,
     silence_periods: list = None,
     duration_ms: int = 180000,
     status: GapInfoStatus = GapInfoStatus.MATCH,
@@ -21,7 +20,6 @@ def create_gap_detection_result(
         song_file_path: Path to the song file
         detected_gap: Detected gap value in milliseconds
         gap_diff: Difference between detected and current gap
-        notes_overlap: Notes overlap value in milliseconds
         silence_periods: List of silence period tuples (start, end)
         duration_ms: Total duration in milliseconds
         status: GapInfoStatus enum value
@@ -38,7 +36,6 @@ def create_gap_detection_result(
     result.original_gap = original_gap
     result.detected_gap = detected_gap
     result.gap_diff = gap_diff
-    result.notes_overlap = notes_overlap
     result.silence_periods = silence_periods
     result.duration_ms = duration_ms
     result.status = status

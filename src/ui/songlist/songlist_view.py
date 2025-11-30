@@ -18,10 +18,9 @@ COLUMN_DEFAULT_WIDTHS = {
     5: 60,
     6: 60,
     7: 60,
-    8: 60,
-    9: 100,
-    10: 60,
-    11: 120,
+    8: 100,
+    9: 60,
+    10: 120,
 }
 
 PRIMARY_COLUMN_RATIOS = (0.4, 0.35, 0.25)  # Path, Artist, Title share of remaining width
