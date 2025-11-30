@@ -40,6 +40,7 @@ class LoadUsdxFilesWorker(IWorker):
         self.loaded_paths = set()  # Track files we've loaded to detect stale cache entries
         self.reload_single_file = None  # Path to single file to reload (when used for reload)
         self.song_service = SongService()  # Create song service
+        self._cache_loaded_count = 0
 
         # Batching for performance - use config or default to 50
         self.batch_size = config.song_list_batch_size if config else 50
@@ -152,7 +153,8 @@ class LoadUsdxFilesWorker(IWorker):
                 continue
 
             # Ensure song is valid
-            if not hasattr(song, "path"):
+            if not isinstance(song, Song) or not getattr(song, "path", None):
+                logger.debug("Skipping cache row with invalid song payload: %s", file_path)
                 continue
 
             # Apply USDB ID mapping to cached songs
@@ -385,7 +387,7 @@ class LoadUsdxFilesWorker(IWorker):
         # Clean up stale cache entries ONLY if we successfully loaded from cache
         # This prevents deleting freshly-created cache entries when starting with empty cache
         # Stale entries are only possible if we loaded songs from cache that no longer exist on disk
-        if hasattr(self, "_cache_loaded_count") and self._cache_loaded_count > 0:
+        if self._cache_loaded_count > 0:
             await self.cleanup_cache()
         else:
             logger.debug("Skipping cache cleanup (no songs loaded from cache)")

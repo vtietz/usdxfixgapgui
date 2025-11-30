@@ -87,8 +87,8 @@ class UIManager:
             self.syllable_label.setText("")
             return
 
-        # Check if song has notes attribute
-        if not hasattr(song, "notes") or song.notes is None:
+        # Notes may still be loading; bail out during that window
+        if song.notes is None:
             self.syllable_label.setText("")
             return
 

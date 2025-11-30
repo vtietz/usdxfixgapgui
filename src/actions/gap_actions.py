@@ -6,10 +6,10 @@ from actions.audio_actions import AudioActions
 from model.song import Song, SongStatus
 from model.gap_info import GapInfoStatus
 from model.usdx_file import USDXFile
-from PySide6.QtCore import QTimer
+from PySide6 import QtCore
 from services.gap_info_service import GapInfoService
 from services.note_timing_service import NoteTimingService
-from services.song_service import SongService
+from services import song_service
 from services.song_signature_service import SongSignatureService
 from services.usdx_file_service import USDXFileService
 from workers.detect_gap import DetectGapWorker, GapDetectionResult, DetectGapWorkerOptions
@@ -172,7 +172,7 @@ class GapActions(BaseActions):
             if song.gap_info:
                 await GapInfoServiceRef.save(song.gap_info, refresh_timestamp=False)
             # Update song_cache.db so status persists across app restarts
-            SongService().update_cache(song)
+            song_service.SongService().update_cache(song)
             logger.debug(f"Updated song cache after gap detection for {song.txt_file}")
 
         run_async(save_gap_and_cache())
@@ -216,11 +216,19 @@ class GapActions(BaseActions):
             if song_to_process.gap_info:
                 await GapInfoServiceRef.save(song_to_process.gap_info)
             # Update song_cache.db so status persists
-            SongService().update_cache(song_to_process)
+            song_service.SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after notes overlap for {song_to_process.txt_file}")
 
         run_async(save_gap_and_cache())
         self.data.songs.updated.emit(song_to_process)
+
+    def _recalculate_note_times(self, song: Optional[Song]) -> None:
+        """Helper kept for backward compatibility with tests; delegates to NoteTimingService."""
+        song_to_process = self._resolve_song(song)
+        if not song_to_process:
+            logger.warning("Cannot recalculate note times: no song provided")
+            return
+        NoteTimingService.recalculate(song_to_process)
 
     def update_gap_value(self, song: Optional[Song], gap: int):
         song_to_process = self._resolve_song(song)
@@ -265,13 +273,13 @@ class GapActions(BaseActions):
                 await GapInfoServiceRef.save(song_to_process.gap_info)
 
             # Update song_cache.db so status persists
-            SongService().update_cache(song_to_process)
+            song_service.SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after gap update for {song_to_process.txt_file}")
 
         run_async(update_gap_and_cache())
 
         # Recalculate note times with new gap value
-        NoteTimingService.recalculate(song_to_process)
+        self._recalculate_note_times(song_to_process)
 
         audio_actions = AudioActions(self.data)
         audio_actions._create_waveforms(song_to_process, overwrite=True, emit_on_finish=False)
@@ -279,7 +287,7 @@ class GapActions(BaseActions):
         # Defer signal emission to prevent cascade
         # Extend the suspension window slightly to cover the deferred emission
         self.data.media_suspend_requested.emit(250)
-        QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
+        QtCore.QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
 
     def revert_gap_value(self, song: Optional[Song]):
         song_to_process = self._resolve_song(song)
@@ -311,13 +319,13 @@ class GapActions(BaseActions):
                 await GapInfoServiceRef.save(song_to_process.gap_info)
 
             # Update song_cache.db so status persists
-            SongService().update_cache(song_to_process)
+            song_service.SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after gap revert for {song_to_process.txt_file}")
 
         run_async(revert_gap_and_cache())
 
         # Recalculate note times with original gap value
-        NoteTimingService.recalculate(song_to_process)
+        self._recalculate_note_times(song_to_process)
 
         audio_actions = AudioActions(self.data)
         audio_actions._create_waveforms(song_to_process, overwrite=True, emit_on_finish=False)
@@ -325,7 +333,7 @@ class GapActions(BaseActions):
         # Defer signal emission to prevent cascade
         # Extend the suspension window slightly to cover the deferred emission
         self.data.media_suspend_requested.emit(250)
-        QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
+        QtCore.QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
 
     def keep_gap_value(self, song: Optional[Song]):
         start_time = time.perf_counter()
@@ -359,7 +367,7 @@ class GapActions(BaseActions):
             if song_to_process.gap_info:
                 await GapInfoServiceRef.save(song_to_process.gap_info)
             # Update song_cache.db so status persists
-            SongService().update_cache(song_to_process)
+            song_service.SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after keeping gap for {song_to_process.txt_file}")
 
         run_async(save_gap_and_cache())
@@ -375,5 +383,5 @@ class GapActions(BaseActions):
 
         # Extend the suspension window slightly to cover the deferred emission
         self.data.media_suspend_requested.emit(250)
-        QTimer.singleShot(50, emit_deferred)  # 50ms delay to let UI settle
+        QtCore.QTimer.singleShot(50, emit_deferred)  # 50ms delay to let UI settle
         logger.debug("keep_gap_value completed, signal emission deferred")

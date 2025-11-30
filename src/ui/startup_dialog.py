@@ -71,6 +71,13 @@ class StartupDialog(QDialog):
         self.capabilities: Optional[SystemCapabilities] = None
         self._download_worker: Optional[GpuDownloadWorker] = None
         self._download_failure_count = 0  # Track consecutive download failures for flavor fallback
+        self.dont_show_checkbox: QCheckBox | None = None
+        if self.startup_mode:
+            self.start_btn: QPushButton | None = None
+            self.close_app_btn: QPushButton | None = None
+        else:
+            self.close_btn: QPushButton | None = None
+        self._existing_pack_path: Path | None = None
 
         self._setup_ui()
         self._run_health_check()
@@ -230,7 +237,7 @@ class StartupDialog(QDialog):
         self._log_system_details()
         self.status_label.setText("✅ System Ready (GPU Mode)")
         self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
-        if hasattr(self, "dont_show_checkbox"):
+        if self.dont_show_checkbox:
             self.dont_show_checkbox.setChecked(True)
 
     def _render_cpu_mode(self) -> None:
@@ -258,7 +265,7 @@ class StartupDialog(QDialog):
             self.log("")
             self._log_system_details()
             self.status_label.setText("✅ System Ready (CPU Mode)")
-            if hasattr(self, "dont_show_checkbox"):
+            if self.dont_show_checkbox:
                 self.dont_show_checkbox.setChecked(True)
         self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
 
@@ -286,7 +293,7 @@ class StartupDialog(QDialog):
             self.status_label.setText("✅ System Ready (GPU Pack Activated)")
             self.download_btn.setVisible(False)
             self.flavor_combo.setVisible(False)
-            if hasattr(self, "dont_show_checkbox"):
+            if self.dont_show_checkbox:
                 self.dont_show_checkbox.setChecked(True)
             return
 
@@ -347,7 +354,7 @@ class StartupDialog(QDialog):
             self.status_label.setText("✅ System Ready (CPU Mode - GPU Unavailable)")
             self.download_btn.setVisible(False)
             self.flavor_combo.setVisible(False)
-            if hasattr(self, "dont_show_checkbox"):
+            if self.dont_show_checkbox:
                 self.dont_show_checkbox.setChecked(True)
             return
         else:
@@ -442,17 +449,19 @@ class StartupDialog(QDialog):
 
             # Try to get actual running backend from parent window's media player component (About dialog)
             actual_backend_name = None
-            if self.parent() and hasattr(self.parent(), "findChild"):
+            parent = self.parent()
+            if parent:
                 try:
                     from ui.mediaplayer import MediaPlayerComponent
 
-                    media_player = self.parent().findChild(MediaPlayerComponent)
-                    if (
-                        media_player
-                        and hasattr(media_player, "player")
-                        and hasattr(media_player.player, "audio_backend")
-                    ):
-                        backend = media_player.player.audio_backend
+                    media_player = parent.findChild(MediaPlayerComponent)
+                    backend = None
+                    if media_player:
+                        try:
+                            backend = media_player.player.audio_backend
+                        except AttributeError:
+                            backend = None
+                    if backend:
                         actual_backend_name = backend.get_backend_name()
                 except Exception:
                     pass
@@ -535,7 +544,7 @@ class StartupDialog(QDialog):
             self.log("Configuration:")
             self.log(f"  • Data directory: {data_dir}")
             self.log(f"  • Models directory: {models_dir}")
-            if hasattr(self.config, "gpu_pack_path") and self.config.gpu_pack_path:
+            if self.config.gpu_pack_path:
                 self.log(f"  • GPU Pack: {self.config.gpu_pack_path}")
         except Exception:
             # Skip path display if config is mocked or paths unavailable
@@ -580,7 +589,7 @@ class StartupDialog(QDialog):
 
     def _on_activate_gpu_pack(self):
         """Handle Activate GPU Pack button click."""
-        if not hasattr(self, "_existing_pack_path"):
+        if not self._existing_pack_path:
             logger.error("No existing pack path stored")
             return
 
@@ -610,7 +619,7 @@ class StartupDialog(QDialog):
 
             # In startup mode, keep "Start App" and "Close App" buttons as-is
             # User can close and manually restart, or proceed with CPU mode
-            if self.startup_mode and hasattr(self, "start_btn"):
+            if self.startup_mode and self.start_btn:
                 self.start_btn.setEnabled(True)  # Keep Start App enabled
         else:
             self.log("❌ Failed to activate GPU Pack")
@@ -648,7 +657,7 @@ class StartupDialog(QDialog):
     def _on_start_clicked(self):
         """Handle Start App button click."""
         # Save "don't show" preference if checked
-        if hasattr(self, "dont_show_checkbox") and self.dont_show_checkbox.isChecked():
+        if self.dont_show_checkbox and self.dont_show_checkbox.isChecked():
             if self.config:
                 self.config.splash_dont_show_health = True
                 self.config.save()
@@ -784,7 +793,7 @@ class StartupDialog(QDialog):
             SystemCapabilities if successful, None if cancelled
         """
         # Check if we should skip the dialog
-        skip_if_healthy = config and hasattr(config, "splash_dont_show_health") and config.splash_dont_show_health
+        skip_if_healthy = bool(config and config.splash_dont_show_health)
 
         if skip_if_healthy:
             # Run quick health check without showing dialog
@@ -795,7 +804,7 @@ class StartupDialog(QDialog):
             # Check if GPU health changed from healthy to failed
             # If user had working GPU and it's now failed, show dialog again
             gpu_health_degraded = False
-            if config and hasattr(config, "gpu_last_health"):
+            if config:
                 current_health = config.gpu_last_health
 
                 # Check if GPU was previously healthy but is now failed

@@ -70,8 +70,7 @@ class TaskQueueViewer(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if hasattr(self, "_table_layout"):
-            self._table_layout.rebalance_viewport()
+        self._table_layout.rebalance_viewport()
 
     def _gather_tasks(self):
         """
@@ -92,22 +91,14 @@ class TaskQueueViewer(QWidget):
         if self.workerQueueManager.running_instant_task:
             worker = self.workerQueueManager.running_instant_task
             description = getattr(worker, "description", worker.__class__.__name__)
-            status_name = (
-                getattr(worker.status, "name", str(worker.status))
-                if hasattr(worker, "status")
-                else "RUNNING"
-            )
+            status_name = getattr(worker.status, "name", str(worker.status))
             can_cancel = status_name not in ("CANCELLING", "FINISHED", "ERROR")
             tasks.append((worker.id, description, status_name, can_cancel))
 
         # 2. Running standard tasks
         for worker_id, worker in self.workerQueueManager.running_tasks.items():
             description = getattr(worker, "description", worker.__class__.__name__)
-            status_name = (
-                getattr(worker.status, "name", str(worker.status))
-                if hasattr(worker, "status")
-                else "RUNNING"
-            )
+            status_name = getattr(worker.status, "name", str(worker.status))
             can_cancel = status_name not in ("CANCELLING", "FINISHED", "ERROR")
             tasks.append((worker_id, description, status_name, can_cancel))
 
@@ -157,7 +148,7 @@ class TaskQueueViewer(QWidget):
             tasks = self._gather_tasks()
 
             # Skip rebuild if task count and content haven't changed
-            if hasattr(self, '_last_tasks') and self._last_tasks == tasks:
+            if self._last_tasks == tasks:
                 return
             self._last_tasks = tasks
 

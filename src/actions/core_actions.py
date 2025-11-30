@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 class CoreActions(BaseActions):
     """Core application actions like directory management and song loading"""
 
+    def __init__(self, data):
+        super().__init__(data)
+        self._load_started_at: float | None = None
+
     def auto_load_last_directory(self):
         """Check and auto-load songs from the last directory if available"""
         dir_to_load = None
@@ -96,15 +100,14 @@ class CoreActions(BaseActions):
     def _on_songs_batch_loaded(self, songs: list):
         """Handle batch of songs loaded - much faster than one-by-one."""
         elapsed_ms = 0.0
-        if hasattr(self, "_load_started_at") and self._load_started_at:
+        if self._load_started_at:
             elapsed_ms = (time.perf_counter() - self._load_started_at) * 1000
         logger.debug("CoreActions received batch (%s songs) at %.1f ms", len(songs), elapsed_ms)
 
         # Set original gap for new songs
         for song in songs:
             if song.status == SongStatus.NOT_PROCESSED and song.gap_info:
-                if hasattr(song.gap_info, "original_gap"):  # Type guard
-                    song.gap_info.original_gap = song.gap
+                song.gap_info.original_gap = song.gap
 
         # Use bulk add for better performance
         self.data.songs.add_batch(songs)
@@ -113,8 +116,7 @@ class CoreActions(BaseActions):
         """Handle individual song loaded (for single file reloads)."""
         self.data.songs.add(song)
         if song.status == SongStatus.NOT_PROCESSED and song.gap_info:
-            if hasattr(song.gap_info, "original_gap"):  # Type guard
-                song.gap_info.original_gap = song.gap
+            song.gap_info.original_gap = song.gap
         # Only run auto-detection for single file loads, not bulk loads
         # Auto-detection uses MDX (only supported method)
         is_bulk_load = getattr(self, "_is_bulk_load", False)  # Safe attribute access

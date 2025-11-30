@@ -83,14 +83,9 @@ class MediaPlayerComponent(QWidget):
         self._data.songs.updated.connect(self.on_song_updated)
         self._data.songs.deleted.connect(lambda: self.player.unload_all_media())
         # New: allow actions to request unloading media to prevent Windows file locks during normalization
-        if hasattr(self._data, "media_unload_requested"):
-            self._data.media_unload_requested.connect(lambda: self.player.unload_all_media())
+        self._data.media_unload_requested.connect(lambda: self.player.unload_all_media())
         # Optional: suspend media loads during status/filter transitions (if provided by AppData)
-        if hasattr(self._data, "media_suspend_requested"):
-            try:
-                self._data.media_suspend_requested.connect(self.on_media_suspend_requested)
-            except Exception:
-                pass
+        self._data.media_suspend_requested.connect(self.on_media_suspend_requested)
 
         if self._waveform_manager:
             self._waveform_manager.waveformReady.connect(self._handle_waveform_ready)
@@ -572,7 +567,7 @@ class MediaPlayerComponent(QWidget):
             return True
 
         # Log if notes not loaded yet, but allow playback
-        if not hasattr(song, "notes") or song.notes is None:
+        if song.notes is None:
             logger.debug(f"Song '{song.title}' does not have notes data yet (loading in progress), will play anyway")
 
         return False
@@ -762,5 +757,5 @@ class MediaPlayerComponent(QWidget):
         if not self._song:
             return
         gap_info = getattr(self._song, "gap_info", None)
-        if gap_info and hasattr(gap_info, "detected_gap") and gap_info.detected_gap is not None:
+        if gap_info and gap_info.detected_gap is not None:
             self._actions.update_gap_value(self._song, gap_info.detected_gap)

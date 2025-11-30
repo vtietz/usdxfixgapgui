@@ -39,8 +39,8 @@ class SongListView(QTableView):
         super().__init__(parent)
         self.setModel(model)
         # Track both proxy and source model for robust mapping
-        self.proxyModel = model if hasattr(model, "mapToSource") else None
-        self.tableModel = model.sourceModel() if hasattr(model, "sourceModel") else model
+        self.proxyModel = model if isinstance(model, QSortFilterProxyModel) else None
+        self.tableModel = self.proxyModel.sourceModel() if self.proxyModel else model
         # Avoid name clash with QWidget.actions() method
         self.ui_actions = actions
 
@@ -57,9 +57,8 @@ class SongListView(QTableView):
         self._pending_selection = None
 
         # Re-trigger viewport lazy-loading whenever data changes in proxy or source
-        if hasattr(model, "dataChanged"):
-            model.dataChanged.connect(lambda *args: self.reset_viewport_loading())
-        if hasattr(self.tableModel, "dataChanged"):
+        model.dataChanged.connect(lambda *args: self.reset_viewport_loading())
+        if self.tableModel is not model:
             self.tableModel.dataChanged.connect(lambda *args: self.reset_viewport_loading())
 
         # Resize optimization state

@@ -290,12 +290,12 @@ class Song:
         self.notes = None
         if not getattr(self, "_title_sort_key", ""):
             self.update_title_sort_key()
-        if not hasattr(self, "_status"):
+        if "_status" not in state:
             normalized = self._normalize_status_value(legacy_status) if legacy_status else SongStatus.NOT_PROCESSED
             self._status = normalized
-        if not hasattr(self, "_status_changed_at"):
+        if "_status_changed_at" not in state:
             self._status_changed_at = None
-        if not hasattr(self, "_status_changed_str"):
+        if "_status_changed_str" not in state:
             self._status_changed_str = ""
         if not self._status_changed_str and getattr(self, "_gap_info", None):
             processed = getattr(self._gap_info, "processed_time", "")

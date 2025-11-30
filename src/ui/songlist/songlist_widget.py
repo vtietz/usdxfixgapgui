@@ -38,7 +38,7 @@ class CustomSortFilterProxyModel(QSortFilterProxyModel):
             self._filter_eval_count += 1
 
         # Always show selected songs regardless of filters
-        if hasattr(self.app_data, "selected_songs") and song in self.app_data.selected_songs:
+        if song in self.app_data.selected_songs:
             return True
 
         cache_entry = self._get_cache_entry(song, source_model)
@@ -292,12 +292,9 @@ class SongListWidget(QWidget):
         sel_txts = {s.txt_file for s in self._selected_songs if getattr(s, "txt_file", None)}
         if (song in self._selected_songs) or (getattr(song, "txt_file", None) in sel_txts):
             # If status transitioned to PROCESSING for any selected song, request media unload
-            try:
-                if hasattr(song, "status") and song.status == SongStatus.PROCESSING:
-                    # Emit unload signal once (idempotent for multiple songs)
-                    self._data.media_unload_requested.emit()
-            except Exception:
-                pass
+            if song.status == SongStatus.PROCESSING:
+                # Emit unload signal once (idempotent for multiple songs)
+                self._data.media_unload_requested.emit()
             self._refresh_action_buttons()
             # Only invalidate filter if this affects visibility
             self._schedule_filter_invalidation(delay_ms=100, songs=[song])
@@ -455,7 +452,7 @@ class SongListWidget(QWidget):
             logger.debug("Skipped proxy invalidation - no filters active")
             return
 
-        if songs and hasattr(self.proxyModel, "selection_requires_filter_refresh"):
+        if songs:
             try:
                 needs_refresh = self.proxyModel.selection_requires_filter_refresh(songs)
             except Exception:
@@ -556,12 +553,10 @@ class SongListWidget(QWidget):
         self.tableView.setSortingEnabled(True)
 
         # Apply column resizing if needed
-        if hasattr(self.tableView, "apply_resize_policy"):
-            self.tableView.apply_resize_policy()
+        self.tableView.apply_resize_policy()
 
         # Trigger viewport-based lazy loading for visible songs
-        if hasattr(self.tableView, "reset_viewport_loading"):
-            self.tableView.reset_viewport_loading()
+        self.tableView.reset_viewport_loading()
 
         # Clear streaming state
         self._streaming_songs = []

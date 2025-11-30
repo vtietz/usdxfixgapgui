@@ -207,5 +207,4 @@ class LogViewerWidget(QWidget):
 
     def cleanup(self):
         """Stop the update timer."""
-        if hasattr(self, "update_timer"):
-            self.update_timer.stop()
+        self.update_timer.stop()

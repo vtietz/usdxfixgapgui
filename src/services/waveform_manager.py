@@ -60,7 +60,7 @@ class WaveformManager(QObject):
         self._fingerprints: Dict[str, Dict[str, _WaveformFingerprint]] = {}
 
         songs = getattr(self._data, "songs", None)
-        if songs is not None and hasattr(songs, "updated"):
+        if songs is not None:
             songs.updated.connect(self._on_song_updated)
 
     def ensure_waveforms(
@@ -198,7 +198,7 @@ class WaveformManager(QObject):
 
     def _slow_standard_lane_for_metadata(self):
         worker_queue = getattr(self._data, "worker_queue", None)
-        if not worker_queue or not hasattr(worker_queue, "pause_standard_lane"):
+        if not worker_queue:
             return
         try:
             worker_queue.pause_standard_lane(600)
@@ -284,11 +284,10 @@ class WaveformManager(QObject):
             "notes",
         ]
         for attr in fields:
-            if hasattr(source, attr):
-                try:
-                    setattr(target, attr, getattr(source, attr))
-                except Exception:
-                    logger.debug("Failed to copy %s for %s", attr, target.title)
+            try:
+                setattr(target, attr, getattr(source, attr))
+            except Exception:
+                logger.debug("Failed to copy %s for %s", attr, target.title)
 
     def _on_song_updated(self, updated_song: Song):
         key = self._resolve_song_key(updated_song)
@@ -503,7 +502,7 @@ class WaveformManager(QObject):
         if job.lane_hold:
             return
         worker_queue = getattr(self._data, "worker_queue", None)
-        if not worker_queue or not hasattr(worker_queue, "hold_standard_lane"):
+        if not worker_queue:
             return
         try:
             worker_queue.hold_standard_lane(job.song_path)
@@ -515,7 +514,7 @@ class WaveformManager(QObject):
         if not job.lane_hold:
             return
         worker_queue = getattr(self._data, "worker_queue", None)
-        if not worker_queue or not hasattr(worker_queue, "release_standard_lane"):
+        if not worker_queue:
             job.lane_hold = False
             return
         try:

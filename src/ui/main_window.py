@@ -8,6 +8,7 @@ Separated from main entry point for better code organization.
 import os
 import sys
 import logging
+from enum import Enum
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -209,7 +210,7 @@ def _save_window_state(window, config, data):
         config.filter_text = data.songs.filter_text
         # Handle both str and SongStatus enum values defensively
         config.filter_statuses = [
-            (s.name if hasattr(s, "name") else str(s)) for s in data.songs.filter
+            (s.name if isinstance(s, Enum) else str(s)) for s in data.songs.filter
         ]
     except Exception as e:
         logger.warning("Failed to save filter state: %s. Using defaults.", e)

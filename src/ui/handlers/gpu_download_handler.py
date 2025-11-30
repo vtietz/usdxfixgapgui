@@ -117,7 +117,7 @@ def _reset_download_ui(dialog):
     dialog.progress_bar.setVisible(False)
     dialog.progress_label.setVisible(False)
     dialog.download_btn.setEnabled(True)
-    if hasattr(dialog, "start_btn"):
+    if dialog.start_btn:
         dialog.start_btn.setEnabled(True)
 
 
@@ -128,11 +128,11 @@ def _reset_download_ui(dialog):
 
 def _is_dialog_alive(dialog) -> bool:
     try:
-        if not dialog or not hasattr(dialog, "download_btn"):
+        if not dialog:
             return False
         _ = dialog.download_btn.isEnabled()  # Touch C++ object to ensure alive
         return True
-    except RuntimeError:
+    except (AttributeError, RuntimeError):
         return False
 
 
@@ -148,7 +148,7 @@ def _cleanup_previous_worker(dialog) -> None:
 
 def _prepare_download_ui(dialog) -> None:
     dialog.download_btn.setEnabled(False)
-    if hasattr(dialog, "start_btn"):
+    if dialog.start_btn:
         dialog.start_btn.setEnabled(False)
     dialog.progress_bar.setVisible(True)
     dialog.progress_label.setVisible(True)
@@ -163,7 +163,7 @@ def _choose_manifest(dialog):
 
     # Flavor from UI or config
     selected_flavor = dialog.flavor_combo.currentData() if dialog.flavor_combo.isVisible() else None
-    has_cfg = bool(dialog.config and hasattr(dialog.config, "gpu_flavor") and dialog.config.gpu_flavor)
+    has_cfg = bool(dialog.config and dialog.config.gpu_flavor)
     config_flavor = dialog.config.gpu_flavor if has_cfg else None
     flavor_override = selected_flavor or config_flavor
 
@@ -223,7 +223,7 @@ def _handle_download_success(dialog) -> None:
     dialog.progress_bar.setVisible(False)
     dialog.progress_label.setVisible(False)
 
-    if hasattr(dialog, "start_btn"):
+    if dialog.start_btn:
         dialog.start_btn.setEnabled(False)
         dialog.start_btn.setText("Restart Required")
 
@@ -271,7 +271,7 @@ def _handle_download_failure(dialog, message: str) -> None:
 
 
 def _offer_flavor_switch_if_applicable(dialog) -> bool:
-    current_flavor = dialog.config.gpu_flavor if dialog.config and hasattr(dialog.config, "gpu_flavor") else "cu121"
+    current_flavor = dialog.config.gpu_flavor if dialog.config else "cu121"
     cap = capability_probe()
     driver_version = cap.get("driver_version") if cap else None
 
@@ -298,7 +298,7 @@ def _offer_flavor_switch_if_applicable(dialog) -> bool:
 
 def _cleanup_failed_download(dialog) -> None:
     try:
-        if dialog._download_worker and hasattr(dialog._download_worker, "dest_zip"):
+        if dialog._download_worker:
             dest_zip = dialog._download_worker.dest_zip
             cleanup_download_files(dest_zip, dialog.log)
         else:

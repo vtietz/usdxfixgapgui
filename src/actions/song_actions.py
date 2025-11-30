@@ -327,22 +327,19 @@ class SongActions(BaseActions):
         ]
 
         for attr in attributes_to_copy:
-            if hasattr(source_song, attr):
-                try:
-                    setattr(target_song, attr, getattr(source_song, attr))
-                except AttributeError:
-                    logger.warning("Could not set attribute %s on song %s", attr, target_song.title)
+            try:
+                setattr(target_song, attr, getattr(source_song, attr))
+            except AttributeError:
+                logger.warning("Could not set attribute %s on song %s", attr, target_song.title)
 
     def _copy_status_attributes(self, target_song: Song, source_song: Song):
         """Copy status and error_message attributes."""
-        if hasattr(source_song, "status"):
-            target_song.status = source_song.status
-        if hasattr(source_song, "error_message"):
-            target_song.error_message = source_song.error_message
+        target_song.status = source_song.status
+        target_song.error_message = source_song.error_message
 
     def _copy_gap_info(self, target_song: Song, source_song: Song):
         """Copy gap_info from source to target, handling immutable properties."""
-        if not (hasattr(source_song, "gap_info") and source_song.gap_info):
+        if not source_song.gap_info:
             return
 
         try:
@@ -350,7 +347,7 @@ class SongActions(BaseActions):
         except AttributeError:
             # If gap_info is a property with no setter, update its contents
             logger.warning("Could not set gap_info directly, attempting to update contents")
-            if hasattr(target_song, "gap_info") and target_song.gap_info is not None:
+            if target_song.gap_info is not None:
                 self._update_gap_info_contents(target_song.gap_info, source_song.gap_info)
 
                 # Explicitly update duration from gap_info if available
