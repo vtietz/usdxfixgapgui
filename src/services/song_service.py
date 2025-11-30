@@ -38,7 +38,7 @@ class SongService:
             if cached_song:
                 return cached_song
 
-        logger.info("Loading song from disk: %s", txt_file)
+        logger.debug("Loading song from disk: %s", txt_file)
 
         try:
             usdx_file = USDXFile(txt_file)

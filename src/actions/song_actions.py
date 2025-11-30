@@ -137,9 +137,9 @@ class SongActions(BaseActions):
             target = scheduled_songs[0]
             artist = target.artist or "Unknown artist"
             title = target.title or os.path.basename(target.path)
-            logger.info("Reloading song: %s - %s", artist, title)
+            logger.debug("Reloading song: %s - %s", artist, title)
         else:
-            logger.info("Reloading %s songs.", len(scheduled_songs))
+            logger.debug("Reloading %s songs.", len(scheduled_songs))
 
     def reload_song_light(self, specific_song=None, force: bool = False):
         """
@@ -288,7 +288,7 @@ class SongActions(BaseActions):
 
                 audio_actions = AudioActions(self.data)
                 audio_actions._create_waveforms(song, overwrite=False, use_queue=True, emit_on_finish=False)
-                logger.info(f"Queued waveform regeneration after reload for {song.title}")
+                logger.debug("Queued waveform regeneration after reload for %s", song.title)
 
                 # Notify update after successful reload
                 self.data.songs.updated.emit(song)
@@ -299,7 +299,7 @@ class SongActions(BaseActions):
                     # Just refresh the selection to trigger UI updates
                     self.set_selected_songs(self.data.selected_songs)
 
-                logger.info(f"Successfully reloaded {song}")
+                logger.info("Reloaded song: %s - %s", song.artist or "Unknown artist", song.title or song.path)
                 break
 
     def _update_song_attributes(self, target_song: Song, source_song: Song):

@@ -158,10 +158,14 @@ class GapActions(BaseActions):
         # Persist the signatures that this detection processed successfully
         SongSignatureService.capture_processed_signatures(song)
 
+        # Refresh processed timestamp immediately so UI updates before async save completes
+        if song.gap_info:
+            GapInfoServiceRef.touch_processed_time(song.gap_info)
+
         # Save gap info and update cache
         async def save_gap_and_cache():
             if song.gap_info:
-                await GapInfoServiceRef.save(song.gap_info)
+                await GapInfoServiceRef.save(song.gap_info, refresh_timestamp=False)
             # Update song_cache.db so status persists across app restarts
             from services.song_service import SongService
 

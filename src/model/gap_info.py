@@ -93,11 +93,11 @@ class GapInfo:
         self.is_normalized = True
         self.normalized_date = datetime.now().isoformat()
 
-    async def save(self):
+    async def save(self, refresh_timestamp: bool = True):
         """For backward compatibility - delegates to GapInfoService"""
         from services.gap_info_service import GapInfoService
 
-        return await GapInfoService.save(self)
+        return await GapInfoService.save(self, refresh_timestamp=refresh_timestamp)
 
     def __str__(self):
         return f"GapInfo({self.status.value}, orig={self.original_gap}, det={self.detected_gap})"

@@ -9,9 +9,21 @@ from utils import files
 
 logger = logging.getLogger(__name__)
 
+PROCESSED_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+
 
 class GapInfoService:
     """Service class for operations on GapInfo objects"""
+
+    @staticmethod
+    def touch_processed_time(gap_info: GapInfo, timestamp: Optional[datetime] = None) -> str:
+        """Refresh processed_time and sync owning song timestamp immediately."""
+        moment = timestamp or datetime.now()
+        processed_value = moment.strftime(PROCESSED_TIME_FORMAT)
+        gap_info.processed_time = processed_value
+        if gap_info.owner:
+            gap_info.owner.set_status_timestamp_from_string(processed_value)
+        return processed_value
 
     @staticmethod
     async def load(gap_info: GapInfo) -> GapInfo:
@@ -103,7 +115,7 @@ class GapInfoService:
         gap_info.processed_audio_signature = data.get("processed_audio_signature")
 
     @staticmethod
-    async def save(gap_info: GapInfo) -> bool:
+    async def save(gap_info: GapInfo, *, refresh_timestamp: bool = True) -> bool:
         """
         Save gap info to file with multi-entry support.
 
@@ -124,10 +136,9 @@ class GapInfoService:
             return False
 
         try:
-            # Update processed time
-            gap_info.processed_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            if gap_info.owner:
-                gap_info.owner.set_status_timestamp_from_string(gap_info.processed_time)
+            # Update processed time when requested (most callers)
+            if refresh_timestamp:
+                GapInfoService.touch_processed_time(gap_info)
 
             # Prepare entry data for this song
             # Ensure status is an enum (defensive coding)

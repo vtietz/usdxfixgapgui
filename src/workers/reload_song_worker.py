@@ -35,13 +35,13 @@ class ReloadSongWorker(IWorker):
                         with open(usdb_file_path, "r", encoding="utf-8") as f:
                             usdb_data = json.load(f)
                             if "song_id" in usdb_data:
-                                logger.debug(f"Found USDB ID {usdb_data['song_id']} for {directory}")
+                                logger.debug("Found USDB ID %s for %s", usdb_data["song_id"], directory)
                                 return usdb_data["song_id"]
                     except Exception as e:
-                        logger.warning(f"Failed to parse .usdb file {usdb_file_path}: {e}")
+                        logger.warning("Failed to parse .usdb file %s: %s", usdb_file_path, e)
                     break  # Only process one .usdb file per directory
         except Exception as e:
-            logger.warning(f"Failed to scan directory {directory} for .usdb files: {e}")
+            logger.warning("Failed to scan directory %s for .usdb files: %s", directory, e)
         return None
 
     async def load(self) -> Song:
@@ -57,7 +57,7 @@ class ReloadSongWorker(IWorker):
 
         except RuntimeError as e:
             # Specific handling for RuntimeError (failed to load USDX file)
-            logger.error(f"RuntimeError reloading song '{self.song_path}': {str(e)}")
+            logger.error("RuntimeError reloading song '%s': %s", self.song_path, e)
             logger.exception(e)
 
             # Create a basic song with error status
@@ -70,15 +70,15 @@ class ReloadSongWorker(IWorker):
 
     async def run(self):
         """Execute the worker's task."""
-        logger.info(f"Loading song: {self.song_path}")
+        logger.debug("Loading song: %s", self.song_path)
 
         song = await self.load()
 
         if not self.is_cancelled():
             self.signals.songReloaded.emit(song)
-            logger.debug(f"Finished reloading song: {self.song_path}")
+            logger.debug("Finished reloading song: %s", self.song_path)
         else:
-            logger.debug(f"Cancelled reloading song: {self.song_path}")
+            logger.debug("Cancelled reloading song: %s", self.song_path)
 
         # Always emit finished signal, even if cancelled
         self.signals.finished.emit()

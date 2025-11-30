@@ -22,15 +22,15 @@ class UiActions(BaseActions):
 
         # More robust check for usdb_id validity (usdb_id is Optional[int])
         if not song.usdb_id or song.usdb_id == 0:
-            logger.error(f"Song '{song.title}' has no valid USDB ID.")
+            logger.error("Song '%s' has no valid USDB ID.", song.title)
             return
 
-        logger.info(f"Opening USDB in web browser for {song.txt_file} with ID {song.usdb_id}")
+        logger.info("Opening USDB in web browser for %s with ID %s", song.txt_file, song.usdb_id)
         url = QUrl(f"https://usdb.animux.de/index.php?link=detail&id={song.usdb_id}")
         success = QDesktopServices.openUrl(url)
 
         if not success:
-            logger.error(f"Failed to open URL: {url.toString()}")
+            logger.error("Failed to open URL: %s", url.toString())
 
     def open_folder(self):
         # Opens the folder of the first selected song
@@ -38,7 +38,7 @@ class UiActions(BaseActions):
         if not song:
             logger.error("No song selected to open folder.")
             return
-        logger.info(f"Opening folder for {song.path}")
+        logger.debug("Opening folder for %s", song.path)
         url = QUrl.fromLocalFile(song.path)
         if not QDesktopServices.openUrl(url):
             logger.error("Failed to open the folder.")

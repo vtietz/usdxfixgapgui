@@ -181,14 +181,44 @@ class Song:
 
     @gap_info.setter
     def gap_info(self, value):
+        previous_gap_info = getattr(self, "_gap_info", None)
+        previous_processed = previous_gap_info.processed_time if previous_gap_info else ""
+        previous_timestamp = self._status_changed_at
+
         self._gap_info = value
         if value:
             value.owner = self  # Set the song as owner of gap_info
+
+            if previous_processed:
+                candidate = value.processed_time or ""
+                keep_previous = False
+                candidate_dt = self._parse_timestamp(candidate)
+                if not candidate or candidate_dt is None:
+                    keep_previous = True
+                elif previous_timestamp and candidate_dt < previous_timestamp:
+                    keep_previous = True
+                else:
+                    previous_dt = self._parse_timestamp(previous_processed)
+                    if previous_dt and candidate_dt < previous_dt:
+                        keep_previous = True
+
+                if keep_previous:
+                    value.processed_time = previous_processed
+
             self._gap_info_updated()
             if value.processed_time:
                 self.set_status_timestamp_from_string(value.processed_time)
         else:
             self.status = SongStatus.NOT_PROCESSED
+
+    @staticmethod
+    def _parse_timestamp(timestamp_str: str) -> Optional[datetime]:
+        if not timestamp_str:
+            return None
+        try:
+            return datetime.strptime(timestamp_str, TIMESTAMP_FORMAT)
+        except ValueError:
+            return None
 
     def _gap_info_updated(self):
         """Private method to update song status based on current state"""

@@ -191,5 +191,16 @@ class Songs(QObject):
         old_txt_key, old_path_key = self._snapshot_keys(target)
         target.__dict__.update(source.__dict__)
         target.update_title_sort_key()
+        self._rebind_gap_info_owner(target)
         self._remove_index_keys(old_txt_key, old_path_key)
         self._index_song(target)
+
+    def _rebind_gap_info_owner(self, song: Song):
+        """Ensure gap_info.owner points to the live Song instance after updates."""
+        gap_info = getattr(song, "_gap_info", None)
+        if not gap_info:
+            return
+
+        gap_info.owner = song
+        # Re-run status mapping so UI reflects the latest gap_info.status
+        song._gap_info_updated()

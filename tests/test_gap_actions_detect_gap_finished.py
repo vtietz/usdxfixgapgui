@@ -60,7 +60,7 @@ class TestDetectGapFinished:
 
             # Assert: GapInfoService.save was scheduled
             mock_run_async.assert_called_once()
-            mock_gap_service_save.assert_called_once_with(song.gap_info)
+            mock_gap_service_save.assert_called_once_with(song.gap_info, refresh_timestamp=False)
 
             # Assert: _create_waveforms was invoked with overwrite=True and emit_on_finish=False
             mock_audio_actions._create_waveforms.assert_called_once_with(song, overwrite=True, emit_on_finish=False)
@@ -70,6 +70,49 @@ class TestDetectGapFinished:
 
             # Assert: songs.updated.emit was called
             app_data.songs.updated.emit.assert_called_once_with(song)
+
+    def test_processed_timestamp_refreshed_before_emit(self, app_data, song_factory, fake_run_async):
+        """Test: Processed timestamp is refreshed before UI notifications"""
+        song = song_factory(title="Timestamp Song", gap=900)
+        song.gap_info.processed_time = "2024-01-01 10:00:00"
+        song.set_status_timestamp_from_string(song.gap_info.processed_time)
+
+        result = create_match_result(song_file_path=song.txt_file, detected_gap=900)
+
+        expected_timestamp = "2025-02-03 04:05:06"
+
+        with (
+            patch("actions.gap_actions.run_async") as mock_run_async,
+            patch("actions.gap_actions.GapInfoService.save", new_callable=AsyncMock) as mock_gap_service_save,
+            patch("actions.gap_actions.GapInfoService.touch_processed_time") as mock_touch_processed,
+            patch("actions.gap_actions.AudioActions") as mock_audio_actions_class,
+        ):
+
+            mock_run_async.side_effect = fake_run_async
+
+            mock_audio_actions = Mock()
+            mock_audio_actions_class.return_value = mock_audio_actions
+
+            def touch_side_effect(gap_info):
+                gap_info.processed_time = expected_timestamp
+                if gap_info.owner:
+                    gap_info.owner.set_status_timestamp_from_string(expected_timestamp)
+                return expected_timestamp
+
+            mock_touch_processed.side_effect = touch_side_effect
+
+            # Track timestamp visible to UI at emit time
+            def emit_side_effect(emitted_song):
+                assert emitted_song.gap_info.processed_time == expected_timestamp
+
+            app_data.songs.updated.emit.side_effect = emit_side_effect
+
+            gap_actions = GapActions(app_data)
+            gap_actions._on_detect_gap_finished(song, result)
+
+            mock_touch_processed.assert_called_once_with(song.gap_info)
+            mock_gap_service_save.assert_called_once_with(song.gap_info, refresh_timestamp=False)
+            assert song.status_time_display == expected_timestamp
 
     def test_mismatch_status_mapped_correctly(self, app_data, song_factory, fake_run_async):
         """Test: MISMATCH status is correctly mapped to song"""
