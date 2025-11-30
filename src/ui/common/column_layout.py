@@ -6,6 +6,8 @@ from typing import Iterable, Sequence
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QHeaderView, QTableView
 
+SCROLLBAR_GUARD_PX = 4  # Prevent columns from exceeding viewport and triggering scrollbars
+
 
 @dataclass(frozen=True)
 class ColumnDefaults:
@@ -52,7 +54,11 @@ class ColumnLayoutController(QObject):
         if not primaries:
             return
 
-        viewport_width = max(self._table.viewport().width(), self._table.width(), 600)
+        viewport_width = max(
+            self._effective_viewport_width(),
+            self._table.width() - SCROLLBAR_GUARD_PX,
+            600,
+        )
         fixed_total = sum(
             self._table.columnWidth(idx)
             for idx in range(header.count())
@@ -79,7 +85,7 @@ class ColumnLayoutController(QObject):
         if not primaries:
             return
 
-        viewport_width = max(self._table.viewport().width(), self._table.width(), 0)
+        viewport_width = self._effective_viewport_width()
         if viewport_width == 0:
             return
 
@@ -127,3 +133,10 @@ class ColumnLayoutController(QObject):
                 remaining -= share
                 if share > 0:
                     self._table.setColumnWidth(col, self._table.columnWidth(col) - share)
+
+    def _effective_viewport_width(self) -> int:
+        viewport = self._table.viewport()
+        width = viewport.width() if viewport else self._table.width()
+        if width <= 0:
+            width = self._table.width()
+        return max(width - SCROLLBAR_GUARD_PX, 0)

@@ -56,6 +56,7 @@ class TaskQueueViewer(QWidget):
         self.tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tableWidget.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.tableWidget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.tableWidget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         column_defaults = ColumnDefaults(
             numeric_widths={1: 100, 2: 80},

@@ -52,3 +52,39 @@ def test_has_meaningful_change_detects_audio_updates(tmp_path):
     time.sleep(0.01)
 
     assert SongSignatureService.has_meaningful_change(song, str(audio_path))
+
+
+def test_has_signature_drift_detects_txt_changes(tmp_path):
+    song, txt_path, _ = _make_song(tmp_path)
+    SongSignatureService.capture_processed_signatures(song)
+
+    assert not SongSignatureService.has_signature_drift(song)
+
+    txt_path.write_text("UPDATED", encoding="utf-8")
+    time.sleep(0.01)
+
+    assert SongSignatureService.has_signature_drift(song)
+
+
+def test_has_signature_drift_detects_audio_changes(tmp_path):
+    song, _, audio_path = _make_song(tmp_path)
+    SongSignatureService.capture_processed_signatures(song)
+
+    assert not SongSignatureService.has_signature_drift(song)
+
+    audio_path.write_bytes(b"xyz")
+    time.sleep(0.01)
+
+    assert SongSignatureService.has_signature_drift(song)
+
+
+def test_has_signature_drift_requires_baseline(tmp_path):
+    song, txt_path, _ = _make_song(tmp_path)
+
+    # Skip capturing signatures to simulate missing baseline
+    assert not SongSignatureService.has_signature_drift(song)
+
+    txt_path.write_text("UPDATED", encoding="utf-8")
+    time.sleep(0.01)
+
+    assert not SongSignatureService.has_signature_drift(song)

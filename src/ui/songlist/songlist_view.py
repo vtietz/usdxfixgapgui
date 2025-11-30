@@ -90,6 +90,7 @@ class SongListView(QTableView):
         self.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         # Allow selecting multiple rows
         self.setSelectionMode(QTableView.SelectionMode.ExtendedSelection)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setSortingEnabled(True)
         self.horizontalHeader().setSortIndicatorShown(True)
         self.horizontalHeader().setSectionsClickable(True)

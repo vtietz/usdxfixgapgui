@@ -56,6 +56,27 @@ class SongSignatureService:
         return False
 
     @staticmethod
+    def has_signature_drift(song: Song) -> bool:
+        """Determine if current txt/audio files differ from the stored baseline."""
+
+        if not song or not song.gap_info:
+            return False
+
+        gap_info: Optional[GapInfo] = song.gap_info
+
+        if gap_info.processed_txt_signature and song.txt_file and os.path.exists(song.txt_file):
+            if SongSignatureService._txt_changed(song, song.txt_file):
+                logger.debug("Detected txt signature drift for %s", song.txt_file)
+                return True
+
+        if gap_info.processed_audio_signature and song.audio_file and os.path.exists(song.audio_file):
+            if SongSignatureService._audio_changed(song, song.audio_file):
+                logger.debug("Detected audio signature drift for %s", song.audio_file)
+                return True
+
+        return False
+
+    @staticmethod
     def _txt_changed(song: Song, changed_path: str) -> bool:
         gap_info: Optional[GapInfo] = song.gap_info
         if not gap_info:

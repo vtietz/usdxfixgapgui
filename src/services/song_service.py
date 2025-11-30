@@ -10,6 +10,7 @@ from utils import audio
 import utils.files as files
 from common.database import get_cache_entry, set_cache_entry, remove_cache_entry
 from services.gap_info_service import GapInfoService
+from services.song_signature_service import SongSignatureService
 from services.usdx_file_service import USDXFileService
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,8 @@ class SongService:
                     gap_info.status = GapInfoStatus.NOT_PROCESSED
                     song.status = SongStatus.NOT_PROCESSED
                     song.error_message = None
+
+                self._reset_status_if_signature_changed(song)
             else:
                 logger.warning("gap_info not available for %s, duration_ms set to 0", song.txt_file)
                 song.gap_info = None  # Set to None if no gap_info available
@@ -90,6 +93,37 @@ class SongService:
             self.update_cache(song)
 
         return song
+
+    def _reset_status_if_signature_changed(self, song: Song) -> None:
+        """Reset song status when stored signatures no longer match current files."""
+
+        gap_info = song.gap_info
+        if not gap_info or song.status == SongStatus.ERROR:
+            return
+
+        if not SongSignatureService.has_signature_drift(song):
+            return
+
+        logger.info("Detected file changes since last detection for %s; resetting status", song.txt_file)
+
+        gap_info.status = GapInfoStatus.NOT_PROCESSED
+        song.status = SongStatus.NOT_PROCESSED
+        gap_info.error_message = None
+        song.error_message = None
+        gap_info.detected_gap = 0
+        gap_info.updated_gap = 0
+        gap_info.diff = 0
+        gap_info.detected_gap_ms = None
+        gap_info.first_note_ms = None
+        gap_info.tolerance_band_ms = None
+        gap_info.preview_wav_path = None
+        gap_info.waveform_json_path = None
+        gap_info.confidence = None
+        gap_info.processed_time = ""
+        gap_info.silence_periods = []
+        gap_info.is_normalized = False
+        gap_info.normalized_date = None
+        gap_info.normalization_level = None
 
     async def _initialize_song_from_usdx(self, song: Song, usdx_file: USDXFile) -> None:
         """Populate song fields from USDX file."""

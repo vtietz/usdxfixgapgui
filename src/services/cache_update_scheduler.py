@@ -215,7 +215,10 @@ class CacheUpdateScheduler(QObject):
         # Check if song already exists in collection
         existing = self._songs_get_by_txt_file(txt_file)
         if existing:
-            logger.debug(f"Song already exists in collection, skipping creation check: {txt_file_normalized}")
+            logger.debug(
+                "Song already exists in collection, skipping creation check: %s",
+                txt_file,
+            )
             return
 
         now = datetime.now()
@@ -280,7 +283,11 @@ class CacheUpdateScheduler(QObject):
                 return
 
             # File is stable - proceed with check
-            logger.info(f"File stable, checking (normalized): {txt_file_normalized}")
+            logger.info(
+                "File stable, checking: %s (normalized: %s)",
+                pending.txt_file,
+                txt_file_normalized,
+            )
             del self._pending_creations[txt_file_normalized]
 
             # Check enqueued guard to prevent duplicate enqueues (use normalized key)
