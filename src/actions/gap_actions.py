@@ -1,10 +1,15 @@
 import logging
+import threading
+import time
 from actions.base_actions import BaseActions
 from actions.audio_actions import AudioActions
 from model.song import Song, SongStatus
 from model.gap_info import GapInfoStatus
 from model.usdx_file import USDXFile
+from PySide6.QtCore import QTimer
 from services.gap_info_service import GapInfoService
+from services.note_timing_service import NoteTimingService
+from services.song_service import SongService
 from services.song_signature_service import SongSignatureService
 from services.usdx_file_service import USDXFileService
 from workers.detect_gap import DetectGapWorker, GapDetectionResult, DetectGapWorkerOptions
@@ -167,8 +172,6 @@ class GapActions(BaseActions):
             if song.gap_info:
                 await GapInfoServiceRef.save(song.gap_info, refresh_timestamp=False)
             # Update song_cache.db so status persists across app restarts
-            from services.song_service import SongService
-
             SongService().update_cache(song)
             logger.debug(f"Updated song cache after gap detection for {song.txt_file}")
 
@@ -213,8 +216,6 @@ class GapActions(BaseActions):
             if song_to_process.gap_info:
                 await GapInfoServiceRef.save(song_to_process.gap_info)
             # Update song_cache.db so status persists
-            from services.song_service import SongService
-
             SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after notes overlap for {song_to_process.txt_file}")
 
@@ -230,12 +231,10 @@ class GapActions(BaseActions):
         logger.info(f"Updating gap value for '{song_to_process.txt_file}' to {gap}")
 
         # Suspend media loads briefly to avoid unload→reload races during status/filter transitions
-        if hasattr(self.data, "media_suspend_requested"):
-            self.data.media_suspend_requested.emit(250)
+        self.data.media_suspend_requested.emit(250)
         # Unload media player before status change to prevent freeze (especially in vocals mode)
-        if hasattr(self.data, "media_unload_requested"):
-            logger.debug("Unloading media player before status change")
-            self.data.media_unload_requested.emit()
+        logger.debug("Unloading media player before status change")
+        self.data.media_unload_requested.emit()
 
         # Update gap value and gap_info - status mapping happens via owner hook
         song_to_process.gap = gap
@@ -266,25 +265,20 @@ class GapActions(BaseActions):
                 await GapInfoServiceRef.save(song_to_process.gap_info)
 
             # Update song_cache.db so status persists
-            from services.song_service import SongService
-
             SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after gap update for {song_to_process.txt_file}")
 
         run_async(update_gap_and_cache())
 
         # Recalculate note times with new gap value
-        self._recalculate_note_times(song_to_process)
+        NoteTimingService.recalculate(song_to_process)
 
         audio_actions = AudioActions(self.data)
         audio_actions._create_waveforms(song_to_process, overwrite=True, emit_on_finish=False)
 
         # Defer signal emission to prevent cascade
-        from PySide6.QtCore import QTimer
-
         # Extend the suspension window slightly to cover the deferred emission
-        if hasattr(self.data, "media_suspend_requested"):
-            self.data.media_suspend_requested.emit(250)
+        self.data.media_suspend_requested.emit(250)
         QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
 
     def revert_gap_value(self, song: Optional[Song]):
@@ -317,32 +311,23 @@ class GapActions(BaseActions):
                 await GapInfoServiceRef.save(song_to_process.gap_info)
 
             # Update song_cache.db so status persists
-            from services.song_service import SongService
-
             SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after gap revert for {song_to_process.txt_file}")
 
         run_async(revert_gap_and_cache())
 
         # Recalculate note times with original gap value
-        self._recalculate_note_times(song_to_process)
+        NoteTimingService.recalculate(song_to_process)
 
         audio_actions = AudioActions(self.data)
         audio_actions._create_waveforms(song_to_process, overwrite=True, emit_on_finish=False)
 
         # Defer signal emission to prevent cascade
-        from PySide6.QtCore import QTimer
-
         # Extend the suspension window slightly to cover the deferred emission
-        if hasattr(self.data, "media_suspend_requested"):
-            self.data.media_suspend_requested.emit(250)
+        self.data.media_suspend_requested.emit(250)
         QTimer.singleShot(50, lambda: self.data.songs.updated.emit(song_to_process))
 
     def keep_gap_value(self, song: Optional[Song]):
-        import time
-        import threading
-        from PySide6.QtCore import QTimer
-
         start_time = time.perf_counter()
         logger.debug(f"[Thread: {threading.current_thread().name}] keep_gap_value started")
 
@@ -354,12 +339,10 @@ class GapActions(BaseActions):
         logger.info(f"Keeping gap value for {song_to_process.artist} - {song_to_process.title}")
 
         # Suspend media loads briefly to avoid unload→reload races during status/filter transitions
-        if hasattr(self.data, "media_suspend_requested"):
-            self.data.media_suspend_requested.emit(250)
+        self.data.media_suspend_requested.emit(250)
         # Unload media player before status change to prevent freeze (especially in vocals mode)
-        if hasattr(self.data, "media_unload_requested"):
-            logger.debug("Unloading media player before status change")
-            self.data.media_unload_requested.emit()
+        logger.debug("Unloading media player before status change")
+        self.data.media_unload_requested.emit()
 
         # Mark as solved - status mapping happens via owner hook
         # Setting gap_info.status triggers _gap_info_updated() which sets Song.status
@@ -376,8 +359,6 @@ class GapActions(BaseActions):
             if song_to_process.gap_info:
                 await GapInfoServiceRef.save(song_to_process.gap_info)
             # Update song_cache.db so status persists
-            from services.song_service import SongService
-
             SongService().update_cache(song_to_process)
             logger.debug(f"Updated song cache after keeping gap for {song_to_process.txt_file}")
 
@@ -393,35 +374,6 @@ class GapActions(BaseActions):
             self.data.songs.updated.emit(song_to_process)
 
         # Extend the suspension window slightly to cover the deferred emission
-        if hasattr(self.data, "media_suspend_requested"):
-            self.data.media_suspend_requested.emit(250)
+        self.data.media_suspend_requested.emit(250)
         QTimer.singleShot(50, emit_deferred)  # 50ms delay to let UI settle
         logger.debug("keep_gap_value completed, signal emission deferred")
-
-    def _recalculate_note_times(self, song: Song):
-        """Recalculate note times based on current gap, bpm, and is_relative settings"""
-        if not song.notes or not song.bpm:
-            logger.warning(f"Cannot recalculate note times for {song.txt_file}: missing notes or BPM")
-            return
-
-        logger.debug(f"Recalculating note times for {song.txt_file} with gap={song.gap}, bpm={song.bpm}")
-
-        beats_per_ms = (float(song.bpm) / 60 / 1000) * 4
-
-        for note in song.notes:
-            # Guard against missing beats/length
-            if note.StartBeat is None or note.Length is None:
-                continue
-            start_beat = int(note.StartBeat)
-            length_beats = int(note.Length)
-            start_rel_ms = start_beat / beats_per_ms
-            end_rel_ms = (start_beat + length_beats) / beats_per_ms
-            if song.is_relative:
-                note.start_ms = start_rel_ms
-                note.end_ms = end_rel_ms
-            else:
-                note.start_ms = song.gap + start_rel_ms
-                note.end_ms = song.gap + end_rel_ms
-            note.duration_ms = float(note.end_ms) - float(note.start_ms)
-
-        logger.debug(f"Note times recalculated for {song.txt_file}")

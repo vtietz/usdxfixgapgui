@@ -23,6 +23,7 @@
 * **Keep it simple.** Early returns > deep nesting; avoid workaround branches.
 * **Strong types & clean interfaces:** prefer `@dataclass` / `pydantic` / Protocols over `Dict[str, Any]`.
   Avoid `hasattr/getattr`—define a proper interface.
+* **Shared helpers live in services:** e.g., note timing recalculation is centralized in `services/note_timing_service.py` and reused everywhere.
 * **File naming & responsibility:** filenames must reflect content; each file does **one** thing.
   If purpose changes, **rename**; if mixed concerns, **split**.
 * **Size triggers:** propose refactor if file > ~500 lines or function > ~80–100 lines.
@@ -37,6 +38,7 @@
 
   * ✅ `self.data.songs.updated.emit(song)` (model changed)
   * ✅ `self.data.songs.listChanged.emit()` (list structure changed)
+  * ✅ AppData already exposes media suspend/unload signals—emit them directly, no runtime `hasattr` guards.
   * ❌ No direct per-object signals from actions.
 * **Workers:** queue only
 
@@ -53,6 +55,7 @@
   Temporary plans/notes → put in `temp/` and clean up.
   Use code examples and snippets very rarely - better never.
 * **Imports:** snake_case dirs; e.g., `from model.song import Song`.
+* **No inline imports:** hoist dependencies to module scope to keep actions/services hot-path friendly.
 * **No side effects at import time.**
 
 ---
@@ -205,6 +208,7 @@ Read first: `docs/architecture.md`, `docs/coding-standards.md`.
 - Access shared state via `AppData` (config, songs, worker_queue, selected_songs).
 - Actions: subclass `BaseActions` and delegate; never emit per-object signals.
 - Signals: use `songs.updated.emit(song)` (model change) and `songs.listChanged.emit()` (list mutation).
+- Media control signals come from `AppData`—emit them directly, no `hasattr` checks.
 - Workers: enqueue (`worker_queue.add_task(worker)`), no manual threads.
 
 ## Coding Standards (Snapshot)
@@ -212,6 +216,8 @@ Read first: `docs/architecture.md`, `docs/coding-standards.md`.
 - One file = one responsibility; rename when purpose changes.
 - Refactor threshold: file > ~500 lines or function > ~80–100 lines.
 - Avoid `hasattr` probing; define interfaces.
+- No inline imports; keep modules hot-loaded.
+- Shared helpers belong in `services/*` (e.g., note timing service) so actions stay thin.
 - Log typed exceptions; no bare `except:`.
 - 120 col limit, grouped imports, remove unused.
 
