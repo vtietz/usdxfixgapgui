@@ -15,28 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.0-rc4] - 2026-01-17
-
-### Added
-- New: M4A/AAC audio file support via ffmpeg conversion (automatic format detection and conversion)
-- New: Opus audio file support via ffmpeg conversion (extends compatibility beyond libsndfile formats)
-- New: Centralized audio compatibility layer for unsupported formats (clean temp file management)
-- New: WaveformManager dedupes waveform queueing and emits ready signals so media player updates during scans
-
-### Fixed
-- Fix: Gap correction now applies when first note starts at beat 0 (previously skipped valid edge case)
-- Fix: Database state isolation in test fixtures (prevents "no such table" errors in CI)
-- Fix: Test suite properly resets database module state between tests
-
-### Changed
-- Chore: Refactored MDX vocals extraction to reduce cyclomatic complexity (split into focused helper methods)
-- Chore: Song cache entries now use per-entry schema envelopes and migrate lazily instead of forcing full rescans
-- Chore: Applied parameterized logging format throughout (performance and lint compliance)
-- Chore: Black formatting applied to modified files
-
----
-
-## [1.3.0] - 2025-01-XX
+## [1.3.0] - 2026-01-17
 
 ### Added
 - New: VLC-based audio backend for Windows (eliminates Windows Media Foundation freezes on gap button clicks)
@@ -51,18 +30,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New: Position display shows milliseconds (MM:SS:mmm format) for precise gap editing
 - New: Requirements files organized in requirements/ subdirectory for cleaner project root
 - New: VLC setup helper script (scripts/setup_vlc_runtime.py) automates portable VLC download
+- New: M4A/AAC audio file support via ffmpeg conversion (automatic format detection and conversion)
+- New: Opus audio file support via ffmpeg conversion (extends compatibility beyond libsndfile formats)
+- New: Centralized audio compatibility layer for unsupported formats (clean temp file management)
+- New: WaveformManager dedupes waveform queueing and emits ready signals so media player updates during scans
 
 ### Fixed
+- Fix: Gap correction now applies when first note starts at beat 0 (previously skipped valid edge case)
 - Fix: UI freezes eliminated when clicking gap buttons in vocals mode (VLC backend avoids WMF deadlocks)
 - Fix: "Loading waveform..." placeholder now updates after waveform creation completes
 - Fix: Startup dialog respects "Don't show again" checkbox (no longer forces GPU Pack prompt)
 - Fix: VLC console spam suppressed (quiet logging mode, no ES_OUT_SET_PCR warnings)
 - Fix: 10 test failures resolved (Mock.filter attribute added to fixtures)
+- Fix: Database state isolation in test fixtures (prevents "no such table" errors in CI)
 
 ### Changed
+- Chore: Refactored MDX vocals extraction to reduce cyclomatic complexity (split into focused helper methods)
+- Chore: Song cache entries now use per-entry schema envelopes and migrate lazily instead of forcing full rescans
 - Chore: Requirements files moved to requirements/ subdirectory for cleaner project structure
 - Chore: VLC backend uses millisecond-precise seeking (set_time() instead of ratio-based positioning)
 - Chore: VLC polling timers only run when media loaded (reduced CPU usage when idle)
+- Chore: Applied parameterized logging format throughout (performance and lint compliance)
+- Chore: Black formatting applied to modified files
 
 ---
 
