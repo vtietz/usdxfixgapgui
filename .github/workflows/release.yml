@@ -184,7 +184,7 @@ jobs:
 
   build-macos:
     name: Build macOS Executable
-    runs-on: macos-13
+    runs-on: macos-14
 
     steps:
       - name: Checkout code
