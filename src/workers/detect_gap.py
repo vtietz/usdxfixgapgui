@@ -99,15 +99,18 @@ class DetectGapWorker(IWorker):
             detection_result = detect_gap.perform(detect_options, self.is_cancelled)
 
             # Fix gap based on the song's BPM and other factors
-            start_beat = 0
-            if self.options.notes and len(self.options.notes) > 0 and self.options.notes[0].StartBeat is not None:
+            start_beat = None
+            if self.options.notes and self.options.notes[0].StartBeat is not None:
                 start_beat = int(self.options.notes[0].StartBeat)
+
             bpm_val = float(self.options.bpm) if self.options.bpm else 0.0
-            if start_beat != 0 and bpm_val > 0:
+            if start_beat is not None and bpm_val > 0:
                 detected_gap = usdx.fix_gap(detection_result.detected_gap, start_beat, bpm_val)
             else:
                 detected_gap = detection_result.detected_gap
-                logger.warning("No valid first note or BPM provided, skipping correction of detected gap.")
+                logger.warning(
+                    "No valid first note or BPM provided, skipping correction of detected gap."
+                )
             gap_diff = abs(self.options.original_gap - detected_gap)
 
             # Determine status
