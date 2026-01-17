@@ -40,11 +40,26 @@ def sample_song_dir(tmp_path):
 
 
 @pytest.fixture(autouse=True)
-def clear_cache_before_test():
-    """Clear cache before each test."""
+def reset_and_clear_cache_before_test(tmp_path):
+    """Reset database state and clear cache before each test.
+
+    This ensures tests don't inherit stale _db_initialized state from
+    previous tests that may have used a different temp database path.
+    """
+    import common.database as db_module
+
+    # Reset module state so init_database() runs fresh
+    db_module._db_initialized = False
+    db_module._DB_PATH = str(tmp_path / "test_cache.db")
+
+    # Now clear_cache will properly initialize the database first
     clear_cache()
     yield
     clear_cache()
+
+    # Clean up
+    db_module._db_initialized = False
+    db_module._DB_PATH = None
 
 
 class TestModifiedFileDetection:

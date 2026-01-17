@@ -75,6 +75,12 @@ def test_has_signature_drift_detects_audio_changes(tmp_path):
     audio_path.write_bytes(b"xyz")
     time.sleep(0.01)
 
+    # Debug: verify song state before assertion
+    assert song.audio_file, f"audio_file should be set, got: {song.audio_file!r}"
+    assert os.path.exists(song.audio_file), f"audio_file should exist: {song.audio_file}"
+    assert song.gap_info is not None, "gap_info should be set"
+    assert song.gap_info.processed_audio_signature is not None, "processed_audio_signature should be set"
+
     assert SongSignatureService.has_signature_drift(song)
 
 
