@@ -82,6 +82,10 @@ These options come directly from `utils.providers.mdx.config.MdxConfig`. Adjust 
 
 ### [General]
 
+## GPU Acceleration Settings
+
+GPU support is controlled by the `[General]` section. See `gpu_opt_in` and the related `gpu_*` keys below.
+
 | Key | Default | Description |
 | --- | --- | --- |
 | `log_level` | `INFO` | Accepts standard Python logging levels (`DEBUG`…`CRITICAL`). |

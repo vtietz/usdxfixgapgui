@@ -6,7 +6,6 @@ Clear I/O boundaries - delegates actual processing to specialized modules.
 """
 
 import logging
-import warnings
 from typing import Optional, Callable
 import torch
 import torchaudio
@@ -17,6 +16,7 @@ from utils.providers.mdx.detection import detect_onset_in_vocal_chunk
 from utils.providers.mdx.vocals_cache import VocalsCache
 from utils.providers.mdx.config import MdxConfig
 from utils.providers.mdx.scanner.chunk_iterator import ChunkBoundaries
+from utils.providers.mdx.audio_compat import get_audio_info_compat, load_audio_compat
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +63,8 @@ class OnsetDetectorPipeline:
         self.config = config
         self.vocals_cache = vocals_cache
 
-        # Get audio info once
-        info = torchaudio.info(audio_file)
+        # Get audio info once (handles M4A)
+        info = get_audio_info_compat(audio_file)
         self.sample_rate = info.sample_rate
         self.num_frames = info.num_frames
 
@@ -121,16 +121,13 @@ class OnsetDetectorPipeline:
         chunk_duration_s = (chunk.end_ms - chunk.start_ms) / 1000.0
         num_frames = min(int(chunk_duration_s * self.sample_rate), self.num_frames - frame_offset)
 
-        # Load chunk (suppress MP3 warning)
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
-            waveform, _ = torchaudio.load(self.audio_file, frame_offset=frame_offset, num_frames=num_frames)
+        # Load chunk (handles M4A)
+        with load_audio_compat(self.audio_file, frame_offset=frame_offset, num_frames=num_frames) as (waveform, _):
+            # Convert to stereo if needed
+            if waveform.shape[0] == 1:
+                waveform = waveform.repeat(2, 1)
 
-        # Convert to stereo if needed
-        if waveform.shape[0] == 1:
-            waveform = waveform.repeat(2, 1)
-
-        return waveform
+            return waveform
 
     def _separate_vocals(
         self, waveform: torch.Tensor, sample_rate: int, check_cancellation: Optional[Callable[[], bool]] = None

@@ -7,7 +7,10 @@ logger = logging.getLogger(__name__)
 
 def fix_gap(gap: int, start_beat: int, bpm: float):
     """
-    Corrects gap if first note does not start with beat 0 and song has a start time.
+    Corrects a metadata gap value by aligning it to the first note position.
+
+    Note: beat 0 is a valid first-note position. When `start_beat` is 0, this function
+    returns the input `gap` unchanged.
 
     Ultrastar uses quarter-note interpretation:
     - BPM value represents quarter notes per minute
@@ -29,8 +32,12 @@ def fix_gap(gap: int, start_beat: int, bpm: float):
         position_ms = int(start_beat * ms_per_beat)
         gap = gap - position_ms
         logger.debug(
-            f"fix_gap: start_beat={start_beat}, bpm={bpm}, ms_per_beat={ms_per_beat:.3f}, "
-            f"position_ms={position_ms}, adjusted_gap={gap}"
+            "fix_gap: start_beat=%s, bpm=%s, ms_per_beat=%.3f, position_ms=%s, adjusted_gap=%s",
+            start_beat,
+            bpm,
+            ms_per_beat,
+            position_ms,
+            gap,
         )
     return gap
 
@@ -75,5 +82,3 @@ def get_syllable(notes: List[Note], position_ms: int, bpm: float, gap: int, is_r
 
     # If no note matches the current position
     return None
-
-

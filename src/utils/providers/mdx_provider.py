@@ -39,6 +39,7 @@ from utils.providers.mdx.separator import separate_vocals_chunk
 from utils.providers.mdx.detection import detect_onset_in_vocal_chunk
 from utils.providers.mdx.confidence import compute_confidence_score
 from utils.providers.mdx.vocals_cache import VocalsCache
+from utils.providers.mdx.audio_compat import load_audio_compat, get_audio_info_compat
 
 # Suppress TorchAudio MP3 warning globally for this module
 warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
@@ -83,13 +84,15 @@ class MdxProvider(IDetectionProvider):
         self._vocals_cache = VocalsCache()
 
         logger.debug(
-            f"MDX provider initialized: chunk={self.mdx_config.chunk_duration_ms}ms, "
-            f"SNR_threshold={self.mdx_config.onset_snr_threshold}, "
-            f"abs_threshold={self.mdx_config.onset_abs_threshold}, "
-            f"initial_radius=±{self.mdx_config.initial_radius_ms / 1000:.1f}s, "
-            f"max_expansions={self.mdx_config.max_expansions}, "
-            f"device={self._device}, "
-            f"fp16={self.mdx_config.use_fp16 and self._device == 'cuda'}"
+            "MDX provider initialized: chunk=%sms, SNR_threshold=%s, abs_threshold=%s, initial_radius=±%.1fs, "
+            "max_expansions=%s, device=%s, fp16=%s",
+            self.mdx_config.chunk_duration_ms,
+            self.mdx_config.onset_snr_threshold,
+            self.mdx_config.onset_abs_threshold,
+            self.mdx_config.initial_radius_ms / 1000,
+            self.mdx_config.max_expansions,
+            self._device,
+            (self.mdx_config.use_fp16 and self._device == "cuda"),
         )
 
     def _get_demucs_model(self):
@@ -100,6 +103,87 @@ class MdxProvider(IDetectionProvider):
         Thread-safe via ModelLoader's internal lock.
         """
         return self._model_loader.get_model(self._device, self.mdx_config.use_fp16)
+
+    @staticmethod
+    def _raise_if_cancelled(check_cancellation: Optional[Callable[[], bool]]) -> None:
+        if check_cancellation and check_cancellation():
+            raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
+
+    @staticmethod
+    def _ensure_stereo(waveform: "torch.Tensor") -> "torch.Tensor":
+        if waveform.shape[0] == 1:
+            return waveform.repeat(2, 1)
+        return waveform
+
+    def _cap_waveform_duration(
+        self, waveform: "torch.Tensor", sample_rate: int, duration: int
+    ) -> tuple["torch.Tensor", float]:
+        track_duration_sec = waveform.shape[1] / sample_rate
+        if duration > 0 and duration < track_duration_sec:
+            num_samples = int(duration * sample_rate)
+            waveform = waveform[:, :num_samples]
+            logger.debug("Capping preview vocals to first %ss (track is %.1fs)", duration, track_duration_sec)
+        else:
+            logger.debug("Separating full track (%.1fs)", track_duration_sec)
+        return waveform, track_duration_sec
+
+    def _run_demucs_separation(
+        self,
+        waveform: "torch.Tensor",
+        sample_rate: int,
+        duration: int,
+        track_duration_sec: float,
+    ) -> "torch.Tensor":
+        separation_desc = f"{duration}s preview" if duration > 0 and duration < track_duration_sec else "full-track"
+        logger.debug("Running %s Demucs separation (this may take a while)...", separation_desc)
+        model = self._get_demucs_model()
+
+        import time
+
+        start_time = time.time()
+        with torch.no_grad():
+            waveform = waveform.to(self._device)
+            use_autocast = self._device == "cuda" and self.mdx_config.use_fp16
+            with torch.amp.autocast("cuda", enabled=use_autocast, dtype=torch.float16):
+                sources = apply_model(model, waveform.unsqueeze(0), device=self._device)
+            vocals = sources[0, 3].cpu()
+
+        elapsed = time.time() - start_time
+        logger.debug("Separation complete in %.1fs", elapsed)
+        return vocals
+
+    @staticmethod
+    def _save_vocals_file(destination_vocals_filepath: str, vocals: "torch.Tensor", sample_rate: int) -> None:
+        logger.debug("Saving vocals to: %s", destination_vocals_filepath)
+        os.makedirs(os.path.dirname(destination_vocals_filepath), exist_ok=True)
+
+        if destination_vocals_filepath.endswith(".mp3"):
+            temp_wav = destination_vocals_filepath.replace(".mp3", "_temp.wav")
+            torchaudio.save(temp_wav, vocals, sample_rate)
+
+            import subprocess
+
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                temp_wav,
+                "-b:a",
+                "320k",
+                "-write_xing",
+                "0",
+                destination_vocals_filepath,
+            ]
+            result = subprocess.run(cmd, capture_output=True)
+
+            if result.returncode != 0:
+                logger.error("FFmpeg conversion failed: %s", result.stderr.decode("utf-8", errors="ignore"))
+                raise RuntimeError(f"FFmpeg MP3 conversion failed with exit code {result.returncode}")
+
+            if os.path.exists(temp_wav):
+                os.remove(temp_wav)
+        else:
+            torchaudio.save(destination_vocals_filepath, vocals, sample_rate)
 
     def get_vocals_file(
         self,
@@ -130,108 +214,31 @@ class MdxProvider(IDetectionProvider):
         Raises:
             DetectionFailedError: If Demucs separation fails
         """
-        logger.debug(f"Preparing vocals from {audio_file}")
+        logger.debug("Preparing vocals from %s", audio_file)
 
         if not os.path.exists(destination_vocals_filepath) or overwrite:
             try:
-                # Check cancellation
-                if check_cancellation and check_cancellation():
-                    raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
+                self._raise_if_cancelled(check_cancellation)
 
-                # Load audio
+                # Load audio (handles M4A conversion automatically)
                 logger.debug("Loading audio file...")
-                import warnings
+                with load_audio_compat(audio_file) as (waveform, sample_rate):
+                    waveform = self._ensure_stereo(waveform)
+                    waveform, track_duration_sec = self._cap_waveform_duration(waveform, sample_rate, duration)
+                    self._raise_if_cancelled(check_cancellation)
 
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
-                    waveform, sample_rate = torchaudio.load(audio_file)
+                    vocals = self._run_demucs_separation(waveform, sample_rate, duration, track_duration_sec)
+                    self._raise_if_cancelled(check_cancellation)
 
-                # Convert to stereo if needed
-                if waveform.shape[0] == 1:
-                    waveform = waveform.repeat(2, 1)
-
-                # Cap to duration if specified and audio is longer
-                track_duration_sec = waveform.shape[1] / sample_rate
-                if duration > 0 and duration < track_duration_sec:
-                    num_samples = int(duration * sample_rate)
-                    waveform = waveform[:, :num_samples]
-                    logger.debug(f"Capping preview vocals to first {duration}s (track is {track_duration_sec:.1f}s)")
-                else:
-                    logger.debug(f"Separating full track ({track_duration_sec:.1f}s)")
-
-                # Check cancellation
-                if check_cancellation and check_cancellation():
-                    raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
-
-                # Run Demucs separation
-                separation_desc = (
-                    f"{duration}s preview" if duration > 0 and duration < track_duration_sec else "full-track"
-                )
-                logger.debug(f"Running {separation_desc} Demucs separation (this may take a while)...")
-                model = self._get_demucs_model()
-
-                import time
-
-                start_time = time.time()
-                with torch.no_grad():
-                    # Prepare input
-                    waveform = waveform.to(self._device)
-                    # Use FP16 mixed precision on CUDA if enabled
-                    use_autocast = self._device == "cuda" and self.mdx_config.use_fp16
-                    with torch.amp.autocast('cuda', enabled=use_autocast, dtype=torch.float16):
-                        # Use apply_model for Demucs inference (not direct call)
-                        sources = apply_model(model, waveform.unsqueeze(0), device=self._device)
-
-                    # Extract vocals using index 3 (htdemucs: drums=0, bass=1, other=2, vocals=3)
-                    vocals = sources[0, 3].cpu()  # Remove batch dimension, get vocals
-
-                elapsed = time.time() - start_time
-                logger.debug(f"Separation complete in {elapsed:.1f}s")
-
-                # Check cancellation
-                if check_cancellation and check_cancellation():
-                    raise DetectionFailedError("Separation cancelled by user", provider_name="mdx")
-
-                # Save vocals with CBR MP3 for accurate seeking (320kbps = ~2.4MB/min)
-                # VBR MP3 has seeking issues; CBR ensures accurate position calculation
-                logger.debug(f"Saving vocals to: {destination_vocals_filepath}")
-                os.makedirs(os.path.dirname(destination_vocals_filepath), exist_ok=True)
-
-                if destination_vocals_filepath.endswith('.mp3'):
-                    # Convert to CBR MP3 using ffmpeg
-                    # torchaudio doesn't expose CBR directly, so we save as WAV then convert
-                    temp_wav = destination_vocals_filepath.replace('.mp3', '_temp.wav')
-                    torchaudio.save(temp_wav, vocals, sample_rate)
-
-                    import subprocess
-                    cmd = [
-                        'ffmpeg', '-y', '-i', temp_wav,
-                        '-b:a', '320k',  # CBR 320kbps
-                        '-write_xing', '0',  # Disable VBR tag
-                        destination_vocals_filepath
-                    ]
-                    result = subprocess.run(cmd, capture_output=True)
-
-                    # Log ffmpeg output if there was an error
-                    if result.returncode != 0:
-                        logger.error(f"FFmpeg conversion failed: {result.stderr.decode('utf-8', errors='ignore')}")
-                        raise RuntimeError(f"FFmpeg MP3 conversion failed with exit code {result.returncode}")
-
-                    # Cleanup temp WAV
-                    if os.path.exists(temp_wav):
-                        os.remove(temp_wav)
-                else:
-                    # Save directly as WAV (for tests or explicit WAV requests)
-                    torchaudio.save(destination_vocals_filepath, vocals, sample_rate)
-
-                logger.debug(f"Vocals prepared successfully at {destination_vocals_filepath}")
+                    self._save_vocals_file(destination_vocals_filepath, vocals, sample_rate)
+                    logger.debug("Vocals prepared successfully at %s", destination_vocals_filepath)
 
             except Exception as e:
                 if "cancelled" in str(e).lower():
                     raise
                 raise DetectionFailedError(f"Demucs vocals preparation failed: {e}", provider_name="mdx", cause=e)
         else:
-            logger.debug(f"Using existing vocals at {destination_vocals_filepath}")
+            logger.debug("Using existing vocals at %s", destination_vocals_filepath)
 
         return destination_vocals_filepath
 
@@ -390,8 +397,8 @@ class MdxProvider(IDetectionProvider):
         """
         from utils.providers.mdx.scanner import scan_for_onset
 
-        # Get audio duration
-        info = torchaudio.info(audio_file)
+        # Get audio duration (handles M4A automatically)
+        info = get_audio_info_compat(audio_file)
         total_duration_ms = (info.num_frames / info.sample_rate) * 1000.0
 
         logger.debug("Using MDX scanner")

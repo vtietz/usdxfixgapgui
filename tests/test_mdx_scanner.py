@@ -168,18 +168,21 @@ class TestExpansionStrategy:
 class TestOnsetDetectorPipeline:
     """Test per-chunk onset detection pipeline."""
 
+    @patch("utils.providers.mdx.audio_compat.torchaudio")
     @patch("utils.providers.mdx.scanner.onset_detector.torchaudio")
     @patch("utils.providers.mdx.scanner.onset_detector.separate_vocals_chunk")
     @patch("utils.providers.mdx.scanner.onset_detector.detect_onset_in_vocal_chunk")
-    def test_successful_detection(self, mock_detect, mock_separate, mock_torchaudio):
+    def test_successful_detection(self, mock_detect, mock_separate, mock_torchaudio, mock_torchaudio_compat):
         """Pipeline successfully detects onset in chunk."""
         # Setup mocks
         mock_info = Mock()
         mock_info.sample_rate = 44100
         mock_info.num_frames = 44100 * 60
+        mock_torchaudio_compat.info.return_value = mock_info
         mock_torchaudio.info.return_value = mock_info
 
         mock_waveform = torch.randn(2, 44100 * 10)
+        mock_torchaudio_compat.load.return_value = (mock_waveform, 44100)
         mock_torchaudio.load.return_value = (mock_waveform, 44100)
 
         mock_vocals = np.random.randn(2, 44100 * 10)
@@ -209,18 +212,21 @@ class TestOnsetDetectorPipeline:
         mock_detect.assert_called_once()
         mock_cache.put.assert_called_once()
 
+    @patch("utils.providers.mdx.audio_compat.torchaudio")
     @patch("utils.providers.mdx.scanner.onset_detector.torchaudio")
     @patch("utils.providers.mdx.scanner.onset_detector.separate_vocals_chunk")
     @patch("utils.providers.mdx.scanner.onset_detector.detect_onset_in_vocal_chunk")
-    def test_no_onset_found(self, mock_detect, mock_separate, mock_torchaudio):
+    def test_no_onset_found(self, mock_detect, mock_separate, mock_torchaudio, mock_torchaudio_compat):
         """Pipeline returns None when no onset found."""
         # Setup mocks
         mock_info = Mock()
         mock_info.sample_rate = 44100
         mock_info.num_frames = 44100 * 60
+        mock_torchaudio_compat.info.return_value = mock_info
         mock_torchaudio.info.return_value = mock_info
 
         mock_waveform = torch.randn(2, 44100 * 10)
+        mock_torchaudio_compat.load.return_value = (mock_waveform, 44100)
         mock_torchaudio.load.return_value = (mock_waveform, 44100)
 
         mock_vocals = np.random.randn(2, 44100 * 10)
@@ -245,16 +251,19 @@ class TestOnsetDetectorPipeline:
 
         assert onset_ms is None
 
+    @patch("utils.providers.mdx.audio_compat.torchaudio")
     @patch("utils.providers.mdx.scanner.onset_detector.torchaudio")
-    def test_mono_to_stereo_conversion(self, mock_torchaudio):
+    def test_mono_to_stereo_conversion(self, mock_torchaudio, mock_torchaudio_compat):
         """Mono audio is converted to stereo."""
         # Setup mocks
         mock_info = Mock()
         mock_info.sample_rate = 44100
         mock_info.num_frames = 44100 * 60
+        mock_torchaudio_compat.info.return_value = mock_info
         mock_torchaudio.info.return_value = mock_info
 
         mono_waveform = torch.randn(1, 44100 * 10)  # Mono
+        mock_torchaudio_compat.load.return_value = (mono_waveform, 44100)
         mock_torchaudio.load.return_value = (mono_waveform, 44100)
 
         # Create pipeline
@@ -315,19 +324,22 @@ class TestHelperFunctions:
 class TestScanForOnset:
     """Test full refactored scanning pipeline."""
 
+    @patch("utils.providers.mdx.audio_compat.torchaudio")
     @patch("utils.providers.mdx.scanner.onset_detector.torchaudio")
     @patch("utils.providers.mdx.scanner.onset_detector.separate_vocals_chunk")
     @patch("utils.providers.mdx.scanner.onset_detector.detect_onset_in_vocal_chunk")
-    def test_finds_onset_in_initial_window(self, mock_detect, mock_separate, mock_torchaudio):
+    def test_finds_onset_in_initial_window(self, mock_detect, mock_separate, mock_torchaudio, mock_torchaudio_compat):
         """Onset found in initial window without expansion."""
         # Setup audio info mock
         mock_info = Mock()
         mock_info.sample_rate = 44100
         mock_info.num_frames = 44100 * 60
+        mock_torchaudio_compat.info.return_value = mock_info
         mock_torchaudio.info.return_value = mock_info
 
         # Setup audio loading mock
         mock_waveform = torch.randn(2, 44100 * 12)
+        mock_torchaudio_compat.load.return_value = (mock_waveform, 44100)
         mock_torchaudio.load.return_value = (mock_waveform, 44100)
 
         # Setup separation mock
@@ -374,18 +386,21 @@ class TestScanForOnset:
         assert mock_detect.call_count >= 1  # At least found the onset
         assert mock_detect.call_count <= 10  # Reasonable upper bound
 
+    @patch("utils.providers.mdx.audio_compat.torchaudio")
     @patch("utils.providers.mdx.scanner.onset_detector.torchaudio")
     @patch("utils.providers.mdx.scanner.onset_detector.separate_vocals_chunk")
     @patch("utils.providers.mdx.scanner.onset_detector.detect_onset_in_vocal_chunk")
-    def test_expands_window_when_not_found(self, mock_detect, mock_separate, mock_torchaudio):
+    def test_expands_window_when_not_found(self, mock_detect, mock_separate, mock_torchaudio, mock_torchaudio_compat):
         """Window expands when no onset found initially."""
         # Setup mocks
         mock_info = Mock()
         mock_info.sample_rate = 44100
         mock_info.num_frames = 44100 * 60
+        mock_torchaudio_compat.info.return_value = mock_info
         mock_torchaudio.info.return_value = mock_info
 
         mock_waveform = torch.randn(2, 44100 * 12)
+        mock_torchaudio_compat.load.return_value = (mock_waveform, 44100)
         mock_torchaudio.load.return_value = (mock_waveform, 44100)
 
         mock_vocals = np.random.randn(2, 44100 * 12)
@@ -437,18 +452,23 @@ class TestScanForOnset:
         # Should have processed multiple chunks across expansions
         assert mock_detect.call_count >= 5
 
+    @patch("utils.providers.mdx.audio_compat.torchaudio")
     @patch("utils.providers.mdx.scanner.onset_detector.torchaudio")
     @patch("utils.providers.mdx.scanner.onset_detector.separate_vocals_chunk")
     @patch("utils.providers.mdx.scanner.onset_detector.detect_onset_in_vocal_chunk")
-    def test_returns_none_when_no_onset_found(self, mock_detect, mock_separate, mock_torchaudio):
+    def test_returns_none_when_no_onset_found(
+        self, mock_detect, mock_separate, mock_torchaudio, mock_torchaudio_compat
+    ):
         """Returns None after all expansions with no onset."""
         # Setup mocks
         mock_info = Mock()
         mock_info.sample_rate = 44100
         mock_info.num_frames = 44100 * 60
+        mock_torchaudio_compat.info.return_value = mock_info
         mock_torchaudio.info.return_value = mock_info
 
         mock_waveform = torch.randn(2, 44100 * 12)
+        mock_torchaudio_compat.load.return_value = (mock_waveform, 44100)
         mock_torchaudio.load.return_value = (mock_waveform, 44100)
 
         mock_vocals = np.random.randn(2, 44100 * 12)
