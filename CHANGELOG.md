@@ -8,12 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- New: WaveformManager dedupes waveform queueing and emits ready signals so media player updates during scans
 
 ### Fixed
 
 ### Changed
-- Change: Song cache entries now use per-entry schema envelopes and migrate lazily instead of forcing full rescans
+
+---
+
+## [1.3.0-rc4] - 2026-01-17
+
+### Added
+- New: M4A/AAC audio file support via ffmpeg conversion (automatic format detection and conversion)
+- New: Opus audio file support via ffmpeg conversion (extends compatibility beyond libsndfile formats)
+- New: Centralized audio compatibility layer for unsupported formats (clean temp file management)
+- New: WaveformManager dedupes waveform queueing and emits ready signals so media player updates during scans
+
+### Fixed
+- Fix: Gap correction now applies when first note starts at beat 0 (previously skipped valid edge case)
+- Fix: Database state isolation in test fixtures (prevents "no such table" errors in CI)
+- Fix: Test suite properly resets database module state between tests
+
+### Changed
+- Chore: Refactored MDX vocals extraction to reduce cyclomatic complexity (split into focused helper methods)
+- Chore: Song cache entries now use per-entry schema envelopes and migrate lazily instead of forcing full rescans
+- Chore: Applied parameterized logging format throughout (performance and lint compliance)
+- Chore: Black formatting applied to modified files
 
 ---
 
