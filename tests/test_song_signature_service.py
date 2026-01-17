@@ -72,7 +72,9 @@ def test_has_signature_drift_detects_audio_changes(tmp_path):
 
     assert not SongSignatureService.has_signature_drift(song)
 
-    audio_path.write_bytes(b"xyz")
+    # Write different-sized content to guarantee signature change detection
+    # (mtime alone may not change on some filesystems within test timing)
+    audio_path.write_bytes(b"xyza")
     time.sleep(0.01)
 
     # Debug: verify song state before assertion
