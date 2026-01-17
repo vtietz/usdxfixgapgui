@@ -17,8 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 def _needs_conversion(audio_file: str) -> bool:
-    """Check if audio file needs conversion for torchaudio compatibility."""
-    return audio_file.lower().endswith((".m4a", ".aac"))
+    """Check if audio file needs conversion for torchaudio compatibility.
+
+    Formats requiring ffmpeg conversion:
+    - .m4a / .aac: AAC audio (not supported by libsndfile)
+    - .opus: Opus audio (not supported by libsndfile)
+    """
+    return audio_file.lower().endswith((".m4a", ".aac", ".opus"))
 
 
 def _convert_to_wav(audio_file: str, duration_sec: Optional[float] = None) -> str:
