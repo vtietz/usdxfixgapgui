@@ -260,12 +260,14 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          brew install portaudio ffmpeg
+          brew install portaudio ffmpeg llvm
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.11.1
+          # Set LLVM paths for llvmlite compilation on Intel Mac
+          export LLVM_CONFIG=$(brew --prefix llvm)/bin/llvm-config
           pip install -r requirements/requirements-build-macos.txt
 
       - name: Make build script executable
