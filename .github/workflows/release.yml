@@ -268,6 +268,8 @@ jobs:
           pip install pyinstaller==6.11.1
           # Set LLVM paths for llvmlite compilation on Intel Mac
           export LLVM_CONFIG=$(brew --prefix llvm)/bin/llvm-config
+          export LLVM_DIR=$(brew --prefix llvm)/lib/cmake/llvm
+          export CMAKE_PREFIX_PATH=$(brew --prefix llvm)
           pip install -r requirements/requirements-build-macos.txt
 
       - name: Make build script executable
