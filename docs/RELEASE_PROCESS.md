@@ -96,8 +96,13 @@ git push origin v2.0.0-rc1
 ### 2. Verify RC Build
 
 **Verify:**
-- [ ] 3 builds succeed (~250MB each)
-- [ ] Filenames: `usdxfixgap-v2.0.0-{windows.exe,linux.tar.gz,macos.tar.gz}`
+- [ ] 5 builds succeed (~250MB each)
+- [ ] Filenames:
+  - `usdxfixgap-v2.0.0-windows.exe`
+  - `usdxfixgap-v2.0.0-linux.tar.gz`
+  - `usdxfixgap-v2.0.0-macos-arm64.tar.gz` (Apple Silicon)
+  - `usdxfixgap-v2.0.0-macos-x64.tar.gz` (Intel)
+  - Plus portable versions for each platform
 - [ ] Release notes from `docs/releases/v2.0.0.md`
 - [ ] "Pre-release" badge shown
 - [ ] No subscriber emails sent
