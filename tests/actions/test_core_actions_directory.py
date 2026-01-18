@@ -105,6 +105,21 @@ class TestSetDirectory:
         assert mock_app_data.directory == original_directory
         mock_app_data.config.save.assert_not_called()
 
+    @patch("actions.core_actions.CoreActions._load_songs")
+    @patch("actions.core_actions.CoreActions._clear_songs")
+    def test_set_directory_cancels_existing_workers(self, mock_clear, mock_load, core_actions, mock_app_data, tmp_path):
+        """set_directory cancels all queued/running workers before switching."""
+        test_dir = tmp_path / "valid_songs"
+        test_dir.mkdir()
+
+        core_actions.set_directory(str(test_dir))
+
+        # Verify worker queue was cancelled
+        mock_app_data.worker_queue.cancel_queue.assert_called_once()
+        # Verify songs cleared and reloaded
+        mock_clear.assert_called_once()
+        mock_load.assert_called_once()
+
 
 class TestAutoLoadLastDirectory:
     """Test auto_load_last_directory behavior."""
@@ -180,3 +195,32 @@ class TestClearSongs:
         core_actions._clear_songs()
 
         mock_app_data.songs.clear.assert_called_once()
+
+
+class TestRescanDirectory:
+    """Test rescan_directory behavior."""
+
+    @patch("actions.core_actions.CoreActions._load_songs")
+    def test_rescan_directory_skips_if_no_directory_set(self, mock_load, core_actions, mock_app_data):
+        """rescan_directory skips if no directory is set."""
+        mock_app_data.directory = None
+
+        core_actions.rescan_directory()
+
+        mock_load.assert_not_called()
+
+    @patch("actions.core_actions.CoreActions._load_songs")
+    @patch("actions.core_actions.CoreActions._clear_songs")
+    def test_rescan_directory_cancels_existing_workers(self, mock_clear, mock_load, core_actions, mock_app_data, tmp_path):
+        """rescan_directory cancels all queued/running workers before rescanning."""
+        test_dir = tmp_path / "valid_songs"
+        test_dir.mkdir()
+        mock_app_data.directory = str(test_dir)
+
+        core_actions.rescan_directory()
+
+        # Verify worker queue was cancelled
+        mock_app_data.worker_queue.cancel_queue.assert_called_once()
+        # Verify songs cleared and reloaded
+        mock_clear.assert_called_once()
+        mock_load.assert_called_once()

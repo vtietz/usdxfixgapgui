@@ -48,6 +48,12 @@ class CoreActions(BaseActions):
             return
 
         logger.info(f"Setting directory to: {directory}")
+        
+        # Cancel any in-flight workers from previous directory to prevent stale operations
+        if hasattr(self, 'worker_queue') and self.worker_queue:
+            logger.info("Cancelling all queued/running workers before directory switch")
+            self.worker_queue.cancel_queue()
+        
         self.data.directory = directory
 
         # Save this directory as the last used directory in config
@@ -73,6 +79,11 @@ class CoreActions(BaseActions):
             return
 
         logger.info(f"Re-scanning directory with cache invalidation: {self.data.directory}")
+        
+        # Cancel any in-flight workers to prevent conflicts
+        if hasattr(self, 'worker_queue') and self.worker_queue:
+            logger.info("Cancelling all queued/running workers before re-scan")
+            self.worker_queue.cancel_queue()
 
         # Clear the entire cache to force fresh parsing
         clear_cache()
