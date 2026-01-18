@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.1] - 2026-01-18
+
+### Fixed
+- Fix: Confidence computation for M4A/AAC/Opus files (replaced direct torchaudio.info() with audio_compat layer)
+
+---
+
 ## [1.3.0] - 2026-01-17
 
 ### Added
