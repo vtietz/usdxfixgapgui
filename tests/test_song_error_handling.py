@@ -190,3 +190,64 @@ class TestSongStatusTimestamp:
 
         assert song.status_time_display == "2024-01-01 00:00:00"
         assert song.status_time_sort_key == "2024-01-01 00:00:00"
+
+
+class TestValidationErrorHandling:
+    """Test that ValidationError (missing GAP/BPM/etc.) is handled gracefully."""
+
+    def test_missing_gap_tag_defaults_to_zero(self, tmp_path):
+        """Song with missing GAP tag should default to GAP=0, allowing gap detection."""
+        import asyncio
+        from services.song_service import SongService
+
+        # Create a song file without GAP tag (like PS2 Singstar songs)
+        song_file = tmp_path / "notes.txt"
+        song_file.write_text(
+            "#TITLE:Test Song\n"
+            "#ARTIST:Test Artist\n"
+            "#MP3:test.mp3\n"
+            "#BPM:300\n"
+            ": 0 4 0 Test\n"
+            "E\n",
+            encoding="utf-8"
+        )
+
+        # Create dummy audio file
+        audio_file = tmp_path / "test.mp3"
+        audio_file.write_bytes(b"fake audio")
+
+        service = SongService()
+        song = asyncio.run(service.load_song(str(song_file)))
+
+        # Should load successfully with GAP=0
+        assert song.status == SongStatus.NOT_PROCESSED
+        assert song.gap == 0
+        assert song.title == "Test Song"
+        assert song.artist == "Test Artist"
+
+    def test_missing_bpm_tag_marks_song_as_error(self, tmp_path):
+        """Song with missing BPM tag should be marked as ERROR (BPM is required for timing calculations)."""
+        import asyncio
+        from services.song_service import SongService
+
+        song_file = tmp_path / "notes.txt"
+        song_file.write_text(
+            "#TITLE:Test Song\n"
+            "#ARTIST:Test Artist\n"
+            "#MP3:test.mp3\n"
+            "#GAP:1000\n"
+            ": 0 4 0 Test\n"
+            "E\n",
+            encoding="utf-8"
+        )
+
+        audio_file = tmp_path / "test.mp3"
+        audio_file.write_bytes(b"fake audio")
+
+        service = SongService()
+        song = asyncio.run(service.load_song(str(song_file)))
+
+        # BPM is truly required (can't calculate note timings without it)
+        assert song.status == SongStatus.ERROR
+        assert song.error_message is not None
+        assert "BPM" in song.error_message

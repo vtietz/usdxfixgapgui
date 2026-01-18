@@ -104,7 +104,9 @@ class USDXFileService:
         if usdx_file.tags.ARTIST is None:
             raise ValidationError("ARTIST tag is missing")
         if usdx_file.tags.GAP is None:
-            raise ValidationError("GAP tag is missing")
+            # Default GAP to 0 instead of raising error - allows gap detection for PS2 Singstar songs
+            logger.info(f"GAP tag missing in '{usdx_file.filepath}' - defaulting to 0 (song is candidate for gap detection)")
+            usdx_file.tags.GAP = 0
         if usdx_file.tags.AUDIO is None:
             logger.warning(f"AUDIO tag is missing in '{usdx_file.filepath}' - song will have MISSING_AUDIO status")
         if usdx_file.tags.BPM is None:

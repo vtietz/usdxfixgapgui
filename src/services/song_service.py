@@ -48,9 +48,11 @@ class SongService:
         except FileNotFoundError as e:
             logger.error("File not found during load: %s", txt_file)
             song.set_error(str(e))
+            return song  # Return immediately on error
         except Exception as e:  # pragma: no cover - unexpected errors
             logger.error("Error loading song %s: %s", txt_file, e, exc_info=True)
             song.set_error(str(e))
+            return song  # Return immediately on error
 
         # Load gap_info (multi-entry support uses txt basename)
         txt_basename = os.path.basename(txt_file)
