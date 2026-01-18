@@ -8,8 +8,8 @@ Uses cached vocals from detection phase when available to avoid redundant Demucs
 import logging
 import numpy as np
 from typing import Optional, Callable, OrderedDict
-import torchaudio
 
+from .audio_compat import load_audio_compat, get_audio_info_compat
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def compute_confidence_score(
         logger.debug(f"Computing confidence at gap={detected_gap_ms}ms")
 
         # Get audio info
-        info = torchaudio.info(audio_file)
+        info = get_audio_info_compat(audio_file)
         sample_rate = info.sample_rate
 
         # Try to find cached vocals that cover the onset position
@@ -80,14 +80,13 @@ def compute_confidence_score(
 
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
-                waveform, sample_rate = torchaudio.load(audio_file, frame_offset=0, num_frames=num_frames)
+                with load_audio_compat(audio_file, frame_offset=0, num_frames=num_frames) as (waveform, sample_rate):
+                    # Convert to stereo if needed
+                    if waveform.shape[0] == 1:
+                        waveform = waveform.repeat(2, 1)
 
-            # Convert to stereo if needed
-            if waveform.shape[0] == 1:
-                waveform = waveform.repeat(2, 1)
-
-            # Separate vocals using provided function
-            vocals = separate_vocals_fn(waveform, sample_rate, check_cancellation)
+                    # Separate vocals using provided function
+                    vocals = separate_vocals_fn(waveform, sample_rate, check_cancellation)
             chunk_start_ms = 0.0
             onset_in_chunk_ms = detected_gap_ms
 
