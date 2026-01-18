@@ -142,9 +142,19 @@ class DetectGapWorker(IWorker):
             logger.debug(f"Finished signal emitted successfully for: {self.options.txt_file}")
 
         except Exception as e:
-            logger.exception(f"Error detecting gap for '{self.options.audio_file}'")
-            result.error = str(e)
-            result.status = GapInfoStatus.ERROR  # Ensure status is set on error
-            self.signals.error.emit(e)
-            # We should still emit the result with the error
+            # Check if this is a user cancellation (not a real error)
+            error_msg = str(e).lower()
+            is_cancellation = "cancelled by user" in error_msg or "canceled by user" in error_msg
+
+            if is_cancellation:
+                logger.info(f"Gap detection cancelled for '{self.options.audio_file}'")
+                # For cancellations, keep the previous status (don't mark as ERROR)
+                # Result status remains as it was initialized (NOT_PROCESSED or previous state)
+            else:
+                logger.exception(f"Error detecting gap for '{self.options.audio_file}'")
+                result.error = str(e)
+                result.status = GapInfoStatus.ERROR  # Only set ERROR for real errors
+                self.signals.error.emit(e)
+
+            # We should still emit the result
             self.signals.finished.emit(result)

@@ -29,6 +29,7 @@ class WorkerStatus(Enum):
     CANCELLING = 3
     FINISHED = 4
     ERROR = 5
+    CANCELLED = 6
 
 
 class IWorker(QObject):
@@ -493,24 +494,34 @@ class WorkerQueueManager(QObject):
 
         worker = self.get_worker(task_id)
 
-        # Log error with full details
-        logger.error("=" * 60)
-        logger.error(f"TASK ERROR - ID: {task_id}")
-        if worker:
-            logger.error(f"Task Description: {worker.description}")
-        logger.error(f"Error: {str(e)}")
+        # Check if this is a user cancellation (not a real error)
+        error_msg = str(e).lower()
+        is_cancellation = "cancelled by user" in error_msg or "canceled by user" in error_msg
 
-        # Log full stack trace if available
-        if hasattr(e, "__traceback__") and e.__traceback__:
-            logger.error("Stack trace:")
-            for line in traceback.format_exception(type(e), e, e.__traceback__):
-                logger.error(line.rstrip())
-        logger.error("=" * 60)
+        if is_cancellation:
+            # Log cancellations as INFO, not ERROR
+            logger.info(f"Task {task_id} cancelled: {worker.description if worker else 'Unknown task'}")
+        else:
+            # Log real errors with full details
+            logger.error("=" * 60)
+            logger.error(f"TASK ERROR - ID: {task_id}")
+            if worker:
+                logger.error(f"Task Description: {worker.description}")
+            logger.error(f"Error: {str(e)}")
+
+            # Log full stack trace if available
+            if hasattr(e, "__traceback__") and e.__traceback__:
+                logger.error("Stack trace:")
+                for line in traceback.format_exception(type(e), e, e.__traceback__):
+                    logger.error(line.rstrip())
+            logger.error("=" * 60)
 
         if worker:
-            worker.status = WorkerStatus.ERROR
-            # Show user-friendly error dialog
-            self._show_task_error_dialog(worker, e)
+            # Set appropriate status: CANCELLED for user cancellations, ERROR for real errors
+            worker.status = WorkerStatus.CANCELLED if is_cancellation else WorkerStatus.ERROR
+            # Only show error dialog for real errors, not cancellations
+            if not is_cancellation:
+                self._show_task_error_dialog(worker, e)
         self.on_task_finished(task_id)
 
     def _show_task_error_dialog(self, worker: IWorker, exception: Exception):
