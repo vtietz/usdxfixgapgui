@@ -48,6 +48,31 @@ class LoadUsdxFilesWorker(IWorker):
         self._ttfb_start = 0.0  # Track time to first batch
         self._ttfb_logged = False
 
+    @staticmethod
+    def _is_system_file(filename: str) -> bool:
+        """Check if filename is a system/metadata file that should be ignored."""
+        # macOS metadata files
+        if filename.startswith("._"):  # AppleDouble resource forks
+            return True
+        if filename == ".DS_Store":  # Finder metadata
+            return True
+        if filename.startswith("."):  # Other dotfiles (hidden)
+            return True
+        
+        # Windows metadata files
+        if filename.lower() == "thumbs.db":  # Thumbnail cache
+            return True
+        if filename.lower() == "desktop.ini":  # Folder settings
+            return True
+        
+        # Linux/general
+        if filename.endswith("~"):  # Backup files
+            return True
+        if filename.startswith("#") and filename.endswith("#"):  # Emacs autosave
+            return True
+        
+        return False
+
     async def _cooperative_pause(self, interval_ms: int = 50):
         """
         Cooperatively pause while the queue indicates we should yield to higher-priority work.
@@ -281,6 +306,9 @@ class LoadUsdxFilesWorker(IWorker):
         time_interval: float,
     ) -> tuple[int, float, bool]:
         for file in files:
+            # Skip system/metadata files (macOS, Windows, Linux)
+            if self._is_system_file(file):
+                continue
             if not file.endswith(".txt"):
                 continue
             if await self._handle_scan_cancellation():
