@@ -293,8 +293,30 @@ def _run_gui(config: Any, gpu_enabled: bool, log_file_path: str, capabilities: A
     return create_and_run_gui(config, gpu_enabled, log_file_path, capabilities)
 
 
+def _configure_ssl_for_macos():
+    """Install global SSL certificate handler using certifi.
+    
+    Required on macOS because Python.org builds don't include CA certificates.
+    This enables SSL verification for torch.hub and other stdlib urllib usage.
+    """
+    import ssl
+    import urllib.request
+    try:
+        import certifi
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        https_handler = urllib.request.HTTPSHandler(context=ssl_context)
+        opener = urllib.request.build_opener(https_handler)
+        urllib.request.install_opener(opener)
+        logging.debug("Configured SSL context with certifi for macOS")
+    except ImportError:
+        logging.warning("certifi not available, SSL verification may fail")
+
+
 def main():
     """Main entry point for USDXFixGap application"""
+    # Configure SSL for macOS (Python lacks default CA certs on macOS)
+    _configure_ssl_for_macos()
+    
     log_file_path: Optional[str] = None
     exception_handler = None
 

@@ -6,6 +6,7 @@ Handles GPU Pack metadata, version management, and pack selection logic.
 
 import json
 import logging
+import ssl
 import sys
 from dataclasses import dataclass, asdict
 from typing import Optional, Dict
@@ -14,6 +15,20 @@ import urllib.request
 import urllib.error
 
 logger = logging.getLogger(__name__)
+
+
+# Configure SSL context for macOS Python (which lacks default CA certs)
+def _create_ssl_context():
+    """Create SSL context with certifi certificates for macOS compatibility."""
+    try:
+        import certifi
+        context = ssl.create_default_context(cafile=certifi.where())
+        return context
+    except ImportError:
+        return ssl.create_default_context()
+
+
+_SSL_CONTEXT = _create_ssl_context()
 
 
 @dataclass
@@ -173,7 +188,7 @@ def fetch_remote_manifest(url: str, timeout: int = 10) -> Optional[Dict[str, Gpu
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "USDXFixGap/1.0"})
 
-        with urllib.request.urlopen(req, timeout=timeout) as response:
+        with urllib.request.urlopen(req, timeout=timeout, context=_SSL_CONTEXT) as response:
             data = json.loads(response.read().decode("utf-8"))
 
             manifests = {}

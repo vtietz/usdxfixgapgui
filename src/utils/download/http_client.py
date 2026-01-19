@@ -6,12 +6,29 @@ streaming responses, and cancellation tokens.
 """
 
 import logging
+import ssl
 import urllib.request
 import urllib.error
 from dataclasses import dataclass
 from typing import Optional, Iterator, Dict
 
 logger = logging.getLogger(__name__)
+
+
+# Configure SSL context for macOS Python (which lacks default CA certs)
+def _create_ssl_context():
+    """Create SSL context with certifi certificates for macOS compatibility."""
+    try:
+        import certifi
+        context = ssl.create_default_context(cafile=certifi.where())
+        logger.debug("Using certifi CA bundle for SSL: %s", certifi.where())
+        return context
+    except ImportError:
+        logger.debug("certifi not available, using default SSL context")
+        return ssl.create_default_context()
+
+
+_SSL_CONTEXT = _create_ssl_context()
 
 
 @dataclass
@@ -62,7 +79,7 @@ class HttpClient:
         req = urllib.request.Request(url, headers=headers)
 
         try:
-            response = urllib.request.urlopen(req, timeout=self.timeout)
+            response = urllib.request.urlopen(req, timeout=self.timeout, context=_SSL_CONTEXT)
 
             # Extract content length
             content_length_str = response.getheader("Content-Length")
