@@ -15,6 +15,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.2] - 2026-01-19
+
+### Added
+- New: macOS Intel (x64) architecture support (separate builds for ARM64 and Intel Macs)
+
+### Fixed
+- Fix: Configure SSL certificates for macOS using certifi (resolves CERTIFICATE_VERIFY_FAILED errors)
+- Fix: Prevent NoneType in setEnabled() calls with proper ternary parentheses (UI crash on song selection)
+- Fix: Filter system/metadata files on all platforms during song scan (._*, .DS_Store, Thumbs.db, etc.)
+- Fix: Add CANCELLED status and preserve song state on cancellation
+- Fix: Cancel workers before folder switch to prevent stale operations
+- Fix: Default missing GAP tag to 0 for PS2 Singstar songs
+
+### Changed
+- Chore: Migrate macOS Intel builds to macos-15-intel runner (macos-13 deprecated)
+- Chore: Use pre-built llvmlite wheels on macOS Intel (avoid LLVM compilation issues)
+
+---
+
 ## [1.3.1] - 2026-01-18
 
 ### Fixed
