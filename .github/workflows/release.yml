@@ -578,7 +578,9 @@ jobs:
             release/usdxfixgap-${{ env.TAG_NAME }}-windows-portable.zip
             release/usdxfixgap-${{ env.TAG_NAME }}-linux.tar.gz
             release/usdxfixgap-${{ env.TAG_NAME }}-linux-portable.tar.gz
-            release/usdxfixgap-${{ env.TAG_NAME }}-macos.tar.gz
-            release/usdxfixgap-${{ env.TAG_NAME }}-macos-portable.tar.gz
+            release/usdxfixgap-${{ env.TAG_NAME }}-macos-arm64.tar.gz
+            release/usdxfixgap-${{ env.TAG_NAME }}-macos-arm64-portable.tar.gz
+            release/usdxfixgap-${{ env.TAG_NAME }}-macos-x64.tar.gz
+            release/usdxfixgap-${{ env.TAG_NAME }}-macos-x64-portable.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
